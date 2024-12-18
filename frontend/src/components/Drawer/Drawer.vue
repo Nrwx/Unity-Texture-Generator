@@ -31,6 +31,7 @@
         <!-- Dynamische Einstellungen je Methode -->
         <template v-if="methodSettings[settings.method]">
           <div v-for="(prop, key) in methodSettings[settings.method]" :key="key">
+            <!-- Textfeld für Zahlen -->
             <v-text-field
                 v-if="prop.type === 'number'"
                 v-model.number="settings[key]"
@@ -38,6 +39,7 @@
                 :type="prop.inputType || 'number'"
                 outlined
             ></v-text-field>
+            <!-- Slider -->
             <v-slider
                 v-if="prop.type === 'slider'"
                 v-model="settings[key]"
@@ -47,6 +49,35 @@
                 :step="prop.step || 1"
                 thumb-label
             ></v-slider>
+            <!-- Checkbox -->
+            <v-checkbox
+                v-else-if="prop.type === 'checkbox'"
+                v-model="settings[key]"
+                :label="prop.label"
+            ></v-checkbox>
+
+            <!-- Switch -->
+            <v-switch
+                v-else-if="prop.type === 'switch'"
+                v-model="settings[key]"
+                :label="prop.label"
+            ></v-switch>
+
+            <!-- Dropdown -->
+            <v-select
+                v-else-if="prop.type === 'select'"
+                v-model="settings[key]"
+                :items="prop.options"
+                :label="prop.label"
+            ></v-select>
+
+            <!-- Farbwähler -->
+            <v-color-picker
+                v-else-if="prop.type === 'color'"
+                v-model="settings[key]"
+                :label="prop.label"
+                flat
+            ></v-color-picker>
           </div>
         </template>
 
@@ -206,16 +237,58 @@
   <!-- Vollbildansicht -->
   <v-dialog v-model="fullscreen" fullscreen>
     <v-card class="dialog-dimm">
-      <v-btn icon class="close-btn absolute-badge" @click="fullscreen = false">
+      <v-btn icon class="close-btn absolute-badge" style="top: 32px; right: 32px;" @click="fullscreen = false">
         <v-icon>mdi-close</v-icon>
       </v-btn>
-      <v-img :src="fullscreenImage" alt="Fullscreen Image"></v-img>
+      <v-btn icon class="close-btn absolute-badge" style="top: 32px; right: 96px;" @click="tileMode = !tileMode">
+        <v-icon>{{ tileMode ? 'mdi-grid-off' : 'mdi-grid'}}</v-icon>
+      </v-btn>
+      <v-btn icon class="close-btn absolute-badge" style="top: 32px; right: 160px;" @click="zoomMode = !zoomMode">
+        <v-icon>{{ zoomMode ? 'mdi-magnify-remove-outline' : 'mdi-magnify-scan'}}</v-icon>
+      </v-btn>
+      <div class="zoomedContainer" v-if="zoomMode">
+        <v-img
+            :src="fullscreenImage"
+            alt="Zoomed Image"
+            contain
+            @mousemove="handleImageZoom"
+            @mouseleave="resetZoom"
+        ></v-img>
+      </div>
+      <div style="position: relative; height: 100%;" class="d-flex align-center justify-center pa-4" v-if="tileMode && tiles.length > 0">
+        <v-row class="tile-layout">
+          <v-col
+              v-for="(tile, index) in tiles"
+              :key="index"
+              class="pa-0"
+              :cols="12 / selectedTileSize.x"
+          >
+            <v-img :src="tile" alt="" contain></v-img>
+          </v-col>
+          <div v-if="tileMode && zoomMode" class="targetZoomContainer" :style="zoomedStyle"></div>
+        </v-row>
+      </div>
+      <div v-else style="position: relative; width: 100%; height: 100%;">
+        <v-img :src="fullscreenImage" alt="Fullscreen Image"></v-img>
+        <div v-if="zoomMode" class="targetZoomContainer" :style="zoomedStyle"></div>
+      </div>
+      <div class="tileMenu d-flex align-center justify-center pa-4" v-if="tileMode">
+        <v-select
+            v-model="selectedTileSize"
+            :items="tileSizes"
+            theme="dark"
+            item-title="title"
+            item-value="value"
+            label="Kachelgröße"
+            outlined
+        ></v-select>
+      </div>
     </v-card>
   </v-dialog>
 </template>
 
 <script>
-import {ref, reactive, defineComponent, computed} from "vue";
+import {ref, reactive, defineComponent, computed, watch} from "vue";
 import axios from "axios";
 import PageHeader from "@/components/PageHeader/PageHeader";
 import dayjs from "dayjs";
@@ -229,29 +302,91 @@ export default defineComponent({
     const file = ref(null);
     const builds = ref([]);
     const selectedMaps = ref(["Diffuse Map"]);
+    const tiles = ref([]);
+    const maxTiles = ref(32);
+    const zoomMode = ref(false);
+    const tileMode = ref(false);
+    const zoomedStyle = ref({})
+    const selectedTileSize = ref({ x: 1, y: 1 });
     const diffuseMap = reactive({
       diff: null
     });
+    const tileSizes = [
+      { title: "1x1", value: {x: 1, y: 1} },
+      { title: "2x2", value: {x: 2, y: 2} },
+      { title: "3x3", value: {x: 3, y: 3} },
+      { title: "4x4", value: {x: 4, y: 4} },
+      { title: "6x6", value: {x: 6, y: 6} },
+      { title: "12x12", value: {x: 12, y: 12} },
+    ];
     const settings = reactive({
       method: "2", // Standardmethode
       cropLeft: 0,
       cropTop: 0,
       cropRight: 0,
       cropBottom: 0,
-      intensity: 50, // Standardwert für Intensität
-      radius: 10, // Standardwert für Radius
-      outputFormat: "PNG", // Standard-Ausgabeformat
-      quality: 80, // Standardqualität (%)
-      blending_intensity: 0.5, // Standardwert für Blending-Intensität
-      max_shift_ratio: 0.1, // Standardwert für maximale Verschiebung
-      shift_x: 0.1, // Standardwert für Verschiebung X
-      shift_y: 0.1, // Standardwert für Verschiebung Y
-      border_width: 10, // Standardwert für Rahmenbreite
-      stone_size: 10, // Standardwert für Steingröße
-      density: 0.5, // Standardwert für Dichte
-      blade_length: 20, // Standardwert für Grashalmlänge
-      blade_width: 1 // Standardwert für Grashalm Breite
+      intensity: 50,
+      radius: 10,
+      outputFormat: "PNG",
+      quality: 80,
+      blending_intensity: 0.5,
+      max_shift_ratio: 0.1,
+      shift_x: 0.1,
+      shift_y: 0.1,
+      border_width: 10,
+      stone_size: 10,
+      density: 0.5,
+      blade_length: 20,
+      blade_width: 1,
+      sharpness: 0,
+      color_shift: 0,
+      noise_level: 0,
+      invert_colors: false,
+      rotation_angle: 0,
+      contrast: 100,
+      hue_variation: 0,
+      tile_size: 0,
+      edge_detection: false,
     });
+
+    // Generiert die Kachelansicht basierend auf der aktuellen Auswahl
+    const generateTileLayout = (x, y) => {
+      tiles.value = [];
+      if(x > 1 || y > 1) {
+        const tempArray = []
+        for (let i = 0; i < x * y; i++) {
+          tempArray.push(fullscreenImage.value);
+        }
+        tiles.value = tempArray
+      }
+    };
+
+    const handleImageZoom = (event) => {
+      const container = event.currentTarget;
+      const { left, top, width, height } = container.getBoundingClientRect();
+
+      // Mausposition relativ zum Container
+      const mouseX = event.clientX - left;
+      const mouseY = event.clientY - top;
+
+      // Prozentuale Position
+      const xPercent = (mouseX / width) * 100;
+      const yPercent = (mouseY / height) * 100;
+
+      // Zoom-Stil anpassen
+      zoomedStyle.value = {
+        backgroundImage: `url(${fullscreenImage.value})`,
+        backgroundSize: '200%', // Zoom-Level
+        backgroundPosition: `${xPercent}% ${yPercent}%`,
+      };
+    };
+    const resetZoom = () => {
+      // Zoom zurücksetzen
+      zoomedStyle.value = {
+        backgroundPosition: '50% 50%',
+        backgroundSize: '100%',
+      };
+    }
 
     const itemMethods = [
       { title: "Smoothed Collage", value: "1" },
@@ -271,11 +406,35 @@ export default defineComponent({
       "Alpha Map",
     ];
 
+    // Methodenspezifische Standardwerte
+    const methodDefaults = {
+      "1": { intensity: 5, radius: 2, blending_intensity: 0.5 },
+      "2": {
+        intensity: 100,
+        radius: 0,
+        max_shift_ratio: 0.1,
+        blending_intensity: 0.5,
+        sharpness: 0,
+        color_shift: 0,
+        noise_level: 0,
+        invert_colors: false,
+        rotation_angle: 0,
+        contrast: 100,
+        hue_variation: 0,
+        tile_size: 0,
+        edge_detection: false,
+      },
+      "3": { radius: 10, shift_x: 0.1, shift_y: 0.1 },
+      "4": { border_width: 10, intensity: 50 },
+      "5": { stone_size: 10, density: 0.5, intensity: 50 },
+      "6": { blade_length: 20, blade_width: 1, density: 0.5, intensity: 50 },
+    };
+
     const methodSettings = {
       "1": {
         intensity: {
           type: "slider",
-          label: "Intensität",
+          label: "Helligkeit",
           min: 0,
           max: 100,
         },
@@ -294,21 +453,43 @@ export default defineComponent({
         },
       },
       "2": {
+        tile_size: {
+          type: "number",
+          label: "Kachelgröße",
+          min: 8,
+          max: 1024,
+        },
+        invert_colors: {
+          type: "checkbox",
+          label: "Farben invertieren",
+        },
+        edge_detection: {
+          type: "checkbox",
+          label: "Kantenerkennung",
+        },
         intensity: {
           type: "slider",
-          label: "Intensität",
+          label: "Helligkeit",
           min: 0,
-          max: 100,
+          max: 200,
         },
-        quality: {
-          type: "number",
-          label: "Qualität (%)",
-          inputType: "number",
+        contrast: {
+          type: "slider",
+          label: "Kontrast",
+          min: 0,
+          max: 200,
+          step: 1,
+        },
+        radius: {
+          type: "slider",
+          label: "Weichzeichnen",
+          min: 0,
+          max: 50,
         },
         max_shift_ratio: {
           type: "slider",
           label: "Max. Verschiebung",
-          min: 0,
+          min: 0.01,
           max: 1,
           step: 0.01,
         },
@@ -318,6 +499,37 @@ export default defineComponent({
           min: 0,
           max: 1,
           step: 0.01,
+        },
+        sharpness: {
+          type: "slider",
+          label: "Schärfe",
+          min: 0,
+          max: 100,
+        },
+        color_shift: {
+          type: "slider",
+          label: "Farbverschiebung",
+          min: -100,
+          max: 100,
+          step: 1,
+        },
+        noise_level: {
+          type: "slider",
+          label: "Rauschlevel",
+          min: 0,
+          max: 100,
+        },
+        rotation_angle: {
+          type: "slider",
+          label: "Rotationswinkel",
+          min: -180,
+          max: 180,
+        },
+        hue_variation: {
+          type: "slider",
+          label: "Farbtonvariation",
+          min: -180,
+          max: 180,
         },
       },
       "3": {
@@ -363,6 +575,14 @@ export default defineComponent({
           min: 0,
           max: 100,
         },
+        stone_variance: {
+          type: "slider",
+          label: "Steinvariabilität",
+          min: 0,
+          max: 1,
+          step: 0.01,
+          description: "Steuert die Variabilität der Steingröße. 0 = gleichmäßige Größe, 1 = maximale Variabilität."
+        },
         density: {
           type: "slider",
           label: "Dichte",
@@ -389,7 +609,15 @@ export default defineComponent({
           label: "Grashalm Breite",
           min: 0,
           max: 10,
-          step: 0.1,
+          step: 1,
+        },
+        grass_angle_variance: {
+          type: "slider",
+          label: "Grashalm-Winkel",
+          min: 0,
+          max: 45,
+          step: 1,
+          description: "Definiert die maximale Abweichung des Grashalms von der Vertikalen in Grad. 0 = alle vertikal, 45 = maximale Neigung."
         },
         density: {
           type: "slider",
@@ -503,6 +731,24 @@ export default defineComponent({
       }
     };
 
+    // Methodenwechsel beobachten und Standardwerte anwenden
+    watch(
+        () => settings.method,
+        (newMethod) => {
+          // Wende methodenspezifische Defaults an, ohne andere Settings zu ändern
+          Object.assign(settings, methodDefaults[newMethod]);
+        },
+        { immediate: true }
+    );
+
+    watch(() => selectedTileSize.value, (newValue) => {
+      generateTileLayout(newValue.x, newValue.y)
+    });
+
+    watch(() => tileMode.value, () => {
+      tiles.value = [];
+    });
+
     return {
       file,
       builds,
@@ -510,13 +756,24 @@ export default defineComponent({
       diffuseMap,
       settings,
       itemMethods,
+      methodDefaults,
       methodSettings,
       mapOptions,
       selectFile,
       processImage,
       selectDiffuseMap,
+      zoomMode,
+      zoomedStyle,
+      handleImageZoom,
+      resetZoom,
       fullscreen,
       fullscreenImage,
+      tileMode,
+      tiles,
+      maxTiles,
+      selectedTileSize,
+      tileSizes,
+      generateTileLayout,
       sortOrder,
       sortOptions,
       sortedBuilds,
@@ -539,6 +796,35 @@ export default defineComponent({
   position: absolute;
   right: 16px;
   z-index: 1;
+}
+
+.zoomedContainer {
+  position: absolute;
+  right: 32px;
+  width: 100%;
+  max-width: 180px;
+  bottom: 32px;
+  z-index: 1;
+}
+
+.zoomedContainer img {
+  opacity: .5;
+  transition: ease-in-out ease-in-out .5s;
+}
+
+.zoomedContainer:hover img {
+  cursor: zoom-in;
+  opacity: 1;
+}
+
+.targetZoomContainer {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  border: 0;
+  right: 0;
 }
 
 .scrollFx{
@@ -567,7 +853,26 @@ export default defineComponent({
 
 .dialog-dimm{
   background: rgba(17, 17, 17, 0.9);
-  padding: 20px;
+  padding: 32px;
   box-shadow: 10px 10px 200px 10px #111 inset;
+}
+
+.tile-layout{
+  width: 100%;
+  max-height: 85vh;
+  position: relative;
+  overflow: hidden;
+  overflow-y: scroll;
+  align-items: baseline;
+  flex: 0 1 auto;
+}
+
+.tileMenu {
+  width: auto;
+  background: rgb(17, 17, 17);
+  color: white;
+  position: absolute;
+  border-radius: 12px;
+  bottom: 32px;
 }
 </style>
