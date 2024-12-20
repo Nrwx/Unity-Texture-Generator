@@ -248,28 +248,14 @@
       </v-btn>
       <div class="zoomedContainer" v-if="zoomMode">
         <v-img
-            :src="fullscreenImage"
+            :src="tileMode && tiledImage && selectedTileSize.x > 1 && selectedTileSize.y > 1 ? tiledImage : fullscreenImage"
             alt="Zoomed Image"
-            contain
             @mousemove="handleImageZoom"
             @mouseleave="resetZoom"
         ></v-img>
       </div>
-      <div style="position: relative; height: 100%;" class="d-flex align-center justify-center pa-4" v-if="tileMode && tiles.length > 0">
-        <v-row class="tile-layout">
-          <v-col
-              v-for="(tile, index) in tiles"
-              :key="index"
-              class="pa-0"
-              :cols="12 / selectedTileSize.x"
-          >
-            <v-img :src="tile" alt="" contain></v-img>
-          </v-col>
-          <div v-if="tileMode && zoomMode" class="targetZoomContainer" :style="zoomedStyle"></div>
-        </v-row>
-      </div>
-      <div v-else style="position: relative; width: 100%; height: 100%;">
-        <v-img :src="fullscreenImage" alt="Fullscreen Image"></v-img>
+      <div class="d-flex align-center justify-center ml-auto mr-auto" style="position: relative; width: 100%; height: 100%; max-width: 1024px;">
+        <v-img :src="tileMode && tiledImage && selectedTileSize.x > 1 && selectedTileSize.y > 1 ? tiledImage : fullscreenImage" alt="Fullscreen Image"></v-img>
         <div v-if="zoomMode" class="targetZoomContainer" :style="zoomedStyle"></div>
       </div>
       <div class="tileMenu d-flex align-center justify-center pa-4" v-if="tileMode">
@@ -302,8 +288,9 @@ export default defineComponent({
     const file = ref(null);
     const builds = ref([]);
     const selectedMaps = ref(["Diffuse Map"]);
-    const tiles = ref([]);
-    const maxTiles = ref(32);
+    const fullscreen = ref(false);
+    const fullscreenImage = ref("");
+    const tiledImage = ref("");
     const zoomMode = ref(false);
     const tileMode = ref(false);
     const zoomedStyle = ref({})
@@ -350,14 +337,28 @@ export default defineComponent({
     });
 
     // Generiert die Kachelansicht basierend auf der aktuellen Auswahl
-    const generateTileLayout = (x, y) => {
-      tiles.value = [];
-      if(x > 1 || y > 1) {
-        const tempArray = []
-        for (let i = 0; i < x * y; i++) {
-          tempArray.push(fullscreenImage.value);
+    const generateTileLayout = async () => {
+      try {
+        const formData = new FormData();
+        formData.append("file", file.value);
+        formData.append("tile_x", selectedTileSize.value.x);
+        formData.append("tile_y", selectedTileSize.value.y);
+
+        const response = await axios.post(
+      "http://127.0.0.1:5000/tile",
+          formData,
+          {
+            responseType: "json",
+        });
+
+        if (response.data && response.data.url) {
+          tiledImage.value = "";
+          tiledImage.value = response.data.url;
+        } else {
+          console.error('API response is missing "url" field.');
         }
-        tiles.value = tempArray
+      } catch (error) {
+        console.error("Error during tile image generation:", error);
       }
     };
 
@@ -375,7 +376,7 @@ export default defineComponent({
 
       // Zoom-Stil anpassen
       zoomedStyle.value = {
-        backgroundImage: `url(${fullscreenImage.value})`,
+        backgroundImage: `url(${tileMode.value ? tiledImage.value : fullscreenImage.value})`,
         backgroundSize: '200%', // Zoom-Level
         backgroundPosition: `${xPercent}% ${yPercent}%`,
       };
@@ -657,9 +658,6 @@ export default defineComponent({
       builds.value.splice(index, 1);
     };
 
-    const fullscreen = ref(false);
-    const fullscreenImage = ref("");
-
 
     const openFullscreen = (src) => {
       fullscreenImage.value = src;
@@ -741,12 +739,10 @@ export default defineComponent({
         { immediate: true }
     );
 
-    watch(() => selectedTileSize.value, (newValue) => {
-      generateTileLayout(newValue.x, newValue.y)
-    });
-
-    watch(() => tileMode.value, () => {
-      tiles.value = [];
+    watch(() => selectedTileSize.value, async (newVal, oldVal) => {
+      if (tileMode.value && newVal !== oldVal) {
+        await generateTileLayout();
+      }
     });
 
     return {
@@ -768,9 +764,8 @@ export default defineComponent({
       resetZoom,
       fullscreen,
       fullscreenImage,
+      tiledImage,
       tileMode,
-      tiles,
-      maxTiles,
       selectedTileSize,
       tileSizes,
       generateTileLayout,

@@ -12,6 +12,36 @@ app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+def tile_image(image, tile_x, tile_y):
+    """
+    Wiederholt das Bild in einem Raster von Kacheln basierend auf den angegebenen Kachelzahlen (x, y).
+    :param image: PIL.Image - Das ursprüngliche Bild.
+    :param tile_x: int - Anzahl der horizontalen Kacheln.
+    :param tile_y: int - Anzahl der vertikalen Kacheln.
+    :return: PIL.Image - Das neu erstellte gekachelte Bild.
+    """
+    original_width, original_height = image.size
+
+    # Berechne die Größe jeder Kachel in Pixeln
+    tile_width = int(original_width * (100 / tile_x) / 100)  # Berechnet die Breite jeder Kachel
+    tile_height = int(original_height * (100 / tile_y) / 100)  # Berechnet die Höhe jeder Kachel
+
+    # Neues Bild erstellen, das groß genug ist, um alle Kacheln zu passen
+    new_image = Image.new("RGB", (tile_width * tile_x, tile_height * tile_y))
+
+    # Wiederhole das Bild in x- und y-Richtung, um das neue Bild zu füllen
+    for i in range(tile_x):
+        for j in range(tile_y):
+            # Berechne die Position der Kachel im neuen Bild
+            left = i * tile_width
+            top = j * tile_height
+
+            # Kachel extrahieren
+            tile = image.resize((tile_width, tile_height), Image.ANTIALIAS)  # Bild auf Kachelgröße anpassen
+            new_image.paste(tile, (left, top))
+
+    return new_image
+
 def crop_image(image, crop_left, crop_top, crop_right, crop_bottom):
     """Schneidet das Bild entsprechend den angegebenen Werten zu."""
     width, height = image.size
@@ -234,6 +264,32 @@ def download_file(filename):
     if os.path.exists(file_path):
         return send_file(file_path, mimetype='image/png')
     return jsonify({"error": "File not found"}), 404
+
+@app.route('/tile', methods=['POST'])
+def tile_image_endpoint():
+    try:
+        file = request.files['file']
+        tile_x = int(request.form.get('tile_x', 1))
+        tile_y = int(request.form.get('tile_y', 1))
+
+        # Bild laden
+        image = Image.open(file.stream).convert("RGB")
+
+        # Kachelbild erstellen
+        tiled_image = tile_image(image, tile_x, tile_y)
+
+        # UUID für Dateinamen
+        file_uuid = uuid.uuid4().hex
+        tiled_filename = f"tiled_image_{file_uuid}.png"
+        tiled_path = os.path.join(UPLOAD_FOLDER, tiled_filename)
+
+        # Speichern
+        tiled_image.save(tiled_path, format="PNG")
+
+        return jsonify({"url": f"/download/{tiled_filename}"})
+    except Exception as e:
+        print(f"Fehler: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 def apply_seamless_logic(
     img,
