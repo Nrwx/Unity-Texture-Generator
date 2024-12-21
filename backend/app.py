@@ -268,12 +268,22 @@ def download_file(filename):
 @app.route('/tile', methods=['POST'])
 def tile_image_endpoint():
     try:
-        file = request.files['file']
+        # Pfad zum bereits generierten Diffuse-Bild
+        diffuse_image_url = request.form.get("diffuse_image_url")
+        if not diffuse_image_url:
+            raise ValueError("No diffuse_image_url provided")
+
+        diffuse_image_path = os.path.join(UPLOAD_FOLDER, os.path.basename(diffuse_image_url))
+        if not os.path.exists(diffuse_image_path):
+            raise FileNotFoundError(f"File not found: {diffuse_image_path}")
+
+        # Tile-Größe abrufen
+
         tile_x = int(request.form.get('tile_x', 1))
         tile_y = int(request.form.get('tile_y', 1))
 
         # Bild laden
-        image = Image.open(file.stream).convert("RGB")
+        image = Image.open(diffuse_image_path).convert("RGB")
 
         # Kachelbild erstellen
         tiled_image = tile_image(image, tile_x, tile_y)

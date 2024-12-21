@@ -183,14 +183,14 @@
         <v-row  v-if="sortedBuilds.length" class="map-grid overflow-hidden overflow-y-auto py-8" justify="start" style="height: 500px; max-height: 500px;">
           <v-col
               v-for="(build, index) in sortedBuilds"
-              :key="index"
+              :key="build.id"
               class="map-item"
               cols="12"
           >
-            <v-badge class="absolute-badge" color="error" :content="build.buildMaps.length"></v-badge>
-            <v-badge style="top: 36px;" class="absolute-badge" @click="deleteBuild(index)" color="error" icon="mdi-delete"></v-badge>
+            <v-badge class="absolute-badge" color="error" :content="build.buildMaps.length + build.tiledMaps.length"></v-badge>
+            <v-badge style="top: 36px;" class="absolute-badge" @click="deleteBuild(build.id)" color="error" icon="mdi-delete"></v-badge>
             <!-- Build Info: Zeitstempel und Karten -->
-            <v-card class="py-6">
+            <v-card class="py-6" :style="index === 0 ? 'background-color: #fff8d8;' : ''">
               <v-card-title style="font-size: 14px;">{{ build.timestamp }}</v-card-title>
               <v-card-subtitle class="d-flex align-center" style="font-size: 12px; min-height: 45px;">
                 <div style="width: 100%;" class="text-truncate mr-6">{{ build.maps }}</div>
@@ -206,7 +206,7 @@
                       class="map-item"
                       cols="4"
                   >
-                    <v-badge style="right: 26px;" class="absolute-badge" rounded="0" color="error" icon="mdi-fullscreen" @click="openFullscreen(map.src)"></v-badge>
+                    <v-badge style="right: 26px;" class="absolute-badge" rounded="0" color="error" icon="mdi-fullscreen" @click="openFullscreen(map.src, build.id, map.type)"></v-badge>
                     <v-badge style="top: 36px; right: 26px;" rounded="0" class="absolute-badge" @click="downloadImage(map.src)" color="error" icon="mdi-download"></v-badge>
                     <v-img
                         :src="map.src"
@@ -225,6 +225,30 @@
                       {{ map.type }}
                     </p>
                   </v-col>
+                  <v-col
+                      v-for="(tile, tileIndex) in build?.tiledMaps"
+                      :key="tileIndex"
+                      class="map-item"
+                      cols="4"
+                  >
+                    <v-badge style="top: 12px; right: 26px;" rounded="0" class="absolute-badge" @click="downloadImage(tile.src)" color="error" icon="mdi-download"></v-badge>
+                    <v-img
+                        :src="tile.src"
+                        :alt="tile.type"
+                        width="40"
+                        height="40"
+                        rounded="12"
+                        class="map-image"
+                        @click="selectDiffuseMap(tile.src)"
+                        contain
+                    ></v-img>
+                    <p
+                        class="text-center text-truncate map-title"
+                        :title="tile.type"
+                    >
+                      {{ tile.type }}
+                    </p>
+                  </v-col>
                 </v-row>
               </v-card-text>
             </v-card>
@@ -237,7 +261,7 @@
   <!-- Vollbildansicht -->
   <v-dialog v-model="fullscreen" fullscreen>
     <v-card class="dialog-dimm">
-      <v-btn icon class="close-btn absolute-badge" style="top: 32px; right: 32px;" @click="fullscreen = false">
+      <v-btn icon class="close-btn absolute-badge" style="top: 32px; right: 32px;" @click="closeFullscreen">
         <v-icon>mdi-close</v-icon>
       </v-btn>
       <v-btn icon class="close-btn absolute-badge" style="top: 32px; right: 96px;" @click="tileMode = !tileMode">
@@ -278,6 +302,7 @@ import {ref, reactive, defineComponent, computed, watch} from "vue";
 import axios from "axios";
 import PageHeader from "@/components/PageHeader/PageHeader";
 import dayjs from "dayjs";
+import { v4 as uuidv4 } from 'uuid';
 
 export default defineComponent({
   name: "DrawerComponent",
@@ -287,9 +312,12 @@ export default defineComponent({
   setup() {
     const file = ref(null);
     const builds = ref([]);
+    const buildId = ref("");
     const selectedMaps = ref(["Diffuse Map"]);
     const fullscreen = ref(false);
+    const fullscreenTitle = ref("");
     const fullscreenImage = ref("");
+    const fullscreenId = ref("");
     const tiledImage = ref("");
     const zoomMode = ref(false);
     const tileMode = ref(false);
@@ -339,23 +367,42 @@ export default defineComponent({
     // Generiert die Kachelansicht basierend auf der aktuellen Auswahl
     const generateTileLayout = async () => {
       try {
-        const formData = new FormData();
-        formData.append("file", file.value);
-        formData.append("tile_x", selectedTileSize.value.x);
-        formData.append("tile_y", selectedTileSize.value.y);
+        const build = builds.value.find((b) => b.id === fullscreenId.value);
+        const prefix = fullscreenTitle.value + ' (' + selectedTileSize.value.x + 'x' + selectedTileSize.value.y + ')'
 
-        const response = await axios.post(
-      "http://127.0.0.1:5000/tile",
-          formData,
-          {
-            responseType: "json",
-        });
+        if(!build.maps.includes(prefix)) {
+          const formData = new FormData();
+          formData.append("diffuse_image_url", fullscreenImage.value);
+          formData.append("tile_x", selectedTileSize.value.x);
+          formData.append("tile_y", selectedTileSize.value.y);
 
-        if (response.data && response.data.url) {
-          tiledImage.value = "";
-          tiledImage.value = response.data.url;
-        } else {
-          console.error('API response is missing "url" field.');
+          const response = await axios.post(
+              "http://127.0.0.1:5000/tile",
+              formData,
+              {
+                responseType: "json",
+              });
+
+          if (response.data && response.data.url) {
+            tiledImage.value = "";
+            const newTileMap = {
+              src: response.data.url,
+              type: prefix,
+            };
+
+            if (selectedTileSize.value.x > 1 && selectedTileSize.value.y > 1) {
+              buildId.value = fullscreenId.value
+              build.maps = [...build.maps.split(', '), newTileMap.type].join(', ');
+              build.tiledMaps.push(newTileMap);
+              build.timestamp = dayjs().format('YYYY-MM-DD HH:mm:ss')
+            }
+            tiledImage.value = response.data.url;
+          }
+        }
+        else {
+          const cache = build.tiledMaps.find((b) => b.type === prefix);
+          tiledImage.value = cache.src
+          console.log('API response skipped');
         }
       } catch (error) {
         console.error("Error during tile image generation:", error);
@@ -376,7 +423,7 @@ export default defineComponent({
 
       // Zoom-Stil anpassen
       zoomedStyle.value = {
-        backgroundImage: `url(${tileMode.value ? tiledImage.value : fullscreenImage.value})`,
+        backgroundImage: `url(${tileMode.value && tiledImage.value && selectedTileSize.value.x > 1 && selectedTileSize.value.y > 1 ? tiledImage.value : fullscreenImage.value})`,
         backgroundSize: '200%', // Zoom-Level
         backgroundPosition: `${xPercent}% ${yPercent}%`,
       };
@@ -654,14 +701,28 @@ export default defineComponent({
       sortedBuilds.value[index].collapsed = !sortedBuilds.value[index].collapsed;
     };
 
-    const deleteBuild = (index) => {
-      builds.value.splice(index, 1);
+    const deleteBuild = (id) => {
+      builds.value = builds.value.filter((b) => b.id !== id);
     };
 
 
-    const openFullscreen = (src) => {
+    const openFullscreen = (src, id, title) => {
+      fullscreenTitle.value = title
+      fullscreenId.value = id
       fullscreenImage.value = src;
       fullscreen.value = true;
+    };
+
+    const closeFullscreen = () => {
+      fullscreen.value = false
+      fullscreenTitle.value = ""
+      fullscreenId.value = ""
+      fullscreenImage.value = ""
+      tileMode.value = false
+      selectedTileSize.value = {x: 1, y: 1}
+      resetZoom()
+      tiledImage.value = ""
+      zoomMode.value = false
     };
 
     const downloadImage = (src) => {
@@ -714,12 +775,18 @@ export default defineComponent({
           type: map.type,
         }));
 
-        // Neue Build mit Zeitstempel und Auswahl hinzufügen
+        // Erzeuge eine neue Build-ID mit UUID v4
+        const id = uuidv4();
+        buildId.value = id
+        // Neuer Build
         const newBuild = {
+          id: id,
           maps: selectedMaps.value.join(", "), // Ausgewählte Maps
           buildMaps: [...newMaps], // Kopie der Maps (nicht den globalen array referenzieren)
           timestamp: dayjs().format('YYYY-MM-DD HH:mm:ss'), // Zeitstempel mit dayjs
           imageCount: response.data.additionalMaps.length, // Anzahl der verarbeiteten Bilder
+          tiledMaps: [],
+          collapsed: true,
         };
 
         builds.value.push(newBuild);
@@ -745,9 +812,25 @@ export default defineComponent({
       }
     });
 
+    watch(
+        () => buildId.value,
+        (newVal, oldVal) => {
+          if (newVal !== oldVal) {
+            builds.value = builds.value.map((build) => {
+              return {
+                ...build,
+                collapsed: build.id !== buildId.value,
+              };
+            });
+            console.log(sortedBuilds.value);
+          }
+        }
+    );
+
     return {
       file,
       builds,
+      buildId,
       selectedMaps,
       diffuseMap,
       settings,
@@ -774,7 +857,10 @@ export default defineComponent({
       sortedBuilds,
       toggleCollapse,
       deleteBuild,
+      fullscreenTitle,
+      fullscreenId,
       openFullscreen,
+      closeFullscreen,
       downloadImage,
     };
   },
