@@ -69,6 +69,8 @@
                 v-model="settings[key]"
                 :items="prop.options"
                 :label="prop.label"
+                item-title="title"
+                item-value="value"
             ></v-select>
 
             <!-- Farbwähler -->
@@ -362,6 +364,32 @@ export default defineComponent({
       hue_variation: 0,
       tile_size: 0,
       edge_detection: false,
+      tile_x: 6,
+      tile_y: 6,
+      base_tile_x: 4,
+      base_tile_y: 4,
+      base_brightness: 0,
+      base_contrast: 1,
+      base_sharpness: 1,
+      base_smoothness: 0.7,
+      base_fade_alpha: 0.1,
+      base_opacity: 1,
+      opacity: 1,
+      fade_alpha: 0.1,
+      smoothness: 0.5,
+      randomness: 0.3,
+      brightness: 100,
+      blur: 1,
+      blur_mode: 1,
+      blurModes: [
+        { title: "Gaussian Blur", value: 1 },
+        { title: "Radial Blur", value: 2 },
+        { title: "Quadratic Blur", value: 3 },
+        { title: "Motion Blur", value: 4 },
+        { title: "Fisheye Blur", value: 5 },
+        { title: "Radial Rays", value: 6 },
+        { title: "Quadratic Rays", value: 7 },
+      ]
     });
 
     // Generiert die Kachelansicht basierend auf der aktuellen Auswahl
@@ -456,10 +484,8 @@ export default defineComponent({
 
     // Methodenspezifische Standardwerte
     const methodDefaults = {
-      "1": { intensity: 5, radius: 2, blending_intensity: 0.5 },
+      "1": { intensity: 5, radius: 2, blending_intensity: 0.5, tile_x: 6, tile_y: 6 },
       "2": {
-        intensity: 100,
-        radius: 0,
         max_shift_ratio: 0.1,
         blending_intensity: 0.5,
         sharpness: 0,
@@ -469,17 +495,51 @@ export default defineComponent({
         rotation_angle: 0,
         contrast: 100,
         hue_variation: 0,
-        tile_size: 0,
+        blur: 0,
+        brightness: 100,
+        blur_mode: 1,
+        blur_radius: 0,
         edge_detection: false,
       },
       "3": { radius: 10, shift_x: 0.1, shift_y: 0.1 },
       "4": { border_width: 10, intensity: 50 },
       "5": { stone_size: 10, density: 0.5, intensity: 50 },
-      "6": { blade_length: 20, blade_width: 1, density: 0.5, intensity: 50 },
+      "6": {
+        base_tile_x: 4,
+        base_tile_y: 4,
+        base_fade_alpha: 0.1,
+        base_brightness: 0,
+        base_contrast: 1,
+        base_sharpness: 1,
+        base_smoothness: 0.7,
+        base_opacity: 1,
+        blur_mode: 1,
+        tile_x: 6,
+        tile_y: 6,
+        opacity: 1,
+        brightness: 0,
+        fade_alpha: 0.1,
+        sharpness: 1.5,
+        contrast: 1.2,
+      },
     };
 
     const methodSettings = {
       "1": {
+        tile_x: {
+          type: "slider",
+          label: "Kachel X",
+          min: 1,
+          max: 6,
+          step: 1,
+        },
+        tile_y: {
+          type: "slider",
+          label: "Kachel Y",
+          min: 1,
+          max: 6,
+          step: 1,
+        },
         intensity: {
           type: "slider",
           label: "Helligkeit",
@@ -501,12 +561,6 @@ export default defineComponent({
         },
       },
       "2": {
-        tile_size: {
-          type: "number",
-          label: "Kachelgröße",
-          min: 8,
-          max: 1024,
-        },
         invert_colors: {
           type: "checkbox",
           label: "Farben invertieren",
@@ -515,20 +569,31 @@ export default defineComponent({
           type: "checkbox",
           label: "Kantenerkennung",
         },
-        intensity: {
+        brightness: {
           type: "slider",
           label: "Helligkeit",
-          min: 0,
-          max: 200,
+          min: -2,
+          max: 2,
         },
         contrast: {
           type: "slider",
           label: "Kontrast",
-          min: 0,
-          max: 200,
+          min: -2,
+          max: 2,
           step: 1,
         },
-        radius: {
+        blur_mode: {
+          type: "select",
+          label: "Weichzeichnungs-Filter",
+          options: settings.blurModes
+        },
+        blur: {
+          type: "slider",
+          label: "Weichzeichnen",
+          min: 0,
+          max: 100,
+        },
+        blur_radius: {
           type: "slider",
           label: "Weichzeichnen",
           min: 0,
@@ -646,39 +711,114 @@ export default defineComponent({
         },
       },
       "6": {
-        blade_length: {
+        base_opacity: {
           type: "slider",
-          label: "Grashalmlänge",
-          min: 0,
-          max: 100,
-        },
-        blade_width: {
-          type: "slider",
-          label: "Grashalm Breite",
-          min: 0,
-          max: 10,
-          step: 1,
-        },
-        grass_angle_variance: {
-          type: "slider",
-          label: "Grashalm-Winkel",
-          min: 0,
-          max: 45,
-          step: 1,
-          description: "Definiert die maximale Abweichung des Grashalms von der Vertikalen in Grad. 0 = alle vertikal, 45 = maximale Neigung."
-        },
-        density: {
-          type: "slider",
-          label: "Dichte",
+          label: "Base Deckkraft",
           min: 0,
           max: 1,
-          step: 0.01,
+          step: 0.1,
         },
-        intensity: {
+        base_tile_x: {
           type: "slider",
-          label: "Intensität",
+          label: "Base X",
+          min: 1,
+          max: 6,
+          step: 1,
+        },
+        base_tile_y: {
+          type: "slider",
+          label: "Base Y",
+          min: 1,
+          max: 6,
+          step: 1,
+        },
+        blur: {
+          type: "slider",
+          label: "Weichzeichnen",
           min: 0,
-          max: 100,
+          max: 50,
+        },
+        blur_mode: {
+          type: "select",
+          label: "Weichzeichnungs-Filter",
+          options: settings.blurModes
+        },
+        base_brightness: {
+          type: "slider",
+          label: "Base Helligkeit",
+          min: -2,
+          max: 2,
+          step: 0.1,
+        },
+        base_contrast: {
+          type: "slider",
+          label: "Base Kontrast",
+          min: -2,
+          max: 2,
+          step: 0.1,
+        },
+        base_sharpness: {
+          type: "slider",
+          label: "Base Schärfe",
+          min: 0,
+          max: 2,
+          step: 0.1,
+        },
+        base_fade_alpha: {
+          type: "slider",
+          label: "Base Alpha",
+          min: 0,
+          max: 1,
+          step: 0.1,
+        },
+        opacity: {
+          type: "slider",
+          label: "Sub Deckkraft",
+          min: 0,
+          max: 1,
+          step: 0.1,
+        },
+        tile_x: {
+          type: "slider",
+          label: "Kacheln X-Achse",
+          min: 1,
+          max: 12,
+          step: 1,
+        },
+        tile_y: {
+          type: "slider",
+          label: "Kacheln Y-Achse",
+          min: 1,
+          max: 12,
+          step: 1,
+        },
+        brightness: {
+          type: "slider",
+          label: "Sub Helligkeit",
+          min: 0,
+          max: 5,
+          step: 0.1,
+        },
+        sharpness: {
+          type: "slider",
+          label: "Sub Schärfe",
+          min: 0,
+          max: 5,
+          step: 0.1,
+        },
+        contrast: {
+          type: "slider",
+          label: "Sub Kontrast",
+          min: 0,
+          max: 2,
+          step: 0.1,
+        },
+        fade_alpha: {
+          type: "slider",
+          label: "Alpha Fade",
+          min: 0,
+          max: 1,
+          step: 0.1,
         },
       },
     };
