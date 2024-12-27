@@ -18,3 +18,4 @@ from .apply_wave import apply_wave
 from .apply_glass import apply_glass
 from .apply_hue_rotation import apply_hue_rotation
 from .apply_invert_colors import apply_invert_colors
+from .apply_color_lookup import apply_color_lookup

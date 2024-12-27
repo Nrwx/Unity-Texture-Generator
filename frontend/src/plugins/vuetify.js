@@ -7,6 +7,9 @@ import { createVuetify } from 'vuetify'
 
 const myCustomLightTheme = {
     dark: false,
+    icons: {
+        defaultSet: 'mdi', // Material Design Icons
+    },
     colors: {
         background: '#FFFFFF',
         surface: '#FFFFFF',

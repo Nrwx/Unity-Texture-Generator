@@ -29,4 +29,4 @@ def apply_hue_rotation(image, hue_variation=0):
     rotated_img = cv2.cvtColor(hsv_img, cv2.COLOR_HSV2RGB)
 
     # Rückgabe des bearbeiteten Bildes als PIL.Image
-    return Image.fromarray(rotated_img)
+    return rotated_img

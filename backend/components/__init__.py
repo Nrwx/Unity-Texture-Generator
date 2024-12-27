@@ -1,4 +1,5 @@
-# Importiere spezifische Funktionen aus maps und modifiers
+from .animation.create_wave_animation import create_wave_animation
+
 from .maps.generate_diffuse_map import generate_diffuse_map
 from .maps.generate_normal_map import generate_normal_map
 from .maps.generate_specular_map import generate_specular_map
@@ -28,3 +29,6 @@ from .modifiers.apply_wave import apply_wave
 from .modifiers.apply_glass import apply_glass
 from .modifiers.apply_hue_rotation import apply_hue_rotation
 from .modifiers.apply_invert_colors import apply_invert_colors
+from .modifiers.apply_color_lookup import apply_color_lookup
+
+from .simulate.texture_projection import texture_projection

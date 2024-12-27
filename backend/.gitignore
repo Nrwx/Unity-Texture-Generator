@@ -2,6 +2,18 @@
 uploads
 /venv
 
+# Python-Cache-Dateien
+*.pyc
+*.pyo
+*.pyd
+
+# Cache-Ordner
+__pycache__/
+
+# Distribution/Build
+build/
+dist/
+*.egg-info/
 
 # local env files
 .env.local

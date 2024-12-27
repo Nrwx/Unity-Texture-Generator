@@ -15,10 +15,10 @@ from components import (
     generate_alpha_map,
     generate_stone_map,
     generate_grass_map,
+    apply_color,
     apply_crop_image,
     apply_blend_edges,
     apply_brightness_contrast,
-    apply_sharpness,
     apply_shift_tiles,
     apply_tile_image,
     apply_brightness_contrast,
@@ -32,6 +32,8 @@ from components import (
     apply_edge_detection,
     apply_rotation,
     apply_hue_rotation,
+    apply_color_lookup,
+    texture_projection,
 )
 
 # Initialising
@@ -49,7 +51,7 @@ PARAMETERS = {
         "cropTop": {"type": int, "default": 0},
         "cropRight": {"type": int, "default": 0},
         "cropBottom": {"type": int, "default": 0},
-        "method": {"type": str, "default": "tiling_scatter"},
+        "method": {"type": int, "default": 0},
         "output_format": {"type": str, "default": "PNG"},
         "quality": {"type": int, "default": 80},
         # STANDARD METHODS PARAMS END
@@ -81,6 +83,9 @@ PARAMETERS = {
         # BLUR PARAMS END
 
         # COLOR PARAMS START
+        "color_overlay": {"type": str, "default": "#000000"},
+        "color_overlay_mode": {"type": int, "default": 1},
+        "color_lookup": {"type": int, "default": 0},
         "color_shift": {"type": int, "default": 0},
         "hue_variation": {"type": int, "default": 0},
         # COLOR PARAMS END
@@ -88,6 +93,15 @@ PARAMETERS = {
         # NOISE PARAMS START
         "noise_level": {"type": int, "default": 0},
         # NOISE PARAMS END
+
+        # SIMULATE PARAMS START
+        "simulate_mode": {"type": int, "default": 0},
+        "frame_count": {"type": int, "default": 1},
+        "frequency": {"type": float, "default": 0},
+        "phase_shift": {"type": float, "default": 0},
+        "amplitude_multiplier": {"type": float, "default": 0},
+        "wave_type": {"type": int, "default": 0},
+        # SIMULATE PARAMS END
 
         "blending_intensity": {"type": float, "default": 0.5},
         "gradient_intensity": {"type": float, "default": 0.0},
@@ -115,7 +129,6 @@ PARAMETERS = {
         "stone_size": {"type": int, "default": 10},
         "stone_variance": {"type": float, "default": 0.5},
         "density": {"type": float, "default": 0.5},
-        "noise_level": {"type": float, "default": 0.0},
         "rotation_angle": {"type": float, "default": 0.0},
         "fade_edges": {"type": float, "default": 0.0},
         "tile_size": {"type": int, "default": None},
@@ -163,34 +176,37 @@ def upload_file():
         )
 
         method_function_map = {
-            '1': {
-                'keys': {"blending_intensity", "tile_x", "tile_y"},
-                'function': create_tiling_scatter
+            0: {
+                'keys': {"color_overlay", "color_overlay_mode", "invert_colors",
+                         "color_shift", "hue_variation"},
+                'function': apply_color_adjustments
             },
-            '2': {
-                'keys': {"blending_intensity", "max_shift_ratio", "blur", "blur_mode",
-                         "blur_radius", "sharpness", "color_shift", "invert_colors", "rotation_angle",
-                         "contrast", "hue_variation" "edge_detection", "brightness", "noise_level"},
-                'function': create_randomized_scatter
+            1: {
+                'keys': {"brightness", "contrast", "sharpness", "edge_detection"},
+                'function': apply_brightness_contrast_adjustments
             },
-            '3': {
-                'keys': {"shift_x", "shift_y", "blending_intensity"},
-                'function': create_blended_edges
+            2: {
+                'keys': {"blur", "blur_mode", "blur_radius", "blur_falloff_mode", "blur_type", "noise_level"},
+                'function': apply_fx_adjustments
             },
-            '4': {
+            3: {
+                'keys': {"color_lookup"},
+                'function': apply_beauty_adjustments
+            },
+            4: {
                 'keys': {"blending_intensity"},
                 'function': create_mirrored_collage
             },
-            '5': {
+            5: {
                 'keys': {"stone_size", "density", "intensity", "stone_variance"},
                 'function': generate_stone_map
             },
-            '6': {
-                'keys': {"base_brightness", "base_opacity", "base_contrast", "base_sharpness", "blur",
-                         "blur_mode", "base_tile_x", "base_tile_y", "base_fade_alpha"},
-                'function': generate_grass_map
+            6: {
+                'keys': {"simulate_mode"},
+                'function': apply_motion_projection
             }
         }
+
 
         # Methode auslesen
         method = params.get('method')
@@ -203,6 +219,8 @@ def upload_file():
 
         # Parameter für die Methode extrahieren
         method_params = {key: params[key] for key in method_keys if key in params}
+
+        print(method_params)
 
         # Bildverarbeitung mit der entsprechenden Methode
         processed_image = method_function(cropped_image, **method_params)
@@ -248,10 +266,12 @@ def upload_file():
 @app.route('/tile', methods=['POST'])
 def tile_image_endpoint():
     try:
-        params = parse_parameters(PARAMETERS['tile'], request.form)
+        url = str(request.form.get('diffuse_image_url', ""))
+        tile_x = int(request.form.get('tile_x', 1))
+        tile_y = int(request.form.get('tile_y', 1))
 
         # Diffuse-Bildpfad prüfen
-        diffuse_image_path = os.path.join(UPLOAD_FOLDER, os.path.basename(params["diffuse_image_url"]))
+        diffuse_image_path = os.path.join(UPLOAD_FOLDER, os.path.basename(url))
         if not os.path.exists(diffuse_image_path):
             raise FileNotFoundError(f"File not found: {diffuse_image_path}")
 
@@ -259,7 +279,7 @@ def tile_image_endpoint():
         image = Image.open(diffuse_image_path).convert("RGB")
 
         # Kachelbild erstellen
-        tiled_image = apply_tile_image(image, params["tile_x"], params["tile_y"])
+        tiled_image = apply_tile_image(image, tile_x, tile_y)
 
         # UUID für Dateinamen
         file_uuid = uuid.uuid4().hex
@@ -290,6 +310,70 @@ def parse_parameters(params_section, form):
             else:
                 parsed_params[key] = config["type"](value)
     return parsed_params
+
+def apply_color_adjustments(img, color_overlay, color_overlay_mode, invert_colors, color_shift, hue_variation):
+    width, height = img.size
+    img_array = np.array(img)
+
+    print(color_shift)
+    # RGBA-Einstellungen
+    if color_overlay:
+        img_array = apply_color(img_array, color_overlay, color_overlay_mode)
+
+    # Farbtonvariation
+    if color_shift != 0:
+        img_array = apply_color_shift(img_array, color_shift)
+
+    # Farbtonvariation
+    if hue_variation != 0:
+        img_array = apply_hue_rotation(img_array, hue_variation)
+
+    # Farben invertieren
+    if invert_colors:
+        img_array = apply_invert_colors(img_array, invert_colors)
+
+    return Image.fromarray(img_array.astype(np.uint8))
+
+def apply_brightness_contrast_adjustments(img, brightness, contrast, sharpness, edge_detection):
+    width, height = img.size
+    img_array = np.array(img)
+    if brightness or contrast:
+        img_array = apply_brightness_contrast(img_array, brightness, contrast)
+
+    # Schärfen anwenden, wenn der Schärfungsfaktor größer als 0 ist
+    if sharpness > 0:
+        img_array = apply_sharpness(img_array, sharpness)
+
+    # Kantenerkennung anwenden, wenn aktiviert
+    if edge_detection:
+        img_array = apply_edge_detection(img_array, edge_detection)
+
+    return Image.fromarray(img_array.astype(np.uint8))
+
+def apply_fx_adjustments(img, blur, blur_mode, blur_radius, blur_falloff_mode, blur_type, noise_level):
+    width, height = img.size
+    img_array = np.array(img)
+    if blur > 0 and blur_radius > 0:
+        img_array = apply_blur(img_array, blur, blur_mode, blur_radius, blur_falloff_mode, blur_type)
+
+    if noise_level > 0:  # Überprüft, ob das Rauschlevel größer als 0 ist
+        img_array = apply_noise(img_array, noise_level)
+
+    return Image.fromarray(img_array.astype(np.uint8))
+
+def apply_beauty_adjustments(img, color_lookup):
+    width, height = img.size
+    img_array = np.array(img)
+    if color_lookup > 0:  # Überprüft, ob das Rauschlevel größer als 0 ist
+        img_array = apply_color_lookup(img_array, color_lookup)
+    return Image.fromarray(img_array.astype(np.uint8))
+
+def apply_motion_projection(img, simulate_mode):
+    width, height = img.size
+    img_array = np.array(img)
+    if simulate_mode > 0:  # Überprüft, ob das Rauschlevel größer als 0 ist
+        img_array = texture_projection(img, simulate_mode)
+    return Image.fromarray(img_array.astype(np.uint8))
 
 def pre_average(img, intensity, radius):
     """Fügt Unschärfe hinzu und passt den Kontrast basierend auf der Intensität an."""
@@ -356,18 +440,6 @@ def create_randomized_scatter(
     # Weichzeichnung
     if blur > 0 and blur_mode and blur_radius > 0:  # Überprüft, ob Weichzeichnung aktiv ist und der Radius größer als 0
         img_array = apply_blur(img_array, blur, blur_mode, blur_radius)
-
-    # Schärfen
-    if sharpness > 0:  # Überprüft, ob die Schärfe größer als 0 ist
-        img_array = apply_sharpness(img_array, sharpness)
-
-    # Farbtonvariation
-    if hue_variation > 0:  # Überprüft, ob die Farbtonvariation größer als 0 ist
-        img_array = apply_hue_rotation(img_array, hue_variation)
-
-    # Farben invertieren
-    if invert_colors:  # Überprüft, ob die Farben invertiert werden sollen (True oder False)
-        img_array = apply_invert_colors(img_array, invert_colors)
 
     # Übergänge
     if blending_intensity > 0:  # Überprüft, ob die Übergangsintensität größer als 0 ist

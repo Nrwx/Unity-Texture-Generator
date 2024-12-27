@@ -24,4 +24,4 @@ def apply_invert_colors(image, invert_colors=True):
         img_array = 255 - img_array
 
     # Rückgabe des bearbeiteten Bildes als PIL.Image
-    return Image.fromarray(img_array)
+    return img_array

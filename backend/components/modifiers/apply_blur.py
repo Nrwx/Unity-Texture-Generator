@@ -2,7 +2,6 @@ import cv2
 import numpy as np
 from PIL import Image
 
-
 def falloff(distance, mode=1, strength=1.0):
     if mode == 1:  # Linear
         return max(0, 1 - distance)
@@ -17,15 +16,14 @@ def falloff(distance, mode=1, strength=1.0):
     else:
         raise ValueError(f"Unbekannter Falloff-Modus: {mode}")
 
-
 def apply_blur(
     image,
     blur=5,
-    blur_radius=15,
-    blur_type=1,
     blur_mode=1,
-    blur_center=None,
+    blur_radius=15,
     blur_falloff_mode=1,
+    blur_type=1,  # 1 = Inner, 2 = Outer
+    blur_center=None,
     blur_falloff_strength=1.0,
     blur_harmonic_strength=1.0,
     blur_fisheye_strength=1.0,
@@ -56,42 +54,57 @@ def apply_blur(
     for c in range(channels):
         img_array[..., c] = (img_array[..., c] * blur_channel_weights[c]).astype(np.uint8)
 
-    # Gaussian Blur
-    if blur_mode == 1:
+    fade_mask = np.zeros((height, width), dtype=np.float32)
+
+    if blur_mode == 1:  # Gaussian Blur
         kernel_size = (int(blur * 3), int(blur * 3))
         kernel_size = (kernel_size[0] | 1, kernel_size[1] | 1)  # Ensure kernel size is odd
         img_array = cv2.GaussianBlur(img_array, kernel_size, blur)
 
-    # Radial Blur
-    elif blur_mode == 2:
-        fade_mask = np.zeros((height, width), dtype=np.float32)
+    elif blur_mode in [2, 3, 6, 7]:  # Radial, Quadratic Blur, Radial Rays, Quadratic Rays
         for y in range(height):
             for x in range(width):
-                distance = np.sqrt((x - blur_center[0]) ** 2 + (y - blur_center[1]) ** 2) / blur_radius
-                fade_mask[y, x] = falloff(distance, mode=blur_falloff_mode, strength=blur_falloff_strength)
-        img_array = (img_array * fade_mask[..., None]).astype(np.uint8)
+                dx = x - blur_center[0]
+                dy = y - blur_center[1]
+                distance = np.sqrt(dx**2 + dy**2) / blur_radius
 
-    # Quadratic Blur
-    elif blur_mode == 3:
-        fade_mask = np.zeros((height, width), dtype=np.float32)
-        for y in range(height):
-            for x in range(width):
-                distance = ((x - blur_center[0]) ** 2 + (y - blur_center[1]) ** 2) / blur_radius
-                fade_mask[y, x] = falloff(distance, mode=4, strength=blur_falloff_strength)  # Quadratic
-        img_array = (img_array * fade_mask[..., None]).astype(np.uint8)
+                if blur_mode == 2:  # Radial Blur
+                    fade_mask[y, x] = falloff(distance, mode=blur_falloff_mode, strength=blur_falloff_strength)
 
-    # Motion Blur
-    elif blur_mode == 4:
+                elif blur_mode == 3:  # Quadratic Blur
+                    fade_mask[y, x] = falloff(distance**2, mode=4, strength=blur_falloff_strength)
+
+                elif blur_mode == 6:  # Radial Rays
+                    angle = np.arctan2(dy, dx)
+                    fade_mask[y, x] = falloff(np.abs(np.sin(angle)), mode=blur_falloff_mode, strength=blur_falloff_strength)
+
+                elif blur_mode == 7:  # Quadratic Rays
+                    angle = np.arctan2(dy, dx)
+                    fade_mask[y, x] = falloff(np.abs(np.sin(angle))**2, mode=4, strength=blur_falloff_strength)
+
+        fade_mask = np.clip(fade_mask, 0, 1)
+        fade_mask_blurred = cv2.GaussianBlur(fade_mask, (21, 21), sigmaX=10)
+        fade_mask_blurred = np.clip(fade_mask_blurred, 0, 1)  # Sicherheitsmaßnahme
+
+    elif blur_mode == 4:  # Motion Blur
         if blur_direction is None:
             blur_direction = [1, 0]  # Horizontal by default
-        kernel_size = blur_radius
+
+        # Stelle sicher, dass kernel_size eine Ganzzahl ist
+        kernel_size = int(blur_radius)  # Umwandeln in int, um den Fehler zu vermeiden
+
+        # Überprüfen, ob kernel_size eine gültige Zahl ist (größer als 1)
+        if kernel_size < 1:
+            kernel_size = 1  # Minimale Größe für den Kernel
+
         kernel = np.zeros((kernel_size, kernel_size), dtype=np.float32)
         kernel[int((kernel_size - 1) / 2), :] = np.ones(kernel_size, dtype=np.float32)
         kernel /= kernel_size
+
+        # Anwenden des Filters
         img_array = cv2.filter2D(img_array, -1, kernel)
 
-    # Fisheye Blur
-    elif blur_mode == 5:
+    elif blur_mode == 5:  # Fisheye Blur
         for y in range(height):
             for x in range(width):
                 dx = x - blur_center[0]
@@ -103,29 +116,23 @@ def apply_blur(
                 if 0 <= new_x < width and 0 <= new_y < height:
                     img_array[y, x] = img_array[new_y, new_x]
 
-    # Radial Rays
-    elif blur_mode == 8:
-        fade_mask = np.zeros((height, width), dtype=np.float32)
-        for y in range(height):
-            for x in range(width):
-                dx = x - blur_center[0]
-                dy = y - blur_center[1]
-                angle = np.arctan2(dy, dx)
-                distance = np.sqrt(dx**2 + dy**2) / blur_radius
-                fade_mask[y, x] = falloff(np.abs(np.sin(angle)), mode=blur_falloff_mode, strength=blur_falloff_strength)
-        img_array = (img_array * fade_mask[..., None]).astype(np.uint8)
+    # Gaussian Blur für das gesamte Bild erzeugen
+    blurred_image = cv2.GaussianBlur(img_array, (21, 21), sigmaX=10)
 
-    # Quadratic Rays
-    elif blur_mode == 9:
-        fade_mask = np.zeros((height, width), dtype=np.float32)
-        for y in range(height):
-            for x in range(width):
-                dx = x - blur_center[0]
-                dy = y - blur_center[1]
-                angle = np.arctan2(dy, dx)
-                distance = np.sqrt(dx**2 + dy**2) / blur_radius
-                fade_mask[y, x] = falloff(np.abs(np.sin(angle)) ** 2, mode=4, strength=blur_falloff_strength)  # Quadratic
-        img_array = (img_array * fade_mask[..., None]).astype(np.uint8)
+    # Normalisierung der Fade-Maske
+    fade_mask = np.clip(fade_mask, 0, 1)
+
+    # Anwenden eines Gaussian Blurs auf die Maske
+    fade_mask_blurred = cv2.GaussianBlur(fade_mask, (21, 21), sigmaX=10)
+    fade_mask_blurred = np.clip(fade_mask_blurred, 0, 1)  # Sicherheitsmaßnahme
+
+    # Erzeuge das Ergebnis durch Mischung des Originalbildes und des verschwommenen Bildes
+    if blur_type == 1:  # Inner Blur
+        fade_mask_blurred = np.clip(fade_mask_blurred, 0, 1)  # Maske invertieren
+        img_array = (img_array * (1 - fade_mask_blurred[..., None]) + blurred_image * fade_mask_blurred[..., None]).astype(np.uint8)
+    elif blur_type == 2:  # Outer Blur
+        fade_mask_blurred = 1 - np.clip(fade_mask_blurred, 0, 1)  # Maske invertieren
+        img_array = (img_array * (1 - fade_mask_blurred[..., None]) + blurred_image * fade_mask_blurred[..., None]).astype(np.uint8)
 
     # Apply iterations if specified
     for _ in range(blur_iterations - 1):
@@ -133,8 +140,8 @@ def apply_blur(
             img_array,
             blur=blur,
             blur_radius=blur_radius,
-            blur_type=blur_type,
             blur_mode=blur_mode,
+            blur_type=blur_type,
         )
 
     return img_array

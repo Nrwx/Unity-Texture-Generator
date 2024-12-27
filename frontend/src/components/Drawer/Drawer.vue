@@ -19,70 +19,6 @@
             outlined
         ></v-select>
 
-        <v-select
-            label="Methode wählen"
-            v-model="settings.method"
-            :items="itemMethods"
-            item-title="title"
-            item-value="value"
-            outlined
-        ></v-select>
-
-        <!-- Dynamische Einstellungen je Methode -->
-        <template v-if="methodSettings[settings.method]">
-          <div v-for="(prop, key) in methodSettings[settings.method]" :key="key">
-            <!-- Textfeld für Zahlen -->
-            <v-text-field
-                v-if="prop.type === 'number'"
-                v-model.number="settings[key]"
-                :label="prop.label"
-                :type="prop.inputType || 'number'"
-                outlined
-            ></v-text-field>
-            <!-- Slider -->
-            <v-slider
-                v-if="prop.type === 'slider'"
-                v-model="settings[key]"
-                :label="prop.label"
-                :min="prop.min"
-                :max="prop.max"
-                :step="prop.step || 1"
-                thumb-label
-            ></v-slider>
-            <!-- Checkbox -->
-            <v-checkbox
-                v-else-if="prop.type === 'checkbox'"
-                v-model="settings[key]"
-                :label="prop.label"
-            ></v-checkbox>
-
-            <!-- Switch -->
-            <v-switch
-                v-else-if="prop.type === 'switch'"
-                v-model="settings[key]"
-                :label="prop.label"
-            ></v-switch>
-
-            <!-- Dropdown -->
-            <v-select
-                v-else-if="prop.type === 'select'"
-                v-model="settings[key]"
-                :items="prop.options"
-                :label="prop.label"
-                item-title="title"
-                item-value="value"
-            ></v-select>
-
-            <!-- Farbwähler -->
-            <v-color-picker
-                v-else-if="prop.type === 'color'"
-                v-model="settings[key]"
-                :label="prop.label"
-                flat
-            ></v-color-picker>
-          </div>
-        </template>
-
         <!-- Cropping Settings -->
         <v-row>
           <v-col cols="6">
@@ -159,103 +95,196 @@
   </v-main>
 
   <!-- Rechte Seite: Grid für die anderen Maps -->
-  <v-navigation-drawer width="320" permanent location="right" app>
-    <v-card height="100%">
-      <v-card-title class="headline d-flex align-center mb-6">
-        <div class="text-truncate" style="width: 100%;">Output</div>
-        <v-select
-            v-model="sortOrder"
-            :items="sortOptions"
-            label="Filter"
-            class="ml-auto"
-            item-title="title"
-            item-value="value"
-            outlined
-            dense
-            hide-details
-            min-width="145"
-        ></v-select>
+  <v-navigation-drawer width="360" permanent location="right" app>
+    <v-card flat>
+      <!-- Navigation Header -->
+      <v-card-title>
+        <v-tabs
+            v-model="settings.method"
+            class="tab-navigation"
+            background-color="primary"
+            dark
+            grow
+            height="32px"
+            align="center"
+        >
+          <v-tab min-width="16" min-height="16" height="16" width="16" max-width="16" max-height="16" v-for="tab in tabs" :key="tab.name">
+            <v-icon size="16">{{ tab.icon }}</v-icon>
+          </v-tab>
+        </v-tabs>
       </v-card-title>
-      <div class="scrollFx">
-        <div class="scrollTop"></div>
-        <div class="scrollBottom"></div>
-      </div>
+
+      <!-- Tab Content -->
       <v-card-text>
-        <!-- Anzeigen der letzten Builds -->
-        <v-row  v-if="sortedBuilds.length" class="map-grid overflow-hidden overflow-y-auto py-8" justify="start" style="height: 500px; max-height: 500px;">
-          <v-col
-              v-for="(build, index) in sortedBuilds"
-              :key="build.id"
-              class="map-item"
-              cols="12"
-          >
-            <v-badge class="absolute-badge" color="error" :content="build.buildMaps.length + build.tiledMaps.length"></v-badge>
-            <v-badge style="top: 36px;" class="absolute-badge" @click="deleteBuild(build.id)" color="error" icon="mdi-delete"></v-badge>
-            <!-- Build Info: Zeitstempel und Karten -->
-            <v-card class="py-6" :style="index === 0 ? 'background-color: #fff8d8;' : ''">
-              <v-card-title style="font-size: 14px;">{{ build.timestamp }}</v-card-title>
-              <v-card-subtitle class="d-flex align-center" style="font-size: 12px; min-height: 45px;">
-                <div style="width: 100%;" class="text-truncate mr-6">{{ build.maps }}</div>
-                <v-btn icon size="x-small" @click="toggleCollapse(index)">
-                  <v-icon>{{ build.collapsed ? 'mdi-chevron-down' : 'mdi-chevron-up' }}</v-icon>
-                </v-btn>
-              </v-card-subtitle>
-              <v-card-text v-if="!build.collapsed">
-                <v-row class="map-grid" justify="start">
+        <div v-for="(tab, index) in tabs" :key="tab.name" v-show="settings.method === index">
+          <!-- Dynamische Einstellungen je Methode -->
+          <template v-if="methodSettings[settings.method]">
+            <div v-for="(prop, key) in methodSettings[settings.method]" :key="key">
+              <!-- Textfeld für Zahlen -->
+              <v-text-field
+                  v-if="prop.type === 'number' && prop.active"
+                  v-model.number="settings[key]"
+                  :label="prop.label"
+                  :type="prop.inputType || 'number'"
+                  outlined
+              ></v-text-field>
+              <!-- Slider -->
+              <v-slider
+                  v-if="prop.type === 'slider' && prop.active"
+                  v-model="settings[key]"
+                  :label="prop.label"
+                  :min="prop.min"
+                  :max="prop.max"
+                  :step="prop.step || 1"
+                  thumb-label
+              ></v-slider>
+              <!-- Checkbox -->
+              <v-checkbox
+                  v-else-if="prop.type === 'checkbox' && prop.active"
+                  v-model="settings[key]"
+                  :label="prop.label"
+              ></v-checkbox>
+
+              <!-- Switch -->
+              <v-switch
+                  v-else-if="prop.type === 'switch' && prop.active"
+                  v-model="settings[key]"
+                  :label="prop.label"
+              ></v-switch>
+
+              <!-- Dropdown -->
+              <v-select
+                  v-else-if="prop.type === 'select' && prop.active"
+                  v-model="settings[key]"
+                  :items="prop.options"
+                  :label="prop.label"
+                  item-title="title"
+                  item-value="value"
+              ></v-select>
+
+              <!-- Farbwähler -->
+              <v-color-picker
+                  width="100%"
+                  v-else-if="prop.type === 'color' && prop.active"
+                  v-model="settings[key]"
+                  :label="prop.label"
+                  flat
+                  elevation="0"
+                  rounded
+              ></v-color-picker>
+            </div>
+          </template>
+          <template v-if="index === 7">
+            <v-select
+                label="Methode wählen"
+                v-model="settings.method"
+                :items="itemMethods"
+                item-title="title"
+                item-value="value"
+                outlined
+            ></v-select>
+          </template>
+          <template v-if="index === 8">
+            <v-card class="pa-0" flat height="100%">
+              <v-card-title class="headline d-flex align-center mb-6">
+                <div class="text-truncate" style="width: 100%;">Output</div>
+                <v-select
+                    v-model="sortOrder"
+                    :items="sortOptions"
+                    label="Filter"
+                    class="ml-auto"
+                    item-title="title"
+                    item-value="value"
+                    outlined
+                    dense
+                    hide-details
+                    min-width="145"
+                ></v-select>
+              </v-card-title>
+              <div class="scrollFx">
+                <div class="scrollTop"></div>
+                <div class="scrollBottom"></div>
+              </div>
+              <v-card-text>
+                <!-- Anzeigen der letzten Builds -->
+                <v-row  v-if="sortedBuilds.length" class="map-grid overflow-hidden overflow-y-auto py-8" justify="start" style="height: 80vh; max-height: 80vh;">
                   <v-col
-                      v-for="(map, mapIndex) in build.buildMaps"
-                      :key="mapIndex"
+                      v-for="(build, index) in sortedBuilds"
+                      :key="build.id"
                       class="map-item"
-                      cols="4"
+                      cols="12"
                   >
-                    <v-badge style="right: 26px;" class="absolute-badge" rounded="0" color="error" icon="mdi-fullscreen" @click="openFullscreen(map.src, build.id, map.type)"></v-badge>
-                    <v-badge style="top: 36px; right: 26px;" rounded="0" class="absolute-badge" @click="downloadImage(map.src)" color="error" icon="mdi-download"></v-badge>
-                    <v-img
-                        :src="map.src"
-                        :alt="map.type"
-                        width="40"
-                        height="40"
-                        rounded="12"
-                        class="map-image"
-                        @click="selectDiffuseMap(map.src)"
-                        contain
-                    ></v-img>
-                    <p
-                        class="text-center text-truncate map-title"
-                        :title="map.type"
-                    >
-                      {{ map.type }}
-                    </p>
-                  </v-col>
-                  <v-col
-                      v-for="(tile, tileIndex) in build?.tiledMaps"
-                      :key="tileIndex"
-                      class="map-item"
-                      cols="4"
-                  >
-                    <v-badge style="top: 12px; right: 26px;" rounded="0" class="absolute-badge" @click="downloadImage(tile.src)" color="error" icon="mdi-download"></v-badge>
-                    <v-img
-                        :src="tile.src"
-                        :alt="tile.type"
-                        width="40"
-                        height="40"
-                        rounded="12"
-                        class="map-image"
-                        @click="selectDiffuseMap(tile.src)"
-                        contain
-                    ></v-img>
-                    <p
-                        class="text-center text-truncate map-title"
-                        :title="tile.type"
-                    >
-                      {{ tile.type }}
-                    </p>
+                    <v-badge class="absolute-badge" color="error" :content="build.buildMaps.length + build.tiledMaps.length"></v-badge>
+                    <v-badge style="top: 36px;" class="absolute-badge" @click="deleteBuild(build.id)" color="error" icon="mdi-delete"></v-badge>
+                    <!-- Build Info: Zeitstempel und Karten -->
+                    <v-card class="py-6" :style="index === 0 ? 'background-color: #fff8d8;' : ''">
+                      <v-card-title style="font-size: 14px;">{{ build.timestamp }}</v-card-title>
+                      <v-card-subtitle class="d-flex align-center" style="font-size: 12px; min-height: 45px;">
+                        <div style="width: 100%;" class="text-truncate mr-6">{{ build.maps }}</div>
+                        <v-btn icon size="x-small" @click="toggleCollapse(index)">
+                          <v-icon>{{ build.collapsed ? 'mdi-chevron-down' : 'mdi-chevron-up' }}</v-icon>
+                        </v-btn>
+                      </v-card-subtitle>
+                      <v-card-text v-if="!build.collapsed">
+                        <v-row class="map-grid" justify="start">
+                          <v-col
+                              v-for="(map, mapIndex) in build.buildMaps"
+                              :key="mapIndex"
+                              class="map-item"
+                              cols="4"
+                          >
+                            <v-badge style="right: 26px;" class="absolute-badge" rounded="0" color="error" icon="mdi-fullscreen" @click="openFullscreen(map.src, build.id, map.type)"></v-badge>
+                            <v-badge style="top: 36px; right: 26px;" rounded="0" class="absolute-badge" @click="downloadImage(map.src)" color="error" icon="mdi-download"></v-badge>
+                            <v-img
+                                :src="map.src"
+                                :alt="map.type"
+                                width="40"
+                                height="40"
+                                rounded="12"
+                                class="map-image"
+                                @click="selectDiffuseMap(map.src)"
+                                contain
+                            ></v-img>
+                            <p
+                                class="text-center text-truncate map-title"
+                                :title="map.type"
+                            >
+                              {{ map.type }}
+                            </p>
+                          </v-col>
+                          <v-col
+                              v-for="(tile, tileIndex) in build?.tiledMaps"
+                              :key="tileIndex"
+                              class="map-item"
+                              cols="4"
+                          >
+                            <v-badge style="top: 12px; right: 26px;" rounded="0" class="absolute-badge" @click="downloadImage(tile.src)" color="error" icon="mdi-download"></v-badge>
+                            <v-img
+                                :src="tile.src"
+                                :alt="tile.type"
+                                width="40"
+                                height="40"
+                                rounded="12"
+                                class="map-image"
+                                @click="selectDiffuseMap(tile.src)"
+                                contain
+                            ></v-img>
+                            <p
+                                class="text-center text-truncate map-title"
+                                :title="tile.type"
+                            >
+                              {{ tile.type }}
+                            </p>
+                          </v-col>
+                        </v-row>
+                      </v-card-text>
+                    </v-card>
                   </v-col>
                 </v-row>
               </v-card-text>
             </v-card>
-          </v-col>
-        </v-row>
+          </template>
+        </div>
       </v-card-text>
     </v-card>
   </v-navigation-drawer>
@@ -323,6 +352,7 @@ export default defineComponent({
     const tiledImage = ref("");
     const zoomMode = ref(false);
     const tileMode = ref(false);
+    const activeTab = ref(0);
     const zoomedStyle = ref({})
     const selectedTileSize = ref({ x: 1, y: 1 });
     const diffuseMap = reactive({
@@ -336,8 +366,19 @@ export default defineComponent({
       { title: "6x6", value: {x: 6, y: 6} },
       { title: "12x12", value: {x: 12, y: 12} },
     ];
+    const tabs = [
+      { name: 'Tab 1', icon: 'mdi-water-opacity', content: 'Content for Tab 5' },
+      { name: 'Tab 2', icon: 'mdi-theme-light-dark', content: 'Content for Tab 1' },
+      { name: 'Tab 3', icon: 'mdi-panorama-variant-outline', content: 'Content for Tab 2' },
+      { name: 'Tab 4', icon: 'mdi-shimmer', content: 'Content for Tab 3' },
+      { name: 'Tab 5', icon: 'mdi-resize', content: 'Content for Tab 4' },
+      { name: 'Tab 6', icon: 'mdi-cube-outline', content: 'Content for Tab 6' },
+      { name: 'Tab 6', icon: 'mdi-transition', content: 'Content for Tab 6' },
+      { name: 'Tab 6', icon: 'mdi-tools', content: 'Content for Tab 6' },
+      { name: 'Tab 6', icon: 'mdi-folder-download-outline', content: 'Content for Tab 6' },
+    ];
     const settings = reactive({
-      method: "2", // Standardmethode
+      method: 0, // Standardmethode
       cropLeft: 0,
       cropTop: 0,
       cropRight: 0,
@@ -346,6 +387,95 @@ export default defineComponent({
       radius: 10,
       outputFormat: "PNG",
       quality: 80,
+      color_overlay: '#ffffff',
+      color_overlay_mode: 1,
+      colorOverlayModes: [
+        { title: "Normal", value: 1 },
+        { title: "Sprenkeln", value: 2 },
+        { title: "Abdunkeln", value: 3 },
+        { title: "Multiplizieren", value: 4 },
+        { title: "Farbig nachdunkeln", value: 5 },
+        { title: "Linear nachbelichten", value: 6 },
+        { title: "Aufhellen", value: 7 },
+        { title: "Negativ Multiplizieren", value: 8 },
+        { title: "Farbig Abwedeln", value: 9 },
+        { title: "Linear Abwedeln", value: 10 },
+        { title: "Hellere Farbe", value: 11 },
+        { title: "Überlagern", value: 12 },
+        { title: "Weiches Licht", value: 13 },
+        { title: "Hartes Licht", value: 14 },
+        { title: "Strahlendes Licht", value: 15 },
+        { title: "Lineares Licht", value: 16 },
+        { title: "Lichtpunkt", value: 17 },
+        { title: "Hart mischen", value: 18 },
+        { title: "Differenz", value: 19 },
+        { title: "Subtrahieren", value: 20 },
+        { title: "Dividieren", value: 21 },
+        { title: "Farbton", value: 22 },
+        { title: "Sättigung", value: 23 },
+        { title: "Farbe", value: 24 },
+        { title: "Luminanz", value: 25 },
+      ],
+      color_shift: 0,
+      hue_variation: 0,
+      invert_colors: false,
+      brightness: 100,
+      contrast: 50,
+      edge_detection: false,
+      blur: 0,
+      blur_mode: 1,
+      blurModes: [
+        { title: "Gaußscher", value: 1 },
+        { title: "Radial", value: 2 },
+        { title: "Quadratisch", value: 3 },
+        { title: "Bewegungsunschärfe", value: 4 },
+        { title: "Fischauge", value: 5 },
+        { title: "Radiale Strahlen", value: 6 },
+        { title: "Quadratische Strahlen", value: 7 },
+      ],
+      blur_radius: 0,
+      blur_falloff_mode: 1,
+      blurFalloffModes: [
+        { title: "Linear", value: 1 },
+        { title: "Exponentiell", value: 2 },
+        { title: "Logarithmisch", value: 3 },
+        { title: "Quadratisch", value: 4 },
+        { title: "Kubisch", value: 5 },
+      ],
+      blur_type: 1,
+      blurTypes: [
+        { title: "Innen", value: 1 },
+        { title: "Außen", value: 2 },
+      ],
+      color_lookup: 0,
+      colorLookupModes: [
+        { "title": "Neutral", "value": 0 },
+        { "title": "Warm", "value": 1 },
+        { "title": "Kalt", "value": 2 },
+        { "title": "Sepia", "value": 3 },
+        { "title": "Schwarz-Weiß", "value": 4 },
+        { "title": "Hoher Kontrast", "value": 5 },
+        { "title": "Vintage", "value": 6 },
+        { "title": "Nachtvision", "value": 7 },
+        { "title": "Sonnenuntergang", "value": 8 },
+        { "title": "Bläulich", "value": 9 },
+        { "title": "Überbelichtet", "value": 10 },
+        { "title": "Gedämpft", "value": 11 },
+        { "title": "Retro", "value": 12 },
+        { "title": "Dramatisch", "value": 13 },
+        { "title": "Verblasst", "value": 14 },
+        { "title": "Weich", "value": 15 },
+        { "title": "Kaltes Film-Look", "value": 16 },
+        { "title": "Sandig", "value": 17 },
+        { "title": "Flüssig", "value": 18 },
+        { "title": "Verdreht", "value": 19 },
+        { "title": "Verbrannt (mit verkohlten Ecken)", "value": 20 },
+        { "title": "Nass", "value": 21 },
+        { "title": "Glass", "value": 22 },
+        { "title": "Milchglas", "value": 23 },
+        { "title": "Galaxie", "value": 24 },
+        { "title": "Große Tropfen", "value": 25 }
+      ],
       blending_intensity: 0.5,
       max_shift_ratio: 0.1,
       shift_x: 0.1,
@@ -356,14 +486,9 @@ export default defineComponent({
       blade_length: 20,
       blade_width: 1,
       sharpness: 0,
-      color_shift: 0,
       noise_level: 0,
-      invert_colors: false,
       rotation_angle: 0,
-      contrast: 100,
-      hue_variation: 0,
       tile_size: 0,
-      edge_detection: false,
       tile_x: 6,
       tile_y: 6,
       base_tile_x: 4,
@@ -378,18 +503,30 @@ export default defineComponent({
       fade_alpha: 0.1,
       smoothness: 0.5,
       randomness: 0.3,
-      brightness: 100,
-      blur: 1,
-      blur_mode: 1,
-      blurModes: [
-        { title: "Gaussian Blur", value: 1 },
-        { title: "Radial Blur", value: 2 },
-        { title: "Quadratic Blur", value: 3 },
-        { title: "Motion Blur", value: 4 },
-        { title: "Fisheye Blur", value: 5 },
-        { title: "Radial Rays", value: 6 },
-        { title: "Quadratic Rays", value: 7 },
-      ]
+      simulate_mode: 0,
+      simulateModes: [
+        { title: "Nichts", value: 0 },
+        { title: "Wellen", value: 1 },
+        { title: "Wasser", value: 2 },
+        { title: "Lava", value: 3 },
+        { title: "Gras", value: 4 },
+        { title: "Felsen", value: 5 },
+        { title: "Steine", value: 6 },
+        { title: "Boden", value: 7 },
+        { title: "Partikel", value: 8 },
+        { title: "Skybox", value: 9 },
+      ],
+      frame_count: 1,
+      frequency: 1.0,
+      phase_shift: 0,
+      amplitude: 50,
+      amplitude_multiplier: 1.0,
+      wave_type: 0,
+      waveTypes: [
+        { title: "Sinus", value: 0 },
+        { title: "Cosinus", value: 1 },
+        { title: "Sinus und Cosinus", value: 2 },
+      ],
     });
 
     // Generiert die Kachelansicht basierend auf der aktuellen Auswahl
@@ -465,12 +602,13 @@ export default defineComponent({
     }
 
     const itemMethods = [
-      { title: "Smoothed Collage", value: "1" },
-      { title: "Scattered Edges", value: "2" },
-      { title: "Smoothed Copies", value: "3" },
-      { title: "Restoring Frame", value: "4" },
-      { title: "Small Stones", value: "5" },
-      { title: "Grass", value: "6" },
+      { title: "Keine", value: 0 },
+      { title: "Geglättete Collage", value: 1 },
+      { title: "Verstreute Ränder", value: 2 },
+      { title: "Geglättete Kopien", value: 3 },
+      { title: "Rahmen wiederherstellen", value: 4 },
+      { title: "Kleine Steine", value: 5 },
+      { title: "Gras", value: 6 },
     ];
 
     const mapOptions = [
@@ -484,344 +622,214 @@ export default defineComponent({
 
     // Methodenspezifische Standardwerte
     const methodDefaults = {
-      "1": { intensity: 5, radius: 2, blending_intensity: 0.5, tile_x: 6, tile_y: 6 },
-      "2": {
-        max_shift_ratio: 0.1,
-        blending_intensity: 0.5,
-        sharpness: 0,
-        color_shift: 0,
-        noise_level: 0,
-        invert_colors: false,
-        rotation_angle: 0,
-        contrast: 100,
-        hue_variation: 0,
-        blur: 0,
-        brightness: 100,
-        blur_mode: 1,
-        blur_radius: 0,
-        edge_detection: false,
+      0: {
+          color_overlay: settings.color_overlay,
+          color_overlay_mode: settings.color_overlay_mode,
+          color_shift: settings.color_shift,
+          hue_variation: settings.hue_variation,
+          invert_colors: settings.invert_colors},
+      1: {
+          brightness: settings.brightness,
+          contrast: settings.contrast,
+          sharpness: settings.sharpness,
+          edge_detection: settings.edge_detection
       },
-      "3": { radius: 10, shift_x: 0.1, shift_y: 0.1 },
-      "4": { border_width: 10, intensity: 50 },
-      "5": { stone_size: 10, density: 0.5, intensity: 50 },
-      "6": {
-        base_tile_x: 4,
-        base_tile_y: 4,
-        base_fade_alpha: 0.1,
-        base_brightness: 0,
-        base_contrast: 1,
-        base_sharpness: 1,
-        base_smoothness: 0.7,
-        base_opacity: 1,
-        blur_mode: 1,
-        tile_x: 6,
-        tile_y: 6,
-        opacity: 1,
-        brightness: 0,
-        fade_alpha: 0.1,
-        sharpness: 1.5,
-        contrast: 1.2,
+      2: {
+          blur: settings.blur,
+          blur_mode: settings.blur_mode,
+          blur_radius: settings.blur_radius,
+          blur_falloff_mode: settings.blur_falloff_mode,
+          blur_type: settings.blur_type
       },
+      3: {
+      },
+      4: {},
+      5: {},
+      6: {
+        simulate_mode: 0
+      },
+      7: {
+      },
+      8: {},
     };
 
-    const methodSettings = {
-      "1": {
-        tile_x: {
-          type: "slider",
-          label: "Kachel X",
-          min: 1,
-          max: 6,
-          step: 1,
+    const methodSettings = computed(() =>({
+      0: {
+        color_overlay: {
+          active: true,
+          type: "color",
+          label: "Farbverschiebung",
         },
-        tile_y: {
-          type: "slider",
-          label: "Kachel Y",
-          min: 1,
-          max: 6,
-          step: 1,
-        },
-        intensity: {
-          type: "slider",
-          label: "Helligkeit",
-          min: 0,
-          max: 100,
-        },
-        radius: {
-          type: "slider",
-          label: "Radius",
-          min: 0,
-          max: 50,
-        },
-        blending_intensity: {
-          type: "slider",
-          label: "Blending-Intensität",
-          min: 0.01,
-          max: 1,
-          step: 0.01,
-        },
-      },
-      "2": {
-        invert_colors: {
-          type: "checkbox",
-          label: "Farben invertieren",
-        },
-        edge_detection: {
-          type: "checkbox",
-          label: "Kantenerkennung",
-        },
-        brightness: {
-          type: "slider",
-          label: "Helligkeit",
-          min: -2,
-          max: 2,
-        },
-        contrast: {
-          type: "slider",
-          label: "Kontrast",
-          min: -2,
-          max: 2,
-          step: 1,
-        },
-        blur_mode: {
+        color_overlay_mode: {
+          active: true,
           type: "select",
-          label: "Weichzeichnungs-Filter",
-          options: settings.blurModes
-        },
-        blur: {
-          type: "slider",
-          label: "Weichzeichnen",
-          min: 0,
-          max: 100,
-        },
-        blur_radius: {
-          type: "slider",
-          label: "Weichzeichnen",
-          min: 0,
-          max: 50,
-        },
-        max_shift_ratio: {
-          type: "slider",
-          label: "Max. Verschiebung",
-          min: 0.01,
-          max: 1,
-          step: 0.01,
-        },
-        blending_intensity: {
-          type: "slider",
-          label: "Blending-Intensität",
-          min: 0,
-          max: 1,
-          step: 0.01,
-        },
-        sharpness: {
-          type: "slider",
-          label: "Schärfe",
-          min: 0,
-          max: 100,
+          label: "Überlagerung",
+          options: settings.colorOverlayModes
         },
         color_shift: {
+          active: true,
           type: "slider",
           label: "Farbverschiebung",
           min: -100,
           max: 100,
           step: 1,
         },
-        noise_level: {
-          type: "slider",
-          label: "Rauschlevel",
-          min: 0,
-          max: 100,
-        },
-        rotation_angle: {
-          type: "slider",
-          label: "Rotationswinkel",
-          min: -180,
-          max: 180,
-        },
         hue_variation: {
+          active: true,
           type: "slider",
           label: "Farbtonvariation",
           min: -180,
           max: 180,
+          step: 1,
+        },
+        invert_colors: {
+          active: true,
+          type: "checkbox",
+          label: "Farben invertieren",
         },
       },
-      "3": {
-        radius: {
+      1: {
+        brightness: {
+          active: true,
           type: "slider",
-          label: "Radius",
+          label: "Helligkeit",
           min: 0,
-          max: 50,
+          max: 200,
+          step: 1,
         },
-        shift_x: {
+        contrast: {
+          active: true,
           type: "slider",
-          label: "Verschiebung X",
-          min: -1,
-          max: 1,
-          step: 0.01,
-        },
-        shift_y: {
-          type: "slider",
-          label: "Verschiebung Y",
-          min: -1,
-          max: 1,
-          step: 0.01,
-        },
-      },
-      "4": {
-        border_width: {
-          type: "slider",
-          label: "Rahmenbreite",
+          label: "Kontrast",
           min: 0,
           max: 100,
+          step: 1,
         },
-        intensity: {
+        sharpness: {
+          active: true,
           type: "slider",
-          label: "Intensität",
+          label: "Schärfe",
           min: 0,
-          max: 100,
-        },
-      },
-      "5": {
-        stone_size: {
-          type: "slider",
-          label: "Steingröße",
-          min: 0,
-          max: 100,
-        },
-        stone_variance: {
-          type: "slider",
-          label: "Steinvariabilität",
-          min: 0,
-          max: 1,
-          step: 0.01,
-          description: "Steuert die Variabilität der Steingröße. 0 = gleichmäßige Größe, 1 = maximale Variabilität."
-        },
-        density: {
-          type: "slider",
-          label: "Dichte",
-          min: 0,
-          max: 1,
-          step: 0.01,
-        },
-        intensity: {
-          type: "slider",
-          label: "Intensität",
-          min: 0,
-          max: 100,
-        },
-      },
-      "6": {
-        base_opacity: {
-          type: "slider",
-          label: "Base Deckkraft",
-          min: 0,
-          max: 1,
+          max: 2,
           step: 0.1,
         },
-        base_tile_x: {
-          type: "slider",
-          label: "Base X",
-          min: 1,
-          max: 6,
-          step: 1,
+        edge_detection: {
+          active: true,
+          type: "checkbox",
+          label: "Kantenerkennung",
         },
-        base_tile_y: {
-          type: "slider",
-          label: "Base Y",
-          min: 1,
-          max: 6,
-          step: 1,
-        },
-        blur: {
-          type: "slider",
-          label: "Weichzeichnen",
-          min: 0,
-          max: 50,
-        },
+      },
+      2: {
         blur_mode: {
+          active: true,
           type: "select",
           label: "Weichzeichnungs-Filter",
           options: settings.blurModes
         },
-        base_brightness: {
-          type: "slider",
-          label: "Base Helligkeit",
-          min: -2,
-          max: 2,
-          step: 0.1,
+        blur_falloff_mode: {
+          active: true,
+          type: "select",
+          label: "Weichzeichnungs-Verlauf",
+          options: settings.blurFalloffModes
         },
-        base_contrast: {
-          type: "slider",
-          label: "Base Kontrast",
-          min: -2,
-          max: 2,
-          step: 0.1,
+        blur_type: {
+          active: true,
+          type: "select",
+          label: "Weichzeichnungs-Typ",
+          options: settings.blurTypes
         },
-        base_sharpness: {
+        blur: {
+          active: true,
           type: "slider",
-          label: "Base Schärfe",
+          label: "Weichzeichnen",
           min: 0,
-          max: 2,
+          max: 10,
           step: 0.1,
         },
-        base_fade_alpha: {
+        blur_radius: {
+          active: true,
           type: "slider",
-          label: "Base Alpha",
+          label: "Radius",
           min: 0,
-          max: 1,
-          step: 0.1,
-        },
-        opacity: {
-          type: "slider",
-          label: "Sub Deckkraft",
-          min: 0,
-          max: 1,
-          step: 0.1,
-        },
-        tile_x: {
-          type: "slider",
-          label: "Kacheln X-Achse",
-          min: 1,
-          max: 12,
+          max: 200,
           step: 1,
         },
-        tile_y: {
+        noise_level: {
+          active: true,
           type: "slider",
-          label: "Kacheln Y-Achse",
-          min: 1,
-          max: 12,
+          label: "Rauschlevel",
+          min: 0,
+          max: 100,
           step: 1,
         },
-        brightness: {
+      },
+      3: {
+        color_lookup: {
+          active: true,
+          type: "select",
+          label: "Filmfarben-Filter",
+          options: settings.colorLookupModes
+        },
+      },
+      4: {},
+      5: {},
+      6: {
+        simulate_mode: {
+          active: true,
+          type: "select",
+          label: "Motion-Filter",
+          options: settings.simulateModes
+        },
+        wave_type: {
+          active: settings?.simulate_mode === 1,
+          type: "select",
+          label: "Wellen-Typ",
+          options: settings.waveTypes
+        },
+        frame_count: {
+          active: settings?.simulate_mode !== 0,
+          type: "number",
+          label: "Frames",
+          min: 1,
+          max: 30,
+          step: 1,
+        },
+        amplitude: {
+          active: settings?.simulate_mode === 1,
           type: "slider",
-          label: "Sub Helligkeit",
+          label: "Amplitude",
+          min: 0,
+          max: 100,
+          step: 1,
+        },
+        amplitude_multiplier: {
+          active: settings?.simulate_mode === 1,
+          type: "slider",
+          label: "Amplitude-Verstärker",
+          min: 0,
+          max: 2,
+          step: 0.1,
+        },
+        frequency: {
+          active: settings?.simulate_mode === 1,
+          type: "slider",
+          label: "Frequenz",
           min: 0,
           max: 5,
           step: 0.1,
         },
-        sharpness: {
+        phase_shift: {
+          active: settings?.simulate_mode === 1,
           type: "slider",
-          label: "Sub Schärfe",
+          label: "Phase",
           min: 0,
           max: 5,
-          step: 0.1,
-        },
-        contrast: {
-          type: "slider",
-          label: "Sub Kontrast",
-          min: 0,
-          max: 2,
-          step: 0.1,
-        },
-        fade_alpha: {
-          type: "slider",
-          label: "Alpha Fade",
-          min: 0,
-          max: 1,
           step: 0.1,
         },
       },
-    };
+      7: {},
+      8: {},
+    }));
 
     const sortOrder = ref("newest");
     const sortOptions = [
@@ -942,6 +950,7 @@ export default defineComponent({
         (newMethod) => {
           // Wende methodenspezifische Defaults an, ohne andere Settings zu ändern
           Object.assign(settings, methodDefaults[newMethod]);
+          console.log(settings.color_overlay)
         },
         { immediate: true }
     );
@@ -974,6 +983,8 @@ export default defineComponent({
       selectedMaps,
       diffuseMap,
       settings,
+      activeTab,
+      tabs,
       itemMethods,
       methodDefaults,
       methodSettings,
@@ -1048,9 +1059,17 @@ export default defineComponent({
   right: 0;
 }
 
+.tab-navigation {
+  height: 32px;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
 .scrollFx{
   position: absolute;
-  height: 500px;
+  height: 80vh;
   width: 100%;
   left: 0;
   top: 100px;
