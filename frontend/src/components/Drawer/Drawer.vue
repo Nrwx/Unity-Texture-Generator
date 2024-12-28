@@ -11,6 +11,12 @@
             accept="image/*"
         ></v-file-input>
 
+        <v-checkbox
+            v-if="currentFile"
+            v-model="keepFile"
+            label="Texture bearbeiten"
+        ></v-checkbox>
+
         <v-select
             label="Zusätzliche Maps auswählen"
             v-model="selectedMaps"
@@ -18,42 +24,6 @@
             multiple
             outlined
         ></v-select>
-
-        <!-- Cropping Settings -->
-        <v-row>
-          <v-col cols="6">
-            <v-text-field
-                v-model.number="settings.cropLeft"
-                label="Links (px)"
-                type="number"
-                outlined
-            ></v-text-field>
-          </v-col>
-          <v-col cols="6">
-            <v-text-field
-                v-model.number="settings.cropTop"
-                label="Oben (px)"
-                type="number"
-                outlined
-            ></v-text-field>
-          </v-col>
-          <v-col cols="6">
-            <v-text-field
-                v-model.number="settings.cropRight"
-                label="Rechts (px)"
-                type="number"
-                outlined
-            ></v-text-field>
-          </v-col>
-          <v-col cols="6">
-            <v-text-field
-                v-model.number="settings.cropBottom"
-                label="Unten (px)"
-                type="number"
-                outlined
-            ></v-text-field>
-          </v-col>
-        </v-row>
 
         <!-- Prozess Button -->
         <v-btn color="primary" block @click="processImage">
@@ -342,6 +312,8 @@ export default defineComponent({
   },
   setup() {
     const file = ref(null);
+    const keepFile = ref(false)
+    const currentFile = ref('')
     const builds = ref([]);
     const buildId = ref("");
     const selectedMaps = ref(["Diffuse Map"]);
@@ -771,7 +743,40 @@ export default defineComponent({
           options: settings.colorLookupModes
         },
       },
-      4: {},
+      4: {
+        cropTop: {
+          active: true,
+          type: "number",
+          label: "Oben (px)",
+          min: 0,
+          max: 256,
+          step: 1,
+        },
+        cropLeft: {
+          active: true,
+          type: "number",
+          label: "Links (px)",
+          min: 0,
+          max: 256,
+          step: 1,
+        },
+        cropBottom: {
+          active: true,
+          type: "number",
+          label: "Unten (px)",
+          min: 0,
+          max: 256,
+          step: 1,
+        },
+        cropRight: {
+          active: true,
+          type: "number",
+          label: "Rechts (px)",
+          min: 0,
+          max: 256,
+          step: 1,
+        },
+      },
       5: {},
       6: {
         simulate_mode: {
@@ -886,6 +891,7 @@ export default defineComponent({
 
     const selectDiffuseMap = (mapUrl) => {
       diffuseMap.diff = mapUrl;
+      currentFile.value = mapUrl
     };
 
     const processImage = async () => {
@@ -897,7 +903,11 @@ export default defineComponent({
       diffuseMap.diff = null; // Zurücksetzen, bevor das Bild verarbeitet wird
 
       const formData = new FormData();
-      formData.append("file", file.value);
+      if (file.value === '' && !keepFile.value || file.value && !keepFile.value) {
+        formData.append("file", file.value);
+      } else {
+        formData.append("editFile", currentFile.value);
+      }
       Object.keys(settings).forEach((key) => {
         formData.append(key, settings[key]);
       });
@@ -912,33 +922,51 @@ export default defineComponent({
             }
         );
 
-        // Setze das diffuseMap.diff auf das erste Element von additionalMaps
-        if (response.data.additionalMaps && response.data.additionalMaps.length > 0) {
-          diffuseMap.diff = response.data.additionalMaps[0].url; // Standard auf das erste Element setzen
+        if (response.data.animationFrames && response.data.animationFrames.length > 0) {
+          diffuseMap.diff = response.data.animationFrames[0].url; // Speichere das erste Frame der Animation
+          const animationUrls = response.data.animationFrames.map((map) => ({
+            src: map.url,
+            type: map?.type,
+          }));
+          const newBuild = {
+            id: uuidv4(),
+            maps: 'Animation Frames',
+            buildMaps: [...animationUrls], // Liste der Frame-URLs
+            timestamp: dayjs().format('YYYY-MM-DD HH:mm:ss'), // Zeitstempel
+            imageCount: response.data.animationFrames.length, // Anzahl der Frames
+            tiledMaps: [],
+            collapsed: true,
+          };
+          builds.value.push(newBuild);
         }
+        else {
+          // Setze das diffuseMap.diff auf das erste Element von additionalMaps
+          if (response.data.additionalMaps && response.data.additionalMaps.length > 0) {
+            diffuseMap.diff = response.data.additionalMaps[0].url; // Standard auf das erste Element setzen
+            currentFile.value = response.data.additionalMaps[0].url;
+          }
 
-        // Füge die anderen Maps in das additionalMaps Array hinzu
-        const newMaps = response.data.additionalMaps.map((map) => ({
-          src: map.url,
-          type: map.type,
-        }));
+          // Füge die anderen Maps in das additionalMaps Array hinzu
+          const newMaps = response.data.additionalMaps.map((map) => ({
+            src: map.url,
+            type: map.type,
+          }));
 
-        // Erzeuge eine neue Build-ID mit UUID v4
-        const id = uuidv4();
-        buildId.value = id
-        // Neuer Build
-        const newBuild = {
-          id: id,
-          maps: selectedMaps.value.join(", "), // Ausgewählte Maps
-          buildMaps: [...newMaps], // Kopie der Maps (nicht den globalen array referenzieren)
-          timestamp: dayjs().format('YYYY-MM-DD HH:mm:ss'), // Zeitstempel mit dayjs
-          imageCount: response.data.additionalMaps.length, // Anzahl der verarbeiteten Bilder
-          tiledMaps: [],
-          collapsed: true,
-        };
-
-        builds.value.push(newBuild);
-
+          // Erzeuge eine neue Build-ID mit UUID v4
+          const id = uuidv4();
+          buildId.value = id
+          // Neuer Build
+          const newBuild = {
+            id: id,
+            maps: selectedMaps.value.join(", "), // Ausgewählte Maps
+            buildMaps: [...newMaps], // Kopie der Maps (nicht den globalen array referenzieren)
+            timestamp: dayjs().format('YYYY-MM-DD HH:mm:ss'), // Zeitstempel mit dayjs
+            imageCount: response.data.additionalMaps.length, // Anzahl der verarbeiteten Bilder
+            tiledMaps: [],
+            collapsed: true,
+          };
+          builds.value.push(newBuild);
+        }
       } catch (error) {
         console.error("Fehler beim Verarbeiten des Bildes:", error);
       }
@@ -950,7 +978,6 @@ export default defineComponent({
         (newMethod) => {
           // Wende methodenspezifische Defaults an, ohne andere Settings zu ändern
           Object.assign(settings, methodDefaults[newMethod]);
-          console.log(settings.color_overlay)
         },
         { immediate: true }
     );
@@ -971,13 +998,14 @@ export default defineComponent({
                 collapsed: build.id !== buildId.value,
               };
             });
-            console.log(sortedBuilds.value);
           }
         }
     );
 
     return {
       file,
+      keepFile,
+      currentFile,
       builds,
       buildId,
       selectedMaps,

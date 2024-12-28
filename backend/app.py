@@ -54,6 +54,7 @@ PARAMETERS = {
         "method": {"type": int, "default": 0},
         "output_format": {"type": str, "default": "PNG"},
         "quality": {"type": int, "default": 80},
+        "editFile": {"type": str, "default": ""},
         # STANDARD METHODS PARAMS END
 
         # BOOL HANDLER START
@@ -96,6 +97,7 @@ PARAMETERS = {
 
         # SIMULATE PARAMS START
         "simulate_mode": {"type": int, "default": 0},
+        "amplitude": {"type": int, "default": 50},
         "frame_count": {"type": int, "default": 1},
         "frequency": {"type": float, "default": 0},
         "phase_shift": {"type": float, "default": 0},
@@ -168,9 +170,28 @@ def upload_file():
     try:
         params = parse_parameters(PARAMETERS['upload'], request.form)
 
-        # Datei öffnen
-        file = request.files['file']
-        image = Image.open(file.stream).convert("RGB")
+        image = None  # Standardwert für den Fall, dass keine Datei gefunden wird
+
+        # Datei aus dem Upload-Parameter prüfen
+        if "file" in request.files:
+            file = request.files['file']
+            image = Image.open(file.stream).convert("RGB")
+
+        # Datei aus dem EditFile-Parameter prüfen
+        elif params.get("editFile", "").strip():
+            url = str(request.form.get('editFile', ""))
+            diffuse_image_path = os.path.join(UPLOAD_FOLDER, os.path.basename(url))
+
+            if not os.path.exists(diffuse_image_path):
+                raise FileNotFoundError(f"File not found: {diffuse_image_path}")
+
+            image = Image.open(diffuse_image_path).convert("RGB")
+
+        # Keine gültige Datei gefunden
+        if image is None:
+            raise ValueError("No valid file provided in 'file' or 'editFile' parameters.")
+
+
         cropped_image = apply_crop_image(
             image, params["cropLeft"], params["cropTop"], params["cropRight"], params["cropBottom"]
         )
@@ -202,7 +223,7 @@ def upload_file():
                 'function': generate_stone_map
             },
             6: {
-                'keys': {"simulate_mode"},
+                'keys': {"simulate_mode", "frame_count", "amplitude", "frequency", "phase_shift", "amplitude_multiplier", "wave_type"},
                 'function': apply_motion_projection
             }
         }
@@ -225,39 +246,60 @@ def upload_file():
         # Bildverarbeitung mit der entsprechenden Methode
         processed_image = method_function(cropped_image, **method_params)
 
-        # Karten basierend auf dem Hauptbild erstellen
-        map_functions = {
-            "Diffuse Map": generate_diffuse_map,
-            "Normal Map": generate_normal_map,
-            "Specular Map": generate_specular_map,
-            "Bump Map": generate_bump_map,
-            "Light Map": generate_light_map,
-            "Alpha Map": generate_alpha_map,
-        }
-
-        additional_maps = []
-        for map_type in params["selectedMaps"]:
-            map_type = map_type.strip()
-            if map_type in map_functions:
-                # Karte basierend auf dem Hauptbild erstellen
-                map_image = map_functions[map_type](processed_image)
-
-                # UUID für Dateinamen
+        # Prüfen, ob das Ergebnis eine Animation (Liste von Frames) ist
+        if isinstance(processed_image, list):
+            # Animation: Liste von Frames als JSON serialisieren
+            animation_frames = []
+            for idx, frame in enumerate(processed_image):
                 file_uuid = uuid.uuid4().hex
-                map_filename = f"{map_type.replace(' ', '_').lower()}_{file_uuid}.png"
-                map_path = os.path.join(UPLOAD_FOLDER, map_filename)
+                frame_filename = f"frame_{idx}_{file_uuid}.png"
+                frame_path = os.path.join(UPLOAD_FOLDER, frame_filename)
 
-                # Speichern der Datei
-                map_image.save(map_path, format=params["output_format"], quality=params["quality"])
+                # Speichern jedes Frames
+                frame.save(frame_path, format=params.get("output_format", "PNG"), quality=params.get("quality", 90))
 
-                additional_maps.append({
-                    "type": map_type,
-                    "url": f"/download/{map_filename}"
+                # Hinzufügen zur Animation
+                animation_frames.append({
+                    "type": f"Frame {idx}",
+                    "url": f"/download/{frame_filename}"
                 })
 
-        return jsonify({
-            "additionalMaps": additional_maps
-        })
+            return jsonify({"animationFrames": animation_frames})
+
+        else:
+            # Karten basierend auf dem Hauptbild erstellen
+            map_functions = {
+                "Diffuse Map": generate_diffuse_map,
+                "Normal Map": generate_normal_map,
+                "Specular Map": generate_specular_map,
+                "Bump Map": generate_bump_map,
+                "Light Map": generate_light_map,
+                "Alpha Map": generate_alpha_map,
+            }
+
+            additional_maps = []
+            for map_type in params["selectedMaps"]:
+                map_type = map_type.strip()
+                if map_type in map_functions:
+                    # Karte basierend auf dem Hauptbild erstellen
+                    map_image = map_functions[map_type](processed_image)
+
+                    # UUID für Dateinamen
+                    file_uuid = uuid.uuid4().hex
+                    map_filename = f"{map_type.replace(' ', '_').lower()}_{file_uuid}.png"
+                    map_path = os.path.join(UPLOAD_FOLDER, map_filename)
+
+                    # Speichern der Datei
+                    map_image.save(map_path, format=params["output_format"], quality=params["quality"])
+
+                    additional_maps.append({
+                        "type": map_type,
+                        "url": f"/download/{map_filename}"
+                    })
+
+            return jsonify({
+                "additionalMaps": additional_maps
+            })
 
     except Exception as e:
         print(f"Fehler beim Hochladen der Datei: {str(e)}")  # Fehler im Terminal ausgeben
@@ -368,12 +410,16 @@ def apply_beauty_adjustments(img, color_lookup):
         img_array = apply_color_lookup(img_array, color_lookup)
     return Image.fromarray(img_array.astype(np.uint8))
 
-def apply_motion_projection(img, simulate_mode):
+def apply_motion_projection(img, simulate_mode, frame_count, amplitude, frequency, phase_shift, amplitude_multiplier, wave_type):
     width, height = img.size
     img_array = np.array(img)
     if simulate_mode > 0:  # Überprüft, ob das Rauschlevel größer als 0 ist
-        img_array = texture_projection(img, simulate_mode)
-    return Image.fromarray(img_array.astype(np.uint8))
+        img_array = texture_projection(img, simulate_mode, frame_count, amplitude, frequency, phase_shift, amplitude_multiplier, wave_type)
+
+    if frame_count > 1:
+        return img_array
+    else:
+        return Image.fromarray(img_array.astype(np.uint8))
 
 def pre_average(img, intensity, radius):
     """Fügt Unschärfe hinzu und passt den Kontrast basierend auf der Intensität an."""
