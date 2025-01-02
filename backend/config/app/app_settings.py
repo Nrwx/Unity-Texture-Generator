@@ -1,23 +1,11 @@
 import os
 import json
+import logging
+import subprocess
 
-def get_gpu_info():
-    try:
-        import torch
-        if torch.cuda.is_available():
-            gpu_name = torch.cuda.get_device_name(0)
-            gpu_memory_mb = torch.cuda.get_device_properties(0).total_memory // (1024 ** 2)  # In MB
-            return True, gpu_name, gpu_memory_mb
-        else:
-            return False, "None", 0
-    except ImportError:
-        return False, "None", 0
-    except Exception as e:
-        print(f"Fehler bei der Erkennung der GPU: {e}")
-        return False, "None", 0
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 CPU_THREADS = os.cpu_count()
-
 DEFAULT_ANIMATION_SETTINGS = {
     "use_gpu": False,
     "gpu_name": "None",
@@ -26,27 +14,117 @@ DEFAULT_ANIMATION_SETTINGS = {
     "preferred_unit": "CPU",
 }
 
-SETTINGS_FILE_PATH = 'config/app/app_settings.json'
+SETTINGS_FILE_PATH = os.path.join(os.getenv("APP_CONFIG_PATH", "config/app"), "app_settings.json")
+
+
+def detect_gpu_with_nvidia_smi():
+    """
+    Erkennung der GPU mit dem nvidia-smi Kommandozeilenwerkzeug.
+    """
+    try:
+        result = subprocess.run(["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader,nounits"],
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if result.returncode == 0:
+            output = result.stdout.strip().split('\n')[0]  # Erster GPU-Eintrag
+            gpu_name, gpu_memory_mb = output.split(", ")
+            gpu_memory_mb = int(gpu_memory_mb)  # Speicher in MB konvertieren
+            logging.info(f"nvidia-smi detected NVIDIA GPU: {gpu_name} with {gpu_memory_mb} MB memory.")
+            return True, gpu_name, gpu_memory_mb
+        else:
+            logging.info("nvidia-smi command did not detect a GPU.")
+            return False, "No GPU Available", 0
+    except FileNotFoundError:
+        logging.error("nvidia-smi not found. Ensure NVIDIA drivers are installed.")
+        return False, "nvidia-smi not found", 0
+    except Exception as e:
+        logging.error(f"Error during nvidia-smi GPU detection: {e}")
+        return False, "Error", 0
+
+
+def detect_gpu_with_pytorch():
+    """
+    Erkennung der GPU mit PyTorch, falls verfügbar.
+    """
+    try:
+        import torch
+        if torch.cuda.is_available():
+            gpu_name = torch.cuda.get_device_name(0)
+            gpu_memory_mb = torch.cuda.get_device_properties(0).total_memory // (1024 ** 2)
+            logging.info(f"PyTorch detected NVIDIA GPU: {gpu_name} with {gpu_memory_mb} MB memory.")
+            return True, gpu_name, gpu_memory_mb
+        else:
+            logging.info("PyTorch: No CUDA GPU detected.")
+            return False, "No GPU Available", 0
+    except ImportError:
+        logging.error("PyTorch is not installed. Skipping PyTorch detection.")
+        return False, "PyTorch not installed", 0
+    except Exception as e:
+        logging.error(f"Unexpected error during PyTorch GPU detection: {e}")
+        return False, "Error", 0
+
+
+def detect_gpu_with_pycuda():
+    """
+    Erkennung der GPU mit der PyCUDA-Bibliothek.
+    """
+    try:
+        import pycuda.driver as cuda
+        cuda.init()
+        device = cuda.Device(0)
+        gpu_name = device.name()
+        gpu_memory_mb = device.total_memory() // (1024 ** 2)
+        logging.info(f"PyCUDA detected NVIDIA GPU: {gpu_name} with {gpu_memory_mb} MB memory.")
+        return True, gpu_name, gpu_memory_mb
+    except ImportError:
+        logging.error("PyCUDA is not installed. Skipping PyCUDA detection.")
+        return False, "PyCUDA not installed", 0
+    except Exception as e:
+        logging.error(f"Error during PyCUDA GPU detection: {e}")
+        return False, "Error", 0
+
+
+def detect_gpu():
+    """
+    Optimierte GPU-Erkennungsfunktion, die nacheinander Methoden ausprobiert,
+    bis eine GPU gefunden wird.
+    """
+    detection_methods = [
+        detect_gpu_with_nvidia_smi,
+        detect_gpu_with_pytorch,
+        detect_gpu_with_pycuda
+    ]
+
+    for method in detection_methods:
+        gpu_available, gpu_name, gpu_memory_mb = method()
+        if gpu_available:
+            logging.info(f"GPU detected using {method.__name__}: {gpu_name} with {gpu_memory_mb} MB memory.")
+            return True, gpu_name, gpu_memory_mb
+
+    logging.info("No GPU detected after trying all available methods.")
+    return False, "No GPU Available", 0
+
 
 def load_app_settings():
-    """Lädt die gespeicherten Einstellungen aus einer JSON-Datei oder gibt die Standardwerte zurück."""
     if os.path.exists(SETTINGS_FILE_PATH):
         with open(SETTINGS_FILE_PATH, 'r') as f:
             try:
                 return json.load(f)
             except json.JSONDecodeError:
-                print("Ungültige JSON-Datei. Verwende Standardwerte.")
+                logging.warning("Invalid JSON file format. Using default settings.")
     return DEFAULT_ANIMATION_SETTINGS.copy()
+
 
 def save_app_settings(updated_settings):
     os.makedirs(os.path.dirname(SETTINGS_FILE_PATH), exist_ok=True)
     with open(SETTINGS_FILE_PATH, 'w') as f:
         json.dump(updated_settings, f, indent=4)
+    logging.info("Settings saved successfully.")
+
 
 def update_settings_if_changed():
     global ANIMATION_SETTINGS
 
-    GPU_AVAILABLE, GPU_NAME, GPU_MEMORY_MB = get_gpu_info()
+    GPU_AVAILABLE, GPU_NAME, GPU_MEMORY_MB = detect_gpu()
 
     current_settings = load_app_settings()
 
@@ -63,11 +141,9 @@ def update_settings_if_changed():
 
     ANIMATION_SETTINGS = updated_settings
 
-ANIMATION_SETTINGS = load_app_settings()
-update_settings_if_changed()
 
 def get_app_settings():
-    GPU_AVAILABLE, GPU_NAME, GPU_MEMORY_MB = get_gpu_info()
+    GPU_AVAILABLE, GPU_NAME, GPU_MEMORY_MB = detect_gpu()
     current_settings = load_app_settings()
     current_settings.update({
         "use_gpu": GPU_AVAILABLE,
@@ -77,3 +153,12 @@ def get_app_settings():
     })
     save_app_settings(current_settings)
     return current_settings
+
+
+# Initialisieren der Einstellungen
+ANIMATION_SETTINGS = load_app_settings()
+update_settings_if_changed()
+
+if __name__ == "__main__":
+    current_settings = get_app_settings()
+    logging.info(f"Current App Settings: {current_settings}")

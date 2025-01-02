@@ -1,36 +1,59 @@
-from PIL import Image, ImageOps
+from PIL import Image
 import numpy as np
 import torch
-import time
 import multiprocessing
-from config.app.app_settings import ANIMATION_SETTINGS  # Deine Animationseinstellungen laden
+import time
+from config.app.app_settings import get_app_settings
 
-def process_frame(t, img_array, height_map, frame_count, frequency, phase_shift, amplitude_multiplier, wave_type):
-    """
-    Berechnet das verzerrte Bild für ein einzelnes Frame.
 
-    :param t: Der Index des aktuellen Frames.
-    :param img_array: NumPy-Array des Eingabebildes.
-    :param height_map: Höhenkarte als NumPy-Array.
-    :param frame_count: Anzahl der Frames.
-    :param frequency: Frequenz der Wellenbewegung.
-    :param phase_shift: Phasenverschiebung der Wellenbewegung.
-    :param amplitude_multiplier: Multiplikator zur Verstärkung der Amplitude.
-    :param wave_type: Der Typ der Welle (0 = sin, 1 = cos, 2 = sin+cos).
-    :return: Verzerrtes Bild für das aktuelle Frame (NumPy-Array).
-    """
+def process_frame_gpu(t, img_tensor, height_map_tensor, frame_count, frequency, phase_shift, amplitude_multiplier, wave_type, device):
+    """Verarbeitet einen Frame auf der GPU."""
+    time_factor = (t / max(frame_count, 1)) * 2 * np.pi * frequency
+    time_factor_tensor = torch.tensor(time_factor, device=device, dtype=torch.float32)
+
+    # Erstelle Koordinatensystem
+    y_coords, x_coords = torch.meshgrid(
+        torch.arange(img_tensor.shape[1], device=device, dtype=torch.float32),
+        torch.arange(img_tensor.shape[2], device=device, dtype=torch.float32),
+        indexing='ij'
+    )
+
+    if wave_type == 0:  # Sinuswelle
+        offsets_x = height_map_tensor * torch.sin(2 * np.pi * y_coords / img_tensor.shape[1] + time_factor_tensor + phase_shift) * amplitude_multiplier
+        offsets_y = height_map_tensor * torch.sin(2 * np.pi * x_coords / img_tensor.shape[2] + time_factor_tensor + phase_shift) * amplitude_multiplier
+    elif wave_type == 1:  # Cosinuswelle
+        offsets_x = height_map_tensor * torch.cos(2 * np.pi * y_coords / img_tensor.shape[1] + time_factor_tensor + phase_shift) * amplitude_multiplier
+        offsets_y = height_map_tensor * torch.cos(2 * np.pi * x_coords / img_tensor.shape[2] + time_factor_tensor + phase_shift) * amplitude_multiplier
+    elif wave_type == 2:  # Kombination aus Sinus und Cosinus
+        offsets_x = height_map_tensor * (torch.sin(2 * np.pi * y_coords / img_tensor.shape[1] + time_factor_tensor + phase_shift) +
+                                         torch.cos(2 * np.pi * x_coords / img_tensor.shape[2] + time_factor_tensor + phase_shift)) * amplitude_multiplier
+        offsets_y = height_map_tensor * (torch.cos(2 * np.pi * y_coords / img_tensor.shape[1] + time_factor_tensor + phase_shift) +
+                                         torch.sin(2 * np.pi * x_coords / img_tensor.shape[2] + time_factor_tensor + phase_shift)) * amplitude_multiplier
+    else:
+        raise ValueError("Ungültiger wave_type. Verwende 0 für sin, 1 für cos oder 2 für sin+cos.")
+
+    # Neue Koordinaten berechnen und beschneiden
+    new_x = torch.clamp((x_coords + offsets_x).long(), 0, img_tensor.shape[2] - 1)
+    new_y = torch.clamp((y_coords + offsets_y).long(), 0, img_tensor.shape[1] - 1)
+
+    # Erzeuge das verzerrte Bild
+    distorted_img = img_tensor[:, new_y, new_x]
+    return distorted_img
+
+
+def process_frame_cpu(t, img_array, height_map, frame_count, frequency, phase_shift, amplitude_multiplier, wave_type):
+    time_factor = (t / max(frame_count, 1)) * 2 * np.pi * frequency
     distorted_img = np.zeros_like(img_array)
-    time_factor = (t / max(frame_count, 1)) * 2 * np.pi * frequency  # Zeitschritt basierend auf der Frequenz
 
     for y in range(img_array.shape[0]):
         for x in range(img_array.shape[1]):
-            if wave_type == 0:  # Sinuswelle
+            if wave_type == 0:
                 offset_x = int(height_map[y, x] * np.sin(2 * np.pi * y / img_array.shape[0] + time_factor + phase_shift) * amplitude_multiplier)
                 offset_y = int(height_map[y, x] * np.sin(2 * np.pi * x / img_array.shape[1] + time_factor + phase_shift) * amplitude_multiplier)
-            elif wave_type == 1:  # Kosinuswelle
+            elif wave_type == 1:
                 offset_x = int(height_map[y, x] * np.cos(2 * np.pi * y / img_array.shape[0] + time_factor + phase_shift) * amplitude_multiplier)
                 offset_y = int(height_map[y, x] * np.cos(2 * np.pi * x / img_array.shape[1] + time_factor + phase_shift) * amplitude_multiplier)
-            elif wave_type == 2:  # Sinus und Kosinus kombiniert
+            elif wave_type == 2:
                 offset_x = int(height_map[y, x] * (np.sin(2 * np.pi * y / img_array.shape[0] + time_factor + phase_shift) + np.cos(2 * np.pi * x / img_array.shape[1] + time_factor + phase_shift)) * amplitude_multiplier)
                 offset_y = int(height_map[y, x] * (np.cos(2 * np.pi * y / img_array.shape[0] + time_factor + phase_shift) + np.sin(2 * np.pi * x / img_array.shape[1] + time_factor + phase_shift)) * amplitude_multiplier)
             else:
@@ -43,50 +66,49 @@ def process_frame(t, img_array, height_map, frame_count, frequency, phase_shift,
 
     return distorted_img
 
+
 def create_wave_animation(img_array, height_map, frame_count, frequency=1.0, phase_shift=0.0, amplitude_multiplier=1.0, wave_type=0):
-    """
-    Erstellt eine Wellenanimation basierend auf der Höhenkarte mit zusätzlicher Feinjustierung.
-
-    :param img_array: NumPy-Array des Eingabebildes.
-    :param height_map: Höhenkarte als NumPy-Array.
-    :param frame_count: Anzahl der Frames.
-    :param frequency: Frequenz der Wellenbewegung.
-    :param phase_shift: Phasenverschiebung der Wellenbewegung.
-    :param amplitude_multiplier: Multiplikator zur Verstärkung der Amplitude.
-    :param wave_type: Der Typ der Welle (0 = sin, 1 = cos, 2 = sin+cos).
-    :return: Liste von Frames (Pillow Images).
-    """
-
-    # Tracking der Startzeit
     start_time = time.time()
     print("Starte Berechnung der Wellenanimation...")
 
-    # CPU-Kern-Auslastung
-    cpu_count = multiprocessing.cpu_count()
-    print(f"Verfügbare CPU-Kerne: {cpu_count}")
-    print(f"Verwendete CPU-Kerne: {ANIMATION_SETTINGS['cpu_threads']}")
+    animation_settings = get_app_settings()
+    frames = []
 
-    # Wenn frame_count > 1, verwenden wir multiprocessing für die parallele Verarbeitung der Frames
     if frame_count > 1:
-        with multiprocessing.Pool(processes=ANIMATION_SETTINGS["cpu_threads"]) as pool:
-            frames = pool.starmap(process_frame, [(t, img_array, height_map, frame_count, frequency, phase_shift, amplitude_multiplier, wave_type) for t in range(frame_count)])
-
-        # Wenn GPU aktiviert ist, konvertieren wir die Frames mit Torch auf die GPU
-        if ANIMATION_SETTINGS["use_gpu"]:
+        if animation_settings["use_gpu"]:
             print("Verwenden der GPU für Berechnungen.")
-            for idx, frame in enumerate(frames):
-                # Verwandelt NumPy Array in Tensor und überträgt es auf die GPU, wenn verfügbar
-                frames[idx] = torch.tensor(frame).to(torch.device("cuda" if ANIMATION_SETTINGS["use_gpu"] else "cpu")).cpu().numpy()
+            device = torch.device("cuda")
 
-        # Konvertiere jedes berechnete Frame zu einem Pillow Image
+            # Daten auf die GPU übertragen
+            img_tensor = torch.tensor(img_array, device=device).permute(2, 0, 1).float()  # HWC -> CHW
+            height_map_tensor = torch.tensor(height_map, device=device, dtype=torch.float32)
+
+            # Frames berechnen
+            for t in range(frame_count):
+                frame = process_frame_gpu(t, img_tensor, height_map_tensor, frame_count, frequency, phase_shift, amplitude_multiplier, wave_type, device)
+                frames.append(frame.cpu().numpy().astype(np.uint8).transpose(1, 2, 0))  # CHW -> HWC
+        else:
+            print("Verwenden der CPU für Berechnungen.")
+            with multiprocessing.Pool(processes=animation_settings["cpu_threads"]) as pool:
+                frames = pool.starmap(process_frame_cpu, [
+                    (t, img_array, height_map, frame_count, frequency, phase_shift, amplitude_multiplier, wave_type)
+                    for t in range(frame_count)
+                ])
+
         print("Frames erfolgreich berechnet.")
         print(f"Verwendete Zeit für die Animation mit {frame_count} Frames: {time.time() - start_time:.2f} Sekunden")
 
         return [Image.fromarray(frame) for frame in frames]
-
-    # Falls nur ein Frame benötigt wird
     else:
-        distorted_img = process_frame(0, img_array, height_map, frame_count, frequency, phase_shift, amplitude_multiplier, wave_type)
-        distorted_img = np.array(distorted_img)  # Zurückgeben eines leeren Arrays für das einzelne Frame
+        if animation_settings["use_gpu"]:
+            print("Verwenden der GPU für 1 Frame.")
+            device = torch.device("cuda")
+            img_tensor = torch.tensor(img_array, device=device).permute(2, 0, 1).float()  # HWC -> CHW
+            frame = process_frame_gpu(0, img_tensor, height_map, frame_count, frequency, phase_shift, amplitude_multiplier, wave_type, device)
+            frame = frame.cpu().numpy().astype(np.uint8).transpose(1, 2, 0)  # CHW -> HWC
+        else:
+            print("Verwenden der CPU für 1 Frame.")
+            frame = process_frame_cpu(0, img_array, height_map, frame_count, frequency, phase_shift, amplitude_multiplier, wave_type)
+
         print(f"Verwendete Zeit für 1 Frame: {time.time() - start_time:.2f} Sekunden")
-        return distorted_img  # Das verzerrte Bild als NumPy-Array zurückgeben
+        return frame
