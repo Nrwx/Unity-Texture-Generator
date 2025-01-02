@@ -38,6 +38,14 @@ def texture_projection(img, simulate_mode, frame_count=1, amplitude=100, frequen
     :param wave_type: Der Typ der Welle ('sin' oder 'cos').
     :return: Einzelnes Bild (Pillow Image) bei frame_count=1, sonst Liste von Frames (Pillow Images).
     """
+
+    # Ensure the input image is a NumPy array
+    if isinstance(img, Image.Image):
+        img = np.array(img)
+
+    if not isinstance(img, np.ndarray):
+        raise TypeError("Input image must be a PIL.Image or a NumPy array.")
+
     # Verzeichnis für den Modus
     mode_name = SIMULATE_MODE_MAPPING.get(simulate_mode, None)
     if mode_name is None or mode_name == "none":

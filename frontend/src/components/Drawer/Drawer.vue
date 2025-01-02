@@ -44,22 +44,65 @@
           Create professional Game Texture Maps
         </template>
         <template v-slot:action>
-          <v-btn icon class="ml-2" size="small" @click="openSettingsDialog">
+          <v-btn icon class="ml-2" size="small" @click="openOsSettingsDialog">
             <v-icon>mdi-cog</v-icon>
           </v-btn>
         </template>
       </PageHeader>
 
-      <v-row justify="center" class="mt-6">
-        <v-col cols="12" md="6">
+      <v-row justify="center" class="mt-6" style="position:relative;">
+        <v-col cols="6" class="relative">
+          <!-- Hauptbild -->
           <v-img
-              v-if="diffuseMap.diff"
+              v-if="diffuseMap.diff && animation.length === 0"
               :src="diffuseMap.diff"
               alt="Diffuse Map"
               class="map-image mt-4"
               :key="diffuseMap.diff"
           />
+          <img
+              v-else-if="animation.length > 0 && playAnimation || animation.length > 0 && pauseAnimation"
+              :src="animation.length > 0 && playAnimation || animation.length > 0 && pauseAnimation ? currentFrame : diffuseMap.diff"
+              alt="Animated Frames"
+              class="map-image mt-4"
+              style="max-width: 100%;"
+              :key="animation.length > 0 && playAnimation || animation.length > 0 && pauseAnimation ? currentFrame : diffuseMap.diff"
+          />
         </v-col>
+        <!-- Frame-Panel -->
+        <div class="frame-panel-container d-flex align-center flex-wrap" v-if="animation.length > 0">
+          <div class="frame-panel d-flex align-center">
+            <!-- Iteriere über animation.buildMaps -->
+            <div
+                v-for="(frame, index) in animation[0]?.buildMaps || []"
+                :key="index"
+                class="frame-item"
+            >
+              <v-img
+                  v-if="frame.src"
+                  :src="frame.src"
+                  max-width="50px"
+                  max-height="50px"
+                  :alt="`Frame ${index + 1}`"
+                  class="frame-image"
+                  @click="selectDiffuseMap(frame.src)"
+              />
+            </div>
+          </div>
+          <!-- Steuerung: Play/Pause -->
+          <div class="control-panel">
+            <v-btn
+                color="primary"
+                icon
+                variant="outlined"
+                @click="toggleAnimation"
+            >
+              <v-icon>
+                {{ isPlaying ? "mdi-pause" : "mdi-play" }}
+              </v-icon>
+            </v-btn>
+          </div>
+        </div>
       </v-row>
     </v-container>
   </v-main>
@@ -296,6 +339,27 @@
       </div>
     </v-card>
   </v-dialog>
+
+  <v-dialog v-model="osSettingsDialog" max-width="500">
+    <v-card>
+      <v-card-title>Systemeinstellungen</v-card-title>
+      <v-card-text>
+        <v-form ref="form">
+          <v-switch v-model="osSettings.use_gpu" label="Use GPU"></v-switch>
+          <v-text-field v-model="osSettings.cpu_threads" label="CPU Threads" type="number"></v-text-field>
+          <v-select
+              v-model="osSettings.preferred_unit"
+              :items="['GPU', 'CPU']"
+              label="Preferred Unit"
+          ></v-select>
+        </v-form>
+      </v-card-text>
+      <v-card-actions>
+        <v-btn color="primary" text @click="saveOsSettings">Save</v-btn>
+        <v-btn text @click="osSettingsDialog = false">Cancel</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script>
@@ -315,6 +379,11 @@ export default defineComponent({
     const keepFile = ref(false)
     const currentFile = ref('')
     const builds = ref([]);
+    const animation = ref([]);
+    const currentFrameIndex = ref(0);
+    const isPlaying = ref(false);
+    const intervalId = ref(null);
+    const startTime = ref(null);
     const buildId = ref("");
     const selectedMaps = ref(["Diffuse Map"]);
     const fullscreen = ref(false);
@@ -329,6 +398,12 @@ export default defineComponent({
     const selectedTileSize = ref({ x: 1, y: 1 });
     const diffuseMap = reactive({
       diff: null
+    });
+    const osSettingsDialog = ref(false);
+    const osSettings = reactive({
+      use_gpu: false,
+      cpu_threads: 1,
+      preferred_unit: "CPU",
     });
     const tileSizes = [
       { title: "1x1", value: {x: 1, y: 1} },
@@ -836,6 +911,54 @@ export default defineComponent({
       8: {},
     }));
 
+    const currentFrame = computed(() => {
+      // Aktuellen Frame basierend auf currentFrameIndex berechnen
+      const aniStack = animation.value[0]?.buildMaps || [];
+      return aniStack[currentFrameIndex.value]?.src || null;
+    });
+
+    const toggleAnimation = () => {
+      if (isPlaying.value) {
+        pauseAnimation();
+      } else {
+        playAnimation();
+      }
+    }
+
+    const playAnimation = () => {
+      isPlaying.value = true;
+      startTime.value = performance.now(); // Setzt den Startzeitpunkt
+      animateFrame();
+    }
+
+    const animateFrame = () => {
+      const buildMaps = animation.value[0]?.buildMaps || [];
+      if (!isPlaying.value || buildMaps.length === 0) return;
+
+      // Berechne die Zeit, die seit dem Start vergangen ist
+      const now = performance.now();
+      const elapsed = now - startTime.value;
+
+      // Bestimme den aktuellen Frame basierend auf der verstrichenen Zeit
+      currentFrameIndex.value = Math.floor(elapsed / 200) % buildMaps.length;
+
+      // Plane den nächsten Frame, ohne Verzögerungen
+      const nextFrameTime = startTime.value + (currentFrameIndex.value + 1) * 200;
+      const delay = Math.max(nextFrameTime - performance.now(), 0);
+
+      intervalId.value = setTimeout(() => {
+        animateFrame();
+      }, delay);
+    }
+
+    const pauseAnimation = () => {
+      isPlaying.value = false;
+      if (intervalId.value) {
+        clearInterval(intervalId.value);
+        intervalId.value = null;
+      }
+    }
+
     const sortOrder = ref("newest");
     const sortOptions = [
       { title: "Neueste", value: "newest" },
@@ -876,6 +999,39 @@ export default defineComponent({
       resetZoom()
       tiledImage.value = ""
       zoomMode.value = false
+    };
+
+    const fetchOsSettings = async () => {
+      try {
+        const response = await axios.get("http://127.0.0.1:5000/settings", {
+          responseType: "json",
+        });
+        // Die aktuellen Einstellungen in die `osSettings` Variable einfügen
+        Object.assign(osSettings, response.data);
+      } catch (err) {
+        console.error("Error fetching settings:", err);
+      }
+    };
+
+    const saveOsSettings = async () => {
+      try {
+        const response = await axios.post(
+            "http://127.0.0.1:5000/settings",
+            { ...osSettings },
+            {
+              responseType: "json",
+            }
+        );
+        console.log("Settings saved successfully:", response.data);
+        osSettingsDialog.value = false;  // Dialog schließen nach dem Speichern
+      } catch (err) {
+        console.error("Error saving settings:", err);
+      }
+    };
+
+    const openOsSettingsDialog = () => {
+      fetchOsSettings();
+      osSettingsDialog.value = true;
     };
 
     const downloadImage = (src) => {
@@ -922,6 +1078,11 @@ export default defineComponent({
             }
         );
 
+        if(animation.value.length > 0) {
+          builds.value.push(animation.value[0])
+          animation.value = []
+        }
+
         if (response.data.animationFrames && response.data.animationFrames.length > 0) {
           diffuseMap.diff = response.data.animationFrames[0].url; // Speichere das erste Frame der Animation
           const animationUrls = response.data.animationFrames.map((map) => ({
@@ -937,13 +1098,24 @@ export default defineComponent({
             tiledMaps: [],
             collapsed: true,
           };
-          builds.value.push(newBuild);
+          if (animation.value.length === 0) {
+            animation.value.push(newBuild);
+          }
+          else {
+            animation.value = []
+            animation.value.push(newBuild);
+          }
         }
         else {
           // Setze das diffuseMap.diff auf das erste Element von additionalMaps
           if (response.data.additionalMaps && response.data.additionalMaps.length > 0) {
             diffuseMap.diff = response.data.additionalMaps[0].url; // Standard auf das erste Element setzen
             currentFile.value = response.data.additionalMaps[0].url;
+          }
+
+          if(animation.value.length > 0) {
+            builds.value.push(animation.value[0])
+            animation.value = []
           }
 
           // Füge die anderen Maps in das additionalMaps Array hinzu
@@ -1002,12 +1174,31 @@ export default defineComponent({
         }
     );
 
+    watch(
+        () => animation.value,
+        (newVal, oldVal) => {
+          if (newVal !== oldVal) {
+            console.log(animation.value, newVal)
+          }
+        }
+    );
+
     return {
       file,
       keepFile,
       currentFile,
       builds,
       buildId,
+      animation,
+      currentFrameIndex,
+      isPlaying,
+      intervalId,
+      toggleAnimation,
+      startTime,
+      animateFrame,
+      currentFrame,
+      playAnimation,
+      pauseAnimation,
       selectedMaps,
       diffuseMap,
       settings,
@@ -1041,6 +1232,11 @@ export default defineComponent({
       openFullscreen,
       closeFullscreen,
       downloadImage,
+      osSettings,
+      osSettingsDialog,
+      fetchOsSettings,
+      saveOsSettings,
+      openOsSettingsDialog
     };
   },
 });
@@ -1130,7 +1326,7 @@ export default defineComponent({
   max-height: 85vh;
   position: relative;
   overflow: hidden;
-  overflow-y: scroll;
+  overflow-y: auto;
   align-items: baseline;
   flex: 0 1 auto;
 }
@@ -1142,5 +1338,39 @@ export default defineComponent({
   position: absolute;
   border-radius: 12px;
   bottom: 32px;
+}
+
+/* Styling für das Frame-Panel */
+.frame-panel {
+  height: 100%;
+  flex-direction: column;
+  max-height: 500px;
+  overflow: hidden;
+  overflow-y: auto;
+}
+
+.frame-panel-container{
+  position: absolute;
+  right: 16px;
+  max-width: 85px;
+  height: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: hsla(0, 0%, 100%, .9);
+  padding: 10px;
+  border-radius: 8px;
+}
+
+/* Styling für jedes Frame */
+.frame-item {
+  margin-bottom: 8px; /* Abstand zwischen den Frames */
+}
+
+.frame-image {
+  width: 80px; /* Feste Breite */
+  height: auto; /* Höhe proportional */
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
 }
 </style>

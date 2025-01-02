@@ -6,6 +6,8 @@ import io
 import cv2
 import uuid
 
+from config.app.app_settings import ANIMATION_SETTINGS, get_app_settings, save_app_settings
+
 from components import (
     generate_diffuse_map,
     generate_normal_map,
@@ -165,6 +167,12 @@ def download_file(filename):
         return send_file(file_path, mimetype='image/png')
     return jsonify({"error": "File not found"}), 404
 
+from PIL import Image
+import numpy as np
+import uuid
+import os
+from flask import jsonify, request
+
 @app.route('/upload', methods=['POST'])
 def upload_file():
     try:
@@ -190,7 +198,6 @@ def upload_file():
         # Keine gültige Datei gefunden
         if image is None:
             raise ValueError("No valid file provided in 'file' or 'editFile' parameters.")
-
 
         cropped_image = apply_crop_image(
             image, params["cropLeft"], params["cropTop"], params["cropRight"], params["cropBottom"]
@@ -251,18 +258,19 @@ def upload_file():
             # Animation: Liste von Frames als JSON serialisieren
             animation_frames = []
             for idx, frame in enumerate(processed_image):
-                file_uuid = uuid.uuid4().hex
-                frame_filename = f"frame_{idx}_{file_uuid}.png"
-                frame_path = os.path.join(UPLOAD_FOLDER, frame_filename)
+                if isinstance(frame, Image.Image):  # Sicherstellen, dass jedes Frame ein Pillow Image ist
+                    file_uuid = uuid.uuid4().hex
+                    frame_filename = f"frame_{idx}_{file_uuid}.png"
+                    frame_path = os.path.join(UPLOAD_FOLDER, frame_filename)
 
-                # Speichern jedes Frames
-                frame.save(frame_path, format=params.get("output_format", "PNG"), quality=params.get("quality", 90))
+                    # Speichern jedes Frames
+                    frame.save(frame_path, format=params.get("output_format", "PNG"), quality=params.get("quality", 90))
 
-                # Hinzufügen zur Animation
-                animation_frames.append({
-                    "type": f"Frame {idx}",
-                    "url": f"/download/{frame_filename}"
-                })
+                    # Hinzufügen zur Animation
+                    animation_frames.append({
+                        "type": f"Frame {idx}",
+                        "url": f"/download/{frame_filename}"
+                    })
 
             return jsonify({"animationFrames": animation_frames})
 
@@ -335,6 +343,46 @@ def tile_image_endpoint():
     except Exception as e:
         print(f"Fehler: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+@app.route('/settings', methods=['GET', 'POST'])
+def apply_app_settings():
+    if request.method == 'GET':
+        # Liefere aktuelle Einstellungen
+        return jsonify(get_app_settings())
+
+    if request.method == 'POST':
+        # Neue Einstellungen übernehmen
+        new_settings = request.json
+        if not new_settings:
+            return jsonify({"error": "Keine Daten übermittelt"}), 400
+
+        # Versuche, die Einstellungen zu aktualisieren
+        try:
+            updated_settings = update_animation_settings(new_settings)
+
+            # Speichern der neuen Einstellungen
+            save_app_settings(updated_settings)
+
+            # ANIMATION_SETTINGS nach dem Speichern aktualisieren
+            global ANIMATION_SETTINGS
+            ANIMATION_SETTINGS = updated_settings
+
+            # Rückmeldung mit den neuen Einstellungen
+            return jsonify({"success": True, "updated_settings": updated_settings})
+
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+
+def update_animation_settings(new_settings):
+    """Aktualisiere die Animationseinstellungen mit den neuen Werten."""
+    updated_settings = get_app_settings().copy()  # Kopiere die aktuellen Einstellungen
+
+    updated_settings["use_gpu"] = bool(new_settings.get("use_gpu", updated_settings["use_gpu"]))
+    updated_settings["cpu_threads"] = int(new_settings.get("cpu_threads", updated_settings["cpu_threads"]))
+    updated_settings["preferred_unit"] = new_settings.get("preferred_unit", updated_settings["preferred_unit"])
+
+    return updated_settings
 
 def parse_parameters(params_section, form):
     parsed_params = {}

@@ -1,0 +1,7 @@
+{
+    "use_gpu": false,
+    "gpu_name": "None",
+    "gpu_memory_mb": 0,
+    "cpu_threads": 12,
+    "preferred_unit": "CPU"
+}
