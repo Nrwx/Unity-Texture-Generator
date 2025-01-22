@@ -35,7 +35,7 @@
 
   <!-- Hauptinhalt -->
   <v-main>
-    <v-container>
+    <v-container style="position: relative;">
       <PageHeader>
         <template v-slot:header>
           Seamless Texture Generator
@@ -43,30 +43,19 @@
         <template v-slot:subtitle>
           Create professional Game Texture Maps
         </template>
-        <template v-slot:action>
-          <v-btn icon class="ml-2" size="small" @click="openOsSettingsDialog">
-            <v-icon>mdi-cog</v-icon>
-          </v-btn>
-        </template>
       </PageHeader>
 
       <v-row justify="center" class="mt-6" style="position:relative;">
-        <v-col cols="6" class="relative">
-          <!-- Hauptbild -->
+        <v-col cols="6" style="position:relative;">
           <v-img
-              v-if="diffuseMap.diff && animation.length === 0"
-              :src="diffuseMap.diff"
-              alt="Diffuse Map"
-              class="map-image mt-4"
-              :key="diffuseMap.diff"
-          />
-          <img
-              v-else-if="animation.length > 0 && playAnimation || animation.length > 0 && pauseAnimation"
-              :src="animation.length > 0 && playAnimation || animation.length > 0 && pauseAnimation ? currentFrame : diffuseMap.diff"
-              alt="Animated Frames"
-              class="map-image mt-4"
-              style="max-width: 100%;"
-              :key="animation.length > 0 && playAnimation || animation.length > 0 && pauseAnimation ? currentFrame : diffuseMap.diff"
+              v-for="(layer, index) in layers"
+              :key="layer.id"
+              :src="layer.url"
+              :aspect-ratio="1"
+              class="layer-image"
+              alt="Layer Image"
+              :style="{ zIndex: index + 1 }"
+              @load="extractImageSize"
           />
         </v-col>
         <!-- Frame-Panel -->
@@ -104,6 +93,101 @@
           </div>
         </div>
       </v-row>
+      <div class="layer-management d-flex">
+        <!-- Vertikale Taskleiste -->
+        <div class="taskbar py-4">
+          <v-btn icon size="small" @click="openOsSettingsDialog">
+            <v-icon>mdi-cog</v-icon>
+          </v-btn>
+          <v-btn icon size="small" @click="toggleLayerMenu">
+            <v-icon>mdi-layers-triple</v-icon>
+          </v-btn>
+        </div>
+
+        <!-- Layer-Menü -->
+        <div
+            class="layer-system"
+            v-show="layerMenuVisible"
+        >
+          <div class="layer-wrapper">
+            <v-card
+                class="overflow-hidden overflow-y-auto"
+                max-height="300"
+                height="300"
+                elevation="0"
+                rounded="0"
+                border="0"
+            >
+              <!-- Layer-Liste -->
+              <v-list two-line class="layer-list" v-if="layersRef.length > 0" bg-color="transparent">
+                <v-list-item-group>
+                  <v-list-item
+                      v-for="(layer, index) in layersRef"
+                      :key="index"
+                      class="layer-item"
+                      :class="{ selected: selectedLayers.includes(layer.id) }"
+                  >
+                    <v-list-item-content class="d-flex align-baseline">
+                      <v-text-field
+                          v-model="layer.name"
+                          clearable
+                          :disabled="selectedLayers.includes(layer.id)"
+                          variant="outlined"
+                          clear-icon="mdi-broom"
+                          :hide-details="validNameRule(layer.name).isValid"
+                          :rules="[validNameRule(layer.name).rule]"
+                          @blur="validNameRule(layer.name).isValid ? updateLayer(layer) : ''"
+                          @click:clear="layer.name = ''"
+                      >
+                        <template v-slot:prepend-inner>
+                          <v-tooltip location="bottom">
+                            <template v-slot:activator="{ props }">
+                              <v-avatar v-bind="props" rounded="0" variant="elevated">
+                                <v-img
+                                    :src="layer?.url"
+                                    :alt="layer.name"
+                                />
+                              </v-avatar>
+                            </template>
+
+                            {{layer.name}}
+                          </v-tooltip>
+                        </template>
+                      </v-text-field>
+                      <v-checkbox
+                          v-model="selectedLayers"
+                          :value="layer.id"
+                          class="layer-checkbox"
+                          hide-details
+                      ></v-checkbox>
+                    </v-list-item-content>
+                  </v-list-item>
+                </v-list-item-group>
+              </v-list>
+            </v-card>
+            <!-- Navigation -->
+            <div class="navigation-bar d-flex justify-space-between align-center px-4">
+              <v-btn
+                  icon
+                  color="#DCFDD4"
+                  size="x-small"
+                  @click="addLayer"
+              >
+                <v-icon color="black">mdi-plus</v-icon>
+              </v-btn>
+              <v-btn
+                  icon
+                  color="#FF516D"
+                  size="x-small"
+                  @click="deleteLayer"
+                  :disabled="selectedLayers.length === 0"
+              >
+                <v-icon color="white">mdi-delete</v-icon>
+              </v-btn>
+            </div>
+          </div>
+        </div>
+      </div>
     </v-container>
   </v-main>
 
@@ -378,6 +462,12 @@ export default defineComponent({
     const file = ref(null);
     const keepFile = ref(false)
     const currentFile = ref('')
+    const layers = ref([]);
+    const layersRef = ref([]);
+    const selectedLayers = ref([]);
+    const layerMenuVisible = ref(false);
+    const imageWidth = ref(1024);
+    const imageHeight = ref(1024);
     const builds = ref([]);
     const animation = ref([]);
     const currentFrameIndex = ref(0);
@@ -573,8 +663,144 @@ export default defineComponent({
         { title: "Sinus", value: 0 },
         { title: "Cosinus", value: 1 },
         { title: "Sinus und Cosinus", value: 2 },
+        { title: "Welle von innen nach außen", value: 3 },
+        { title: "Welle von außen nach innen", value: 4 },
+        { title: "Zufällige Wellen", value: 5 },
       ],
     });
+
+    // Layer hinzufügen
+    const addLayer = async () => {
+      try {
+        const formData = new FormData();
+        const name = `Layer ${layers.value.length + 1}`;
+        formData.append("method", "add");
+        formData.append("name", name);
+        formData.append("width", imageWidth.value);
+        formData.append("height", imageHeight.value);
+
+        const response = await axios.post(
+            "http://127.0.0.1:5000/layer",
+            formData,
+            {
+              responseType: "json",
+            });
+
+        if (response.data) {
+          await fetchLayers()
+        }
+      } catch (error) {
+        console.error("Error adding layer:", error.response?.data || error.message);
+      }
+    };
+
+    // Layer aktualisieren
+    const updateLayer = async (layer) => {
+      try {
+        const formData = new FormData();
+        formData.append("method", "update");
+        formData.append("name", layer.name);
+        formData.append("id", layer.id);
+        formData.append("width", layer.width);
+        formData.append("height", layer.height);
+        formData.append("url", layer.url);
+
+        const response = await axios.post(
+            "http://127.0.0.1:5000/layer",
+            formData,
+            {
+              responseType: "json",
+            });
+
+        if (response.data) {
+          await fetchLayers()
+        }
+      } catch (error) {
+        console.error("Error updating layer:", error.response?.data || error.message);
+      }
+    };
+
+    // Layer löschen
+    const deleteLayer = async () => {
+      if (selectedLayers.value.length === 0) return;
+
+      try {
+        for (const id of selectedLayers.value) {
+          const formData = new FormData();
+          formData.append("method", "delete");
+          formData.append("id", id);
+
+          await axios.post("http://127.0.0.1:5000/layer", formData, {
+            responseType: "json",
+          });
+        }
+
+        selectedLayers.value = [];
+        await fetchLayers();
+      } catch (error) {
+        console.error("Error deleting layers:", error.response?.data || error.message);
+      }
+    };
+
+    // Alle Layer abrufen
+    const fetchLayers = async () => {
+      try {
+        const formData = new FormData();
+        formData.append("method", "list");
+
+        const response = await axios.post(
+            "http://127.0.0.1:5000/layer",
+            formData,
+            {
+              responseType: "json",
+            });
+
+        if (response.data) {
+          layers.value = response.data
+        }
+      } catch (error) {
+        console.error("Error fetching layers:", error.response?.data || error.message);
+      }
+    };
+
+    const selectLayer = (layer) => {
+      if (!selectedLayers.value.includes(layer.id)) {
+        selectedLayers.value.push(layer.id);
+      } else {
+        selectedLayers.value = selectedLayers.value.filter((id) => id !== layer.id);
+      }
+    };
+
+    const toggleLayerMenu = async () => {
+      layerMenuVisible.value = !layerMenuVisible.value;
+      await fetchLayers()
+    };
+
+    // Layer auswählen (optional für zukünftige Funktionen)
+    const onLayerSelect = (layer) => {
+      console.log("Layer selected:", layer);
+    };
+
+    // Bildgröße extrahieren
+    const extractImageSize = async () => {
+      const img = new Image(); // Neues HTMLImageElement erstellen
+      img.src = diffuseMap.diff;
+
+      // Warten, bis das Bild geladen ist
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+
+      if (img && img.naturalWidth && img.naturalHeight) {
+        imageWidth.value = img.naturalWidth;
+        imageHeight.value = img.naturalHeight;
+
+        console.log(imageWidth.value, imageHeight.value);
+      } else {
+        console.error("Bild ist nicht verfügbar oder noch nicht geladen.");
+      }
+    };
 
     // Generiert die Kachelansicht basierend auf der aktuellen Auswahl
     const generateTileLayout = async () => {
@@ -911,6 +1137,27 @@ export default defineComponent({
       8: {},
     }));
 
+    const validNameRule = (value) => {
+      // Überprüfen, ob der Wert nicht leer ist und ob das Muster gültig ist
+      const pattern = /^[a-zA-Z0-9\s]+$/; // + erzwingt mindestens ein Zeichen
+      const isValid = value.trim() !== "" && pattern.test(value);
+
+      return {
+        isValid,
+        rule: () => {
+          // Wenn das Textfeld leer ist
+          if (value.trim() === "") {
+            return "Field cannot be empty"; // Fehlermeldung für leeres Feld
+          }
+          // Wenn der Text ungültige Zeichen enthält
+          if (!pattern.test(value)) {
+            return "Only letters, spaces, and numbers are allowed"; // Fehlermeldung für ungültige Zeichen
+          }
+          return true; // Wenn der Text gültig ist
+        },
+      };
+    };
+
     const currentFrame = computed(() => {
       // Aktuellen Frame basierend auf currentFrameIndex berechnen
       const aniStack = animation.value[0]?.buildMaps || [];
@@ -1105,6 +1352,7 @@ export default defineComponent({
             animation.value = []
             animation.value.push(newBuild);
           }
+          await fetchLayers();
         }
         else {
           // Setze das diffuseMap.diff auf das erste Element von additionalMaps
@@ -1138,6 +1386,7 @@ export default defineComponent({
             collapsed: true,
           };
           builds.value.push(newBuild);
+          await fetchLayers();
         }
       } catch (error) {
         console.error("Fehler beim Verarbeiten des Bildes:", error);
@@ -1179,6 +1428,15 @@ export default defineComponent({
         (newVal, oldVal) => {
           if (newVal !== oldVal) {
             console.log(animation.value, newVal)
+          }
+        }
+    );
+
+    watch(
+        () => layers.value,
+        (newVal, oldVal) => {
+          if (newVal !== oldVal) {
+            layersRef.value = layers.value
           }
         }
     );
@@ -1236,7 +1494,22 @@ export default defineComponent({
       osSettingsDialog,
       fetchOsSettings,
       saveOsSettings,
-      openOsSettingsDialog
+      openOsSettingsDialog,
+      validNameRule,
+      layers,
+      layersRef,
+      imageHeight,
+      imageWidth,
+      selectedLayers,
+      layerMenuVisible,
+      addLayer,
+      fetchLayers,
+      updateLayer,
+      deleteLayer,
+      onLayerSelect,
+      extractImageSize,
+      selectLayer,
+      toggleLayerMenu,
     };
   },
 });
@@ -1271,6 +1544,16 @@ export default defineComponent({
 .zoomedContainer:hover img {
   cursor: zoom-in;
   opacity: 1;
+}
+
+.layer-image {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
 }
 
 .targetZoomContainer {
@@ -1372,5 +1655,64 @@ export default defineComponent({
   border: 1px solid #ddd;
   border-radius: 4px;
   box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.layer-item {
+  padding: 10px;
+}
+
+.v-btn {
+  text-transform: none; /* Verhindert das automatische Umwandeln in Großbuchstaben */
+}
+
+.layer-thumbnail {
+  border-radius: 4px;
+}
+
+.navigation-bar {
+  width: 100%;
+  height: 50px;
+  background-color: #f4f4f4;
+  border-top: 1px solid #ddd;
+}
+
+.nav-badge {
+  cursor: pointer;
+}
+
+.layer-management{
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+.taskbar {
+  position: relative;
+  width: 60px;
+  height: 100vh;
+  background-color: #f8f8f8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.layer-system {
+  padding: 10px;
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  right: 100%;
+}
+
+.layer-wrapper{
+  border: 1px solid #eee;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 1px -1px rgba(0, 0, 0, .2), 0 1px 1px 0 rgba(0, 0, 0, .14), 0 1px 3px 0 rgba(0, 0, 0, .12);
+}
+
+.layer-item.selected {
+  background-color: #e3f2fd;
 }
 </style>

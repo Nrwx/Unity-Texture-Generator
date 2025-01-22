@@ -5,7 +5,7 @@ import os
 import io
 import cv2
 import uuid
-
+from werkzeug.utils import secure_filename
 from config.app.app_settings import ANIMATION_SETTINGS, get_app_settings, save_app_settings
 
 from components import (
@@ -41,8 +41,10 @@ from components import (
 # Initialising
 app = Flask(__name__)
 # Ordner für temporäre Dateien
-UPLOAD_FOLDER = "uploads"
+UPLOAD_FOLDER = "public\\upload"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+LAYER_FOLDER = "public\\layer"
+os.makedirs(LAYER_FOLDER, exist_ok=True)
 
 # Definition der Eingabeparameter und deren Standardwerte
 PARAMETERS = {
@@ -150,6 +152,14 @@ PARAMETERS = {
         "tile_x": {"type": int, "default": 1},
         "tile_y": {"type": int, "default": 1},
     },
+    "layer": {
+        "method": {"type": str, "required": True},
+        "name": {"type": str, "default": ""},
+        "url": {"type": str, "default": ""},
+        "id": {"type": str, "default": ""},
+        "width": {"type": int, "default": 1024},
+        "height": {"type": int, "default": 1024},
+    },
 }
 
 @app.route('/')
@@ -162,7 +172,7 @@ def serve_static_files(path):
 
 @app.route('/download/<filename>', methods=['GET'])
 def download_file(filename):
-    file_path = os.path.join(UPLOAD_FOLDER, filename)
+    file_path = os.path.join(LAYER_FOLDER, filename)
     if os.path.exists(file_path):
         return send_file(file_path, mimetype='image/png')
     return jsonify({"error": "File not found"}), 404
@@ -188,7 +198,7 @@ def upload_file():
         # Datei aus dem EditFile-Parameter prüfen
         elif params.get("editFile", "").strip():
             url = str(request.form.get('editFile', ""))
-            diffuse_image_path = os.path.join(UPLOAD_FOLDER, os.path.basename(url))
+            diffuse_image_path = os.path.join(LAYER_FOLDER, os.path.basename(url))
 
             if not os.path.exists(diffuse_image_path):
                 raise FileNotFoundError(f"File not found: {diffuse_image_path}")
@@ -259,18 +269,21 @@ def upload_file():
             animation_frames = []
             for idx, frame in enumerate(processed_image):
                 if isinstance(frame, Image.Image):  # Sicherstellen, dass jedes Frame ein Pillow Image ist
-                    file_uuid = uuid.uuid4().hex
-                    frame_filename = f"frame_{idx}_{file_uuid}.png"
-                    frame_path = os.path.join(UPLOAD_FOLDER, frame_filename)
+                    map_id = str(uuid.uuid4())
+                    map_name = f"frame_{idx}"
+                    map_filename = f"{map_id}.png"
+                    map_path = os.path.join(UPLOAD_FOLDER, map_filename)
 
                     # Speichern jedes Frames
-                    frame.save(frame_path, format=params.get("output_format", "PNG"), quality=params.get("quality", 90))
+                    frame.save(map_path, format=params.get("output_format", "PNG"), quality=params.get("quality", 90))
 
                     # Hinzufügen zur Animation
                     animation_frames.append({
                         "type": f"Frame {idx}",
-                        "url": f"/download/{frame_filename}"
+                        "url": f"/download/{map_filename}",
                     })
+
+                    add_layer(map_name, map_path, map_id)
 
             return jsonify({"animationFrames": animation_frames})
 
@@ -293,8 +306,9 @@ def upload_file():
                     map_image = map_functions[map_type](processed_image)
 
                     # UUID für Dateinamen
-                    file_uuid = uuid.uuid4().hex
-                    map_filename = f"{map_type.replace(' ', '_').lower()}_{file_uuid}.png"
+                    map_id = str(uuid.uuid4())
+                    map_name = map_type
+                    map_filename = f"{map_id}.png"
                     map_path = os.path.join(UPLOAD_FOLDER, map_filename)
 
                     # Speichern der Datei
@@ -302,8 +316,10 @@ def upload_file():
 
                     additional_maps.append({
                         "type": map_type,
-                        "url": f"/download/{map_filename}"
+                        "url": f"/download/{map_filename}",
                     })
+
+                    add_layer(map_name, map_path, map_id)
 
             return jsonify({
                 "additionalMaps": additional_maps
@@ -321,7 +337,7 @@ def tile_image_endpoint():
         tile_y = int(request.form.get('tile_y', 1))
 
         # Diffuse-Bildpfad prüfen
-        diffuse_image_path = os.path.join(UPLOAD_FOLDER, os.path.basename(url))
+        diffuse_image_path = os.path.join(LAYER_FOLDER, os.path.basename(url))
         if not os.path.exists(diffuse_image_path):
             raise FileNotFoundError(f"File not found: {diffuse_image_path}")
 
@@ -334,7 +350,7 @@ def tile_image_endpoint():
         # UUID für Dateinamen
         file_uuid = uuid.uuid4().hex
         tiled_filename = f"tiled_image_{file_uuid}.png"
-        tiled_path = os.path.join(UPLOAD_FOLDER, tiled_filename)
+        tiled_path = os.path.join(LAYER_FOLDER, tiled_filename)
 
         # Speichern
         tiled_image.save(tiled_path, format="PNG")
@@ -400,6 +416,129 @@ def parse_parameters(params_section, form):
             else:
                 parsed_params[key] = config["type"](value)
     return parsed_params
+
+layers = []
+
+# Funktionen für Layer-Management
+def add_layer(name="", path="", id="", width=1024, height=1024):
+    try:
+        if not id:  # Keine ID übergeben, neue erstellen
+            id = str(uuid.uuid4())  # Neue UUID v4 generieren
+            path = os.path.join(LAYER_FOLDER, f"{id}.png")
+            # Leere PNG erstellen
+            img = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+            img.save(path)
+        else:  # ID und Pfad wurden übergeben
+            image_path = os.path.join(LAYER_FOLDER, f"{id}.png")
+            img = Image.open(path)
+            img.save(image_path)
+            width, height = img.size
+
+            # Ursprüngliche Datei löschen, falls vorhanden
+            if os.path.exists(path):
+                os.remove(path)
+                print(f"File {path} removed successfully.")
+            else:
+                print(f"File {path} does not exist.")
+
+        # Layer hinzufügen
+        layer = {
+            "id": id,
+            "name": name,
+            "width": width,
+            "height": height,
+            "url": f"/download/{id}.png",
+        }
+        layers.append(layer)
+        print(layers)
+        return jsonify(layer), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+def update_layer(name, width, height, id):
+    try:
+        layer = next((l for l in layers if l["id"] == id), None)
+        if not layer:
+            return jsonify({"error": "Layer not found"}), 404
+
+        new_id = str(uuid.uuid4())
+
+        if name:
+            layer["name"] = name
+        if width:
+            layer["width"] = width
+        if height:
+            layer["height"] = height
+        if new_id:
+            layer["id"] = new_id
+            old_image_path = os.path.join(LAYER_FOLDER, f"{id}.png")
+            new_image_path = os.path.join(LAYER_FOLDER, f"{new_id}.png")
+            if os.path.exists(old_image_path):
+                img = Image.open(old_image_path)
+                img = img.resize((width, height))
+                img.save(new_image_path)
+                os.remove(old_image_path)  # Entferne die alte Bilddatei
+                layer["url"] = f"/download/{new_id}.png"
+
+        return jsonify(layer), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+def delete_layer(id):
+    try:
+        layer = next((l for l in layers if l["id"] == id), None)
+        if not layer:
+            return jsonify({"error": "Layer not found"}), 404
+
+        image_path = os.path.join(LAYER_FOLDER, f"{id}.png")
+        layers.remove(layer)
+
+        print(f"Deleting layer: {image_path}")
+        if os.path.exists(image_path):
+            os.remove(image_path)
+
+        return jsonify({"message": "Layer deleted"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+def list_layers():
+    return jsonify(layers), 200
+
+@app.route('/layer', methods=['POST'])
+def layer_management():
+    try:
+        params = parse_parameters(PARAMETERS['layer'], request.form)
+        method_function_map = {
+            "add": {
+                'keys': {"name", "width", "height"},
+                'function': add_layer
+            },
+            "update": {
+                'keys': {"name", "width", "height", "id"},
+                'function': update_layer
+            },
+            "delete": {
+                'keys': {"id"},
+                'function': delete_layer
+            },
+            "list": {
+                'keys': {},
+                'function': list_layers
+            },
+        }
+
+        method = params.get('method')
+        if method not in method_function_map:
+            return jsonify({"error": "Invalid method"}), 400
+
+        method_info = method_function_map[method]
+        method_keys = method_info['keys']
+        method_function = method_info['function']
+        method_params = {key: params[key] for key in method_keys if key in params}
+        return method_function(**method_params)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 def apply_color_adjustments(img, color_overlay, color_overlay_mode, invert_colors, color_shift, hue_variation):
     width, height = img.size

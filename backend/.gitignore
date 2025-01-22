@@ -1,5 +1,5 @@
 .DS_Store
-uploads
+/public
 /venv
 
 # Python-Cache-Dateien

@@ -12,6 +12,9 @@
         <div v-if="$slots.header" class="mb-0 text-h3 text-truncate">
           <slot name="header">{{ $slots.header }}</slot>
         </div>
+        <div v-if="$slots.title" class="mb-0 text-h5 text-truncate">
+          <slot name="title">{{ $slots.title }}</slot>
+        </div>
         <div v-if="$slots.subtitle" style="width: 100%;" class="text-subtitle">
           <slot name="subtitle">{{ $slots.subtitle }}</slot>
         </div>

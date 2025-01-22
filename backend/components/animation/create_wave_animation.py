@@ -29,6 +29,25 @@ def process_frame_gpu(t, img_tensor, height_map_tensor, frame_count, frequency, 
                                          torch.cos(2 * np.pi * x_coords / img_tensor.shape[2] + time_factor_tensor + phase_shift)) * amplitude_multiplier
         offsets_y = height_map_tensor * (torch.cos(2 * np.pi * y_coords / img_tensor.shape[1] + time_factor_tensor + phase_shift) +
                                          torch.sin(2 * np.pi * x_coords / img_tensor.shape[2] + time_factor_tensor + phase_shift)) * amplitude_multiplier
+    elif wave_type == 3:  # Welle von innen nach außen
+        center_y = img_tensor.shape[1] / 2
+        center_x = img_tensor.shape[2] / 2
+        dist_y = y_coords - center_y
+        dist_x = x_coords - center_x
+        distance = torch.sqrt(dist_x**2 + dist_y**2)
+        offsets_x = height_map_tensor * torch.sin(distance / img_tensor.shape[1] * 2 * np.pi + time_factor_tensor + phase_shift) * amplitude_multiplier
+        offsets_y = height_map_tensor * torch.sin(distance / img_tensor.shape[2] * 2 * np.pi + time_factor_tensor + phase_shift) * amplitude_multiplier
+    elif wave_type == 4:  # Welle von außen nach innen
+        center_y = img_tensor.shape[1] / 2
+        center_x = img_tensor.shape[2] / 2
+        dist_y = y_coords - center_y
+        dist_x = x_coords - center_x
+        distance = torch.sqrt(dist_x**2 + dist_y**2)
+        offsets_x = height_map_tensor * torch.cos(distance / img_tensor.shape[1] * 2 * np.pi + time_factor_tensor + phase_shift) * amplitude_multiplier
+        offsets_y = height_map_tensor * torch.cos(distance / img_tensor.shape[2] * 2 * np.pi + time_factor_tensor + phase_shift) * amplitude_multiplier
+    elif wave_type == 5:  # Zufällige Wellen
+        offsets_x = torch.randn_like(height_map_tensor) * amplitude_multiplier
+        offsets_y = torch.randn_like(height_map_tensor) * amplitude_multiplier
     else:
         raise ValueError("Ungültiger wave_type. Verwende 0 für sin, 1 für cos oder 2 für sin+cos.")
 
@@ -56,8 +75,27 @@ def process_frame_cpu(t, img_array, height_map, frame_count, frequency, phase_sh
             elif wave_type == 2:
                 offset_x = int(height_map[y, x] * (np.sin(2 * np.pi * y / img_array.shape[0] + time_factor + phase_shift) + np.cos(2 * np.pi * x / img_array.shape[1] + time_factor + phase_shift)) * amplitude_multiplier)
                 offset_y = int(height_map[y, x] * (np.cos(2 * np.pi * y / img_array.shape[0] + time_factor + phase_shift) + np.sin(2 * np.pi * x / img_array.shape[1] + time_factor + phase_shift)) * amplitude_multiplier)
+            elif wave_type == 3:  # Welle von innen nach außen
+                center_y = img_array.shape[0] / 2
+                center_x = img_array.shape[1] / 2
+                dist_y = y - center_y
+                dist_x = x - center_x
+                distance = np.sqrt(dist_x**2 + dist_y**2)
+                offset_x = int(height_map[y, x] * np.sin(distance / img_array.shape[0] * 2 * np.pi + time_factor + phase_shift) * amplitude_multiplier)
+                offset_y = int(height_map[y, x] * np.sin(distance / img_array.shape[1] * 2 * np.pi + time_factor + phase_shift) * amplitude_multiplier)
+            elif wave_type == 4:  # Welle von außen nach innen
+                center_y = img_array.shape[0] / 2
+                center_x = img_array.shape[1] / 2
+                dist_y = y - center_y
+                dist_x = x - center_x
+                distance = np.sqrt(dist_x**2 + dist_y**2)
+                offset_x = int(height_map[y, x] * np.cos(distance / img_array.shape[0] * 2 * np.pi + time_factor + phase_shift) * amplitude_multiplier)
+                offset_y = int(height_map[y, x] * np.cos(distance / img_array.shape[1] * 2 * np.pi + time_factor + phase_shift) * amplitude_multiplier)
+            elif wave_type == 5:  # Zufällige Wellen
+                offset_x = int(np.random.randn() * amplitude_multiplier)
+                offset_y = int(np.random.randn() * amplitude_multiplier)
             else:
-                raise ValueError("Ungültiger wave_type. Verwende 0 für sin, 1 für cos oder 2 für sin+cos.")
+                raise ValueError("Ungültiger wave_type. Verwende Werte von 0 bis 5.")
 
             new_x = np.clip(x + offset_x, 0, img_array.shape[1] - 1)
             new_y = np.clip(y + offset_y, 0, img_array.shape[0] - 1)
@@ -104,7 +142,8 @@ def create_wave_animation(img_array, height_map, frame_count, frequency=1.0, pha
             print("Verwenden der GPU für 1 Frame.")
             device = torch.device("cuda")
             img_tensor = torch.tensor(img_array, device=device).permute(2, 0, 1).float()  # HWC -> CHW
-            frame = process_frame_gpu(0, img_tensor, height_map, frame_count, frequency, phase_shift, amplitude_multiplier, wave_type, device)
+            height_map_tensor = torch.tensor(height_map, device=device, dtype=torch.float32)
+            frame = process_frame_gpu(0, img_tensor, height_map_tensor, frame_count, frequency, phase_shift, amplitude_multiplier, wave_type, device)
             frame = frame.cpu().numpy().astype(np.uint8).transpose(1, 2, 0)  # CHW -> HWC
         else:
             print("Verwenden der CPU für 1 Frame.")

@@ -145,12 +145,6 @@ def update_settings_if_changed():
 def get_app_settings():
     GPU_AVAILABLE, GPU_NAME, GPU_MEMORY_MB = detect_gpu()
     current_settings = load_app_settings()
-    current_settings.update({
-        "use_gpu": GPU_AVAILABLE,
-        "gpu_name": GPU_NAME,
-        "gpu_memory_mb": GPU_MEMORY_MB,
-        "preferred_unit": "GPU" if GPU_AVAILABLE else "CPU",
-    })
     save_app_settings(current_settings)
     return current_settings
 
