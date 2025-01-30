@@ -17,6 +17,7 @@ from components import (
     generate_alpha_map,
     generate_stone_map,
     generate_grass_map,
+    apply_cut_out,
     apply_color,
     apply_crop_image,
     apply_blend_edges,
@@ -36,6 +37,11 @@ from components import (
     apply_hue_rotation,
     apply_color_lookup,
     texture_projection,
+)
+
+from utils import (
+    apply_rgb_rgba,
+    apply_alpha,
 )
 
 # Initialising
@@ -94,6 +100,10 @@ PARAMETERS = {
         "color_shift": {"type": int, "default": 0},
         "hue_variation": {"type": int, "default": 0},
         # COLOR PARAMS END
+
+        # EDIT PARAMS START
+        "cut_out": {"type": int, "default": 0},
+        # EDIT PARAMS END
 
         # NOISE PARAMS START
         "noise_level": {"type": int, "default": 0},
@@ -193,7 +203,10 @@ def upload_file():
         # Datei aus dem Upload-Parameter prüfen
         if "file" in request.files:
             file = request.files['file']
-            image = Image.open(file.stream).convert("RGB")
+            image = Image.open(file.stream)
+
+            # Überprüfen, ob das Bild RGBA ist, und konvertieren
+            image, alpha = apply_rgb_rgba(image)
 
         # Datei aus dem EditFile-Parameter prüfen
         elif params.get("editFile", "").strip():
@@ -203,7 +216,10 @@ def upload_file():
             if not os.path.exists(diffuse_image_path):
                 raise FileNotFoundError(f"File not found: {diffuse_image_path}")
 
-            image = Image.open(diffuse_image_path).convert("RGB")
+            image = Image.open(diffuse_image_path)
+
+            # Überprüfen, ob das Bild RGBA ist, und konvertieren
+            image, alpha = apply_rgb_rgba(image)
 
         # Keine gültige Datei gefunden
         if image is None:
@@ -232,8 +248,8 @@ def upload_file():
                 'function': apply_beauty_adjustments
             },
             4: {
-                'keys': {"blending_intensity"},
-                'function': create_mirrored_collage
+                'keys': {"editing_mode"},
+                'function': apply_edits
             },
             5: {
                 'keys': {"stone_size", "density", "intensity", "stone_variance"},
@@ -243,6 +259,7 @@ def upload_file():
                 'keys': {"simulate_mode", "frame_count", "amplitude", "frequency", "phase_shift", "amplitude_multiplier", "wave_type"},
                 'function': apply_motion_projection
             }
+
         }
 
 
@@ -262,6 +279,9 @@ def upload_file():
 
         # Bildverarbeitung mit der entsprechenden Methode
         processed_image = method_function(cropped_image, **method_params)
+
+        # Den Alpha-Kanal wieder hinzufügen, falls vorhanden
+        processed_image = apply_alpha(processed_image, alpha)
 
         # Prüfen, ob das Ergebnis eine Animation (Liste von Frames) ist
         if isinstance(processed_image, list):
@@ -504,6 +524,35 @@ def delete_layer(id):
 def list_layers():
     return jsonify(layers), 200
 
+def preview_layers():
+    try:
+        # Prüfen, ob überhaupt Layer vorhanden sind
+        if not layers:
+            return jsonify({"error": "No layers to preview"}), 404
+
+        # Größe des Endbildes bestimmen
+        max_width = max(layer['width'] for layer in layers)
+        max_height = max(layer['height'] for layer in layers)
+
+        # Leere Canvas erstellen
+        composite_image = Image.new('RGBA', (max_width, max_height), (0, 0, 0, 0))
+
+        # Alle Layer nach Reihenfolge rendern
+        for layer in layers:
+            layer_path = os.path.join(LAYER_FOLDER, f"{layer['id']}.png")
+            if os.path.exists(layer_path):
+                layer_img = Image.open(layer_path).convert('RGBA')
+                composite_image.paste(layer_img, (0, 0), layer_img)
+
+        # Bild in ein NumPy-Array umwandeln
+        img_array = np.array(composite_image)
+
+        # Image aus dem NumPy-Array erzeugen und zurückgeben
+        return Image.fromarray(img_array.astype(np.uint8))
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/layer', methods=['POST'])
 def layer_management():
     try:
@@ -525,6 +574,10 @@ def layer_management():
                 'keys': {},
                 'function': list_layers
             },
+            "preview": {
+                'keys': {},
+                'function': preview_layers
+            },
         }
 
         method = params.get('method')
@@ -539,6 +592,16 @@ def layer_management():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+def apply_edits(img, cut_out):
+    width, height = img.size
+    img_array = np.array(img)
+
+    # RGBA-Einstellungen
+    if cut_out:
+        img_array = apply_cut_out(cut_out, img_array)
+
+    return Image.fromarray(img_array.astype(np.uint8))
 
 def apply_color_adjustments(img, color_overlay, color_overlay_mode, invert_colors, color_shift, hue_variation):
     width, height = img.size

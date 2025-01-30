@@ -1,8 +1,19 @@
 import {v4 as uuidv4} from "uuid";
 import UploadFile from "@/components/File/File";
-import {localData} from "@/dataLayer/local";
+import Image from "@/view/page/Image/Image"
+import History from "@/components/History/History";
+import Tools from "@/view/page/Tools/Tools";
 
 export const taskbarItemLeft = [
+    {
+        id: uuidv4(),
+        title: 'Einstellungen',
+        subtitle: 'Legen Sie zusätzliche Einstellungen fest...',
+        icon: 'mdi-cog',
+        active: false,
+        tooltip: 'Einstellungen',
+        event: 'setting-state',
+    },
     {
         id: uuidv4(),
         title: 'Datei hochladen',
@@ -12,17 +23,20 @@ export const taskbarItemLeft = [
         tooltip: 'Bild hochladen',
         component: {
             path: UploadFile,
-            props: {
-                file: localData.file.value,
-            }
+            props: {}
         },
     },
     {
         id: uuidv4(),
-        icon: 'mdi-image',
+        title: 'Bild Optionen',
+        subtitle: 'Legen Sie zusätzliche Einstellungen fest...',
+        icon: 'mdi-image-multiple',
         active: false,
-        emit: 'toggle-image',
-        tooltip: 'Open Image',
+        tooltip: 'Bild Optionen',
+        component: {
+            path: Image,
+            props: {}
+        },
     },
 ];
 
@@ -31,8 +45,11 @@ export const taskbarItemRight = [
         id: uuidv4(),
         icon: 'mdi-apps',
         active: false,
-        emit: 'toggle-tool',
-        tooltip: 'Open Image',
+        tooltip: 'Werkzeuge',
+        component: {
+            path: Tools,
+            props: {}
+        },
     },
     {
         id: uuidv4(),
@@ -41,5 +58,16 @@ export const taskbarItemRight = [
         active: false,
         tooltip: 'Ebenen',
         event: 'layer-state'
+    },
+    {
+        id: uuidv4(),
+        title: 'Verlauf',
+        icon: 'mdi-history',
+        active: false,
+        tooltip: 'Verlauf',
+        component: {
+            path: History,
+            props: {}
+        },
     },
 ];

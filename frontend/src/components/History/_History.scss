@@ -1,0 +1,37 @@
+.map-item{
+  position: relative;
+}
+
+.absolute-badge{
+  position: absolute;
+  right: 16px;
+  z-index: 1;
+}
+
+.scrollFx{
+  position: absolute;
+  height: 80vh;
+  width: 100%;
+  left: 0;
+  top: 100px;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  pointer-events: none;
+}
+
+.scrollTop, .scrollBottom{
+  height: 100px;
+  background: linear-gradient(180deg, white 0%, transparent);
+  width: 100%;
+}
+
+.scrollBottom{
+  margin-top: auto;
+  margin-bottom: 0;
+  background: linear-gradient(0deg, white 0%, transparent) !important;
+}
+
+.nav-badge {
+  cursor: pointer;
+}

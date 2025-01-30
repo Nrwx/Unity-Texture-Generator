@@ -1,7 +1,7 @@
 import {computed} from "vue";
 import {settings} from "@/dataLayer/parameter";
 
-export const methodSettings = computed(() =>({
+export const operations = computed(() =>({
     0: {
         color_overlay: {
             active: true,

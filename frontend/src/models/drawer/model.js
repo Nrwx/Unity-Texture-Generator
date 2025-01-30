@@ -4,9 +4,6 @@ export function drawerModel(props, emit) {
     const { mobile } = useDisplay();
 
     const closeDrawer = () => {
-        if (props.item) {
-            console.log(props.item);
-        }
         emit("update:taskbar-menu", false);
     };
 

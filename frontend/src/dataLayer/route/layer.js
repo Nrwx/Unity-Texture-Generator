@@ -1,4 +1,3 @@
-import {localData} from "@/dataLayer/local";
 import api from "@/dataLayer/api";
 import {ref} from "vue";
 
@@ -62,7 +61,7 @@ export const updateLayer = async (layer) => {
 
 // Layer löschen
 export const deleteLayer = async (layers) => {
-    if (localData.selectedLayers.value.length === 0) return;
+    if (layers.length === 0) return;
 
     try {
         const state = ref(false);

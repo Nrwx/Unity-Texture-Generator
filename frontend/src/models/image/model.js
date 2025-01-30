@@ -10,7 +10,6 @@ export function imageModel(props, emit) {
 
         if (img && img.naturalWidth && img.naturalHeight) {
             emit('component-event', 'update-dimension', {width: img.naturalWidth, height: img.naturalHeight})
-            console.log(img.naturalWidth, img.naturalHeight);
         } else {
             console.error("Bild ist nicht verfügbar oder noch nicht geladen.");
         }

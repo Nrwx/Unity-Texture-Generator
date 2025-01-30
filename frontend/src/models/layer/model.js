@@ -1,6 +1,8 @@
+import {ref} from "vue";
+
 export function layerModel(props, emit) {
+    const selectedLayers = ref([])
     const emitEvent = (event, payload) => {
-        console.log(event, payload)
         emit("component-event", event, payload);
     };
     const validRule = (value) => {
@@ -21,6 +23,7 @@ export function layerModel(props, emit) {
         };
     };
     return {
+        selectedLayers,
         emitEvent,
         validRule,
     };
@@ -33,11 +36,6 @@ export const layerProps = {
         default: false
     },
     layers: {
-        type: Array,
-        required: true,
-        default: () => [],
-    },
-    selected: {
         type: Array,
         required: true,
         default: () => [],

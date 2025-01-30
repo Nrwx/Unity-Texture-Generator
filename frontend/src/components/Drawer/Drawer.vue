@@ -1542,7 +1542,7 @@ export default defineComponent({
 }
 
 .zoomedContainer:hover img {
-  cursor: zoom-in;
+  cursor: zoom-in !important;
   opacity: 1;
 }
 

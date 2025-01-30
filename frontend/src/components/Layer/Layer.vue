@@ -1,8 +1,8 @@
 <template>
   <v-card
       class="layer-system"
-      v-model:layers="layers"
-      v-show="state"
+      :layers="layers"
+      v-if="state"
       width="300"
   >
     <v-container class="layer-wrapper">
@@ -21,13 +21,13 @@
                 v-for="(layer, index) in layers"
                 :key="index"
                 class="layer-item"
-                :class="{ selected: selected.includes(layer.id) }"
+                :class="{ selected: selectedLayers.includes(layer.id) }"
             >
               <v-list-item-content class="d-flex align-baseline">
                 <v-text-field
                     v-model="layer.name"
                     clearable
-                    :disabled="selected.includes(layer.id)"
+                    :disabled="selectedLayers.includes(layer.id)"
                     variant="outlined"
                     clear-icon="mdi-broom"
                     :hide-details="validRule(layer.name).isValid"
@@ -51,7 +51,7 @@
                   </template>
                 </v-text-field>
                 <v-checkbox
-                    v-model:selected="selected"
+                    v-model="selectedLayers"
                     :value="layer.id"
                     class="layer-checkbox"
                     hide-details
@@ -75,8 +75,9 @@
             icon
             color="#FF516D"
             size="x-small"
-            @click="emitEvent('delete-layer')"
-            :disabled="selected.length === 0"
+            @click="emitEvent('delete-layer', selectedLayers)"
+            @click.stop="selectedLayers = []"
+            :disabled="selectedLayers.length === 0"
         >
           <v-icon color="white">mdi-delete</v-icon>
         </v-btn>
@@ -93,8 +94,9 @@ export default defineComponent({
   name: "TaskbarItem",
   props: layerProps,
   setup(props, { emit }) {
-    const { emitEvent, validRule } = layerModel(props, emit);
+    const { emitEvent, validRule, selectedLayers } = layerModel(props, emit);
     return {
+      selectedLayers,
       emitEvent,
       validRule,
     };

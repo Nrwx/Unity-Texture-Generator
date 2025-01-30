@@ -19,3 +19,5 @@ from .apply_glass import apply_glass
 from .apply_hue_rotation import apply_hue_rotation
 from .apply_invert_colors import apply_invert_colors
 from .apply_color_lookup import apply_color_lookup
+from .apply_cut_out import apply_cut_out
+
