@@ -87,3 +87,20 @@ export const deleteLayer = async (layers) => {
         console.error("Error deleting layers:", error.response?.data || error.message);
     }
 };
+
+export const previewLayers = async () => {
+    try {
+        const formData = new FormData();
+        formData.append("method", "preview");
+
+        const response = await api.post('/layer', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+
+        if (response) {
+            return response
+        }
+    } catch (error) {
+        console.error("Error fetching preview layers:", error.response?.data || error.message);
+    }
+};

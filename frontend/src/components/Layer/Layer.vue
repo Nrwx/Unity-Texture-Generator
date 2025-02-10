@@ -73,6 +73,14 @@
         </v-btn>
         <v-btn
             icon
+            color="#DCFDD4"
+            size="x-small"
+            @click="emitEvent('preview-layer')"
+        >
+          <v-icon color="black">mdi-eye</v-icon>
+        </v-btn>
+        <v-btn
+            icon
             color="#FF516D"
             size="x-small"
             @click="emitEvent('delete-layer', selectedLayers)"

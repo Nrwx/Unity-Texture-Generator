@@ -54,6 +54,13 @@ os.makedirs(LAYER_FOLDER, exist_ok=True)
 
 # Definition der Eingabeparameter und deren Standardwerte
 PARAMETERS = {
+    "viewport": {
+        "mode": {"type": int, "default": 1},
+        "width": {"type": int, "default": 2048},
+        "height": {"type": int, "default": 2048},
+        "title": {"type": str, "default": "Unknown"},
+        "layer": {"type": str, "default": "Layer"},
+    },
     "upload": {
         # STANDARD METHODS PARAMS START
         "selectedMaps": {"type": list, "default": []},
@@ -182,16 +189,32 @@ def serve_static_files(path):
 
 @app.route('/download/<filename>', methods=['GET'])
 def download_file(filename):
-    file_path = os.path.join(LAYER_FOLDER, filename)
-    if os.path.exists(file_path):
-        return send_file(file_path, mimetype='image/png')
+    file_paths = [os.path.join(LAYER_FOLDER, filename), os.path.join(UPLOAD_FOLDER, filename)]
+
+    for file_path in file_paths:
+        if os.path.exists(file_path):
+            return send_file(file_path, mimetype='image/png')
+
     return jsonify({"error": "File not found"}), 404
 
-from PIL import Image
-import numpy as np
-import uuid
-import os
-from flask import jsonify, request
+viewportConfig = {}
+@app.route('/viewport', methods=['POST'])
+def viewportCanvas():
+    try:
+        params = parse_parameters(PARAMETERS['viewport'], request.form)
+
+        viewportConfig['mode'] = params['mode']
+        viewportConfig['width'] = params['width']
+        viewportConfig['height'] = params['height']
+        viewportConfig['title'] = params['title']
+        viewportConfig['layer'] = params['layer']
+
+        add_layer(name=params['layer'], path=None, id=None, width=params['width'], height=params['height'])
+
+        return jsonify({"message": "Viewport set", "viewport": viewportConfig}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -530,25 +553,36 @@ def preview_layers():
         if not layers:
             return jsonify({"error": "No layers to preview"}), 404
 
-        # Größe des Endbildes bestimmen
-        max_width = max(layer['width'] for layer in layers)
-        max_height = max(layer['height'] for layer in layers)
+        # Feste Canvas-Größe
+        canvas_size = (1024, 1024)
 
         # Leere Canvas erstellen
-        composite_image = Image.new('RGBA', (max_width, max_height), (0, 0, 0, 0))
+        composite_image = Image.new('RGBA', canvas_size, (0, 0, 0, 0))
 
-        # Alle Layer nach Reihenfolge rendern
+        # Alle Layer rendern
         for layer in layers:
             layer_path = os.path.join(LAYER_FOLDER, f"{layer['id']}.png")
             if os.path.exists(layer_path):
                 layer_img = Image.open(layer_path).convert('RGBA')
-                composite_image.paste(layer_img, (0, 0), layer_img)
 
-        # Bild in ein NumPy-Array umwandeln
-        img_array = np.array(composite_image)
+                # Koordinaten mit Standardwerten (falls nicht vorhanden)
+                x = layer.get('x', 0)
+                y = layer.get('y', 0)
+                position = (x, y)
 
-        # Image aus dem NumPy-Array erzeugen und zurückgeben
-        return Image.fromarray(img_array.astype(np.uint8))
+                # Layer platzieren und Transparenz berücksichtigen
+                composite_image.paste(layer_img, position, layer_img)
+
+        # UUID für Dateinamen
+        map_id = str(uuid.uuid4())
+        map_name = "preview"
+        map_filename = f"{map_id}.png"
+        map_path = os.path.join(UPLOAD_FOLDER, map_filename)
+
+        # Speichern der Datei
+        composite_image.save(map_path, format="PNG", quality=100)
+
+        return jsonify({"id": map_id, "title": map_name, "src": f"/download/{map_filename}"}), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500

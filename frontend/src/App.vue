@@ -1,42 +1,49 @@
 <template>
   <v-app>
-    <!-- Settings Dialog -->
-    <Setting @component-event="componentEvent" v-model:state="windowStates.setting.value" v-model:settings="osSettings"/>
-    <Fullscreen @component-event="componentEvent" v-model:state="windowStates.fullscreen.value" v-model:data="fullscreenInfo"/>
-    <!-- Linke Taskbar -->
-    <Taskbar @taskbar-event="taskbarEvent('left', $event)" align="left" v-model:items="itemsLeft" />
-    <!-- Linker Drawer -->
-    <DrawerNew
-        v-model:taskbar-menu="windowStates.drawerLeft.value"
-        v-model:item="activeItemLeft"
-        align="left"
-        @component-event="componentEvent"
-    />
-    <!-- Main Content -->
-    <v-main>
-      <v-container style="position: relative;">
-        <v-row justify="center" class="mt-6" style="position:relative;">
-          <Image
-              v-model:layers="localData.layers.value"
-              @component-event="componentEvent"
-          />
-        </v-row>
-        <Layer
-            v-model:state="windowStates.layer.value"
-            v-model:layers="localData.layers.value"
-            @component-event="componentEvent"
-        />
-      </v-container>
-    </v-main>
-    <!-- Rechte Taskbar -->
-    <Taskbar @taskbar-event="taskbarEvent('right', $event)" align="right" v-model:items="itemsRight" />
-    <!-- Rechter Drawer -->
-    <DrawerNew
-        v-model:taskbar-menu="windowStates.drawerRight.value"
-        v-model:item="activeItemRight"
-        align="right"
-        @component-event="componentEvent"
-    />
+    <template v-if="windowStates.viewport.value">
+      <!-- Viewport Dialog -->
+      <viewport @component-event="componentEvent" :state="windowStates.viewport.value" :settings="localData.viewport.value"></viewport>
+    </template>
+    <template v-else>
+      <!-- Settings Dialog -->
+      <Setting @component-event="componentEvent" v-model:state="windowStates.setting.value" v-model:settings="osSettings"/>
+      <Fullscreen @component-event="componentEvent" v-model:state="windowStates.fullscreen.value" v-model:data="fullscreenInfo"/>
+      <!-- Linke Taskbar -->
+      <Taskbar @taskbar-event="taskbarEvent('left', $event)" align="left" v-model:items="itemsLeft" />
+      <!-- Linker Drawer -->
+      <DrawerNew
+          v-model:taskbar-menu="windowStates.drawerLeft.value"
+          v-model:item="activeItemLeft"
+          align="left"
+          @component-event="componentEvent"
+      />
+      <!-- Main Content -->
+      <v-main>
+        <viewport-grid v-model:layers="localData.layers.value" v-model:settings="localData.viewport.value" style="position: relative;">
+          <template #canvas>
+            <Image
+                v-model:layers="localData.layers.value"
+                @component-event="componentEvent"
+            />
+          </template>
+        </viewport-grid>
+      </v-main>
+      <Layer
+          style="position: relative"
+          v-model:state="windowStates.layer.value"
+          v-model:layers="localData.layers.value"
+          @component-event="componentEvent"
+      />
+      <!-- Rechte Taskbar -->
+      <Taskbar @taskbar-event="taskbarEvent('right', $event)" align="right" v-model:items="itemsRight" />
+      <!-- Rechter Drawer -->
+      <DrawerNew
+          v-model:taskbar-menu="windowStates.drawerRight.value"
+          v-model:item="activeItemRight"
+          align="right"
+          @component-event="componentEvent"
+      />
+    </template>
   </v-app>
 </template>
 
@@ -46,7 +53,7 @@ import { taskbarItemLeft, taskbarItemRight } from "@/models/taskbar/config/model
 import {localData} from "@/dataLayer/local";
 import DrawerNew from "@/components/Drawer/DrawerNew";
 import {computed, reactive, ref} from "vue";
-import {addLayer, deleteLayer, fetchLayers, updateLayer} from "@/dataLayer/route/layer";
+import {addLayer, deleteLayer, fetchLayers, previewLayers, updateLayer} from "@/dataLayer/route/layer";
 import {fileUpload} from "@/dataLayer/route/upload";
 import Image from "@/components/Image/Image";
 import Layer from "@/components/Layer/Layer";
@@ -56,10 +63,15 @@ import {fetchOsSettings, saveOsSettings} from "@/dataLayer/route/setting";
 import {osSettings} from "@/dataLayer/setting";
 import Fullscreen from "@/components/Fullscreen/Fullscreen";
 import {generateTileLayout} from "@/dataLayer/route/tile";
+import Viewport from "@/view/page/Viewport/Viewport";
+import {viewportSetup} from "@/dataLayer/route/viewport";
+import ViewportGrid from "@/components/Viewport/Grid";
 
 export default {
   name: 'App',
   components: {
+    ViewportGrid,
+    Viewport,
     Taskbar,
     DrawerNew,
     Image,
@@ -110,6 +122,36 @@ export default {
 
     const componentEvent = async (event, payload) => {
       try {
+        if (event === "viewport-setup") {
+          const data = {
+            mode: payload.mode,
+            title: payload.title,
+            width: payload.width,
+            height: payload.height,
+            layer: payload.layer
+          }
+          const response = await viewportSetup(data)
+          if (response) {
+            localData.viewport.value = data
+            windowStates.viewport = false
+          }
+        }
+        if (event === "viewport-state") {
+          if(typeof payload === 'boolean') {
+            windowStates.viewport.value = payload;
+          }
+        }
+        if (event === "viewport-settings") {
+          const data = {
+            mode: payload.mode,
+            title: payload.title,
+            width: payload.width,
+            height: payload.height
+          }
+          if(data) {
+            localData.viewport.value = data
+          }
+        }
         if (event === "apply-file") {
           localData.file.value = payload;
         }
@@ -209,8 +251,15 @@ export default {
             }
           }
         }
-        else if(event === 'edits:cut-off') {
-          const response = await
+        else if(event === 'preview-layer') {
+          const response = await previewLayers();
+          if (response) {
+            fullscreenInfo.title = response.title;
+            fullscreenInfo.id = response.id
+            fullscreenInfo.src = response.src
+            windowStates.fullscreen.value = true;
+            console.log(response)
+          }
         }
       } catch (error) {
         console.error("Error adding layer:", error.response?.data || error.message);

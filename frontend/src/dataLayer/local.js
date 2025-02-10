@@ -1,6 +1,13 @@
 import {ref} from "vue";
 
 export const localData = {
+    viewport: ref({
+        width: 1024,
+        height: 1024,
+        mode: 1,
+        title: 'Unbekannt',
+        layer: 'Ebene'
+    }),
     file: ref(null),
     output: ref(''),
     dimension: ref({width: 1024, height: 1024}),
