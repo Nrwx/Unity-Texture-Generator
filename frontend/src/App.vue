@@ -29,7 +29,7 @@
         </viewport-grid>
       </v-main>
       <Layer
-          style="position: relative"
+          style="position: absolute; top: 40px; right: 70px;"
           v-model:state="windowStates.layer.value"
           v-model:layers="localData.layers.value"
           @component-event="componentEvent"
@@ -93,6 +93,7 @@ export default {
       tileSize: {x: 1, y: 1},
       tileSrc: ''
     })
+
 
     const taskbarEvent = (side, itemId) => {
       if (side === 'left') {

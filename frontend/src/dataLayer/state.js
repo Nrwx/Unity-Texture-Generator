@@ -9,3 +9,7 @@ export const windowStates = {
     setting: ref(false),
     fullscreen: ref(false),
 };
+
+export const keyStates = {
+    z: ref(false),
+};
