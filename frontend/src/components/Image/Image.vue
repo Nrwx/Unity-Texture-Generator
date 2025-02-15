@@ -11,7 +11,7 @@
         @click="emitEvent(layer, $event)"
         :class="{'absolute' : index > 0, 'selected': selectedLayers.includes(layer)}"
         alt="Layer Image"
-        :style="{ zIndex: index, left: `${offsetX}px`,top: `${offsetY}px`}"
+        :style="{ zIndex: index, left: `${layer.x + offsetX}px`, top: `${layer.y + offsetY}px` }"
         @load="extractImageSize"
     />
   </v-col>

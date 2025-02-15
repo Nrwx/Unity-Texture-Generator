@@ -491,6 +491,10 @@ def add_layer(name="", path="", id="", width=1024, height=1024):
             "width": width,
             "height": height,
             "url": f"/download/{id}.png",
+            "x": 0,
+            "y": 0,
+            "rotate": 0,
+            "scale": 1,
         }
         layers.append(layer)
         print(layers)

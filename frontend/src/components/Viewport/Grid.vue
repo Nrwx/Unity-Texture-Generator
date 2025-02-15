@@ -47,8 +47,8 @@
             <Image
                 :layers="layers"
                 :selected-layers="selectedLayers"
-                :offset-x="offsetX"
-                :offset-y="offsetY"
+                :offset-x="isMovingSelection ? offsetX : ''"
+                :offset-y="isMovingSelection ? offsetY : ''"
                 @component-event="emitEvent"
                 @update:select-layer="toggleSelection"
             />
