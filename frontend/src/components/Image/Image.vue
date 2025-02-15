@@ -6,9 +6,12 @@
         :src="layer.url"
         :aspect-ratio="1"
         class="layer-image"
-        :class="index > 0 ? 'absolute' : ''"
+        :width="layer.width"
+        :height="layer.height"
+        @click="emitEvent(layer, $event)"
+        :class="{'absolute' : index > 0, 'selected': selectedLayers.includes(layer)}"
         alt="Layer Image"
-        :style="{ zIndex: index + 1 }"
+        :style="{ zIndex: index, left: `${offsetX}px`,top: `${offsetY}px`}"
         @load="extractImageSize"
     />
   </v-col>
@@ -27,8 +30,9 @@
     Frame
   },
   setup(props, { emit }) {
-    const { extractImageSize } = imageModel(emit);
+    const { emitEvent, extractImageSize } = imageModel(props, emit);
     return {
+      emitEvent,
       extractImageSize
     };
   },

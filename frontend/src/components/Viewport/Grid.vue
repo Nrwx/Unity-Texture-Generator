@@ -44,9 +44,14 @@
         >
           <!-- Zentrale Inhalte im Canvas -->
           <div class="canvas-content">
-            <template v-if="$slots.canvas">
-              <slot name="canvas">{{ $slots.canvas }}</slot>
-            </template>
+            <Image
+                :layers="layers"
+                :selected-layers="selectedLayers"
+                :offset-x="offsetX"
+                :offset-y="offsetY"
+                @component-event="emitEvent"
+                @update:select-layer="toggleSelection"
+            />
             <div class="center-crosshair"></div>
           </div>
         </div>
@@ -62,6 +67,7 @@
 
 <script>
 import { computed, defineComponent, onMounted, onUnmounted, ref } from "vue";
+import Image from "@/components/Image/Image";
 
 export default defineComponent({
   name: "PhotoshopGrid",
@@ -70,10 +76,18 @@ export default defineComponent({
       type: Object,
       required: true,
     },
+    layers: {
+      type: Array,
+      required: true,
+    },
   },
-  setup(props) {
+  components: {
+    Image
+  },
+  setup(props, emit) {
     const canvasContainer = ref(null);
     const isPanning = ref(false);
+    const isMovingSelection = ref(false);
     const isZooming = ref(false);
     const scale = ref(1);
     const offsetX = ref(0);
@@ -83,6 +97,27 @@ export default defineComponent({
     let lastMouseY = 0;
     const guides = ref([]);
     let draggingGuide = null;
+    const selectMode = ref(false);
+    const selectedLayers = ref([]);
+
+    const toggleSelection = (layer, event) => {
+      event.preventDefault();
+      if (!selectMode.value) return;
+      if (event.ctrlKey) {
+        const index = selectedLayers.value.findIndex(l => l.id === layer.id);
+        if (index === -1) {
+          selectedLayers.value.push(layer);
+        } else {
+          selectedLayers.value.splice(index, 1);
+        }
+      } else {
+        selectedLayers.value = [layer];
+      }
+    };
+
+    const emitEvent = (event, payload) => {
+      emit("component-event", event, payload);
+    };
 
     const columnPositions = computed(() => {
       const positions = [];
@@ -110,6 +145,16 @@ export default defineComponent({
     }));
 
     const handleMouseDown = (event) => {
+      const clickedInsideCanvas = event.target.closest('.canvas-container');
+
+      if (!clickedInsideCanvas) {
+        selectedLayers.value = []; // Alle Layer deselektieren
+        return;
+      }
+
+      if (selectMode.value) {
+        return;
+      }
       if (isZooming.value) {
         if (event.button === 0) {
           scale.value = Math.min(scale.value + 0.1, 2);
@@ -128,13 +173,19 @@ export default defineComponent({
       cursorPosition.value.x = Math.round(x);
       cursorPosition.value.y = Math.round(y);
 
-      if (isPanning.value) {
-        const dx = event.clientX - lastMouseX;
-        const dy = event.clientY - lastMouseY;
+      const dx = event.clientX - lastMouseX;
+      const dy = event.clientY - lastMouseY;
 
+      if (isMovingSelection.value) {
+        selectedLayers.value.forEach(layer => {
+          layer.x += dx / scale.value;
+          layer.y += dy / scale.value;
+        });
+      } else if (isPanning.value) {
         offsetX.value += dx;
         offsetY.value += dy;
       }
+
       lastMouseX = event.clientX;
       lastMouseY = event.clientY;
     };
@@ -213,12 +264,24 @@ export default defineComponent({
     };
 
     const handleKeyDown = (event) => {
-      if (event.key === 'g') isPanning.value = true;
+      if (event.key === "w") {
+        selectMode.value = !selectMode.value;
+      }
+      if (event.key === 'g') {
+        if (selectedLayers.value.length > 0) {
+          isMovingSelection.value = true;
+        } else {
+          isPanning.value = true;
+        }
+      }
       if (event.key === 'z') isZooming.value = !isZooming.value;
     };
 
     const handleKeyUp = (event) => {
-      if (event.key === 'g') isPanning.value = false;
+      if (event.key === 'g') {
+        isPanning.value = false;
+        isMovingSelection.value = false;
+      }
     };
 
     onMounted(() => {
@@ -233,6 +296,7 @@ export default defineComponent({
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("keyup", handleKeyUp);
       document.removeEventListener("mousedown", startPan);
+      document.removeEventListener("mousemove", handleMouseMove);
     });
 
     return {
@@ -251,120 +315,16 @@ export default defineComponent({
       startDraggingGuide,
       getGuideStyle,
       isZooming,
+      emitEvent,
+      selectMode,
+      selectedLayers,
+      toggleSelection,
+      isMovingSelection,
     };
   },
 });
 </script>
 
-
-
-<style scoped>
-/* Hauptcontainer für das gesamte Layout */
-.viewport-wrapper {
-  position: relative;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-  background-color: #2c2c2c;
-  overflow: hidden;
-}
-
-.guide {
-  position: absolute;
-  z-index: +1;
-  background: blue;
-  opacity: 0.7;
-  pointer-events: all;
-}
-
-.main-layer {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: #1c1c1c;
-  overflow: hidden;
-}
-
-/* Lineale */
-.ruler {
-  position: absolute;
-  background-color: #333;
-  color: white;
-  font-size: 12px;
-  z-index: 1;
-}
-
-.x-axis {
-  top: 0;
-  height: 20px;
-  width: 100%;
-}
-
-.y-axis {
-  left: 0;
-  width: 20px;
-  height: 100%;
-}
-
-.ruler-mark {
-  position: relative;
-  font-size: 10px;
-  color: #ddd;
-}
-
-/* Canvas Container */
-.canvas-container {
-  position: relative;
-  background-color: #fff;
-}
-
-.canvas-content {
-  width: 100%;
-  height: 100%;
-  position: relative;
-  background: transparent;
-}
-
-.center-crosshair {
-  width: 10px;
-  height: 10px;
-  background: red;
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-}
-
-/* Cursor-Koordinatenanzeige */
-.cursor-coordinates {
-  position: absolute;
-  right: 10px;
-  font-size: 14px;
-  color: white;
-  z-index: 1;
-  top: 25px;
-}
-
-.inner-x-axis {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 20px;
-  background-color: rgba(50, 50, 50, 0.8);
-}
-
-.inner-y-axis {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 20px;
-  background-color: rgba(50, 50, 50, 0.8);
-}
-
+<style scoped lang="scss">
+@import 'Grid.scss';
 </style>

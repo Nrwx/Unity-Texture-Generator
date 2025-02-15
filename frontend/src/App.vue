@@ -19,14 +19,7 @@
       />
       <!-- Main Content -->
       <v-main>
-        <viewport-grid v-model:layers="localData.layers.value" v-model:settings="localData.viewport.value" style="position: relative;">
-          <template #canvas>
-            <Image
-                v-model:layers="localData.layers.value"
-                @component-event="componentEvent"
-            />
-          </template>
-        </viewport-grid>
+        <viewport-grid @component-event="componentEvent" v-model:layers="localData.layers.value" v-model:settings="localData.viewport.value" style="position: relative;"/>
       </v-main>
       <Layer
           style="position: absolute; top: 40px; right: 70px;"
@@ -55,7 +48,6 @@ import DrawerNew from "@/components/Drawer/DrawerNew";
 import {computed, reactive, ref} from "vue";
 import {addLayer, deleteLayer, fetchLayers, previewLayers, updateLayer} from "@/dataLayer/route/layer";
 import {fileUpload} from "@/dataLayer/route/upload";
-import Image from "@/components/Image/Image";
 import Layer from "@/components/Layer/Layer";
 import {windowStates} from "@/dataLayer/state";
 import Setting from "@/components/Setting/Setting";
@@ -74,7 +66,6 @@ export default {
     Viewport,
     Taskbar,
     DrawerNew,
-    Image,
     Layer,
     Setting,
     Fullscreen

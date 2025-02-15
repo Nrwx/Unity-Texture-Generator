@@ -11,3 +11,8 @@
   bottom: 0;
   position: absolute !important;
 }
+
+.selected {
+  outline: 2px solid blue; // Oder eine andere Farbe, die gut sichtbar ist
+  outline-offset: 2px; // Abstand zur Bildkante
+}
