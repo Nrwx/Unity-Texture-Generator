@@ -45,6 +45,10 @@ export const updateLayer = async (layer) => {
         formData.append("id", layer.id);
         formData.append("width", layer.width);
         formData.append("height", layer.height);
+        formData.append("rotate", layer.rotate);
+        formData.append("x", layer.x);
+        formData.append("y", layer.y);
+        formData.append("scale", layer.scale);
         formData.append("url", layer.url);
 
         const response = await api.post('/layer', formData, {

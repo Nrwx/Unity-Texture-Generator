@@ -99,7 +99,7 @@ export default defineComponent({
   components: {
     Image
   },
-  setup(props, emit) {
+  setup(props, { emit }) {
     const canvasContainer = ref(null);
     const isPanning = ref(false);
     const isMovingSelection = ref(false);
@@ -119,6 +119,10 @@ export default defineComponent({
     let isRotating = ref(false);
     let resizeDirection = ref('');
     let rotationStartAngle = ref(0);
+
+    const emitEvent = (event, payload) => {
+      emit("component-event", event, payload);
+    };
 
     // Start Resize
     const startResize = (corner, event) => {
@@ -196,10 +200,7 @@ export default defineComponent({
       } else {
         selectedLayers.value = [layer];
       }
-    };
-
-    const emitEvent = (event, payload) => {
-      emit("component-event", event, payload);
+      emitEvent('update-layer', selectedLayers.value)
     };
 
     const columnPositions = computed(() => {
@@ -313,7 +314,10 @@ export default defineComponent({
     };
 
     const startGuide = (type, event) => {
-      const position = type === 'horizontal' ? event.clientY : event.clientX;
+      // Berechne die Position relativ zur aktuellen Verschiebung (Offset)
+      const position = type === 'horizontal'
+          ? event.clientY - offsetY.value
+          : event.clientX - offsetX.value;
 
       // Prüfen, ob eine bestehende Hilfslinie an dieser Position existiert
       const existingIndex = guides.value.findIndex(g => g.type === type && Math.abs(g.position - position) < 5);
@@ -332,10 +336,10 @@ export default defineComponent({
     const dragGuide = (event) => {
       if (!draggingGuide) return;
 
-      // Verhindere, dass position unnötig auf 0 gesetzt wird
-      const newPosition = draggingGuide.type === 'horizontal' ? event.clientY : event.clientX;
+      const newPosition = draggingGuide.type === 'horizontal'
+          ? event.clientY - offsetY.value
+          : event.clientX - offsetX.value;
 
-      // Nur aktualisieren, wenn sich die Position wirklich ändert
       if (draggingGuide.position !== newPosition) {
         draggingGuide.position = newPosition;
       }
@@ -345,7 +349,7 @@ export default defineComponent({
       if (!draggingGuide) return;
 
       // Prüfen, ob die Hilfslinie auf das Lineal zurückgelegt wurde
-      const isOnXAxis = draggingGuide.type === 'horizontal' && draggingGuide.position <= 20; // 20px Toleranz für das Lineal
+      const isOnXAxis = draggingGuide.type === 'horizontal' && draggingGuide.position <= 20;
       const isOnYAxis = draggingGuide.type === 'vertical' && draggingGuide.position <= 20;
 
       if (isOnXAxis || isOnYAxis) {
@@ -360,8 +364,26 @@ export default defineComponent({
 
     const getGuideStyle = (guide) => {
       return guide.type === 'horizontal'
-          ? { top: `${guide.position + offsetY.value}px`, bottom: '0', left: '0', right: '0', width: '100%', height: '1px', background: 'blue', position: 'absolute', cursor: 'row-resize' }
-          : { left: `${guide.position + offsetX.value}px`, bottom: '0', top: '0', right: '0', height: '100%', width: '1px', background: 'blue', position: 'absolute', cursor: 'col-resize' };
+          ? {
+            top: `${guide.position + offsetY.value}px`,
+            left: '0',
+            right: '0',
+            width: '100%',
+            height: '1px',
+            background: 'blue',
+            position: 'absolute',
+            cursor: 'row-resize'
+          }
+          : {
+            left: `${guide.position + offsetX.value}px`,
+            top: '0',
+            bottom: '0',
+            height: '100%',
+            width: '1px',
+            background: 'blue',
+            position: 'absolute',
+            cursor: 'col-resize'
+          };
     };
 
     const handleKeyDown = (event) => {

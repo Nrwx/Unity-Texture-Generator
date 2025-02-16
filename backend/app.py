@@ -176,6 +176,10 @@ PARAMETERS = {
         "id": {"type": str, "default": ""},
         "width": {"type": int, "default": 1024},
         "height": {"type": int, "default": 1024},
+        "x": {"type": float, "default": 0},
+        "y": {"type": float, "default": 0},
+        "rotate": {"type": float, "default": 0},
+        "scale": {"type": float, "default": 0},
     },
 }
 
@@ -494,7 +498,7 @@ def add_layer(name="", path="", id="", width=1024, height=1024):
             "x": 0,
             "y": 0,
             "rotate": 0,
-            "scale": 1,
+            "scale": 1.0,
         }
         layers.append(layer)
         print(layers)
