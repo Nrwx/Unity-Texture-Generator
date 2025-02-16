@@ -1,5 +1,5 @@
 <template>
-  <v-col v-model:layers="layers" cols="12" class="pa-0" style="position:relative;">
+  <v-col v-model:layers="layers" cols="auto" class="pa-0" style="position:relative;">
     <v-img
         v-for="(layer, index) in layers"
         :key="layer.id"
@@ -9,14 +9,23 @@
         :width="layer.width"
         :height="layer.height"
         @click="emitEvent(layer, $event)"
-        :class="{'absolute' : index > 0, 'selected': selectedLayers.includes(layer)}"
+        :class="{'absolute': index > 0, 'selected': selectedLayers.includes(layer)}"
         alt="Layer Image"
-        :style="{ zIndex: index, left: `${layer.x + offsetX}px`, top: `${layer.y + offsetY}px` }"
+        :style="{
+          zIndex: index,
+          left: `${layer.x + offsetX}px`,
+          top: `${layer.y + offsetY}px`,
+          transform: `scale(${layer.scale}) rotate(${layer.rotate}deg)`,
+          transformOrigin: 'center center'
+        }"
         @load="extractImageSize"
-    />
+    >
+      <slot v-if="selectedLayers.includes(layer)" name="menu"></slot>
+    </v-img>
   </v-col>
   <Frame></Frame>
 </template>
+
 
 <script>
   import { defineComponent } from "vue";

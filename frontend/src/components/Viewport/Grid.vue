@@ -1,5 +1,5 @@
 <template>
-  <div class="viewport-wrapper">
+  <div class="viewport-wrapper" @mousedown="resetSelection">
     <!-- Hauptcontainer: Zentriert das Canvas -->
     <div class="main-layer">
       <!-- Lineale -->
@@ -51,7 +51,24 @@
                 :offset-y="isMovingSelection ? offsetY : ''"
                 @component-event="emitEvent"
                 @update:select-layer="toggleSelection"
-            />
+            >
+              <!-- Transformations-Overlay -->
+              <template #menu>
+                <div v-if="transformMode" class="selection-overlay">
+                  <!-- Resize Handles -->
+                  <div class="resize-handle top-left" @mousedown="startResize('top-left', $event)"></div>
+                  <div class="resize-handle top-right" @mousedown="startResize('top-right', $event)"></div>
+                  <div class="resize-handle bottom-left" @mousedown="startResize('bottom-left', $event)"></div>
+                  <div class="resize-handle bottom-right" @mousedown="startResize('bottom-right', $event)"></div>
+
+                  <!-- Rotate Handles -->
+                  <div class="rotate-handle top" @mousedown="startRotate('top', $event)"></div>
+                  <div class="rotate-handle bottom" @mousedown="startRotate('bottom', $event)"></div>
+                  <div class="rotate-handle left" @mousedown="startRotate('left', $event)"></div>
+                  <div class="rotate-handle right" @mousedown="startRotate('right', $event)"></div>
+                </div>
+              </template>
+            </Image>
             <div class="center-crosshair"></div>
           </div>
         </div>
@@ -99,6 +116,74 @@ export default defineComponent({
     let draggingGuide = null;
     const selectMode = ref(false);
     const selectedLayers = ref([]);
+    const transformMode = computed(() => selectedLayers.value.length > 0);
+    let isResizing = ref(false);
+    let isRotating = ref(false);
+    let resizeDirection = ref('');
+    let rotationStartAngle = ref(0);
+
+    // Start Resize
+    const startResize = (corner, event) => {
+      isResizing.value = true;
+      resizeDirection.value = corner;
+      lastMouseX = event.clientX;
+      lastMouseY = event.clientY;
+      document.addEventListener("mouseup", stopTransform);
+    };
+
+    // Start Rotate
+    const startRotate = (direction, event) => {
+      isRotating.value = true;
+      rotationStartAngle.value = calculateRotation(event.clientX, event.clientY);
+      lastMouseX = event.clientX;
+      lastMouseY = event.clientY;
+      document.addEventListener("mouseup", stopTransform);
+    };
+
+    // Berechnung der Rotation im Grad
+    const calculateRotation = (mouseX, mouseY) => {
+      const centerX = selectedLayers.value[0].x + selectedLayers.value[0].width / 2;
+      const centerY = selectedLayers.value[0].y + selectedLayers.value[0].height / 2;
+      const angle = Math.atan2(mouseY - centerY, mouseX - centerX);
+      return angle * (180 / Math.PI); // Umwandlung von Bogenmaß zu Grad
+    };
+
+    // Berechnung des Resize-Verhältnisses
+    const handleResize = (dx, dy) => {
+      selectedLayers.value.forEach(layer => {
+        if (resizeDirection.value.includes('top')) {
+          layer.height -= dy;
+          layer.y += dy; // Verschiebung nach oben
+        } else if (resizeDirection.value.includes('bottom')) {
+          layer.height += dy;
+        }
+
+        if (resizeDirection.value.includes('left')) {
+          layer.width -= dx;
+          layer.x += dx; // Verschiebung nach links
+        } else if (resizeDirection.value.includes('right')) {
+          layer.width += dx;
+        }
+      });
+    };
+
+    // Berechnung der Rotation
+    const handleRotate = (event) => {
+      event.preventDefault();
+      const currentAngle = calculateRotation(event.clientX, event.clientY);
+      const deltaAngle = currentAngle - rotationStartAngle.value;
+
+      selectedLayers.value.forEach(layer => {
+        layer.rotate += deltaAngle;
+      });
+      rotationStartAngle.value = currentAngle; // Setze den Startwinkel zurück
+    };
+
+    const resetSelection = (event) => {
+      if (!canvasContainer.value.contains(event.target)) {
+        selectedLayers.value = [];
+      }
+    };
 
     const toggleSelection = (layer, event) => {
       event.preventDefault();
@@ -165,6 +250,15 @@ export default defineComponent({
       }
     };
 
+
+    // Stop Transform (Resizing or Rotating)
+    const stopTransform = () => {
+      isResizing.value = false;
+      isRotating.value = false;
+      document.removeEventListener("mouseup", stopTransform);
+    };
+
+
     const handleMouseMove = (event) => {
       const rect = canvasContainer.value.getBoundingClientRect();
       const x = (event.clientX - rect.left) / scale.value;
@@ -184,6 +278,14 @@ export default defineComponent({
       } else if (isPanning.value) {
         offsetX.value += dx;
         offsetY.value += dy;
+      }
+      // Resizing
+      else if (isResizing.value) {
+        handleResize(dx / scale.value, dy / scale.value);
+      }
+      // Rotation
+      else if (isRotating.value) {
+        handleRotate(event);
       }
 
       lastMouseX = event.clientX;
@@ -264,6 +366,9 @@ export default defineComponent({
     };
 
     const handleKeyDown = (event) => {
+      if (event.key.toLowerCase() === "r") {
+        //rotateSelectedLayers();
+      }
       if (event.key === "w") {
         selectMode.value = !selectMode.value;
       }
@@ -285,6 +390,7 @@ export default defineComponent({
     };
 
     onMounted(() => {
+      document.addEventListener("mousedown", resetSelection);
       document.addEventListener("contextmenu", (event) => event.preventDefault());
       document.addEventListener("keydown", handleKeyDown);
       document.addEventListener("keyup", handleKeyUp);
@@ -294,6 +400,7 @@ export default defineComponent({
     onUnmounted(() => {
       document.removeEventListener("contextmenu", (event) => event.preventDefault());
       document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("mousedown", resetSelection);
       document.removeEventListener("keyup", handleKeyUp);
       document.removeEventListener("mousedown", startPan);
       document.removeEventListener("mousemove", handleMouseMove);
@@ -320,6 +427,10 @@ export default defineComponent({
       selectedLayers,
       toggleSelection,
       isMovingSelection,
+      resetSelection,
+      transformMode,
+      startRotate,
+      startResize,
     };
   },
 });
