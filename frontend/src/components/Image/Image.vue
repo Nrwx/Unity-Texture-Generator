@@ -13,8 +13,8 @@
         alt="Layer Image"
         :style="{
           zIndex: index,
-          left: `${layer.x + offsetX}px`,
-          top: `${layer.y + offsetY}px`,
+          left: `${layer.x}px`,
+          top: `${layer.y}px`,
           transform: `scale(${layer.scale}) rotate(${layer.rotate}deg)`,
           transformOrigin: 'center center'
         }"

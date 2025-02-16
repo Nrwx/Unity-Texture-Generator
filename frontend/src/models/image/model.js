@@ -35,14 +35,4 @@ export const imageProps = {
         required: true,
         default: () => [],
     },
-    offsetX: {
-        type: Number,
-        required: true,
-        default: 0
-    },
-    offsetY: {
-        type: Number,
-        required: true,
-        default: 0
-    },
 };

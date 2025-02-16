@@ -47,8 +47,6 @@
             <Image
                 :layers="layers"
                 :selected-layers="selectedLayers"
-                :offset-x="isMovingSelection ? offsetX : ''"
-                :offset-y="isMovingSelection ? offsetY : ''"
                 @component-event="emitEvent"
                 @update:select-layer="toggleSelection"
             >
@@ -260,20 +258,21 @@ export default defineComponent({
 
 
     const handleMouseMove = (event) => {
+      // Berechne die tatsächliche Mausposition relativ zum Canvas Container
       const rect = canvasContainer.value.getBoundingClientRect();
-      const x = (event.clientX - rect.left) / scale.value;
-      const y = (event.clientY - rect.top) / scale.value;
+      const scaledX = (event.clientX - rect.left) / scale.value;
+      const scaledY = (event.clientY - rect.top) / scale.value;
 
-      cursorPosition.value.x = Math.round(x);
-      cursorPosition.value.y = Math.round(y);
+      cursorPosition.value.x = Math.round(scaledX);
+      cursorPosition.value.y = Math.round(scaledY);
 
-      const dx = event.clientX - lastMouseX;
-      const dy = event.clientY - lastMouseY;
+      const dx = (event.clientX - lastMouseX) / scale.value;
+      const dy = (event.clientY - lastMouseY) / scale.value;
 
       if (isMovingSelection.value) {
         selectedLayers.value.forEach(layer => {
-          layer.x += dx / scale.value;
-          layer.y += dy / scale.value;
+          layer.x += dx;
+          layer.y += dy;
         });
       } else if (isPanning.value) {
         offsetX.value += dx;
@@ -281,7 +280,7 @@ export default defineComponent({
       }
       // Resizing
       else if (isResizing.value) {
-        handleResize(dx / scale.value, dy / scale.value);
+        handleResize(dx, dy);
       }
       // Rotation
       else if (isRotating.value) {
@@ -361,8 +360,8 @@ export default defineComponent({
 
     const getGuideStyle = (guide) => {
       return guide.type === 'horizontal'
-          ? { top: `${guide.position}px`, bottom: '0', left: '0', right: '0', width: '100%', height: '1px', background: 'blue', position: 'absolute', cursor: 'row-resize' }
-          : { left: `${guide.position}px`, bottom: '0', top: '0', right: '0', height: '100%', width: '1px', background: 'blue', position: 'absolute', cursor: 'col-resize' };
+          ? { top: `${guide.position + offsetY.value}px`, bottom: '0', left: '0', right: '0', width: '100%', height: '1px', background: 'blue', position: 'absolute', cursor: 'row-resize' }
+          : { left: `${guide.position + offsetX.value}px`, bottom: '0', top: '0', right: '0', height: '100%', width: '1px', background: 'blue', position: 'absolute', cursor: 'col-resize' };
     };
 
     const handleKeyDown = (event) => {
