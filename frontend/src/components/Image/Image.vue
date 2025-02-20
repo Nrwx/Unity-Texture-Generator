@@ -1,5 +1,5 @@
 <template>
-  <v-col v-model:layers="layers" cols="auto" class="pa-0" style="position:relative;">
+  <v-col v-model:layers="layers" cols="auto" class="pa-0" style="position:relative; height: 100%; width: 100%;">
     <v-img
         v-for="(layer, index) in layers"
         :key="layer.id"
