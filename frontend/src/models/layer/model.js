@@ -1,7 +1,7 @@
 import {ref} from "vue";
 
 export function layerModel(props, emit) {
-    const selectedLayers = ref([])
+    const selectedLayer = ref([]);
     const emitEvent = (event, payload) => {
         emit("component-event", event, payload);
     };
@@ -23,9 +23,9 @@ export function layerModel(props, emit) {
         };
     };
     return {
-        selectedLayers,
         emitEvent,
         validRule,
+        selectedLayer,
     };
 }
 
@@ -39,5 +39,5 @@ export const layerProps = {
         type: Array,
         required: true,
         default: () => [],
-    },
+    }
 };

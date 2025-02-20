@@ -172,14 +172,13 @@ PARAMETERS = {
     "layer": {
         "method": {"type": str, "required": True},
         "name": {"type": str, "default": ""},
-        "url": {"type": str, "default": ""},
-        "id": {"type": str, "default": ""},
         "width": {"type": int, "default": 1024},
         "height": {"type": int, "default": 1024},
-        "x": {"type": float, "default": 0},
-        "y": {"type": float, "default": 0},
+        "id": {"type": str, "default": ""},
+        "x": {"type": int, "default": 0},
+        "y": {"type": int, "default": 0},
         "rotate": {"type": float, "default": 0},
-        "scale": {"type": float, "default": 0},
+        "url": {"type": str, "default": ""},
     },
 }
 
@@ -498,7 +497,6 @@ def add_layer(name="", path="", id="", width=1024, height=1024):
             "x": 0,
             "y": 0,
             "rotate": 0,
-            "scale": 1.0,
         }
         layers.append(layer)
         print(layers)
@@ -506,7 +504,7 @@ def add_layer(name="", path="", id="", width=1024, height=1024):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-def update_layer(name, width, height, id):
+def update_layer(name, width, height, id, x=0, y=0, rotate=0):
     try:
         layer = next((l for l in layers if l["id"] == id), None)
         if not layer:
@@ -530,6 +528,14 @@ def update_layer(name, width, height, id):
                 img.save(new_image_path)
                 os.remove(old_image_path)  # Entferne die alte Bilddatei
                 layer["url"] = f"/download/{new_id}.png"
+        if x:
+            layer["x"] = x
+        if y:
+            layer["y"] = y
+        if rotate:
+            layer["rotate"] = rotate
+
+        print(layers)
 
         return jsonify(layer), 200
     except Exception as e:
@@ -605,7 +611,7 @@ def layer_management():
                 'function': add_layer
             },
             "update": {
-                'keys': {"name", "width", "height", "id"},
+                'keys': {"name", "width", "height", "id", "x", "y", "rotate"},
                 'function': update_layer
             },
             "delete": {

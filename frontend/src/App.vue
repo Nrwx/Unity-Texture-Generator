@@ -11,31 +11,16 @@
       <!-- Linke Taskbar -->
       <Taskbar @taskbar-event="taskbarEvent('left', $event)" align="left" v-model:items="itemsLeft" />
       <!-- Linker Drawer -->
-      <DrawerNew
-          v-model:taskbar-menu="windowStates.drawerLeft.value"
-          v-model:item="activeItemLeft"
-          align="left"
-          @component-event="componentEvent"
-      />
+      <DrawerNew v-model:taskbar-menu="windowStates.drawerLeft.value" v-model:item="activeItemLeft" align="left" @component-event="componentEvent"/>
       <!-- Main Content -->
       <v-main>
         <viewport-grid @component-event="componentEvent" v-model:layers="localData.layers.value" v-model:settings="localData.viewport.value" style="position: relative;"/>
       </v-main>
-      <Layer
-          style="position: absolute; top: 40px; right: 70px;"
-          v-model:state="windowStates.layer.value"
-          v-model:layers="localData.layers.value"
-          @component-event="componentEvent"
-      />
+      <Layer style="position: absolute; top: 40px; right: 70px;" v-model:state="windowStates.layer.value" v-model:layers="localData.layers.value" @component-event="componentEvent"/>
       <!-- Rechte Taskbar -->
       <Taskbar @taskbar-event="taskbarEvent('right', $event)" align="right" v-model:items="itemsRight" />
       <!-- Rechter Drawer -->
-      <DrawerNew
-          v-model:taskbar-menu="windowStates.drawerRight.value"
-          v-model:item="activeItemRight"
-          align="right"
-          @component-event="componentEvent"
-      />
+      <DrawerNew v-model:taskbar-menu="windowStates.drawerRight.value" v-model:item="activeItemRight" align="right" @component-event="componentEvent"/>
     </template>
   </v-app>
 </template>
@@ -115,13 +100,7 @@ export default {
     const componentEvent = async (event, payload) => {
       try {
         if (event === "viewport-setup") {
-          const data = {
-            mode: payload.mode,
-            title: payload.title,
-            width: payload.width,
-            height: payload.height,
-            layer: payload.layer
-          }
+          const data = {mode: payload.mode, title: payload.title, width: payload.width, height: payload.height, layer: payload.layer}
           const response = await viewportSetup(data)
           if (response) {
             localData.viewport.value = data
@@ -134,12 +113,7 @@ export default {
           }
         }
         if (event === "viewport-settings") {
-          const data = {
-            mode: payload.mode,
-            title: payload.title,
-            width: payload.width,
-            height: payload.height
-          }
+          const data = {mode: payload.mode, title: payload.title, width: payload.width, height: payload.height}
           if(data) {
             localData.viewport.value = data
           }
@@ -160,11 +134,7 @@ export default {
           localData.dimension.value = payload
         }
         else if(event === "add-layer") {
-          const data = {
-            name: `Layer ${localData.layers.value.length + 1}`,
-            width: localData.dimension.value.width,
-            height: localData.dimension.value.height,
-          }
+          const data = {name: `Layer ${localData.layers.value.length + 1}`, width: localData.dimension.value.width, height: localData.dimension.value.height,}
           const response = await addLayer(data)
           if(response) {
             await componentEvent('fetch-layer');
@@ -172,7 +142,6 @@ export default {
         }
         else if(event === "update-layer") {
           const response = await updateLayer(payload)
-          console.log(event, payload)
           if(response) {
             await componentEvent('fetch-layer');
           }
@@ -209,7 +178,7 @@ export default {
           }
         }
         else if(event === "setting-state") {
-          if(payload !== undefined) {
+          if(typeof payload === 'boolean') {
             windowStates.setting.value = payload;
           } else {
             windowStates.setting.value = true;
@@ -252,6 +221,9 @@ export default {
             windowStates.fullscreen.value = true;
             console.log(response)
           }
+        }
+        else if(event === 'reset-selected-layer') {
+          localData.selectedLayers.value = []
         }
       } catch (error) {
         console.error("Error adding layer:", error.response?.data || error.message);

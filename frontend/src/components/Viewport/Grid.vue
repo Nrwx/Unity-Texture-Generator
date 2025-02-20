@@ -4,12 +4,12 @@
     <div class="main-layer">
       <!-- Lineale -->
       <div class="ruler x-axis d-flex" @mousedown="startGuide('horizontal', $event)">
-        <div class="d-flex align-center ma-auto" style="height: 100%;" :style="{ width: `${settings.width * scale}px`, transform: `translateX(${offsetX}px)` }">
+        <div class="d-flex align-center ma-auto" style="height: 100%;" :style="{ width: `${settings.width * zoomFaktor}px`, transform: `translateX(${offset.x}px)` }">
           <div
               v-for="x in columnPositions"
               :key="x"
               class="ruler-mark"
-              :style="{ width: `${50 * scale}px`}"
+              :style="{ width: `${50 * zoomFaktor}px`}"
           >
             {{ Math.round(x) }}
           </div>
@@ -17,12 +17,12 @@
       </div>
 
       <div class="ruler y-axis d-flex" @mousedown="startGuide('vertical', $event)">
-        <div class="d-flex flex-column align-center ma-auto" style="width: 100%;" :style="{ height: `${settings.height * scale}px`, transform: `translateY(${offsetY}px)` }">
+        <div class="d-flex flex-column align-center ma-auto" style="width: 100%;" :style="{ height: `${settings.height * zoomFaktor}px`, transform: `translateY(${offset.y}px)` }">
           <div
               v-for="y in rowPositions"
               :key="y"
               class="ruler-mark"
-              :style="{ height: `${50 * scale}px`}"
+              :style="{ height: `${50 * zoomFaktor}px`}"
           >
             {{ Math.round(y) }}
           </div>
@@ -46,13 +46,13 @@
           <div class="canvas-content">
             <Image
                 :layers="layers"
-                :selected-layers="selectedLayers"
-                @component-event="emitEvent"
+                :selected-layer="selectedLayer"
                 @update:select-layer="toggleSelection"
+                @update:layer="updateLayer"
             >
               <!-- Transformations-Overlay -->
               <template #menu>
-                <div v-if="transformMode" class="selection-overlay">
+                <div v-if="selectedLayer.length" class="selection-overlay">
                   <!-- Resize Handles -->
                   <div class="resize-handle top-left" @mousedown="startResize('top-left', $event)"></div>
                   <div class="resize-handle top-right" @mousedown="startResize('top-right', $event)"></div>
@@ -74,18 +74,19 @@
 
       <!-- Koordinatenanzeige -->
       <div class="cursor-coordinates">
-        {{ `X: ${cursorPosition.x}, Y: ${cursorPosition.y}` }}
+        {{ `X: ${cursor.x}, Y: ${cursor.y}` }}
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import { computed, defineComponent, onMounted, onUnmounted, ref } from "vue";
+import {computed, defineComponent, onMounted, onUnmounted, reactive, ref} from "vue";
 import Image from "@/components/Image/Image";
+import {transformStates, canvasStates} from "@/dataLayer/state";
 
 export default defineComponent({
-  name: "PhotoshopGrid",
+  name: "GridComponent",
   props: {
     settings: {
       type: Object,
@@ -101,22 +102,19 @@ export default defineComponent({
   },
   setup(props, { emit }) {
     const canvasContainer = ref(null);
-    const isPanning = ref(false);
-    const isMovingSelection = ref(false);
-    const isZooming = ref(false);
-    const scale = ref(1);
-    const offsetX = ref(0);
-    const offsetY = ref(0);
-    const cursorPosition = ref({ x: 0, y: 0 });
-    let lastMouseX = 0;
-    let lastMouseY = 0;
+    const selectedLayer = ref([]);
+
+    const zoomFaktor = ref(1);
+    const offset = ref({x: 0, y: 0})
+    const cursor = ref({ x: 0, y: 0 });
+    const lastMouse = ref({x: 0, y: 0})
     const guides = ref([]);
-    let draggingGuide = null;
-    const selectMode = ref(false);
-    const selectedLayers = ref([]);
-    const transformMode = computed(() => selectedLayers.value.length > 0);
-    let isResizing = ref(false);
-    let isRotating = ref(false);
+    const guide = ref({})
+
+    const transformState = reactive({
+      size: false,
+      rotate: false
+    });
     let resizeDirection = ref('');
     let rotationStartAngle = ref(0);
 
@@ -126,33 +124,42 @@ export default defineComponent({
 
     // Start Resize
     const startResize = (corner, event) => {
-      isResizing.value = true;
+      transformState.size = true;
       resizeDirection.value = corner;
-      lastMouseX = event.clientX;
-      lastMouseY = event.clientY;
+      lastMouse.value.x = event.clientX;
+      lastMouse.value.y = event.clientY;
       document.addEventListener("mouseup", stopTransform);
     };
 
     // Start Rotate
     const startRotate = (direction, event) => {
-      isRotating.value = true;
+      transformState.rotate = true;
       rotationStartAngle.value = calculateRotation(event.clientX, event.clientY);
-      lastMouseX = event.clientX;
-      lastMouseY = event.clientY;
+      lastMouse.value.x = event.clientX;
+      lastMouse.value.y = event.clientY;
       document.addEventListener("mouseup", stopTransform);
     };
 
     // Berechnung der Rotation im Grad
     const calculateRotation = (mouseX, mouseY) => {
-      const centerX = selectedLayers.value[0].x + selectedLayers.value[0].width / 2;
-      const centerY = selectedLayers.value[0].y + selectedLayers.value[0].height / 2;
+      if (!selectedLayer.value.length) return 0;
+
+      // Gemeinsames Zentrum berechnen
+      const totalX = selectedLayer.value.reduce((sum, layer) => sum + (layer.x + layer.width / 2), 0);
+      const totalY = selectedLayer.value.reduce((sum, layer) => sum + (layer.y + layer.height / 2), 0);
+
+      const centerX = totalX / selectedLayer.value.length;
+      const centerY = totalY / selectedLayer.value.length;
+
+      // Winkel berechnen
       const angle = Math.atan2(mouseY - centerY, mouseX - centerX);
       return angle * (180 / Math.PI); // Umwandlung von Bogenmaß zu Grad
     };
 
+
     // Berechnung des Resize-Verhältnisses
     const handleResize = (dx, dy) => {
-      selectedLayers.value.forEach(layer => {
+      selectedLayer.value.forEach(layer => {
         if (resizeDirection.value.includes('top')) {
           layer.height -= dy;
           layer.y += dy; // Verschiebung nach oben
@@ -175,32 +182,45 @@ export default defineComponent({
       const currentAngle = calculateRotation(event.clientX, event.clientY);
       const deltaAngle = currentAngle - rotationStartAngle.value;
 
-      selectedLayers.value.forEach(layer => {
+      selectedLayer.value.forEach(layer => {
         layer.rotate += deltaAngle;
       });
       rotationStartAngle.value = currentAngle; // Setze den Startwinkel zurück
     };
 
     const resetSelection = (event) => {
-      if (!canvasContainer.value.contains(event.target)) {
-        selectedLayers.value = [];
+      if (!canvasContainer.value.contains(event.target) && selectedLayer.value.length) {
+        selectedLayer.value = [];
+        props.layers.forEach(layer => {
+          updateLayer(layer)
+        });
       }
+    };
+
+    const updateLayer = (layer) => {
+      const isMode = !transformStates.transform.value || !transformStates.rotate.value;
+      const count = selectedLayer.value.length
+      if (isMode && count === 0) {
+        emitEvent('update-layer', layer);
+        console.log('Layer aktualisiert');
+      }
+      else {
+          console.log('Keine Änderungen gefunden, Update nicht nötig');
+        }
     };
 
     const toggleSelection = (layer, event) => {
       event.preventDefault();
-      if (!selectMode.value) return;
+      const index = selectedLayer.value.findIndex(l => l.id === layer.id);
       if (event.ctrlKey) {
-        const index = selectedLayers.value.findIndex(l => l.id === layer.id);
         if (index === -1) {
-          selectedLayers.value.push(layer);
+          selectedLayer.value.push(layer)
         } else {
-          selectedLayers.value.splice(index, 1);
+          selectedLayer.value.splice(index, 1);
         }
       } else {
-        selectedLayers.value = [layer];
+        selectedLayer.value = [layer]
       }
-      emitEvent('update-layer', selectedLayers.value)
     };
 
     const columnPositions = computed(() => {
@@ -224,7 +244,7 @@ export default defineComponent({
     const canvasContainerStyle = computed(() => ({
       width: `${props.settings.width}px`,
       height: `${props.settings.height}px`,
-      transform: `translate(${offsetX.value}px, ${offsetY.value}px) scale(${scale.value})`,
+      transform: `translate(${offset.value.x}px, ${offset.value.y}px) scale(${zoomFaktor.value})`,
       transformOrigin: "center center",
     }));
 
@@ -232,19 +252,19 @@ export default defineComponent({
       const clickedInsideCanvas = event.target.closest('.canvas-container');
 
       if (!clickedInsideCanvas) {
-        selectedLayers.value = []; // Alle Layer deselektieren
+        emitEvent('reset-selected-layer')
         return;
       }
 
-      if (selectMode.value) {
+      if (canvasStates.select.value) {
         return;
       }
-      if (isZooming.value) {
+      if (canvasStates.zoom.value) {
         if (event.button === 0) {
-          scale.value = Math.min(scale.value + 0.1, 2);
+          zoomFaktor.value = Math.min(zoomFaktor.value + 0.1, 2);
         } else if (event.button === 2) {
           event.preventDefault();
-          scale.value = Math.max(scale.value - 0.1, 0.5);
+          zoomFaktor.value = Math.max(zoomFaktor.value - 0.1, 0.5);
         }
       }
     };
@@ -252,8 +272,8 @@ export default defineComponent({
 
     // Stop Transform (Resizing or Rotating)
     const stopTransform = () => {
-      isResizing.value = false;
-      isRotating.value = false;
+      transformState.size = false;
+      transformState.rotate = false;
       document.removeEventListener("mouseup", stopTransform);
     };
 
@@ -261,54 +281,54 @@ export default defineComponent({
     const handleMouseMove = (event) => {
       // Berechne die tatsächliche Mausposition relativ zum Canvas Container
       const rect = canvasContainer.value.getBoundingClientRect();
-      const scaledX = (event.clientX - rect.left) / scale.value;
-      const scaledY = (event.clientY - rect.top) / scale.value;
+      const scaledX = (event.clientX - rect.left);
+      const scaledY = (event.clientY - rect.top);
 
-      cursorPosition.value.x = Math.round(scaledX);
-      cursorPosition.value.y = Math.round(scaledY);
+      cursor.value.x = Math.round(scaledX);
+      cursor.value.y = Math.round(scaledY);
 
-      const dx = (event.clientX - lastMouseX) / scale.value;
-      const dy = (event.clientY - lastMouseY) / scale.value;
+      const dx = (event.clientX - lastMouse.value.x);
+      const dy = (event.clientY - lastMouse.value.y);
 
-      if (isMovingSelection.value) {
-        selectedLayers.value.forEach(layer => {
+      if (transformStates.transform.value) {
+        selectedLayer.value.forEach(layer => {
           layer.x += dx;
           layer.y += dy;
         });
-      } else if (isPanning.value) {
-        offsetX.value += dx;
-        offsetY.value += dy;
+      } else if (canvasStates.transform.value) {
+        offset.value.x += dx;
+        offset.value.y += dy;
       }
       // Resizing
-      else if (isResizing.value) {
+      else if (transformState.size) {
         handleResize(dx, dy);
       }
       // Rotation
-      else if (isRotating.value) {
+      else if (transformState.rotate) {
         handleRotate(event);
       }
 
-      lastMouseX = event.clientX;
-      lastMouseY = event.clientY;
+      lastMouse.value.x = event.clientX;
+      lastMouse.value.y = event.clientY;
     };
 
     const startPan = (event) => {
-      if (!isPanning.value) return;
-      lastMouseX = event.clientX;
-      lastMouseY = event.clientY;
+      if (!canvasStates.transform.value) return;
+      lastMouse.value.x = event.clientX;
+      lastMouse.value.y = event.clientY;
       document.addEventListener("mousemove", handleMouseMove);
       document.addEventListener("mouseup", stopPan);
     };
 
     const stopPan = () => {
-      isPanning.value = false;
+      canvasStates.transform.value = false;
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", stopPan);
     };
 
-    const startDraggingGuide = (guide, event) => {
+    const startDraggingGuide = (helper, event) => {
       event.preventDefault();
-      draggingGuide = guide;
+      guide.value = helper;
       document.addEventListener("mousemove", dragGuide);
       document.addEventListener("mouseup", stopDraggingGuide);
     };
@@ -316,15 +336,15 @@ export default defineComponent({
     const startGuide = (type, event) => {
       // Berechne die Position relativ zur aktuellen Verschiebung (Offset)
       const position = type === 'horizontal'
-          ? event.clientY - offsetY.value
-          : event.clientX - offsetX.value;
+          ? event.clientY - offset.value.y
+          : event.clientX - offset.value.x;
 
       // Prüfen, ob eine bestehende Hilfslinie an dieser Position existiert
-      const existingIndex = guides.value.findIndex(g => g.type === type && Math.abs(g.position - position) < 5);
+      const index = guides.value.findIndex(g => g.type === type && Math.abs(g.position - position) < 5);
 
-      if (existingIndex !== -1) {
+      if (index !== -1) {
         // Entferne die bestehende Hilfslinie
-        guides.value.splice(existingIndex, 1);
+        guides.value.splice(index, 1);
       } else {
         // Neue Hilfslinie erstellen
         const guide = { id: Date.now(), type, position };
@@ -334,30 +354,30 @@ export default defineComponent({
     };
 
     const dragGuide = (event) => {
-      if (!draggingGuide) return;
+      if (!guide.value) return;
 
-      const newPosition = draggingGuide.type === 'horizontal'
-          ? event.clientY - offsetY.value
-          : event.clientX - offsetX.value;
+      const newPosition = guide.value.type === 'horizontal'
+          ? event.clientY - offset.value.y
+          : event.clientX - offset.value.x;
 
-      if (draggingGuide.position !== newPosition) {
-        draggingGuide.position = newPosition;
+      if (guide.value.position !== newPosition) {
+        guide.value.position = newPosition;
       }
     };
 
     const stopDraggingGuide = () => {
-      if (!draggingGuide) return;
+      if (!guide.value) return;
 
       // Prüfen, ob die Hilfslinie auf das Lineal zurückgelegt wurde
-      const isOnXAxis = draggingGuide.type === 'horizontal' && draggingGuide.position <= 20;
-      const isOnYAxis = draggingGuide.type === 'vertical' && draggingGuide.position <= 20;
+      const isOnXAxis = guide.value.type === 'horizontal' && guide.value.position <= 20;
+      const isOnYAxis = guide.value.type === 'vertical' && guide.value.position <= 20;
 
       if (isOnXAxis || isOnYAxis) {
         // Lösche die Hilfslinie
-        guides.value = guides.value.filter(g => g.id !== draggingGuide.id);
+        guides.value = guides.value.filter(g => g.id !== guide.value.id);
       }
 
-      draggingGuide = null;
+      guide.value = null;
       document.removeEventListener("mousemove", dragGuide);
       document.removeEventListener("mouseup", stopDraggingGuide);
     };
@@ -365,7 +385,7 @@ export default defineComponent({
     const getGuideStyle = (guide) => {
       return guide.type === 'horizontal'
           ? {
-            top: `${guide.position + offsetY.value}px`,
+            top: `${guide.position + offset.value.y}px`,
             left: '0',
             right: '0',
             width: '100%',
@@ -375,7 +395,7 @@ export default defineComponent({
             cursor: 'row-resize'
           }
           : {
-            left: `${guide.position + offsetX.value}px`,
+            left: `${guide.position + offset.value.x}px`,
             top: '0',
             bottom: '0',
             height: '100%',
@@ -391,22 +411,22 @@ export default defineComponent({
         //rotateSelectedLayers();
       }
       if (event.key === "w") {
-        selectMode.value = !selectMode.value;
+        canvasStates.select.value = !canvasStates.select.value;
       }
       if (event.key === 'g') {
-        if (selectedLayers.value.length > 0) {
-          isMovingSelection.value = true;
+        if (selectedLayer.value.length) {
+          transformStates.transform.value = true;
         } else {
-          isPanning.value = true;
+          canvasStates.transform.value = true;
         }
       }
-      if (event.key === 'z') isZooming.value = !isZooming.value;
+      if (event.key === 'z') canvasStates.zoom.value = !canvasStates.zoom.value;
     };
 
     const handleKeyUp = (event) => {
       if (event.key === 'g') {
-        isPanning.value = false;
-        isMovingSelection.value = false;
+        canvasStates.transform.value = false;
+        transformStates.transform.value = false;
       }
     };
 
@@ -428,30 +448,26 @@ export default defineComponent({
     });
 
     return {
+      selectedLayer,
       canvasContainer,
+      offset,
+      cursor,
       canvasContainerStyle,
       handleMouseDown,
       handleMouseMove,
-      cursorPosition,
-      offsetX,
-      offsetY,
-      scale,
+      zoomFaktor,
       columnPositions,
       rowPositions,
       guides,
       startGuide,
       startDraggingGuide,
       getGuideStyle,
-      isZooming,
       emitEvent,
-      selectMode,
-      selectedLayers,
       toggleSelection,
-      isMovingSelection,
       resetSelection,
-      transformMode,
       startRotate,
       startResize,
+      updateLayer,
     };
   },
 });

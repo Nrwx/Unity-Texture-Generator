@@ -42,14 +42,12 @@ export const updateLayer = async (layer) => {
         const formData = new FormData();
         formData.append("method", "update");
         formData.append("name", layer.name);
-        formData.append("id", layer.id);
         formData.append("width", layer.width);
         formData.append("height", layer.height);
-        formData.append("rotate", layer.rotate);
+        formData.append("id", layer.id);
         formData.append("x", layer.x);
         formData.append("y", layer.y);
-        formData.append("scale", layer.scale);
-        formData.append("url", layer.url);
+        formData.append("rotate", layer.rotate);
 
         const response = await api.post('/layer', formData, {
             headers: {'Content-Type': 'multipart/form-data'},

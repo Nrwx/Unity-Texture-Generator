@@ -8,19 +8,13 @@
         class="layer-image"
         :width="layer.width"
         :height="layer.height"
-        @click="emitEvent(layer, $event)"
-        :class="{'absolute': index > 0, 'selected': selectedLayers.includes(layer)}"
+        @click="emitSelectLayer(layer, $event)"
+        @load="extractImageSize(layer, $event)"
+        :class="{'absolute': index > 0, 'selected': selectedLayer.includes(layer)}"
         alt="Layer Image"
-        :style="{
-          zIndex: index,
-          left: `${layer.x}px`,
-          top: `${layer.y}px`,
-          transform: `scale(${layer.scale}) rotate(${layer.rotate}deg)`,
-          transformOrigin: 'center center'
-        }"
-        @load="extractImageSize"
+        :style="{zIndex: index,left: `${layer.x}px`,top: `${layer.y}px`,transform: `rotate(${layer.rotate}deg)`,transformOrigin: 'center center'}"
     >
-      <slot v-if="selectedLayers.includes(layer)" name="menu"></slot>
+      <slot v-if="selectedLayer.includes(layer)" name="menu"></slot>
     </v-img>
   </v-col>
   <Frame></Frame>
@@ -39,10 +33,11 @@
     Frame
   },
   setup(props, { emit }) {
-    const { emitEvent, extractImageSize } = imageModel(props, emit);
+    const { emitUpdateLayer, emitSelectLayer, extractImageSize } = imageModel(props, emit);
     return {
-      emitEvent,
-      extractImageSize
+      emitUpdateLayer,
+      emitSelectLayer,
+      extractImageSize,
     };
   },
 });

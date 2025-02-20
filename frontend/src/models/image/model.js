@@ -1,10 +1,13 @@
 export function imageModel(props, emit) {
-    const emitEvent = (payload, event) => {
+    const emitUpdateLayer = (payload) => {
+        emit("update:layer", payload);
+    };
+    const emitSelectLayer = (payload, event) => {
         emit("update:select-layer", payload, event);
     };
-    const extractImageSize = async () => {
+    const extractImageSize = async (layer) => {
         const img = new Image();
-        img.src = props.image;
+        img.src = layer.url;
 
         await new Promise((resolve, reject) => {
             img.onload = resolve;
@@ -19,7 +22,8 @@ export function imageModel(props, emit) {
     };
 
     return {
-        emitEvent,
+        emitUpdateLayer,
+        emitSelectLayer,
         extractImageSize,
     };
 }
@@ -30,9 +34,9 @@ export const imageProps = {
         required: true,
         default: () => [],
     },
-    selectedLayers: {
+    selectedLayer: {
         type: Array,
         required: true,
         default: () => [],
-    },
+    }
 };

@@ -21,13 +21,13 @@
                 v-for="(layer, index) in layers"
                 :key="index"
                 class="layer-item"
-                :class="{ selected: selectedLayers.includes(layer.id) }"
+                :class="{ selected: selectedLayer.includes(layer.id) }"
             >
               <v-list-item-content class="d-flex align-baseline">
                 <v-text-field
                     v-model="layer.name"
                     clearable
-                    :disabled="selectedLayers.includes(layer.id)"
+                    :disabled="selectedLayer.includes(layer.id)"
                     variant="outlined"
                     clear-icon="mdi-broom"
                     :hide-details="validRule(layer.name).isValid"
@@ -51,7 +51,7 @@
                   </template>
                 </v-text-field>
                 <v-checkbox
-                    v-model="selectedLayers"
+                    v-model="selectedLayer"
                     :value="layer.id"
                     class="layer-checkbox"
                     hide-details
@@ -83,9 +83,9 @@
             icon
             color="#FF516D"
             size="x-small"
-            @click="emitEvent('delete-layer', selectedLayers)"
-            @click.stop="selectedLayers = []"
-            :disabled="selectedLayers.length === 0"
+            @click="emitEvent('delete-layer', selectedLayer)"
+            @click.stop="selectedLayer = []"
+            :disabled="!selectedLayer.length"
         >
           <v-icon color="white">mdi-delete</v-icon>
         </v-btn>
@@ -102,11 +102,11 @@ export default defineComponent({
   name: "TaskbarItem",
   props: layerProps,
   setup(props, { emit }) {
-    const { emitEvent, validRule, selectedLayers } = layerModel(props, emit);
+    const { emitEvent, validRule, selectedLayer } = layerModel(props, emit);
     return {
-      selectedLayers,
       emitEvent,
       validRule,
+      selectedLayer
     };
   },
 });
