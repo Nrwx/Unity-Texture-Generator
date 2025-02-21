@@ -109,14 +109,14 @@ export default defineComponent({
     const cursor = ref({ x: 0, y: 0 });
     const lastMouse = ref({x: 0, y: 0})
     const guides = ref([]);
-    const guide = ref({})
+    const guide = ref({});
+    const resizeDirection = ref('');
+    const rotationStartAngle = ref(0);
 
     const transformState = reactive({
       size: false,
       rotate: false
     });
-    let resizeDirection = ref('');
-    let rotationStartAngle = ref(0);
 
     const emitEvent = (event, payload) => {
       emit("component-event", event, payload);
@@ -183,7 +183,7 @@ export default defineComponent({
       const deltaAngle = currentAngle - rotationStartAngle.value;
 
       selectedLayer.value.forEach(layer => {
-        layer.rotate += deltaAngle;
+        layer.rotate = parseFloat((layer.rotate + deltaAngle).toFixed(2));
       });
       rotationStartAngle.value = currentAngle; // Setze den Startwinkel zurück
     };

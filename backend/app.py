@@ -510,7 +510,11 @@ def update_layer(name, width, height, id, x=0, y=0, rotate=0):
         if not layer:
             return jsonify({"error": "Layer not found"}), 404
 
-        new_id = str(uuid.uuid4())
+        old_image_path = os.path.join(LAYER_FOLDER, f"{id}.png")
+        if os.path.exists(old_image_path):
+            img = Image.open(old_image_path)
+            img = img.resize((width, height))
+            img.save(old_image_path)
 
         if name:
             layer["name"] = name
@@ -518,16 +522,6 @@ def update_layer(name, width, height, id, x=0, y=0, rotate=0):
             layer["width"] = width
         if height:
             layer["height"] = height
-        if new_id:
-            layer["id"] = new_id
-            old_image_path = os.path.join(LAYER_FOLDER, f"{id}.png")
-            new_image_path = os.path.join(LAYER_FOLDER, f"{new_id}.png")
-            if os.path.exists(old_image_path):
-                img = Image.open(old_image_path)
-                img = img.resize((width, height))
-                img.save(new_image_path)
-                os.remove(old_image_path)  # Entferne die alte Bilddatei
-                layer["url"] = f"/download/{new_id}.png"
         if x:
             layer["x"] = x
         if y:
@@ -536,7 +530,6 @@ def update_layer(name, width, height, id, x=0, y=0, rotate=0):
             layer["rotate"] = rotate
 
         print(layers)
-
         return jsonify(layer), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500

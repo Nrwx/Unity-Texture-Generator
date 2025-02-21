@@ -30,7 +30,7 @@ import Taskbar from './components/Taskbar/Taskbar.vue';
 import { taskbarItemLeft, taskbarItemRight } from "@/models/taskbar/config/model";
 import {localData} from "@/dataLayer/local";
 import DrawerNew from "@/components/Drawer/DrawerNew";
-import {computed, reactive, ref} from "vue";
+import {computed, onMounted, reactive, ref} from "vue";
 import {addLayer, deleteLayer, fetchLayers, previewLayers, updateLayer} from "@/dataLayer/route/layer";
 import {fileUpload} from "@/dataLayer/route/upload";
 import Layer from "@/components/Layer/Layer";
@@ -69,7 +69,6 @@ export default {
       tileSize: {x: 1, y: 1},
       tileSrc: ''
     })
-
 
     const taskbarEvent = (side, itemId) => {
       if (side === 'left') {
@@ -229,6 +228,19 @@ export default {
         console.error("Error adding layer:", error.response?.data || error.message);
       }
     };
+
+    const init = async () => {
+      if(localData.layers.value) {
+        await componentEvent('fetch-layer');
+      }
+      if(!osSettings.use_gpu) {
+        await componentEvent('fetch-setting');
+      }
+    };
+
+    onMounted(async () => {
+      await init()
+    });
 
     return {
       itemsLeft,
