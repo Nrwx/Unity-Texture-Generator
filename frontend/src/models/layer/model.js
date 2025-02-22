@@ -32,7 +32,6 @@ export function layerModel(props, emit) {
 export const layerProps = {
     state: {
         type: Boolean,
-        required: true,
         default: false
     },
     layers: {

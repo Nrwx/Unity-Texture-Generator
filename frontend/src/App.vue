@@ -16,7 +16,7 @@
       <v-main>
         <viewport-grid @component-event="componentEvent" v-model:layers="localData.layers.value" v-model:settings="localData.viewport.value" style="position: relative;"/>
       </v-main>
-      <Layer style="position: absolute; top: 40px; right: 70px;" v-model:state="windowStates.layer.value" v-model:layers="localData.layers.value" @component-event="componentEvent"/>
+      <Layer style="position: absolute; top: 40px; right: 70px;" :state="windowStates.layer.value" v-model:layers="localData.layers.value" @component-event="componentEvent"/>
       <!-- Rechte Taskbar -->
       <Taskbar @taskbar-event="taskbarEvent('right', $event)" align="right" v-model:items="itemsRight" />
       <!-- Rechter Drawer -->
@@ -72,26 +72,36 @@ export default {
 
     const taskbarEvent = (side, itemId) => {
       if (side === 'left') {
-        itemsLeft.value.forEach((item) => {
-          item.active = false;
-          item.active = item.id === itemId;
-        });
-        if(activeItemLeft.value.event) {
-          componentEvent(activeItemLeft.value.event)
-          windowStates.drawerLeft.value = false
+        // Setze vorheriges aktives Item zurück
+        itemsLeft.value.forEach(item => item.active = false);
+
+        // Finde das neue aktive Item
+        const activeItem = itemsLeft.value.find(item => item.id === itemId);
+        if (activeItem) activeItem.active = !activeItem.active ;
+
+        // Event auslösen, falls vorhanden
+        if (activeItem?.event) {
+          componentEvent(activeItem.event, activeItem.active);
+          windowStates.drawerLeft.value = !activeItem.active;
         } else {
-          windowStates.drawerLeft.value = true
+          windowStates.drawerLeft.value = activeItem.active;
         }
-      } else if (side === 'right') {
-        itemsRight.value.forEach((item) => {
-          item.active = false;
-          item.active = item.id === itemId;
-        });
-        if(activeItemRight.value.event) {
-          componentEvent(activeItemRight.value.event)
-          windowStates.drawerRight.value = false
+      }
+
+      else if (side === 'right') {
+        // Setze vorheriges aktives Item zurück
+        itemsRight.value.forEach(item => item.active = false);
+
+        // Finde das neue aktive Item
+        const activeItem = itemsRight.value.find(item => item.id === itemId);
+        if (activeItem) activeItem.active = !activeItem.active;
+
+        // Event auslösen, falls vorhanden
+        if (activeItem?.event) {
+          componentEvent(activeItem.event, activeItem.active);
+          windowStates.drawerRight.value = !activeItem.active;
         } else {
-          windowStates.drawerRight.value = true
+          windowStates.drawerRight.value = activeItem.active;
         }
       }
     };
@@ -141,6 +151,7 @@ export default {
         }
         else if(event === "update-layer") {
           const response = await updateLayer(payload)
+          console.log(payload.matrix)
           if(response) {
             await componentEvent('fetch-layer');
           }
@@ -158,9 +169,9 @@ export default {
           }
         }
         else if(event === "layer-state") {
-          windowStates.layer.value = true;
-          if(windowStates.layer.value) {
-            await componentEvent('fetch-layer');
+          if(typeof payload === 'boolean') {
+            windowStates.layer.value = payload;
+            await componentEvent('fetch-layer')
           }
         }
         else if(event === "fetch-setting") {
@@ -212,6 +223,16 @@ export default {
           }
         }
         else if(event === 'preview-layer') {
+          const response = await previewLayers();
+          if (response) {
+            fullscreenInfo.title = response.title;
+            fullscreenInfo.id = response.id
+            fullscreenInfo.src = response.src
+            windowStates.fullscreen.value = true;
+            console.log(response)
+          }
+        }
+        else if(event === 'tools-state') {
           const response = await previewLayers();
           if (response) {
             fullscreenInfo.title = response.title;

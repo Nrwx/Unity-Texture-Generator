@@ -45,10 +45,15 @@ export const updateLayer = async (layer) => {
         formData.append("width", layer.width);
         formData.append("height", layer.height);
         formData.append("id", layer.id);
-        formData.append("x", layer.x);
-        formData.append("y", layer.y);
-        formData.append("rotate", layer.rotate);
+        formData.append("a", layer.matrix.a);
+        formData.append("b", layer.matrix.b);
+        formData.append("c", layer.matrix.c);
+        formData.append("d", layer.matrix.d);
+        formData.append("x", layer.matrix.x);
+        formData.append("y", layer.matrix.y);
+        formData.append("rotate", layer.matrix.rotate);
 
+        console.log(layer.matrix, 'LAYER-API')
         const response = await api.post('/layer', formData, {
             headers: {'Content-Type': 'multipart/form-data'},
         });

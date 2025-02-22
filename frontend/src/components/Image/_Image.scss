@@ -2,6 +2,10 @@
   width: 100%;
   height: 100%;
   position: relative;
+  img {
+    -o-object-fit: inherit !important;
+    object-fit: inherit !important;
+  }
 }
 
 .layer-image.absolute {
@@ -12,7 +16,7 @@
   position: absolute !important;
 }
 
-.selected {
+.layer-image.selected {
   outline: 2px dashed rgba(0, 0, 255, 0.5); // Oder eine andere Farbe, die gut sichtbar ist
   outline-offset: 2px; // Abstand zur Bildkante
 }

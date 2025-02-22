@@ -1,11 +1,14 @@
 <template>
   <v-card
-      class="layer-system"
-      :layers="layers"
       v-if="state"
+      class="layer-system"
       width="300"
   >
     <v-container class="layer-wrapper">
+      <!-- Schließen-Button -->
+      <v-btn icon size="small" class="rounded-0" elevation="0" @click="emitEvent('layer-state', false)">
+        <v-icon>mdi-window-close</v-icon>
+      </v-btn>
       <v-card
           class="overflow-hidden overflow-y-auto"
           max-height="300"
@@ -106,7 +109,7 @@ export default defineComponent({
     return {
       emitEvent,
       validRule,
-      selectedLayer
+      selectedLayer,
     };
   },
 });

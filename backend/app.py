@@ -175,10 +175,15 @@ PARAMETERS = {
         "width": {"type": int, "default": 1024},
         "height": {"type": int, "default": 1024},
         "id": {"type": str, "default": ""},
+        "url": {"type": str, "default": ""},
+        "a": {"type": float, "default": 1},
+        "b": {"type": float, "default": 0},
+        "c": {"type": float, "default": 0},
+        "d": {"type": float, "default": 1},
         "x": {"type": int, "default": 0},
         "y": {"type": int, "default": 0},
         "rotate": {"type": float, "default": 0},
-        "url": {"type": str, "default": ""},
+
     },
 }
 
@@ -464,7 +469,6 @@ def parse_parameters(params_section, form):
     return parsed_params
 
 layers = []
-
 # Funktionen für Layer-Management
 def add_layer(name="", path="", id="", width=1024, height=1024):
     try:
@@ -487,6 +491,16 @@ def add_layer(name="", path="", id="", width=1024, height=1024):
             else:
                 print(f"File {path} does not exist.")
 
+        default_matrix = {
+            "a": 1,
+            "b": 0,
+            "c": 0,
+            "d": 1,
+            "x": 0,
+            "y": 0,
+            "rotate": 0
+        }
+
         # Layer hinzufügen
         layer = {
             "id": id,
@@ -494,9 +508,7 @@ def add_layer(name="", path="", id="", width=1024, height=1024):
             "width": width,
             "height": height,
             "url": f"/download/{id}.png",
-            "x": 0,
-            "y": 0,
-            "rotate": 0,
+            "matrix": default_matrix,
         }
         layers.append(layer)
         print(layers)
@@ -504,17 +516,23 @@ def add_layer(name="", path="", id="", width=1024, height=1024):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-def update_layer(name, width, height, id, x=0, y=0, rotate=0):
+def update_layer(name, width, height, id, a, b, c, d, x, y, rotate):
     try:
         layer = next((l for l in layers if l["id"] == id), None)
         if not layer:
             return jsonify({"error": "Layer not found"}), 404
 
-        old_image_path = os.path.join(LAYER_FOLDER, f"{id}.png")
-        if os.path.exists(old_image_path):
-            img = Image.open(old_image_path)
-            img = img.resize((width, height))
-            img.save(old_image_path)
+        new_id = str(uuid.uuid4())
+
+        matrix = {
+            "a": a,  # Skalierung X
+            "b": b,  # Rotation / Verzerrung
+            "c": c,  # Rotation / Verzerrung
+            "d": d,  # Skalierung Y
+            "x": x,  # Position X
+            "y": y,  # Position Y
+            "rotate": rotate  # Rotation in Grad
+        }
 
         if name:
             layer["name"] = name
@@ -522,12 +540,18 @@ def update_layer(name, width, height, id, x=0, y=0, rotate=0):
             layer["width"] = width
         if height:
             layer["height"] = height
-        if x:
-            layer["x"] = x
-        if y:
-            layer["y"] = y
-        if rotate:
-            layer["rotate"] = rotate
+        if new_id:
+            layer["id"] = new_id
+            old_image_path = os.path.join(LAYER_FOLDER, f"{id}.png")
+            new_image_path = os.path.join(LAYER_FOLDER, f"{new_id}.png")
+            if os.path.exists(old_image_path):
+                img = Image.open(old_image_path)
+                img = img.resize((width, height))
+                img.save(new_image_path)
+                os.remove(old_image_path)  # Entferne die alte Bilddatei
+                layer["url"] = f"/download/{new_id}.png"
+        if matrix:
+            layer["matrix"] = matrix
 
         print(layers)
         return jsonify(layer), 200
@@ -556,40 +580,56 @@ def list_layers():
 
 def preview_layers():
     try:
-        # Prüfen, ob überhaupt Layer vorhanden sind
         if not layers:
             return jsonify({"error": "No layers to preview"}), 404
 
-        # Feste Canvas-Größe
+        # Feste Canvas-Größe (1024x1024)
         canvas_size = (1024, 1024)
-
-        # Leere Canvas erstellen
         composite_image = Image.new('RGBA', canvas_size, (0, 0, 0, 0))
 
-        # Alle Layer rendern
+        # Alle Layer mit der Matrix rendern
         for layer in layers:
             layer_path = os.path.join(LAYER_FOLDER, f"{layer['id']}.png")
+
             if os.path.exists(layer_path):
                 layer_img = Image.open(layer_path).convert('RGBA')
 
-                # Koordinaten mit Standardwerten (falls nicht vorhanden)
-                x = layer.get('x', 0)
-                y = layer.get('y', 0)
-                position = (x, y)
+                # Transformationsmatrix aus dem Layer holen
+                matrix = layer.get("matrix", {"a": 1, "b": 0, "c": 0, "d": 1, "x": 0, "y": 0, "rotate": 0})
 
-                # Layer platzieren und Transparenz berücksichtigen
-                composite_image.paste(layer_img, position, layer_img)
+                # Affine Transformationsmatrix für Pillow (6 Werte erforderlich)
+                transform_matrix = (
+                    matrix["a"], matrix["b"], matrix["x"],  # Erste Zeile der Matrix
+                    matrix["c"], matrix["d"], matrix["y"]   # Zweite Zeile der Matrix
+                )
 
-        # UUID für Dateinamen
+                # Bild mit Affiner Matrix transformieren
+                transformed_img = layer_img.transform(
+                    layer_img.size,
+                    Image.AFFINE,
+                    transform_matrix,
+                    resample=Image.BICUBIC
+                )
+
+                # Rotation aus der Matrix holen und als Float umwandeln
+                rotate_angle = float(matrix.get("rotate", 0))
+
+                # Falls Rotation nicht 0 ist, Bild drehen
+                if rotate_angle != 0:
+                    transformed_img = transformed_img.rotate(-rotate_angle, expand=True)
+
+                # Transformiertes Bild auf das Canvas setzen
+                composite_image.paste(transformed_img, (0, 0), transformed_img)
+
+        # UUID für Dateinamen generieren
         map_id = str(uuid.uuid4())
-        map_name = "preview"
         map_filename = f"{map_id}.png"
         map_path = os.path.join(UPLOAD_FOLDER, map_filename)
 
-        # Speichern der Datei
+        # Speichern der zusammengesetzten Vorschau
         composite_image.save(map_path, format="PNG", quality=100)
 
-        return jsonify({"id": map_id, "title": map_name, "src": f"/download/{map_filename}"}), 200
+        return jsonify({"id": map_id, "title": "preview", "src": f"/download/{map_filename}"}), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -604,7 +644,7 @@ def layer_management():
                 'function': add_layer
             },
             "update": {
-                'keys': {"name", "width", "height", "id", "x", "y", "rotate"},
+                'keys': {"name", "width", "height", "id", "a", "b", "c", "d", "x", "y", "rotate"},
                 'function': update_layer
             },
             "delete": {

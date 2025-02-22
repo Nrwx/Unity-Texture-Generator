@@ -140,53 +140,78 @@ export default defineComponent({
       document.addEventListener("mouseup", stopTransform);
     };
 
-    // Berechnung der Rotation im Grad
-    const calculateRotation = (mouseX, mouseY) => {
-      if (!selectedLayer.value.length) return 0;
-
-      // Gemeinsames Zentrum berechnen
-      const totalX = selectedLayer.value.reduce((sum, layer) => sum + (layer.x + layer.width / 2), 0);
-      const totalY = selectedLayer.value.reduce((sum, layer) => sum + (layer.y + layer.height / 2), 0);
-
-      const centerX = totalX / selectedLayer.value.length;
-      const centerY = totalY / selectedLayer.value.length;
-
-      // Winkel berechnen
-      const angle = Math.atan2(mouseY - centerY, mouseX - centerX);
-      return angle * (180 / Math.PI); // Umwandlung von Bogenmaß zu Grad
-    };
-
 
     // Berechnung des Resize-Verhältnisses
     const handleResize = (dx, dy) => {
       selectedLayer.value.forEach(layer => {
-        if (resizeDirection.value.includes('top')) {
-          layer.height -= dy;
-          layer.y += dy; // Verschiebung nach oben
-        } else if (resizeDirection.value.includes('bottom')) {
-          layer.height += dy;
+        // Skalierung entlang der X-Achse
+        if (resizeDirection.value.includes('left') || resizeDirection.value.includes('right')) {
+          const scaleX = dx / layer.width;
+          layer.matrix.a += scaleX;
         }
 
+        // Skalierung entlang der Y-Achse
+        if (resizeDirection.value.includes('top') || resizeDirection.value.includes('bottom')) {
+          const scaleY = dy / layer.height;
+          layer.matrix.d += scaleY;
+        }
+
+        // Update der Position, wenn notwendig
+        if (resizeDirection.value.includes('top')) {
+          layer.matrix.y += dy;
+        } else if (resizeDirection.value.includes('bottom')) {
+          // Keine direkte Änderung der Y-Position, nur der Skalierung
+        }
         if (resizeDirection.value.includes('left')) {
-          layer.width -= dx;
-          layer.x += dx; // Verschiebung nach links
+          layer.matrix.x += dx;
         } else if (resizeDirection.value.includes('right')) {
-          layer.width += dx;
+          // Keine direkte Änderung der X-Position, nur der Skalierung
         }
       });
     };
+
+    // Berechnung der Rotation im Grad
+    const calculateRotation = (mouseX, mouseY) => {
+      if (!selectedLayer.value.length) return 0;
+
+      // Gemeinsames Zentrum berechnen (mittlere Translation aus Matrix)
+      const totalX = selectedLayer.value.reduce((sum, layer) => sum + layer.matrix.x + layer.width / 2, 0);
+      const totalY = selectedLayer.value.reduce((sum, layer) => sum + layer.matrix.y + layer.height / 2, 0);
+
+      const centerX = totalX / selectedLayer.value.length;
+      const centerY = totalY / selectedLayer.value.length;
+
+      // Winkel berechnen mit der Matrix-Position
+      const angle = Math.atan2(mouseY - centerY, mouseX - centerX);
+      return angle * (180 / Math.PI); // Umwandlung von Radiant zu Grad
+    };
+
+
 
     // Berechnung der Rotation
     const handleRotate = (event) => {
       event.preventDefault();
+
       const currentAngle = calculateRotation(event.clientX, event.clientY);
       const deltaAngle = currentAngle - rotationStartAngle.value;
 
       selectedLayer.value.forEach(layer => {
-        layer.rotate = parseFloat((layer.rotate + deltaAngle).toFixed(2));
+        // Rotation in der Matrix (Umrechnung von Grad in Radiant)
+        const angleRad = deltaAngle * Math.PI / 180;
+
+        // Rotation der Matrix
+        layer.matrix.a = Math.cos(angleRad);
+        layer.matrix.b = Math.sin(angleRad);
+        layer.matrix.c = -Math.sin(angleRad);
+        layer.matrix.d = Math.cos(angleRad);
+
+        // Setze den Startwinkel zurück
+        layer.matrix.rotate = currentAngle;
       });
-      rotationStartAngle.value = currentAngle; // Setze den Startwinkel zurück
+
+      rotationStartAngle.value = currentAngle;
     };
+
 
     const resetSelection = (event) => {
       if (!canvasContainer.value.contains(event.target) && selectedLayer.value.length) {
@@ -292,14 +317,15 @@ export default defineComponent({
 
       if (transformStates.transform.value) {
         selectedLayer.value.forEach(layer => {
-          layer.x += dx;
-          layer.y += dy;
+          // Wenn Transformationsmodus aktiv ist, ändern wir die Matrix der Layer
+          layer.matrix.x += dx;
+          layer.matrix.y += dy;
         });
       } else if (canvasStates.transform.value) {
         offset.value.x += dx;
         offset.value.y += dy;
       }
-      // Resizing
+      // Resizing (Skalierung)
       else if (transformState.size) {
         handleResize(dx, dy);
       }
@@ -311,6 +337,7 @@ export default defineComponent({
       lastMouse.value.x = event.clientX;
       lastMouse.value.y = event.clientY;
     };
+
 
     const startPan = (event) => {
       if (!canvasStates.transform.value) return;
