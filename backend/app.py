@@ -393,7 +393,7 @@ def tile_image_endpoint():
             raise FileNotFoundError(f"File not found: {diffuse_image_path}")
 
         # Bild laden
-        image = Image.open(diffuse_image_path).convert("RGB")
+        image = Image.open(diffuse_image_path)
 
         # Kachelbild erstellen
         tiled_image = apply_tile_image(image, tile_x, tile_y)

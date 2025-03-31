@@ -229,7 +229,7 @@ export default {
             fullscreenInfo.id = response.id
             fullscreenInfo.src = response.src
             windowStates.fullscreen.value = true;
-            console.log(response)
+            console.log(response, 'PREVIEW LAYERS')
           }
         }
         else if(event === 'tools-state') {

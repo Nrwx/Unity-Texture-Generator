@@ -174,21 +174,15 @@ export default defineComponent({
     const calculateRotation = (mouseX, mouseY) => {
       if (!selectedLayer.value.length) return 0;
 
-      // Gemeinsames Zentrum berechnen (mittlere Translation aus Matrix)
-      const totalX = selectedLayer.value.reduce((sum, layer) => sum + layer.matrix.x + layer.width / 2, 0);
-      const totalY = selectedLayer.value.reduce((sum, layer) => sum + layer.matrix.y + layer.height / 2, 0);
+      const crosshair = document.querySelector(".center-crosshair");
+      const crosshairRect = crosshair.getBoundingClientRect();
+      const centerX = crosshairRect.left + crosshairRect.width / 2;
+      const centerY = crosshairRect.top + crosshairRect.height / 2;
 
-      const centerX = totalX / selectedLayer.value.length;
-      const centerY = totalY / selectedLayer.value.length;
-
-      // Winkel berechnen mit der Matrix-Position
       const angle = Math.atan2(mouseY - centerY, mouseX - centerX);
       return angle * (180 / Math.PI); // Umwandlung von Radiant zu Grad
     };
 
-
-
-    // Berechnung der Rotation
     const handleRotate = (event) => {
       event.preventDefault();
 
@@ -198,19 +192,33 @@ export default defineComponent({
       selectedLayer.value.forEach(layer => {
         // Rotation in der Matrix (Umrechnung von Grad in Radiant)
         const angleRad = deltaAngle * Math.PI / 180;
+        const cosA = Math.cos(angleRad);
+        const sinA = Math.sin(angleRad);
 
-        // Rotation der Matrix
-        layer.matrix.a = Math.cos(angleRad);
-        layer.matrix.b = Math.sin(angleRad);
-        layer.matrix.c = -Math.sin(angleRad);
-        layer.matrix.d = Math.cos(angleRad);
+        // Neue Werte für die Transformationsmatrix berechnen
+        const newA = layer.matrix.a * cosA + layer.matrix.c * sinA;
+        const newB = layer.matrix.b * cosA + layer.matrix.d * sinA;
+        const newC = layer.matrix.c * cosA - layer.matrix.a * sinA;
+        const newD = layer.matrix.d * cosA - layer.matrix.b * sinA;
 
-        // Setze den Startwinkel zurück
-        layer.matrix.rotate = currentAngle;
+        // Matrix-Objekt mit den neuen Werten aktualisieren
+        layer.matrix = {
+          a: newA,   // Skalierung X
+          b: newB,   // Rotation / Verzerrung
+          c: newC,   // Rotation / Verzerrung
+          d: newD,   // Skalierung Y
+          x: layer.matrix.x, // Position X bleibt unverändert
+          y: layer.matrix.y, // Position Y bleibt unverändert
+          rotate: (layer.matrix.rotate || 0) + deltaAngle
+        };
+
+        // Begrenzung auf 0-360°
+        layer.matrix.rotate = (layer.matrix.rotate + 360) % 360;
       });
 
       rotationStartAngle.value = currentAngle;
     };
+
 
 
     const resetSelection = (event) => {
