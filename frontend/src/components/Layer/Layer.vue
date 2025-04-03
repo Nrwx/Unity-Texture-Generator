@@ -78,6 +78,7 @@
             icon
             color="#DCFDD4"
             size="x-small"
+            :disabled="!layers.length"
             @click="emitEvent('preview-layer')"
         >
           <v-icon color="black">mdi-eye</v-icon>

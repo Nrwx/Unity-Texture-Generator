@@ -47,7 +47,7 @@
                     class="map-item"
                     cols="4"
                 >
-                  <v-badge style="right: 26px;" class="absolute-badge" rounded="0" color="error" icon="mdi-fullscreen" @click="emitEvent('fullscreen-state', {src: map.src, id: build.id, title: map.type})"></v-badge>
+                  <v-badge style="right: 26px;" class="absolute-badge" rounded="0" color="error" icon="mdi-fullscreen" @click="emitEvent('fullscreen-state', {mode: 0, src: map.src, id: build.id, title: map.type})"></v-badge>
                   <v-badge style="top: 36px; right: 26px;" rounded="0" class="absolute-badge" @click="emitEvent('download-image', map.src)" color="error" icon="mdi-download"></v-badge>
                   <v-img
                       :src="map.src"

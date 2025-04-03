@@ -61,6 +61,7 @@ export default {
     const activeItemLeft = computed(() => itemsLeft.value.find(item => item.active));
     const activeItemRight = computed(() => itemsRight.value.find(item => item.active));
     const fullscreenInfo = reactive({
+      mode: 0,
       title: '',
       id: '',
       src: '',
@@ -209,6 +210,7 @@ export default {
           if(typeof payload === 'boolean') {
             fullscreenInfo.tile = payload;
           } else {
+            fullscreenInfo.mode = payload.mode
             fullscreenInfo.id = payload.id
             fullscreenInfo.title = payload.title
             fullscreenInfo.src = payload.src
@@ -233,14 +235,10 @@ export default {
           }
         }
         else if(event === 'tools-state') {
-          const response = await previewLayers();
-          if (response) {
-            fullscreenInfo.title = response.title;
-            fullscreenInfo.id = response.id
-            fullscreenInfo.src = response.src
-            windowStates.fullscreen.value = true;
-            console.log(response)
-          }
+          fullscreenInfo.title = payload.title;
+          fullscreenInfo.id = payload.id
+          fullscreenInfo.src = payload.src
+          windowStates.fullscreen.value = true;
         }
         else if(event === 'reset-selected-layer') {
           localData.selectedLayers.value = []

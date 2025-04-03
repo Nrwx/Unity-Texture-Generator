@@ -2,7 +2,9 @@ from flask import Flask, request, jsonify, send_file, send_from_directory
 from PIL import Image, ImageOps, ImageFilter, ImageEnhance
 import numpy as np
 import os
+import shutil
 import io
+import math
 import cv2
 import uuid
 from werkzeug.utils import secure_filename
@@ -46,11 +48,19 @@ from utils import (
 
 # Initialising
 app = Flask(__name__)
+PUBLIC_FOLDER = "public"
+if os.path.exists(PUBLIC_FOLDER):
+    shutil.rmtree(PUBLIC_FOLDER)
+
 # Ordner für temporäre Dateien
-UPLOAD_FOLDER = "public\\upload"
+UPLOAD_FOLDER = os.path.join(PUBLIC_FOLDER, "upload")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-LAYER_FOLDER = "public\\layer"
+
+LAYER_FOLDER = os.path.join(PUBLIC_FOLDER, "layer")
 os.makedirs(LAYER_FOLDER, exist_ok=True)
+
+SOURCE_FOLDER = os.path.join(PUBLIC_FOLDER, "backup")
+os.makedirs(SOURCE_FOLDER, exist_ok=True)
 
 # Definition der Eingabeparameter und deren Standardwerte
 PARAMETERS = {
@@ -205,17 +215,22 @@ def download_file(filename):
 
     return jsonify({"error": "File not found"}), 404
 
-viewportConfig = {}
+viewportConfig = []
 @app.route('/viewport', methods=['POST'])
 def viewportCanvas():
     try:
         params = parse_parameters(PARAMETERS['viewport'], request.form)
 
-        viewportConfig['mode'] = params['mode']
-        viewportConfig['width'] = params['width']
-        viewportConfig['height'] = params['height']
-        viewportConfig['title'] = params['title']
-        viewportConfig['layer'] = params['layer']
+        # Layer hinzufügen
+        config = {
+            "mode": params['mode'],
+            "width": params['width'],
+            "height": params['height'],
+            "title": params['title'],
+            "layer": params['layer']
+        }
+        viewportConfig.append(config)
+        print(viewportConfig)
 
         add_layer(name=params['layer'], path=None, id=None, width=params['width'], height=params['height'])
 
@@ -469,46 +484,61 @@ def parse_parameters(params_section, form):
     return parsed_params
 
 layers = []
+default_matrix = {
+    "a": 1,
+    "b": 0,
+    "c": 0,
+    "d": 1,
+    "x": 0,
+    "y": 0,
+    "rotate": 0,
+}
 # Funktionen für Layer-Management
 def add_layer(name="", path="", id="", width=1024, height=1024):
     try:
-        if not id:  # Keine ID übergeben, neue erstellen
+        source_id = str(uuid.uuid4())  # UUID für die Source-Datei
+        source_path = os.path.join(SOURCE_FOLDER, f"{source_id}.png")
+        viewport_width = viewportConfig[0]["width"]  # Base Width
+        viewport_height = viewportConfig[0]["height"]  # Base Height
+
+        if not id:  # Falls keine ID übergeben wurde, neue generieren
             id = str(uuid.uuid4())  # Neue UUID v4 generieren
             path = os.path.join(LAYER_FOLDER, f"{id}.png")
-            # Leere PNG erstellen
-            img = Image.new('RGBA', (width, height), (0, 0, 0, 0))
-            img.save(path)
-        else:  # ID und Pfad wurden übergeben
-            image_path = os.path.join(LAYER_FOLDER, f"{id}.png")
+            img = Image.new("RGBA", (width, height), (0, 0, 0, 0))  # Leeres PNG erzeugen
+        else:  # Falls ID übergeben wurde, bestehendes Bild laden
             img = Image.open(path)
-            img.save(image_path)
             width, height = img.size
 
-            # Ursprüngliche Datei löschen, falls vorhanden
-            if os.path.exists(path):
-                os.remove(path)
-                print(f"File {path} removed successfully.")
-            else:
-                print(f"File {path} does not exist.")
+        # Zuerst das Backup der Originaldatei speichern
+        img.save(source_path)
 
-        default_matrix = {
-            "a": 1,
-            "b": 0,
-            "c": 0,
-            "d": 1,
-            "x": 0,
-            "y": 0,
-            "rotate": 0
-        }
+        # Skalierungsfaktor berechnen
+        scale_factor = min(viewport_width / width, viewport_height / height)
+
+        # Falls Skalierung notwendig ist
+        if scale_factor < 1:
+            new_width = int(width * scale_factor)
+            new_height = int(height * scale_factor)
+
+            # Bild proportional skalieren (aber Original bleibt erhalten)
+            scaled_img = img.resize((new_width, new_height), Image.LANCZOS)
+
+            # Skaliertes Bild speichern
+            image_path = os.path.join(LAYER_FOLDER, f"{id}.png")
+            scaled_img.save(image_path)
+        else:
+            # Falls keine Skalierung notwendig ist, das Original einfach kopieren
+            image_path = source_path
 
         # Layer hinzufügen
         layer = {
             "id": id,
             "name": name,
-            "width": width,
-            "height": height,
+            "width": new_width if scale_factor < 1 else width,
+            "height": new_height if scale_factor < 1 else height,
             "url": f"/download/{id}.png",
             "matrix": default_matrix,
+            "source": source_id,
         }
         layers.append(layer)
         print(layers)
@@ -521,8 +551,6 @@ def update_layer(name, width, height, id, a, b, c, d, x, y, rotate):
         layer = next((l for l in layers if l["id"] == id), None)
         if not layer:
             return jsonify({"error": "Layer not found"}), 404
-
-        new_id = str(uuid.uuid4())
 
         matrix = {
             "a": a,  # Skalierung X
@@ -540,16 +568,8 @@ def update_layer(name, width, height, id, a, b, c, d, x, y, rotate):
             layer["width"] = width
         if height:
             layer["height"] = height
-        if new_id:
-            layer["id"] = new_id
-            old_image_path = os.path.join(LAYER_FOLDER, f"{id}.png")
-            new_image_path = os.path.join(LAYER_FOLDER, f"{new_id}.png")
-            if os.path.exists(old_image_path):
-                img = Image.open(old_image_path)
-                img = img.resize((width, height))
-                img.save(new_image_path)
-                os.remove(old_image_path)  # Entferne die alte Bilddatei
-                layer["url"] = f"/download/{new_id}.png"
+        if id:
+            layer["id"] = id
         if matrix:
             layer["matrix"] = matrix
 
@@ -578,61 +598,67 @@ def delete_layer(id):
 def list_layers():
     return jsonify(layers), 200
 
+
+
+
 def preview_layers():
     try:
         if not layers:
             return jsonify({"error": "No layers to preview"}), 404
 
-        # Feste Canvas-Größe (1024x1024)
-        canvas_size = (1024, 1024)
-        composite_image = Image.new('RGBA', canvas_size, (0, 0, 0, 0))
+        # Erstelle den leeren Canvas (Viewport)
+        viewport_width = viewportConfig[0]["width"]
+        viewport_height = viewportConfig[0]["height"]
+        composite_image = Image.new('RGBA', (viewport_width, viewport_height), (0, 0, 0, 0))
 
-        # Alle Layer mit der Matrix rendern
         for layer in layers:
             layer_path = os.path.join(LAYER_FOLDER, f"{layer['id']}.png")
-
             if os.path.exists(layer_path):
                 layer_img = Image.open(layer_path).convert('RGBA')
-
-                # Transformationsmatrix aus dem Layer holen
                 matrix = layer.get("matrix", {"a": 1, "b": 0, "c": 0, "d": 1, "x": 0, "y": 0, "rotate": 0})
 
-                # Affine Transformationsmatrix für Pillow (6 Werte erforderlich)
-                transform_matrix = (
-                    matrix["a"], matrix["b"], matrix["x"],  # Erste Zeile der Matrix
-                    matrix["c"], matrix["d"], matrix["y"]   # Zweite Zeile der Matrix
-                )
+                # Berechne die neue Bildgröße basierend auf Skalierungsfaktoren
+                original_width, original_height = layer_img.size
+                new_width = int(round(original_width * matrix["a"]))
+                new_height = int(round(original_height * matrix["d"]))
+                transformed_img = layer_img.resize((new_width, new_height), resample=Image.BICUBIC)
 
-                # Bild mit Affiner Matrix transformieren
-                transformed_img = layer_img.transform(
-                    layer_img.size,
-                    Image.AFFINE,
-                    transform_matrix,
-                    resample=Image.BICUBIC
-                )
+                # Berechne die Position (unter Berücksichtigung der Skalierung)
+                adjusted_x = int(round(matrix["x"] - ((new_width - original_width) / 2)))
+                adjusted_y = int(round(matrix["y"] - ((new_height - original_height) / 2)))
 
-                # Rotation aus der Matrix holen und als Float umwandeln
+                # Berechnung des Mittelpunktes des Bildes unter Berücksichtigung der Verzerrung
+                center_x = (new_width * matrix["a"] + new_height * matrix["c"]) / 2
+                center_y = (new_width * matrix["b"] + new_height * matrix["d"]) / 2
+
+                # Falls Rotation vorhanden ist, dann um den berechneten Mittelpunkt rotieren
                 rotate_angle = float(matrix.get("rotate", 0))
-
-                # Falls Rotation nicht 0 ist, Bild drehen
                 if rotate_angle != 0:
-                    transformed_img = transformed_img.rotate(-rotate_angle, expand=True)
+                    # Drehe das Bild um den berechneten Mittelpunkt
+                    transformed_img = transformed_img.rotate(-rotate_angle, center=(center_x, center_y), expand=True)
+                    new_width, new_height = transformed_img.size
 
-                # Transformiertes Bild auf das Canvas setzen
-                composite_image.paste(transformed_img, (0, 0), transformed_img)
+                    # Berechne die neue Einfügeposition nach der Rotation, sodass der Ursprung des Layers beibehalten wird
+                    paste_x = int(round(adjusted_x + center_x - new_width / 2))
+                    paste_y = int(round(adjusted_y + center_y - new_height / 2))
+                else:
+                    paste_x = adjusted_x
+                    paste_y = adjusted_y
 
-        # UUID für Dateinamen generieren
+                # Füge das transformierte Bild auf dem Canvas ein
+                composite_image.paste(transformed_img, (paste_x, paste_y), transformed_img)
+
+        # Speichern der zusammengesetzten Map
         map_id = str(uuid.uuid4())
         map_filename = f"{map_id}.png"
         map_path = os.path.join(UPLOAD_FOLDER, map_filename)
-
-        # Speichern der zusammengesetzten Vorschau
         composite_image.save(map_path, format="PNG", quality=100)
 
         return jsonify({"id": map_id, "title": "preview", "src": f"/download/{map_filename}"}), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 @app.route('/layer', methods=['POST'])
 def layer_management():
