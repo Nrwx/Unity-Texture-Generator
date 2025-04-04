@@ -13,7 +13,7 @@
         :class="{'absolute': index > 0, 'selected': selectedLayer.includes(layer)}"
         alt="Layer Image"
         :cover="false"
-        :style="{zIndex: index, transform: `matrix(${layer.matrix.a}, ${layer.matrix.b}, ${layer.matrix.c}, ${layer.matrix.d}, ${layer.matrix.x}, ${layer.matrix.y}) rotate(${layer.matrix.rotate}deg)`,transformOrigin: 'center center'}"
+        :style="{zIndex: index, transform: `matrix(${layer.matrix.a}, ${layer.matrix.b}, ${layer.matrix.c}, ${layer.matrix.d}, ${layer.matrix.x}, ${layer.matrix.y}) rotate(${layer.matrix.rotate}deg)`}"
     >
       <slot v-if="selectedLayer.includes(layer)" name="menu"></slot>
     </v-img>

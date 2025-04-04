@@ -123,6 +123,41 @@ export default defineComponent({
       emit("component-event", event, payload);
     };
 
+    const handleMouseMove = (event) => {
+      // Berechne die tatsächliche Mausposition relativ zum Canvas Container
+      const rect = canvasContainer.value.getBoundingClientRect();
+      const scaledX = (event.clientX - rect.left);
+      const scaledY = (event.clientY - rect.top);
+
+      cursor.value.x = Math.round(scaledX);
+      cursor.value.y = Math.round(scaledY);
+
+      const dx = (event.clientX - lastMouse.value.x);
+      const dy = (event.clientY - lastMouse.value.y);
+
+      if (transformStates.transform.value) {
+        selectedLayer.value.forEach(layer => {
+          // Wenn Transformationsmodus aktiv ist, ändern wir die Matrix der Layer
+          layer.matrix.x += dx;
+          layer.matrix.y += dy;
+        });
+      } else if (canvasStates.transform.value) {
+        offset.value.x += dx;
+        offset.value.y += dy;
+      }
+      // Resizing (Skalierung)
+      else if (transformState.size) {
+        handleResize(dx, dy);
+      }
+      // Rotation
+      else if (transformState.rotate) {
+        handleRotate(event);
+      }
+
+      lastMouse.value.x = event.clientX;
+      lastMouse.value.y = event.clientY;
+    };
+
     // Start Resize
     const startResize = (corner, event) => {
       transformState.size = true;
@@ -131,16 +166,6 @@ export default defineComponent({
       lastMouse.value.y = event.clientY;
       document.addEventListener("mouseup", stopTransform);
     };
-
-    // Start Rotate
-    const startRotate = (direction, event) => {
-      transformState.rotate = true;
-      rotationStartAngle.value = calculateRotation(event.clientX, event.clientY);
-      lastMouse.value.x = event.clientX;
-      lastMouse.value.y = event.clientY;
-      document.addEventListener("mouseup", stopTransform);
-    };
-
 
     // Berechnung des Resize-Verhältnisses
     const handleResize = (dx, dy) => {
@@ -169,6 +194,15 @@ export default defineComponent({
           // Keine direkte Änderung der X-Position, nur der Skalierung
         }
       });
+    };
+
+    // Start Rotate
+    const startRotate = (direction, event) => {
+      transformState.rotate = true;
+      rotationStartAngle.value = calculateRotation(event.clientX, event.clientY);
+      lastMouse.value.x = event.clientX;
+      lastMouse.value.y = event.clientY;
+      document.addEventListener("mouseup", stopTransform);
     };
 
     // Berechnung der Rotation im Grad
@@ -220,40 +254,6 @@ export default defineComponent({
       rotationStartAngle.value = currentAngle;
     };
 
-    const handleMouseMove = (event) => {
-      // Berechne die tatsächliche Mausposition relativ zum Canvas Container
-      const rect = canvasContainer.value.getBoundingClientRect();
-      const scaledX = (event.clientX - rect.left);
-      const scaledY = (event.clientY - rect.top);
-
-      cursor.value.x = Math.round(scaledX);
-      cursor.value.y = Math.round(scaledY);
-
-      const dx = (event.clientX - lastMouse.value.x);
-      const dy = (event.clientY - lastMouse.value.y);
-
-      if (transformStates.transform.value) {
-        selectedLayer.value.forEach(layer => {
-          // Wenn Transformationsmodus aktiv ist, ändern wir die Matrix der Layer
-          layer.matrix.x += dx;
-          layer.matrix.y += dy;
-        });
-      } else if (canvasStates.transform.value) {
-        offset.value.x += dx;
-        offset.value.y += dy;
-      }
-      // Resizing (Skalierung)
-      else if (transformState.size) {
-        handleResize(dx, dy);
-      }
-      // Rotation
-      else if (transformState.rotate) {
-        handleRotate(event);
-      }
-
-      lastMouse.value.x = event.clientX;
-      lastMouse.value.y = event.clientY;
-    };
 
     const resetSelection = (event) => {
       if (!canvasContainer.value.contains(event.target) && selectedLayer.value.length) {

@@ -623,29 +623,41 @@ def preview_layers():
                 new_height = int(round(original_height * matrix["d"]))
                 transformed_img = layer_img.resize((new_width, new_height), resample=Image.BICUBIC)
 
-                # Berechne die Position (unter Berücksichtigung der Skalierung)
-                adjusted_x = int(round(matrix["x"] - ((new_width - original_width) / 2)))
-                adjusted_y = int(round(matrix["y"] - ((new_height - original_height) / 2)))
-
-                # Berechnung des Mittelpunktes des Bildes unter Berücksichtigung der Verzerrung
-                center_x = (new_width * matrix["a"] + new_height * matrix["c"]) / 2
-                center_y = (new_width * matrix["b"] + new_height * matrix["d"]) / 2
-
-                # Falls Rotation vorhanden ist, dann um den berechneten Mittelpunkt rotieren
+                # Falls Rotation vorhanden ist, erst zentrieren und dann rotieren
                 rotate_angle = float(matrix.get("rotate", 0))
+                adjusted_x, adjusted_y = 0, 0  # Standardwerte initialisieren
+
                 if rotate_angle != 0:
-                    # Drehe das Bild um den berechneten Mittelpunkt
-                    transformed_img = transformed_img.rotate(-rotate_angle, center=(center_x, center_y), expand=True)
+                    # Ankerpunkt (z.B. Zentrum des Bildes oder beliebiger Punkt im Bild)
+                    anchor_x = original_width / 2  # Beispiel: Mitte des Bildes
+                    anchor_y = original_height / 2
+
+                    # Berechne den Mittelpunkt des Bildes nach der Skalierung
+                    center_x = new_width / 2
+                    center_y = new_height / 2
+
+                    # Berechne die Verschiebung des Ankerpunkts relativ zum neuen Bildzentrum
+                    offset_x = anchor_x - center_x
+                    offset_y = anchor_y - center_y
+
+                    # Rotieren um den Ankerpunkt, wenn der Winkel vorhanden ist
+                    transformed_img = transformed_img.rotate(-rotate_angle, resample=Image.BICUBIC, expand=True)
+
+                    # Berechne die neue Bildgröße nach der Rotation
                     new_width, new_height = transformed_img.size
 
-                    # Berechne die neue Einfügeposition nach der Rotation, sodass der Ursprung des Layers beibehalten wird
-                    paste_x = int(round(adjusted_x + center_x - new_width / 2))
-                    paste_y = int(round(adjusted_y + center_y - new_height / 2))
+                    # Position anpassen
+                    adjusted_x = int(round(matrix["x"] - ((new_width - original_width) / 2) + offset_x))
+                    adjusted_y = int(round(matrix["y"] - ((new_height - original_height) / 2) + offset_y))
                 else:
-                    paste_x = adjusted_x
-                    paste_y = adjusted_y
+                    # Falls keine Rotation vorliegt, ohne Rotation positionieren
+                    adjusted_x = int(round(matrix["x"] - ((new_width - original_width) / 2)))
+                    adjusted_y = int(round(matrix["y"] - ((new_height - original_height) / 2)))
 
-                # Füge das transformierte Bild auf dem Canvas ein
+                # Berechne die Positionierung der verschobenen Ebene nach Skalierung und Rotation
+                paste_x = adjusted_x
+                paste_y = adjusted_y
+
                 composite_image.paste(transformed_img, (paste_x, paste_y), transformed_img)
 
         # Speichern der zusammengesetzten Map
