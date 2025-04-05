@@ -113,6 +113,7 @@ export default defineComponent({
     const guide = ref({});
     const resizeDirection = ref('');
     const rotationStartAngle = ref(0);
+    const fineSnapAngle = 360 / 64; // Das ergibt 5.625° pro Schritt
 
     const emitEvent = (event, payload) => {
       emit("component-event", event, payload);
@@ -184,7 +185,20 @@ export default defineComponent({
       return angle * (180 / Math.PI); // Umwandlung von Radiant zu Grad
     };
 
-// Handle Rotation
+    const getSnappedAngle = (angle) => {
+
+      // Berechne den Restwert nach Division des Winkels durch den feinen Snap-Winkel
+      const remainder = angle % fineSnapAngle;
+
+      // Wenn der Restwert näher an 0 ist, runden wir ab, andernfalls runden wir auf
+      if (remainder < fineSnapAngle / 2) {
+        return angle - remainder;  // Abrunden
+      } else {
+        return angle + (fineSnapAngle - remainder);  // Aufrunden
+      }
+    };
+
+// Handle der Rotation
     const handleRotate = (event) => {
       event.preventDefault();
 
@@ -196,15 +210,20 @@ export default defineComponent({
       if (deltaAngle < -180) deltaAngle += 360;
 
       selectedLayer.value.forEach(layer => {
-        // Wir müssen nur die Rotation ändern und den Rest der Matrix beibehalten.
-        layer.matrix.rotate = (layer.matrix.rotate + deltaAngle + 360) % 360;
+        let newRotation = (layer.matrix.rotate + deltaAngle + 360) % 360;
 
-        // Beachte, dass Skalierung und Position hier nicht verändert werden
-        // Diese bleiben unverändert, während nur die Rotation angepasst wird
+        if (transformStates.align.value) {
+          // Wenn Snap-Winkel aktiviert sind, runde den Winkel auf den nächsten Feinschritt
+          newRotation = getSnappedAngle(newRotation);
+        }
+
+        // Runden auf zwei Dezimalstellen für die Rotation
+        layer.matrix.rotate = parseFloat(newRotation.toFixed(2));
       });
 
       rotationStartAngle.value = currentAngle;
     };
+
 
     // Handle Resize
     const handleResize = (dx, dy) => {
