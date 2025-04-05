@@ -114,9 +114,18 @@ export default defineComponent({
     const resizeDirection = ref('');
     const rotationStartAngle = ref(0);
     const fineSnapAngle = 360 / 64; // Das ergibt 5.625° pro Schritt
+    const alignModeStep = ref(0);
 
     const emitEvent = (event, payload) => {
       emit("component-event", event, payload);
+    };
+
+    const cycleAlignMode = () => {
+      if (transformStates.align.value) {
+        alignModeStep.value = (alignModeStep.value + 1) % 3; // 0 → 1 → 2 → 0 ...
+      } else {
+        alignModeStep.value = 0; // Zurücksetzen wenn align nicht aktiv
+      }
     };
 
     const handleMouseMove = (event) => {
@@ -131,11 +140,24 @@ export default defineComponent({
       const dx = (event.clientX - lastMouse.value.x);
       const dy = (event.clientY - lastMouse.value.y);
 
+      // Transformieren:
       if (transformStates.transform.value) {
         selectedLayer.value.forEach(layer => {
-          // Wenn Transformationsmodus aktiv ist, ändern wir die Matrix der Layer
-          layer.matrix.x += dx;
-          layer.matrix.y += dy;
+          if (transformStates.align.value) {
+            // Handle Align Modes
+            if (alignModeStep.value === 1) {
+              layer.matrix.x += dx;
+            } else if (alignModeStep.value === 2) {
+              layer.matrix.y += dy;
+            } else {
+              layer.matrix.x += dx;
+              layer.matrix.y += dy;
+            }
+          } else {
+            // Normales Transformieren
+            layer.matrix.x += dx;
+            layer.matrix.y += dy;
+          }
         });
       } else if (canvasStates.transform.value) {
         offset.value.x += dx;
@@ -475,7 +497,11 @@ export default defineComponent({
         transformStates.transform.value = false;
       }
       if (event.key === "Shift") {
-        transformStates.align.value = false;
+        if (transformStates.transform.value) {
+          cycleAlignMode()
+        } else {
+          transformStates.align.value = false;
+        }
       }
     };
 
