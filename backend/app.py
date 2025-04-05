@@ -511,10 +511,9 @@ def add_layer(name="", path="", id="", width=1024, height=1024):
 
         # Zuerst das Backup der Originaldatei speichern
         img.save(source_path)
-
         # Skalierungsfaktor berechnen
         scale_factor = min(viewport_width / width, viewport_height / height)
-
+        image_path = os.path.join(LAYER_FOLDER, f"{id}.png")
         # Falls Skalierung notwendig ist
         if scale_factor < 1:
             new_width = int(width * scale_factor)
@@ -524,11 +523,10 @@ def add_layer(name="", path="", id="", width=1024, height=1024):
             scaled_img = img.resize((new_width, new_height), Image.LANCZOS)
 
             # Skaliertes Bild speichern
-            image_path = os.path.join(LAYER_FOLDER, f"{id}.png")
             scaled_img.save(image_path)
         else:
             # Falls keine Skalierung notwendig ist, das Original einfach kopieren
-            image_path = source_path
+            img.save(image_path)
 
         # Layer hinzufügen
         layer = {
@@ -599,8 +597,6 @@ def list_layers():
     return jsonify(layers), 200
 
 
-
-
 def preview_layers():
     try:
         if not layers:
@@ -615,52 +611,56 @@ def preview_layers():
             layer_path = os.path.join(LAYER_FOLDER, f"{layer['id']}.png")
             if os.path.exists(layer_path):
                 layer_img = Image.open(layer_path).convert('RGBA')
-                matrix = layer.get("matrix", {"a": 1, "b": 0, "c": 0, "d": 1, "x": 0, "y": 0, "rotate": 0})
+                matrix = layer.get("matrix", {
+                    "a": 1, "b": 0, "c": 0, "d": 1,
+                    "x": 0, "y": 0, "rotate": 0
+                })
 
-                # Berechne die neue Bildgröße basierend auf Skalierungsfaktoren
                 original_width, original_height = layer_img.size
-                new_width = int(round(original_width * matrix["a"]))
-                new_height = int(round(original_height * matrix["d"]))
-                transformed_img = layer_img.resize((new_width, new_height), resample=Image.BICUBIC)
+                scale_x = matrix["a"]
+                scale_y = matrix["d"]
 
-                # Falls Rotation vorhanden ist, erst zentrieren und dann rotieren
+                # Berechne die Position vor der Skalierung und Rotation
+                pos_x = int(round(matrix["x"]))
+                pos_y = int(round(matrix["y"]))
+
+                # Rotation
                 rotate_angle = float(matrix.get("rotate", 0))
-                adjusted_x, adjusted_y = 0, 0  # Standardwerte initialisieren
 
+                # Berechne den Mittelpunkt für die Rotation
+                center_x = original_width / 2
+                center_y = original_height / 2
+
+                # Wenn Rotation vorliegt, dann zuerst rotiere das Bild
                 if rotate_angle != 0:
-                    # Ankerpunkt (z.B. Zentrum des Bildes oder beliebiger Punkt im Bild)
-                    anchor_x = original_width / 2  # Beispiel: Mitte des Bildes
-                    anchor_y = original_height / 2
-
-                    # Berechne den Mittelpunkt des Bildes nach der Skalierung
-                    center_x = new_width / 2
-                    center_y = new_height / 2
-
-                    # Berechne die Verschiebung des Ankerpunkts relativ zum neuen Bildzentrum
-                    offset_x = anchor_x - center_x
-                    offset_y = anchor_y - center_y
-
-                    # Rotieren um den Ankerpunkt, wenn der Winkel vorhanden ist
-                    transformed_img = transformed_img.rotate(-rotate_angle, resample=Image.BICUBIC, expand=True)
-
-                    # Berechne die neue Bildgröße nach der Rotation
-                    new_width, new_height = transformed_img.size
-
-                    # Position anpassen
-                    adjusted_x = int(round(matrix["x"] - ((new_width - original_width) / 2) + offset_x))
-                    adjusted_y = int(round(matrix["y"] - ((new_height - original_height) / 2) + offset_y))
+                    rotated_img = layer_img.rotate(-rotate_angle, resample=Image.BICUBIC, expand=True, center=(center_x, center_y))
+                    rotated_width, rotated_height = rotated_img.size
                 else:
-                    # Falls keine Rotation vorliegt, ohne Rotation positionieren
-                    adjusted_x = int(round(matrix["x"] - ((new_width - original_width) / 2)))
-                    adjusted_y = int(round(matrix["y"] - ((new_height - original_height) / 2)))
+                    rotated_img = layer_img
+                    rotated_width, rotated_height = original_width, original_height
 
-                # Berechne die Positionierung der verschobenen Ebene nach Skalierung und Rotation
-                paste_x = adjusted_x
-                paste_y = adjusted_y
+                # Skalierung: Jetzt wird das Bild skaliert (unter Berücksichtigung der Rotation)
+                new_width = int(round(rotated_width * scale_x))
+                new_height = int(round(rotated_height * scale_y))
+                transformed_img = rotated_img.resize((new_width, new_height), resample=Image.BICUBIC)
 
+                # Berechne den Offset durch Rotation und Skalierung
+                # Berechne den Mittelpunkt des skalierten Bildes und den Offset nach der Skalierung
+                center_scaled_x = new_width / 2
+                center_scaled_y = new_height / 2
+
+                # Berechne den neuen Offset, um das Bild richtig zu platzieren
+                offset_x = center_scaled_x - center_x
+                offset_y = center_scaled_y - center_y
+
+                # Neue Position im Viewport nach der Skalierung und Rotation
+                paste_x = int(round(pos_x - offset_x))
+                paste_y = int(round(pos_y - offset_y))
+
+                # Layer auf das finale Bild setzen
                 composite_image.paste(transformed_img, (paste_x, paste_y), transformed_img)
 
-        # Speichern der zusammengesetzten Map
+        # Speichern der finalen Map
         map_id = str(uuid.uuid4())
         map_filename = f"{map_id}.png"
         map_path = os.path.join(UPLOAD_FOLDER, map_filename)
@@ -670,6 +670,8 @@ def preview_layers():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
 
 
 @app.route('/layer', methods=['POST'])

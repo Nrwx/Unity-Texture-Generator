@@ -82,7 +82,7 @@
 </template>
 
 <script>
-import {computed, defineComponent, onMounted, onUnmounted, reactive, ref} from "vue";
+import {computed, defineComponent, onMounted, onUnmounted, ref} from "vue";
 import Image from "@/components/Image/Image";
 import {transformStates, canvasStates} from "@/dataLayer/state";
 
@@ -114,11 +114,6 @@ export default defineComponent({
     const resizeDirection = ref('');
     const rotationStartAngle = ref(0);
 
-    const transformState = reactive({
-      size: false,
-      rotate: false
-    });
-
     const emitEvent = (event, payload) => {
       emit("component-event", event, payload);
     };
@@ -146,11 +141,11 @@ export default defineComponent({
         offset.value.y += dy;
       }
       // Resizing (Skalierung)
-      else if (transformState.size) {
+      else if (transformStates.size.value) {
         handleResize(dx, dy);
       }
       // Rotation
-      else if (transformState.rotate) {
+      else if (transformStates.rotate.value) {
         handleRotate(event);
       }
 
@@ -160,52 +155,23 @@ export default defineComponent({
 
     // Start Resize
     const startResize = (corner, event) => {
-      transformState.size = true;
+      transformStates.size.value = true;
       resizeDirection.value = corner;
       lastMouse.value.x = event.clientX;
       lastMouse.value.y = event.clientY;
       document.addEventListener("mouseup", stopTransform);
     };
 
-    // Berechnung des Resize-Verhältnisses
-    const handleResize = (dx, dy) => {
-      selectedLayer.value.forEach(layer => {
-        // Skalierung entlang der X-Achse
-        if (resizeDirection.value.includes('left') || resizeDirection.value.includes('right')) {
-          const scaleX = dx / layer.width;
-          layer.matrix.a += scaleX;
-        }
-
-        // Skalierung entlang der Y-Achse
-        if (resizeDirection.value.includes('top') || resizeDirection.value.includes('bottom')) {
-          const scaleY = dy / layer.height;
-          layer.matrix.d += scaleY;
-        }
-
-        // Update der Position, wenn notwendig
-        if (resizeDirection.value.includes('top')) {
-          layer.matrix.y += dy;
-        } else if (resizeDirection.value.includes('bottom')) {
-          // Keine direkte Änderung der Y-Position, nur der Skalierung
-        }
-        if (resizeDirection.value.includes('left')) {
-          layer.matrix.x += dx;
-        } else if (resizeDirection.value.includes('right')) {
-          // Keine direkte Änderung der X-Position, nur der Skalierung
-        }
-      });
-    };
-
-    // Start Rotate
+// Start Rotate
     const startRotate = (direction, event) => {
-      transformState.rotate = true;
+      transformStates.rotate.value = true;
       rotationStartAngle.value = calculateRotation(event.clientX, event.clientY);
       lastMouse.value.x = event.clientX;
       lastMouse.value.y = event.clientY;
       document.addEventListener("mouseup", stopTransform);
     };
 
-    // Berechnung der Rotation im Grad
+// Berechnung der Rotation im Grad
     const calculateRotation = (mouseX, mouseY) => {
       if (!selectedLayer.value.length) return 0;
 
@@ -218,41 +184,71 @@ export default defineComponent({
       return angle * (180 / Math.PI); // Umwandlung von Radiant zu Grad
     };
 
+// Handle Rotation
     const handleRotate = (event) => {
       event.preventDefault();
 
       const currentAngle = calculateRotation(event.clientX, event.clientY);
-      const deltaAngle = currentAngle - rotationStartAngle.value;
+      let deltaAngle = currentAngle - rotationStartAngle.value;
+
+      // Verhindern, dass die Drehung den Bereich von -180 bis 180 überschreitet
+      if (deltaAngle > 180) deltaAngle -= 360;
+      if (deltaAngle < -180) deltaAngle += 360;
 
       selectedLayer.value.forEach(layer => {
-        // Rotation in der Matrix (Umrechnung von Grad in Radiant)
-        const angleRad = deltaAngle * Math.PI / 180;
-        const cosA = Math.cos(angleRad);
-        const sinA = Math.sin(angleRad);
+        // Wir müssen nur die Rotation ändern und den Rest der Matrix beibehalten.
+        layer.matrix.rotate = (layer.matrix.rotate + deltaAngle + 360) % 360;
 
-        // Neue Werte für die Transformationsmatrix berechnen
-        const newA = layer.matrix.a * cosA + layer.matrix.c * sinA;
-        const newB = layer.matrix.b * cosA + layer.matrix.d * sinA;
-        const newC = layer.matrix.c * cosA - layer.matrix.a * sinA;
-        const newD = layer.matrix.d * cosA - layer.matrix.b * sinA;
-
-        // Matrix-Objekt mit den neuen Werten aktualisieren
-        layer.matrix = {
-          a: newA,   // Skalierung X
-          b: newB,   // Rotation / Verzerrung
-          c: newC,   // Rotation / Verzerrung
-          d: newD,   // Skalierung Y
-          x: layer.matrix.x, // Position X bleibt unverändert
-          y: layer.matrix.y, // Position Y bleibt unverändert
-          rotate: (layer.matrix.rotate || 0) + deltaAngle
-        };
-
-        // Begrenzung auf 0-360°
-        layer.matrix.rotate = (layer.matrix.rotate + 360) % 360;
+        // Beachte, dass Skalierung und Position hier nicht verändert werden
+        // Diese bleiben unverändert, während nur die Rotation angepasst wird
       });
 
       rotationStartAngle.value = currentAngle;
     };
+
+    // Handle Resize
+    const handleResize = (dx, dy) => {
+      selectedLayer.value.forEach(layer => {
+        const originalWidth = layer.width;
+        const originalHeight = layer.height;
+
+        if (transformStates.align.value) {
+          // Wenn Shift gedrückt ist, gleichmäßige Skalierung (synchron auf X und Y)
+          const scale = Math.max(dx / originalWidth, dy / originalHeight);
+          layer.matrix.a += scale;
+          layer.matrix.d += scale;
+        } else {
+          // Skalierung entlang der X-Achse
+          if (resizeDirection.value.includes('left') || resizeDirection.value.includes('right')) {
+            const scaleX = dx / originalWidth;
+            layer.matrix.a += scaleX;
+            // Verhindere extreme Skalierung
+            layer.matrix.a = Math.max(0.1, Math.min(layer.matrix.a, 5)); // Beispiel: Skalierung von 10% bis 500%
+          }
+
+          // Skalierung entlang der Y-Achse
+          if (resizeDirection.value.includes('top') || resizeDirection.value.includes('bottom')) {
+            const scaleY = dy / originalHeight;
+            layer.matrix.d += scaleY;
+            // Verhindere extreme Skalierung
+            layer.matrix.d = Math.max(0.1, Math.min(layer.matrix.d, 5)); // Beispiel: Skalierung von 10% bis 500%
+          }
+        }
+
+        // Position anpassen
+        if (resizeDirection.value.includes('top')) {
+          layer.matrix.y += dy;  // Verschiebung nach oben
+        } else if (resizeDirection.value.includes('bottom')) {
+          // Keine direkte Änderung der Y-Position bei unten
+        }
+
+        if (resizeDirection.value.includes('left')) {
+          layer.matrix.x += dx;  // Verschiebung nach links
+        } else if (resizeDirection.value.includes('right')) {
+          // Keine direkte Änderung der X-Position bei rechts
+        }
+      });
+    }
 
 
     const resetSelection = (event) => {
@@ -332,8 +328,9 @@ export default defineComponent({
 
     // Stop Transform (Resizing or Rotating)
     const stopTransform = () => {
-      transformState.size = false;
-      transformState.rotate = false;
+      transformStates.transform.value = false
+      transformStates.size.value = false;
+      transformStates.rotate.value = false;
       document.removeEventListener("mouseup", stopTransform);
     };
 
@@ -447,12 +444,19 @@ export default defineComponent({
         }
       }
       if (event.key === 'z') canvasStates.zoom.value = !canvasStates.zoom.value;
+
+      if (event.key === "Shift") {
+        transformStates.align.value = true;
+      }
     };
 
     const handleKeyUp = (event) => {
       if (event.key === 'g') {
         canvasStates.transform.value = false;
         transformStates.transform.value = false;
+      }
+      if (event.key === "Shift") {
+        transformStates.align.value = false;
       }
     };
 

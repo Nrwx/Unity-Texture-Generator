@@ -10,16 +10,11 @@ export const windowStates = {
     fullscreen: ref(false),
 };
 
-export const keyStates = {
-    z: ref(false),
-    w: ref(false),
-};
-
 export const transformStates = {
     rotate: ref(false),
     transform: ref(false),
     size: ref(false),
-    zoom: ref(false),
+    align: ref(false)
 };
 
 export const canvasStates = {
