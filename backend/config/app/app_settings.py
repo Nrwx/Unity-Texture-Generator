@@ -3,6 +3,12 @@ import json
 import logging
 import subprocess
 
+# Optional für dxdiag (AMD unter Windows)
+try:
+    import chardet
+except ImportError:
+    chardet = None
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 CPU_THREADS = os.cpu_count()
@@ -16,6 +22,31 @@ DEFAULT_ANIMATION_SETTINGS = {
 
 SETTINGS_FILE_PATH = os.path.join(os.getenv("APP_CONFIG_PATH", "config/app"), "app_settings.json")
 
+def detect_gpu_with_rocm_smi():
+    try:
+        result = subprocess.run(["rocm-smi", "--showproductname", "--showmeminfo", "vram"],
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if result.returncode == 0:
+            gpu_name = "AMD GPU"
+            gpu_memory_mb = 0
+            for line in result.stdout.splitlines():
+                if "Card series" in line or "GPU" in line:
+                    gpu_name = line.split(":")[-1].strip()
+                if "Total VRAM Memory" in line:
+                    mem_str = ''.join(filter(str.isdigit, line))
+                    if mem_str.isdigit():
+                        gpu_memory_mb = int(mem_str)
+            if gpu_memory_mb == 0:
+                gpu_memory_mb = 4096  # Fallback
+            logging.info(f"rocm-smi detected AMD GPU: {gpu_name} with approx. {gpu_memory_mb} MB memory.")
+            return True, gpu_name, gpu_memory_mb
+        return False, "No AMD GPU Available", 0
+    except FileNotFoundError:
+        logging.warning("rocm-smi not found.")
+        return False, "rocm-smi not found", 0
+    except Exception as e:
+        logging.error(f"Error during AMD GPU detection via rocm-smi: {e}")
+        return False, "Error", 0
 
 def detect_gpu_with_nvidia_smi():
     """
@@ -40,6 +71,48 @@ def detect_gpu_with_nvidia_smi():
         logging.error(f"Error during nvidia-smi GPU detection: {e}")
         return False, "Error", 0
 
+def detect_amd_gpu_with_dxdiag():
+    try:
+        import tempfile
+
+        if not chardet:
+            logging.error("chardet not installed. Run 'pip install chardet'")
+            return False, "chardet not installed", 0
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".txt") as temp_file:
+            temp_path = temp_file.name
+
+        result = subprocess.run(["dxdiag", "/t", temp_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if result.returncode == 0:
+            with open(temp_path, 'rb') as raw_file:
+                raw_data = raw_file.read()
+                detected = chardet.detect(raw_data)
+                encoding = detected['encoding'] or 'utf-8'
+                text = raw_data.decode(encoding)
+
+            os.remove(temp_path)
+
+            gpu_name = None
+            gpu_memory_mb = 0
+
+            for line in text.splitlines():
+                if "Card name" in line and ("Radeon" in line or "AMD" in line):
+                    gpu_name = line.split(":")[1].strip()
+                if "Display Memory" in line and "MB" in line:
+                    mem_str = ''.join(filter(str.isdigit, line))
+                    if mem_str.isdigit():
+                        gpu_memory_mb = int(mem_str)
+
+            if gpu_name:
+                if gpu_memory_mb == 0:
+                    gpu_memory_mb = 4096  # Fallback, falls Speicher nicht erkannt
+                logging.info(f"dxdiag detected AMD GPU: {gpu_name} with approx. {gpu_memory_mb} MB.")
+                return True, gpu_name, gpu_memory_mb
+
+        return False, "No AMD GPU Available", 0
+    except Exception as e:
+        logging.error(f"Error during AMD GPU detection via dxdiag: {e}")
+        return False, "Error", 0
 
 def detect_gpu_with_pytorch():
     """
@@ -82,7 +155,6 @@ def detect_gpu_with_pycuda():
         logging.error(f"Error during PyCUDA GPU detection: {e}")
         return False, "Error", 0
 
-
 def detect_gpu():
     """
     Optimierte GPU-Erkennungsfunktion, die nacheinander Methoden ausprobiert,
@@ -91,7 +163,9 @@ def detect_gpu():
     detection_methods = [
         detect_gpu_with_nvidia_smi,
         detect_gpu_with_pytorch,
-        detect_gpu_with_pycuda
+        detect_gpu_with_pycuda,
+        detect_gpu_with_rocm_smi,  # Linux
+        detect_amd_gpu_with_dxdiag,  # Windows
     ]
 
     for method in detection_methods:
