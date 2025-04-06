@@ -31,7 +31,7 @@ import { taskbarItemLeft, taskbarItemRight } from "@/models/taskbar/config/model
 import {localData} from "@/dataLayer/local";
 import DrawerNew from "@/components/Drawer/DrawerNew";
 import {computed, onMounted, reactive, ref} from "vue";
-import {addLayer, deleteLayer, fetchLayers, previewLayers, updateLayer} from "@/dataLayer/route/layer";
+import {addLayer, deleteLayer, fetchLayers, orderLayers, previewLayers, updateLayer} from "@/dataLayer/route/layer";
 import {fileUpload} from "@/dataLayer/route/upload";
 import Layer from "@/components/Layer/Layer";
 import {windowStates} from "@/dataLayer/state";
@@ -152,7 +152,7 @@ export default {
         }
         else if(event === "update-layer") {
           const response = await updateLayer(payload)
-          console.log(payload.matrix)
+          console.log(payload)
           if(response) {
             await componentEvent('fetch-layer');
           }
@@ -165,6 +165,13 @@ export default {
         }
         else if(event === "delete-layer") {
           const response = await deleteLayer(payload)
+          if(response) {
+            await componentEvent('fetch-layer');
+          }
+        }
+        else if(event === "order-layer") {
+          const data = {id: payload.id, order: payload.order}
+          const response = await orderLayers(data)
           if(response) {
             await componentEvent('fetch-layer');
           }

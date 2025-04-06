@@ -1,0 +1,8 @@
+.drag-container {
+  cursor: grab;
+  user-select: none;
+}
+
+.drag-container:active {
+  cursor: grabbing;
+}

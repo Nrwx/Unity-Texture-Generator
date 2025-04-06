@@ -2,13 +2,55 @@
   position: absolute;
   top: 0;
   right: 0;
-  .layer-wrapper{
+
+  .layer-wrapper {
     border: 1px solid #eee;
     border-radius: 8px;
-    box-shadow: 0 2px 1px -1px rgba(0, 0, 0, .2), 0 1px 1px 0 rgba(0, 0, 0, .14), 0 1px 3px 0 rgba(0, 0, 0, .12);
-    .layer-item.selected {
-      background-color: #e3f2fd;
+    box-shadow: 0 2px 1px -1px rgba(0, 0, 0, 0.2), 0 1px 1px 0 rgba(0, 0, 0, 0.14), 0 1px 3px 0 rgba(0, 0, 0, 0.12);
+
+    .layer-item {
+      cursor: pointer;
+      transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out, background-color 0.2s ease;
+      border-radius: 4px;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
+
+    .layer-item:hover {
+      background-color: rgba(0, 0, 0, 0.04);  /* sanfte Hover-Farbe */
+    }
+
+    .layer-item.selected {
+      background-color: #e4dfeb;
+      border: 1px solid #a77ce5;
+      border-left-width: thick;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.16), 0 1px 3px rgba(0, 0, 0, 0.23); /* Shadow when selected */
+    }
+
+    .layer-item.dragging {
+      cursor: grabbing !important;
+      opacity: 0.8;
+      transform: scale(1.05);
+      z-index: 1000;
+      position: relative;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.1);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      .cursor {
+        cursor: grabbing !important;
+      }
+    }
+
+    .layer-item.hovered {
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2), 0 3px 6px rgba(0, 0, 0, 0.1);
+      background-color: rgba(0, 0, 0, 0.05);  /* Hover-Farbe */
+    }
+
+    .layer-item.not-dragging {
+      transform: scale(1);
+    }
+
     .navigation-bar {
       width: 100%;
       height: 50px;

@@ -297,6 +297,9 @@ export default defineComponent({
         selectedLayer.value = [];
         props.layers.forEach(layer => {
           updateLayer(layer)
+          stopTransform()
+          transformStates.align.value = false
+          alignModeStep.value = 0
         });
       }
     };

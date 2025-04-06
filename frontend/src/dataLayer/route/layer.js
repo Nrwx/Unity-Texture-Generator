@@ -52,6 +52,7 @@ export const updateLayer = async (layer) => {
         formData.append("x", layer.matrix.x);
         formData.append("y", layer.matrix.y);
         formData.append("rotate", layer.matrix.rotate);
+        formData.append("order", layer.order);
 
         console.log(layer.matrix, 'LAYER-API')
         const response = await api.post('/layer', formData, {
@@ -109,5 +110,23 @@ export const previewLayers = async () => {
         }
     } catch (error) {
         console.error("Error fetching preview layers:", error.response?.data || error.message);
+    }
+};
+
+export const orderLayers = async (layer) => {
+    try {
+        const formData = new FormData();
+        formData.append("method", "order");
+        formData.append("id", layer.id);
+        formData.append("order", layer.order);
+
+        const response = await api.post('/layer', formData, {
+            headers: {'Content-Type': 'multipart/form-data'},
+        });
+        if (response) {
+            return response
+        }
+    } catch (error) {
+        console.error("Error fetching layers:", error.response?.data || error.message);
     }
 };

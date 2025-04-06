@@ -193,7 +193,7 @@ PARAMETERS = {
         "x": {"type": int, "default": 0},
         "y": {"type": int, "default": 0},
         "rotate": {"type": float, "default": 0},
-
+        "order": {"type": int, "default": 0},
     },
 }
 
@@ -537,6 +537,7 @@ def add_layer(name="", path="", id="", width=1024, height=1024):
             "url": f"/download/{id}.png",
             "matrix": default_matrix,
             "source": source_id,
+            "order": len(layers)
         }
         layers.append(layer)
         print(layers)
@@ -544,7 +545,7 @@ def add_layer(name="", path="", id="", width=1024, height=1024):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-def update_layer(name, width, height, id, a, b, c, d, x, y, rotate):
+def update_layer(name, width, height, id, a, b, c, d, x, y, rotate, order):
     try:
         layer = next((l for l in layers if l["id"] == id), None)
         if not layer:
@@ -570,6 +571,8 @@ def update_layer(name, width, height, id, a, b, c, d, x, y, rotate):
             layer["id"] = id
         if matrix:
             layer["matrix"] = matrix
+        if order:
+            layer["order"] = order
 
         print(layers)
         return jsonify(layer), 200
@@ -671,7 +674,32 @@ def preview_layers():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+def order_layers(id, order):
+    """
+    Verschiebt das Layer mit der gegebenen ID an die angegebene Position (order),
+    und passt die Reihenfolge aller anderen Layer entsprechend an.
+    """
+    try:
+        # Sicherstellen, dass order eine ganze Zahl ist
+        order = int(order)
 
+        # Layer mit gegebener ID finden
+        index = next((i for i, l in enumerate(layers) if l["id"] == id), None)
+        if index is None:
+            return jsonify({"error": f"Layer with id {id} not found."}), 404
+
+        # Layer verschieben
+        moved_layer = layers.pop(index)
+        layers.insert(order, moved_layer)
+
+        # Reihenfolge neu nummerieren
+        for i, layer in enumerate(layers):
+            layer["order"] = i
+
+        return jsonify({"success": True, "message": f"Layer {id} moved to position {order}."}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/layer', methods=['POST'])
@@ -684,7 +712,7 @@ def layer_management():
                 'function': add_layer
             },
             "update": {
-                'keys': {"name", "width", "height", "id", "a", "b", "c", "d", "x", "y", "rotate"},
+                'keys': {"name", "width", "height", "id", "a", "b", "c", "d", "x", "y", "rotate", "order"},
                 'function': update_layer
             },
             "delete": {
@@ -698,6 +726,10 @@ def layer_management():
             "preview": {
                 'keys': {},
                 'function': preview_layers
+            },
+            "order": {
+                'keys': {"id", "order"},
+                'function': order_layers
             },
         }
 

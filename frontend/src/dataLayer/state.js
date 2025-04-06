@@ -8,6 +8,7 @@ export const windowStates = {
     layer: ref(false),
     setting: ref(false),
     fullscreen: ref(false),
+    drag: ref(false)
 };
 
 export const transformStates = {

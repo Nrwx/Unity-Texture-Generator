@@ -1,4 +1,6 @@
 import {ref} from "vue";
+import {localData} from "@/dataLayer/local";
+import {windowStates} from "@/dataLayer/state";
 
 export function layerModel(props, emit) {
     const selectedLayer = ref([]);
@@ -22,10 +24,32 @@ export function layerModel(props, emit) {
             },
         };
     };
+    const toggleLayerSelection = (id) => {
+        const index = selectedLayer.value.indexOf(id);
+        if (index === -1) {
+            selectedLayer.value.push(id);
+        } else {
+            selectedLayer.value.splice(index, 1);
+        }
+    };
+
+    const handleDrop = (fromIndex, toIndex) => {
+        windowStates.drag.value = false;
+        localData.layers.value = [...props.layers];
+        const [movedLayer] = localData.layers.value.splice(fromIndex, 1);
+        localData.layers.value.splice(toIndex, 0, movedLayer);
+        emitEvent('order-layer', {
+            id: movedLayer.id,
+            order: toIndex,
+        });
+    };
+
     return {
         emitEvent,
         validRule,
+        toggleLayerSelection,
         selectedLayer,
+        handleDrop,
     };
 }
 
