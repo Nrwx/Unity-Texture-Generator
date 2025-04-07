@@ -1,9 +1,13 @@
-import {ref} from "vue";
+import {computed, ref} from "vue";
 import {localData} from "@/dataLayer/local";
 import {windowStates} from "@/dataLayer/state";
+import {dragData} from "@/models/drag/data/model";
 
 export function layerModel(props, emit) {
     const selectedLayer = ref([]);
+    const dragId = computed(() => {
+        return dragData.id.value !== null ? props.layers[dragData.id.value]?.id : null;
+    });
     const emitEvent = (event, payload) => {
         emit("component-event", event, payload);
     };
@@ -50,6 +54,7 @@ export function layerModel(props, emit) {
         toggleLayerSelection,
         selectedLayer,
         handleDrop,
+        dragId,
     };
 }
 

@@ -1,8 +1,23 @@
 .drag-container {
-  cursor: grab;
   user-select: none;
 }
 
-.drag-container:active {
-  cursor: grabbing;
+.ghost-item {
+  position: fixed;
+  z-index: 1001;
+  opacity: .7;
+  transform: translate(-50%, -50%);
+  background-color: white;
+  padding: 6px 12px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  min-width: 160px;
+  max-width: 240px;
+  pointer-events: none;
+}
+.ghost-name {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

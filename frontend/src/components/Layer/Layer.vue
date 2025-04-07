@@ -2,7 +2,7 @@
   <v-card
       v-if="state"
       class="layer-system"
-      width="300"
+      width="340"
   >
     <v-container class="layer-wrapper">
       <!-- Schließen-Button -->
@@ -18,20 +18,26 @@
           border="0"
       >
         <!-- Layer-Liste -->
-        <v-list two-line class="layer-list overflow-hidden" v-if="layers.length > 0" bg-color="transparent">
+        <v-list density="comfortable" two-line class="layer-list overflow-hidden" v-if="layers.length > 0" bg-color="transparent">
           <Drag :items="layers" :on-drop="handleDrop">
             <template #default>
               <v-list-item
                   v-for="(layer) in layers"
                   :key="layer.id"
+                  :disabled="windowStates.drag.value && dragId === layer.id"
                   :data-id="layer.id"
                   class="layer-item"
-                  :class="{ selected: selectedLayer.includes(layer.id), 'dragging': windowStates.drag.value, 'not-dragging': !windowStates.drag.value }"
+                  :class="{selected: selectedLayer.includes(layer.id),dragging: windowStates.drag.value && dragId === layer.id,'not-dragging': windowStates.drag.value && dragId !== layer.id}"
                   @click="toggleLayerSelection(layer.id)"
               >
+                <template v-slot:prepend>
+                  <v-icon color="grey" size="x-small" @click.stop="layer.hidden = !layer.hidden">
+                    {{ layer.hidden ? 'mdi-eye-off' : 'mdi-eye' }}</v-icon>
+                </template>
+
                 <template v-slot:append>
-                  <v-icon class="cursor mr-2" :key="layer.id" color="grey" :style="!windowStates.drag.value ? 'cursor: grab;' : 'cursor: pointer;'">
-                    {{ !windowStates.drag.value ? 'mdi-drag' : 'mdi-drag-variant' }}</v-icon>
+                  <v-icon class="cursor" color="grey">
+                    {{ windowStates.drag.value && dragId === layer.id ? 'mdi-drag-variant' : 'mdi-drag' }}</v-icon>
                 </template>
 
                 <div class="d-flex align-baseline">
@@ -40,6 +46,7 @@
                       clearable
                       variant="outlined"
                       clear-icon="mdi-broom"
+                      min-width="160"
                       :hide-details="validRule(layer.name).isValid"
                       :rules="[validRule(layer.name).rule]"
                       @blur="validRule(layer.name).isValid ? emitEvent('update-layer', layer) : ''"
@@ -115,13 +122,14 @@ export default defineComponent({
     Drag
   },
   setup(props, { emit }) {
-    const { emitEvent, validRule, selectedLayer, toggleLayerSelection, handleDrop } = layerModel(props, emit);
+    const { emitEvent, validRule, selectedLayer, toggleLayerSelection, handleDrop, dragId } = layerModel(props, emit);
     return {
       emitEvent,
       validRule,
       selectedLayer,
       toggleLayerSelection,
       handleDrop,
+      dragId
     };
   },
 });
