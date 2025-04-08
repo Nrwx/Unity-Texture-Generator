@@ -4,6 +4,7 @@
         v-for="(layer, index) in layers"
         :key="layer.id"
         :src="layer.url"
+        :hidden="layer.hidden"
         :aspect-ratio="1"
         class="layer-image"
         :width="layer.width"

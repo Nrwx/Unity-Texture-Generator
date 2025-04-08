@@ -31,8 +31,8 @@
                   @click="toggleLayerSelection(layer.id)"
               >
                 <template v-slot:prepend>
-                  <v-icon color="grey" size="x-small" @click.stop="layer.hidden = !layer.hidden">
-                    {{ layer.hidden ? 'mdi-eye-off' : 'mdi-eye' }}</v-icon>
+                  <v-icon color="grey" size="x-small" @click.stop="emitEvent('hide-layer', layer)">
+                    {{ layer?.hidden === 1 ? 'mdi-eye-off' : 'mdi-eye' }}</v-icon>
                 </template>
 
                 <template v-slot:append>
@@ -122,14 +122,15 @@ export default defineComponent({
     Drag
   },
   setup(props, { emit }) {
-    const { emitEvent, validRule, selectedLayer, toggleLayerSelection, handleDrop, dragId } = layerModel(props, emit);
+    const { emitEvent, validRule, selectedLayer, toggleLayerSelection, handleDrop, dragId, hiddenState } = layerModel(props, emit);
     return {
       emitEvent,
       validRule,
       selectedLayer,
       toggleLayerSelection,
       handleDrop,
-      dragId
+      dragId,
+      hiddenState
     };
   },
 });

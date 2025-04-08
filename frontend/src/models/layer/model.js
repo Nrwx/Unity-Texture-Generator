@@ -28,6 +28,7 @@ export function layerModel(props, emit) {
             },
         };
     };
+
     const toggleLayerSelection = (id) => {
         const index = selectedLayer.value.indexOf(id);
         if (index === -1) {

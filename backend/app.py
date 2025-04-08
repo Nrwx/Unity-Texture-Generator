@@ -194,6 +194,7 @@ PARAMETERS = {
         "y": {"type": int, "default": 0},
         "rotate": {"type": float, "default": 0},
         "order": {"type": int, "default": 0},
+        "hidden": {"type": int, "default": 0},
     },
 }
 
@@ -537,7 +538,8 @@ def add_layer(name="", path="", id="", width=1024, height=1024):
             "url": f"/download/{id}.png",
             "matrix": default_matrix,
             "source": source_id,
-            "order": len(layers)
+            "order": len(layers),
+            "hidden": 0
         }
         layers.append(layer)
         print(layers)
@@ -545,7 +547,7 @@ def add_layer(name="", path="", id="", width=1024, height=1024):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-def update_layer(name, width, height, id, a, b, c, d, x, y, rotate, order):
+def update_layer(name, width, height, id, a, b, c, d, x, y, rotate, order, hidden):
     try:
         layer = next((l for l in layers if l["id"] == id), None)
         if not layer:
@@ -573,6 +575,8 @@ def update_layer(name, width, height, id, a, b, c, d, x, y, rotate, order):
             layer["matrix"] = matrix
         if order:
             layer["order"] = order
+        if hidden:
+            layer["hidden"] = hidden
 
         print(layers)
         return jsonify(layer), 200
@@ -611,6 +615,10 @@ def preview_layers():
         composite_image = Image.new('RGBA', (viewport_width, viewport_height), (0, 0, 0, 0))
 
         for layer in layers:
+
+            if layer["hidden"] == 1:
+                continue
+
             layer_path = os.path.join(LAYER_FOLDER, f"{layer['id']}.png")
             if os.path.exists(layer_path):
                 layer_img = Image.open(layer_path).convert('RGBA')
@@ -701,6 +709,32 @@ def order_layers(id, order):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+def hide_layer(id, hidden):
+    """
+    Aktualisiert den 'hidden'-Status eines Layers anhand seiner ID.
+    Erwartet für 'hidden' eine Zahl: 0 = sichtbar, 1 = versteckt.
+    """
+    try:
+        hidden = int(hidden)
+        if hidden not in (0, 1):
+            return jsonify({"error": "'hidden' must be 0 or 1."}), 400
+
+        # Layer mit der gegebenen ID finden
+        layer = next((l for l in layers if l["id"] == id), None)
+        if layer is None:
+            return jsonify({"error": f"Layer with id {id} not found."}), 404
+
+        # Sichtbarkeit als Integer setzen
+        layer["hidden"] = hidden
+
+        return jsonify({
+            "success": True,
+            "message": f"Layer {id} visibility set to {hidden}."
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/layer', methods=['POST'])
 def layer_management():
@@ -712,7 +746,7 @@ def layer_management():
                 'function': add_layer
             },
             "update": {
-                'keys': {"name", "width", "height", "id", "a", "b", "c", "d", "x", "y", "rotate", "order"},
+                'keys': {"name", "width", "height", "id", "a", "b", "c", "d", "x", "y", "rotate", "order", "hidden"},
                 'function': update_layer
             },
             "delete": {
@@ -730,6 +764,10 @@ def layer_management():
             "order": {
                 'keys': {"id", "order"},
                 'function': order_layers
+            },
+            "hide": {
+                'keys': {"id", "hidden"},
+                'function': hide_layer
             },
         }
 
