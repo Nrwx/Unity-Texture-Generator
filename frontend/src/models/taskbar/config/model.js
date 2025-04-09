@@ -1,6 +1,5 @@
 import {v4 as uuidv4} from "uuid";
-import UploadFile from "@/components/File/File";
-import Image from "@/view/page/Image/Image"
+import Upload from "@/view/page/Upload/Upload.vue";
 import History from "@/components/History/History";
 import Tools from "@/view/page/Tools/Tools";
 
@@ -22,7 +21,7 @@ export const taskbarItemLeft = [
         active: false,
         tooltip: 'Bild hochladen',
         component: {
-            path: UploadFile,
+            path: Upload,
             props: {}
         },
     },
@@ -33,10 +32,6 @@ export const taskbarItemLeft = [
         icon: 'mdi-image-multiple',
         active: false,
         tooltip: 'Bild Optionen',
-        component: {
-            path: Image,
-            props: {}
-        },
     },
 ];
 

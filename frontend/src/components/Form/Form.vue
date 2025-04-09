@@ -1,5 +1,18 @@
 <template v-if="operation[item.method]">
   <div v-for="(prop, key) in operation[item.method]" :key="key">
+    <!-- Titel und Untertitel -->
+    <div
+        v-if="prop.active"
+        class="d-flex flex-wrap align-center overflow-hidden"
+        :class="{ 'text-right': prop.align === 'right'}"
+    >
+      <div v-if="prop?.title" class="mb-0 text-h6 text-truncate" style="width: 100%;">
+        {{ prop.title }}
+      </div>
+      <div v-if="prop?.subtitle" class="text-subtitle-2 text-truncate" style="width: 100%;">
+        {{ prop.subtitle }}
+      </div>
+    </div>
     <!-- Textfeld für Zahlen -->
     <v-text-field
         v-if="prop.type === 'number' && prop.active"
@@ -38,6 +51,8 @@
         v-model="item[key]"
         :items="prop.options"
         :label="prop.label"
+        :prepend-icon="prop.prependIcon"
+        :append-icon="prop.appendIcon"
         :multiple="prop.multi"
         item-title="title"
         item-value="value"

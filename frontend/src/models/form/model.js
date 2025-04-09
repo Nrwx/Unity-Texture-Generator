@@ -1,6 +1,6 @@
 export function formModel(emit) {
     const emitEvent = (event, payload) => {
-        emit("update:component-event", event, payload);
+        emit("component-event", event, payload);
     };
     return {
         emitEvent

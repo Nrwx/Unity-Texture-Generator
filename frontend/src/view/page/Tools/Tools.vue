@@ -37,7 +37,7 @@ import { defineComponent } from "vue";
 import { toolsModel, toolsProps } from "@/view/models/page/tools/model";
 
 export default defineComponent({
-  name: "ToolsComponent",
+  name: "ToolsPage",
   props: toolsProps,
   setup(props, { emit }) {
     const { emitEvent, toolData, categorizedTools } = toolsModel(emit);

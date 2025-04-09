@@ -12,7 +12,7 @@
         <!-- Titel und Untertitel -->
         <div
             class="d-flex flex-wrap align-center overflow-hidden"
-            :class="{ 'order-1 text-right': align === 'right'}"
+            :class="{ 'text-right': align === 'right'}"
         >
           <div v-if="item?.title" class="mb-0 text-h5 text-truncate" style="width: 100%;">
             {{ item.title }}
@@ -33,6 +33,7 @@
       </v-card-text>
       <v-card-item v-if="item && item.component && item.component.props">
         <component
+            class="d-flex flex-wrap"
             :is="item?.component.path"
             v-bind="item?.component.props"
             @component-event="handleComponentEvent"

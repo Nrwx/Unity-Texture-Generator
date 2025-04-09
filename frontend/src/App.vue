@@ -148,6 +148,18 @@ export default {
         else if(event === "apply-maps") {
           localData.selectedMaps.value = payload
         }
+        else if(event === "apply-target-size") {
+          localData.selectedTargetResize.value = payload
+        }
+        else if(event === "apply-target-size-option") {
+          localData.selectedTargetResizeOption.value = payload
+        }
+        else if(event === "apply-target-size-method") {
+          localData.selectedUpscaleMethod.value = payload
+        }
+        else if(event === "apply-map-auto-optimize") {
+          localData.selectedMapAutoOptimize.value = payload
+        }
         else if(event === "update-dimension") {
           localData.dimension.value = payload
         }

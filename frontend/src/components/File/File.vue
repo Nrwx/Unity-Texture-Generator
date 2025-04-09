@@ -1,7 +1,7 @@
 <template>
   <v-file-input
       label="Bild auswählen"
-      v-model:file="file"
+      :file="file"
       @change="emitFile"
       accept="image/*"
   ></v-file-input>
@@ -16,7 +16,7 @@ import { defineComponent } from "vue";
 import {fileModel, fileProps} from "@/models/file/model";
 
 export default defineComponent({
-  name: "FileInput",
+  name: "FileComponent",
   props: fileProps,
   setup(props, { emit }) {
     const { emitFile, uploadFile } = fileModel(props, emit);
