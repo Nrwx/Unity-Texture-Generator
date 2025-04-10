@@ -9,6 +9,7 @@ from .maps.generate_alpha_map import generate_alpha_map
 from .maps.generate_stone_map import generate_stone_map
 from .maps.generate_grass_map import generate_grass_map
 
+from .modifiers.apply_resize import apply_resize
 from .modifiers.apply_cut_out import apply_cut_out
 from .modifiers.apply_blend_edges import apply_blend_edges
 from .modifiers.apply_blur import apply_blur

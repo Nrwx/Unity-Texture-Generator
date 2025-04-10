@@ -19,6 +19,7 @@ from components import (
     generate_alpha_map,
     generate_stone_map,
     generate_grass_map,
+    apply_resize,
     apply_cut_out,
     apply_color,
     apply_crop_image,
@@ -88,6 +89,12 @@ PARAMETERS = {
         "edge_detection": {"type": bool, "default": False},
         "invert_colors": {"type": bool, "default": False},
         # BOOL HANDLER END
+
+        # RESIZE HANDLER START
+        "resize_index": {"type": int, "default": 0},
+        "resize_mode": {"type": int, "default": 0},
+        "upscale_method": {"type": int, "default": 1},
+        # RESIZE HANDLER END
 
         # BLUR PARAMS START
         "blur": {"type": float, "default": 0.5},
@@ -268,6 +275,7 @@ def upload_file():
             # Überprüfen, ob das Bild RGBA ist, und konvertieren
             image, alpha = apply_rgb_rgba(image)
 
+
         # Keine gültige Datei gefunden
         if image is None:
             raise ValueError("No valid file provided in 'file' or 'editFile' parameters.")
@@ -278,9 +286,8 @@ def upload_file():
 
         method_function_map = {
             0: {
-                'keys': {"color_overlay", "color_overlay_mode", "invert_colors",
-                         "color_shift", "hue_variation"},
-                'function': apply_color_adjustments
+                'keys': {"resize_index", "resize_mode", "upscale_method"},
+                'function': apply_resize_adjustments
             },
             1: {
                 'keys': {"brightness", "contrast", "sharpness", "edge_detection"},
@@ -305,8 +312,12 @@ def upload_file():
             6: {
                 'keys': {"simulate_mode", "frame_count", "amplitude", "frequency", "phase_shift", "amplitude_multiplier", "wave_type"},
                 'function': apply_motion_projection
-            }
-
+            },
+            7: {
+                'keys': {"color_overlay", "color_overlay_mode", "invert_colors",
+                         "color_shift", "hue_variation"},
+                'function': apply_color_adjustments
+            },
         }
 
 
@@ -794,11 +805,19 @@ def apply_edits(img, cut_out):
 
     return Image.fromarray(img_array.astype(np.uint8))
 
+def apply_resize_adjustments(img, resize_index, resize_mode, upscale_method):
+    width, height = img.size
+
+    # RGBA-Einstellungen
+    if resize_index:
+        img = apply_resize(img, resize_index, resize_mode, upscale_method)
+
+    return img
+
 def apply_color_adjustments(img, color_overlay, color_overlay_mode, invert_colors, color_shift, hue_variation):
     width, height = img.size
     img_array = np.array(img)
 
-    print(color_shift)
     # RGBA-Einstellungen
     if color_overlay:
         img_array = apply_color(img_array, color_overlay, color_overlay_mode)

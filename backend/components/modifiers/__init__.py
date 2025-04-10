@@ -1,3 +1,4 @@
+from .apply_resize import apply_resize
 from .apply_blend_edges import apply_blend_edges
 from .apply_blur import apply_blur
 from .apply_brightness_contrast import apply_brightness_contrast

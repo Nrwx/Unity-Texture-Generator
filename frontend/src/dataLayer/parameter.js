@@ -9,7 +9,7 @@ export const settings = reactive({
     intensity: 50,
     radius: 10,
     outputFormat: "PNG",
-    quality: 80,
+    quality: 100,
     color_overlay: '#ffffff',
     color_overlay_mode: 1,
     colorOverlayModes: [
@@ -39,6 +39,9 @@ export const settings = reactive({
         { title: "Farbe", value: 24 },
         { title: "Luminanz", value: 25 },
     ],
+    resize_index: 0,
+    resize_mode: 0,
+    upscale_method: 1,
     color_shift: 0,
     hue_variation: 0,
     invert_colors: false,

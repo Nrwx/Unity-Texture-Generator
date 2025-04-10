@@ -13,7 +13,7 @@ export const localData = {
     targetResize: ref([{ title: "Original", value: 0 }, { title: "32x32", value: 1 }, { title: "64x64", value: 2 }, { title: "128x128", value: 3 }, { title: "256x256", value: 4 }, { title: "512x512", value: 5 }, { title: "1024x1024", value: 6 }, { title: "2048x2048", value: 7 }, { title: "4096x4096", value: 8 }, { title: "8192x8192", value: 9 },]),
     selectedTargetResizeOption: ref(0),
     targetResizeOption: ref([{ title: "Auto-Crop", value: 0 }, { title: "Padding", value: 1 }]),
-    selectedUpscaleMethod: ref(0),
+    selectedUpscaleMethod: ref(1),
     upscaleMethods: ref([{ title: "Nearest Neighbor (Pixel-Style)", value: 0 }, { title: "Bicubic / Bilinear", value: 1 }, { title: "AI Scale", value: 2 }]),
     selectedMapAutoOptimize: ref(0),
     mapAutoOptimize: ref([{ title: "Alpha-Kanäle entfernen", value: 0 }, { title: "Premultiplied vs Straight Alpha wählen", value: 1 }, { title: "Farbraum konvertieren (sRGB ↔ Linear)", value: 2 }]),

@@ -51,6 +51,7 @@ import {generateTileLayout} from "@/dataLayer/route/tile";
 import Viewport from "@/view/page/Viewport/Viewport";
 import {viewportSetup} from "@/dataLayer/route/viewport";
 import ViewportGrid from "@/components/Viewport/Grid";
+import {settings} from "@/dataLayer/parameter";
 
 export default {
   name: 'App',
@@ -150,12 +151,15 @@ export default {
         }
         else if(event === "apply-target-size") {
           localData.selectedTargetResize.value = payload
+          settings.resize_index = payload
         }
         else if(event === "apply-target-size-option") {
           localData.selectedTargetResizeOption.value = payload
+          settings.resize_index = payload
         }
         else if(event === "apply-target-size-method") {
           localData.selectedUpscaleMethod.value = payload
+          settings.upscale_method = payload
         }
         else if(event === "apply-map-auto-optimize") {
           localData.selectedMapAutoOptimize.value = payload
