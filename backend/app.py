@@ -540,6 +540,19 @@ def add_layer(name="", path="", id="", width=1024, height=1024):
             # Falls keine Skalierung notwendig ist, das Original einfach kopieren
             img.save(image_path)
 
+        translate_x = (viewport_width - new_width) / 2
+        translate_y = (viewport_height - new_height) / 2
+
+        matrix = {
+            "a": 1,
+            "b": 0,
+            "c": 0,
+            "d": 1,
+            "x": translate_x,
+            "y": translate_y,
+            "rotate": 0,
+        }
+
         # Layer hinzufügen
         layer = {
             "id": id,
@@ -547,7 +560,7 @@ def add_layer(name="", path="", id="", width=1024, height=1024):
             "width": new_width if scale_factor < 1 else width,
             "height": new_height if scale_factor < 1 else height,
             "url": f"/download/{id}.png",
-            "matrix": default_matrix,
+            "matrix": matrix,
             "source": source_id,
             "order": len(layers),
             "hidden": 0
