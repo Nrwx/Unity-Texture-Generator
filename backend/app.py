@@ -536,12 +536,14 @@ def add_layer(name="", path="", id="", width=1024, height=1024):
 
             # Skaliertes Bild speichern
             scaled_img.save(image_path)
+
+            translate_x = (viewport_width - new_width) / 2
+            translate_y = (viewport_height - new_height) / 2
         else:
             # Falls keine Skalierung notwendig ist, das Original einfach kopieren
             img.save(image_path)
-
-        translate_x = (viewport_width - new_width) / 2
-        translate_y = (viewport_height - new_height) / 2
+            translate_x = (viewport_width - width) / 2
+            translate_y = (viewport_height - height) / 2
 
         matrix = {
             "a": 1,
