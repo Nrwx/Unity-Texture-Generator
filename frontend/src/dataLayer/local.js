@@ -10,7 +10,7 @@ export const localData = {
     selectedMaps: ref(["Diffuse Map"]),
     maps: ref(["Diffuse Map", "Normal Map", "Specular Map", "Bump Map", "Light Map", "Alpha Map"]),
     selectedTargetResize: ref(0),
-    targetResize: ref([{ title: "Original", value: 0 }, { title: "32x32", value: 1 }, { title: "64x64", value: 2 }, { title: "128x128", value: 3 }, { title: "256x256", value: 4 }, { title: "512x512", value: 5 }, { title: "1024x1024", value: 6 }, { title: "2048x2048", value: 7 }, { title: "4096x4096", value: 8 }, { title: "8192x8192", value: 9 },]),
+    targetResize: ref([{ title: "Original", value: 0, w: 0, h: 0}, { title: "32x32", value: 1, w: 32, h: 32 }, { title: "64x64", value: 2, w: 64, h: 64 }, { title: "128x128", value: 3, w: 128, h: 128 }, { title: "256x256", value: 4, w: 256, h: 256 }, { title: "512x512", value: 5, w: 512, h: 512 }, { title: "1024x1024", value: 6, w: 1024, h: 1024 }, { title: "2048x2048", value: 7, w: 2048, h: 2048 }, { title: "4096x4096", value: 8, w: 4096, h: 4096 }, { title: "8192x8192", value: 9, w: 8192, h: 8192 },]),
     selectedTargetResizeOption: ref(0),
     targetResizeOption: ref([{ title: "Auto-Crop", value: 0 }, { title: "Padding", value: 1 }]),
     selectedUpscaleMethod: ref(1),

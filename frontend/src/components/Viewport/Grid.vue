@@ -3,7 +3,7 @@
     <!-- Hauptcontainer: Zentriert das Canvas -->
     <div class="main-layer">
       <!-- Lineale -->
-      <div class="ruler x-axis d-flex" @mousedown="startGuide('horizontal', $event)">
+      <div class="ruler x-axis d-flex" @mousedown="startGuide('horizontal', $event)" :style="{ width: `calc(100% + ${settings.width * zoomFaktor}px)`}">
         <div class="d-flex align-center ma-auto" style="height: 100%;" :style="{ width: `${settings.width * zoomFaktor}px`, transform: `translateX(${offset.x}px)` }">
           <div
               v-for="x in columnPositions"
@@ -16,7 +16,7 @@
         </div>
       </div>
 
-      <div class="ruler y-axis d-flex" @mousedown="startGuide('vertical', $event)">
+      <div class="ruler y-axis d-flex" @mousedown="startGuide('vertical', $event)" :style="{ height: `calc(100% + ${settings.height * zoomFaktor}px)`}">
         <div class="d-flex flex-column align-center ma-auto" style="width: 100%;" :style="{ height: `${settings.height * zoomFaktor}px`, transform: `translateY(${offset.y}px)` }">
           <div
               v-for="y in rowPositions"

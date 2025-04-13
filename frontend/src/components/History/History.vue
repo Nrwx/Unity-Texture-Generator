@@ -38,6 +38,7 @@
               <v-btn icon size="x-small" @click="toggleCollapse(index)">
                 <v-icon>{{ build.collapsed ? 'mdi-chevron-down' : 'mdi-chevron-up' }}</v-icon>
               </v-btn>
+              
             </v-card-subtitle>
             <v-card-text v-if="!build.collapsed">
               <v-row class="map-grid" justify="start">

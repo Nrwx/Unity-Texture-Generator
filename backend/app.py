@@ -19,6 +19,8 @@ from components import (
     generate_alpha_map,
     generate_stone_map,
     generate_grass_map,
+
+    apply_edge_smooth,
     apply_resize,
     apply_cut_out,
     apply_color,
@@ -39,6 +41,7 @@ from components import (
     apply_rotation,
     apply_hue_rotation,
     apply_color_lookup,
+
     texture_projection,
 )
 
@@ -237,6 +240,8 @@ def viewportCanvas():
             "title": params['title'],
             "layer": params['layer']
         }
+        layers.clear()
+        viewportConfig.clear()
         viewportConfig.append(config)
         print(viewportConfig)
 
@@ -537,13 +542,13 @@ def add_layer(name="", path="", id="", width=1024, height=1024):
             # Skaliertes Bild speichern
             scaled_img.save(image_path)
 
-            translate_x = (viewport_width - new_width) / 2
-            translate_y = (viewport_height - new_height) / 2
+            translate_x = int((viewport_width - new_width) / 2)
+            translate_y = int((viewport_height - new_height) / 2)
         else:
             # Falls keine Skalierung notwendig ist, das Original einfach kopieren
             img.save(image_path)
-            translate_x = (viewport_width - width) / 2
-            translate_y = (viewport_height - height) / 2
+            translate_x = int((viewport_width - width) / 2)
+            translate_y = int((viewport_height - height) / 2)
 
         matrix = {
             "a": 1,
@@ -671,6 +676,7 @@ def preview_layers():
                 # Wenn Rotation vorliegt, dann zuerst rotiere das Bild
                 if rotate_angle != 0:
                     rotated_img = layer_img.rotate(-rotate_angle, resample=Image.BICUBIC, expand=True, center=(center_x, center_y))
+                    rotated_img = apply_edge_smooth(rotated_img)
                     rotated_width, rotated_height = rotated_img.size
                 else:
                     rotated_img = layer_img

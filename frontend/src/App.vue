@@ -122,6 +122,7 @@ export default {
           const data = {mode: payload.mode, title: payload.title, width: payload.width, height: payload.height, layer: payload.layer}
           const response = await viewportSetup(data)
           if (response) {
+            await componentEvent('fetch-layer');
             localData.viewport.value = data
             windowStates.viewport = false
           }

@@ -1,3 +1,4 @@
+from .apply_edge_smooth import apply_edge_smooth
 from .apply_resize import apply_resize
 from .apply_blend_edges import apply_blend_edges
 from .apply_blur import apply_blur

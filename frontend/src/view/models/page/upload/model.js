@@ -34,7 +34,10 @@ export function uploadModel(emit) {
                 title: 'Resizing/Upscale',
                 subtitle: 'Bild-Auflösungsoperationen für eine schnelle saubere Skalierung.',
                 prependIcon: 'mdi-image-size-select-large',
-                options: localData.targetResize.value,
+                options: localData.targetResize.value.filter(option =>
+                    option.w <= localData.viewport.value.width &&
+                    option.h <= localData.viewport.value.height
+                ),
                 event: 'apply-target-size'
             },
             selectedTargetResizeOption: {

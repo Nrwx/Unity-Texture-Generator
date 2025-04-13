@@ -19,7 +19,7 @@
             @mouseleave="resetZoom"
         ></v-img>
       </div>
-      <div class="d-flex align-center justify-center ml-auto mr-auto" style="position: relative; width: 100%; height: 100%;  max-width: 1024px;">
+      <div class="d-flex align-center justify-center ml-auto mr-auto" style="position: relative; width: 100%; height: 100%;  max-width: calc(100% - 20%);">
         <v-img :src="data.tile && data.tileSrc && data.tileSize.x > 1 && data.tileSize.y > 1 ? data.tileSrc : data.src" alt="Fullscreen Image"></v-img>
         <div v-if="data.zoom" class="targetZoomContainer" :style="zoomedStyle"></div>
       </div>
