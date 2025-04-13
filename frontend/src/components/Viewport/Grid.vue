@@ -48,7 +48,6 @@
                 :layers="layers"
                 :selected-layer="selectedLayer"
                 @update:select-layer="toggleSelection"
-                @update:layer="updateLayer"
             >
               <!-- Transformations-Overlay -->
               <template #menu>
@@ -85,7 +84,7 @@
 import {computed, defineComponent, onMounted, onUnmounted, ref} from "vue";
 import Image from "@/components/Image/Image";
 import {transformStates, canvasStates} from "@/dataLayer/state";
-
+import {localData} from "@/dataLayer/local";
 export default defineComponent({
   name: "GridComponent",
   props: {
@@ -294,17 +293,18 @@ export default defineComponent({
 
     const resetSelection = (event) => {
       if (!canvasContainer.value.contains(event.target) && selectedLayer.value.length) {
-        selectedLayer.value = [];
         props.layers.forEach(layer => {
           updateLayer(layer)
-          stopTransform()
-          transformStates.align.value = false
-          alignModeStep.value = 0
-        });
+        })
+        stopTransform()
+        transformStates.align.value = false
+        alignModeStep.value = 0
+        selectedLayer.value = []
       }
     };
 
     const updateLayer = (layer) => {
+      localData.layers.value = props.layers
       emitEvent('update-layer', layer);
       console.log('Layer aktualisiert');
     };

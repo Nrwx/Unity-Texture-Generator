@@ -11,6 +11,7 @@ from werkzeug.utils import secure_filename
 from config.app.app_settings import ANIMATION_SETTINGS, get_app_settings, save_app_settings
 
 from components import (
+    generate_channels,
     generate_diffuse_map,
     generate_normal_map,
     generate_specular_map,
@@ -57,14 +58,25 @@ if os.path.exists(PUBLIC_FOLDER):
     shutil.rmtree(PUBLIC_FOLDER)
 
 # Ordner für temporäre Dateien
-UPLOAD_FOLDER = os.path.join(PUBLIC_FOLDER, "upload")
+
+TEMP_FOLDER = os.path.join(PUBLIC_FOLDER, "temp")
+os.makedirs(TEMP_FOLDER, exist_ok=True)
+
+UPLOAD_FOLDER = os.path.join(PUBLIC_FOLDER, "temp\\upload")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+CHANNEL_FOLDER = os.path.join(PUBLIC_FOLDER, "temp\\channel")
+os.makedirs(CHANNEL_FOLDER, exist_ok=True)
 
 LAYER_FOLDER = os.path.join(PUBLIC_FOLDER, "layer")
 os.makedirs(LAYER_FOLDER, exist_ok=True)
 
 SOURCE_FOLDER = os.path.join(PUBLIC_FOLDER, "backup")
 os.makedirs(SOURCE_FOLDER, exist_ok=True)
+
+viewportConfig = []
+layers = []
+channels = []
 
 # Definition der Eingabeparameter und deren Standardwerte
 PARAMETERS = {
@@ -218,7 +230,7 @@ def serve_static_files(path):
 
 @app.route('/download/<filename>', methods=['GET'])
 def download_file(filename):
-    file_paths = [os.path.join(LAYER_FOLDER, filename), os.path.join(UPLOAD_FOLDER, filename)]
+    file_paths = [os.path.join(LAYER_FOLDER, filename), os.path.join(UPLOAD_FOLDER, filename), os.path.join(CHANNEL_FOLDER, filename)]
 
     for file_path in file_paths:
         if os.path.exists(file_path):
@@ -226,7 +238,6 @@ def download_file(filename):
 
     return jsonify({"error": "File not found"}), 404
 
-viewportConfig = []
 @app.route('/viewport', methods=['POST'])
 def viewportCanvas():
     try:
@@ -240,11 +251,11 @@ def viewportCanvas():
             "title": params['title'],
             "layer": params['layer']
         }
+        channels.clear()
         layers.clear()
         viewportConfig.clear()
         viewportConfig.append(config)
         print(viewportConfig)
-
         add_layer(name=params['layer'], path=None, id=None, width=params['width'], height=params['height'])
 
         return jsonify({"message": "Viewport set", "viewport": viewportConfig}), 200
@@ -500,16 +511,6 @@ def parse_parameters(params_section, form):
                 parsed_params[key] = config["type"](value)
     return parsed_params
 
-layers = []
-default_matrix = {
-    "a": 1,
-    "b": 0,
-    "c": 0,
-    "d": 1,
-    "x": 0,
-    "y": 0,
-    "rotate": 0,
-}
 # Funktionen für Layer-Management
 def add_layer(name="", path="", id="", width=1024, height=1024):
     try:
@@ -537,10 +538,10 @@ def add_layer(name="", path="", id="", width=1024, height=1024):
             new_height = int(height * scale_factor)
 
             # Bild proportional skalieren (aber Original bleibt erhalten)
-            scaled_img = img.resize((new_width, new_height), Image.LANCZOS)
+            img = img.resize((new_width, new_height), Image.LANCZOS)
 
             # Skaliertes Bild speichern
-            scaled_img.save(image_path)
+            img.save(image_path)
 
             translate_x = int((viewport_width - new_width) / 2)
             translate_y = int((viewport_height - new_height) / 2)
@@ -634,8 +635,7 @@ def delete_layer(id):
 def list_layers():
     return jsonify(layers), 200
 
-
-def preview_layers():
+def preview_layers(return_image=False):
     try:
         if not layers:
             return jsonify({"error": "No layers to preview"}), 404
@@ -643,6 +643,7 @@ def preview_layers():
         # Erstelle den leeren Canvas (Viewport)
         viewport_width = viewportConfig[0]["width"]
         viewport_height = viewportConfig[0]["height"]
+
         composite_image = Image.new('RGBA', (viewport_width, viewport_height), (0, 0, 0, 0))
 
         for layer in layers:
@@ -709,6 +710,9 @@ def preview_layers():
         map_path = os.path.join(UPLOAD_FOLDER, map_filename)
         composite_image.save(map_path, format="PNG", quality=100)
 
+        if return_image:
+            return composite_image
+
         return jsonify({"id": map_id, "title": "preview", "src": f"/download/{map_filename}"}), 200
 
     except Exception as e:
@@ -767,6 +771,109 @@ def hide_layer(id, hidden):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+def update_channel():
+    try:
+        if os.path.exists(CHANNEL_FOLDER):
+            shutil.rmtree(CHANNEL_FOLDER)
+
+        # 1. Komposition rendern
+        result = preview_layers(return_image=True)
+        if isinstance(result, tuple) and "error" in result[0]:
+            return result
+
+        composite_image = result  # PIL.Image
+
+        # 2. RGBA-Channels extrahieren
+        temp_channels = generate_channels(composite_image)
+
+        channel_titles = {
+            "R": "Red",
+            "G": "Green",
+            "B": "Blue",
+            "A": "Alpha"
+        }
+
+        channels = []
+
+        if not os.path.exists(CHANNEL_FOLDER):
+            os.makedirs(CHANNEL_FOLDER, exist_ok=True)
+
+        for key, img in temp_channels.items():
+            map_id = str(uuid.uuid4())
+            filename = f"{map_id}.png"
+            path = os.path.join(CHANNEL_FOLDER, filename)
+            img.save(path, format="PNG", quality=100)
+
+            channels.append({
+                "id": f"{map_id}",
+                "name": channel_titles.get(key, key),
+                "url": f"/download/{filename}",
+                "width": img.width,
+                "height": img.height
+            })
+
+        return jsonify(channels), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+def generate_layer_channel(layer_id):
+    try:
+        # 1. Layer-Objekt finden
+        layer = next((l for l in layers if l["id"] == layer_id), None)
+        if not layer:
+            return jsonify({"error": "Layer not found"}), 404
+
+        # 2. Bild laden
+        image_path = os.path.join(LAYER_FOLDER, f"{layer_id}.png")
+        if not os.path.exists(image_path):
+            return jsonify({"error": "Layer image not found"}), 404
+
+        img = Image.open(image_path)
+
+        # 3. Channels erzeugen
+        channels = generate_channels(img)
+
+        # 4. Alte Channel-IDs lesen (falls vorhanden)
+        old_channels = layer.get("channel", [])
+        id_map = {ch["name"]: ch["id"] for ch in old_channels if "id" in ch and "name" in ch}
+
+        # 5. Neue Channel-Infos bauen
+        channel_temp = []
+        channel_titles = {
+            "R": "Red",
+            "G": "Green",
+            "B": "Blue",
+            "A": "Alpha"
+        }
+
+        for key, channel_img in channels.items():
+            name = channel_titles.get(key, key)
+            channel_id = id_map.get(name, f"{str(uuid.uuid4())}_{key}")
+            filename = f"{channel_id}.png"
+            path = os.path.join(CHANNEL_FOLDER, filename)
+            channel_img.save(path, format="PNG", quality=100)
+
+            channel_temp.append({
+                "id": channel_id,
+                "name": name,
+                "url": f"/download/{filename}",
+                "width": channel_img.width,
+                "height": channel_img.height
+            })
+
+        # 6. Layer aktualisieren
+        layer["channel"] = channel_temp
+
+        return jsonify({
+            "success": True,
+            "message": f"Layer channel for {layer_id} updated.",
+            "channels": channel_temp
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/layer', methods=['POST'])
 def layer_management():
@@ -801,6 +908,10 @@ def layer_management():
                 'keys': {"id", "hidden"},
                 'function': hide_layer
             },
+            "update:channel": {
+                'keys': {},
+                'function': update_channel
+            },
         }
 
         method = params.get('method')
@@ -815,6 +926,25 @@ def layer_management():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+def getImg(image_id):
+    try:
+        # Unterstützte Endungen (kannst du erweitern falls nötig)
+        extensions = [".png", ".jpg", ".jpeg"]
+
+        folders = [LAYER_FOLDER, UPLOAD_FOLDER, CHANNEL_FOLDER]
+
+        for folder in folders:
+            for ext in extensions:
+                path = os.path.join(folder, f"{image_id}{ext}")
+                if os.path.exists(path):
+                    return Image.open(path).convert("RGBA")
+
+        return jsonify({"error": f"No image found for ID: {image_id}"}), 404
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 def apply_edits(img, cut_out):
     width, height = img.size

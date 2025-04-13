@@ -54,8 +54,6 @@ export const updateLayer = async (layer) => {
         formData.append("rotate", layer.matrix.rotate);
         formData.append("order", layer.order);
         formData.append("hidden", layer.hidden);
-
-        console.log(layer.matrix, 'LAYER-API')
         const response = await api.post('/layer', formData, {
             headers: {'Content-Type': 'multipart/form-data'},
         });
@@ -147,5 +145,22 @@ export const hideLayer = async (layer) => {
         }
     } catch (error) {
         console.error("Error fetching layers:", error.response?.data || error.message);
+    }
+};
+
+export const updateChannel = async () => {
+    try {
+        const formData = new FormData();
+        formData.append("method", "update:channel");
+
+        const response = await api.post('/layer', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+
+        if (response) {
+            return response
+        }
+    } catch (error) {
+        console.error("Error fetching preview layers:", error.response?.data || error.message);
     }
 };

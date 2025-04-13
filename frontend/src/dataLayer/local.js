@@ -6,6 +6,7 @@ export const localData = {
     output: ref(''),
     dimension: ref({width: 1024, height: 1024}),
     layers: ref([]),
+    channel: ref([]),
     selectedLayers: ref([]),
     selectedMaps: ref(["Diffuse Map"]),
     maps: ref(["Diffuse Map", "Normal Map", "Specular Map", "Bump Map", "Light Map", "Alpha Map"]),

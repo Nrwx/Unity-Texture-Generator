@@ -8,6 +8,12 @@ export function layerModel(props, emit) {
     const dragId = computed(() => {
         return dragData.id.value !== null ? props.layers[dragData.id.value]?.id : null;
     });
+    const tabIndex = ref(0)
+    const tabs = [
+        { name: 'Ebenen', icon: 'mdi-water-opacity', content: 'Content for Tab 5' },
+        { name: 'Kanäle', icon: 'mdi-theme-light-dark', content: 'Content for Tab 1' },
+        { name: 'Pfade', icon: 'mdi-panorama-variant-outline', content: 'Content for Tab 2' },
+    ];
     const emitEvent = (event, payload) => {
         emit("component-event", event, payload);
     };
@@ -49,6 +55,16 @@ export function layerModel(props, emit) {
         });
     };
 
+    const handleTabEmit =  (index) => {
+        tabIndex.value = index
+        if(index === 0) {
+            emitEvent('fetch-layer')
+        }
+        if(index === 1) {
+            emitEvent('update-channel')
+        }
+    };
+
     return {
         emitEvent,
         validRule,
@@ -56,6 +72,9 @@ export function layerModel(props, emit) {
         selectedLayer,
         handleDrop,
         dragId,
+        tabs,
+        tabIndex,
+        handleTabEmit,
     };
 }
 
@@ -65,6 +84,11 @@ export const layerProps = {
         default: false
     },
     layers: {
+        type: Array,
+        required: true,
+        default: () => [],
+    },
+    channel: {
         type: Array,
         required: true,
         default: () => [],

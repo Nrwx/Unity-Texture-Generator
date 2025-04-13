@@ -1,5 +1,6 @@
 from .animation.create_wave_animation import create_wave_animation
 
+from .maps.generate_channels import generate_channels
 from .maps.generate_diffuse_map import generate_diffuse_map
 from .maps.generate_normal_map import generate_normal_map
 from .maps.generate_specular_map import generate_specular_map

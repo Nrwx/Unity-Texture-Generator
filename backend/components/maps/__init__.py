@@ -1,3 +1,4 @@
+from .generate_channels import generate_channels
 from .generate_diffuse_map import generate_diffuse_map
 from .generate_normal_map import generate_normal_map
 from .generate_specular_map import generate_specular_map

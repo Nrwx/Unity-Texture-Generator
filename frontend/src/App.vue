@@ -16,7 +16,7 @@
       <v-main>
         <viewport-grid @component-event="componentEvent" v-model:layers="localData.layers.value" v-model:settings="localData.viewport.value" style="position: relative;"/>
       </v-main>
-      <Layer style="position: absolute; top: 40px; right: 70px;" :state="windowStates.layer.value" v-model:layers="localData.layers.value" @component-event="componentEvent"/>
+      <Layer style="position: absolute; top: 40px; right: 70px;" :state="windowStates.layer.value" v-model:layers="localData.layers.value" v-model:channel="localData.channel.value" @component-event="componentEvent"/>
       <!-- Rechte Taskbar -->
       <Taskbar @taskbar-event="taskbarEvent('right', $event)" align="right" v-model:items="itemsRight" />
       <!-- Rechter Drawer -->
@@ -37,7 +37,7 @@ import {
   fetchLayers,
   hideLayer,
   orderLayers,
-  previewLayers,
+  previewLayers, updateChannel,
   updateLayer
 } from "@/dataLayer/route/layer";
 import {fileUpload} from "@/dataLayer/route/upload";
@@ -123,8 +123,8 @@ export default {
           const response = await viewportSetup(data)
           if (response) {
             await componentEvent('fetch-layer');
-            localData.viewport.value = data
-            windowStates.viewport = false
+            localData.viewport.value = data;
+            windowStates.viewport = false;
           }
         }
         if (event === "viewport-state") {
@@ -135,7 +135,7 @@ export default {
         if (event === "viewport-settings") {
           const data = {mode: payload.mode, title: payload.title, width: payload.width, height: payload.height}
           if(data) {
-            localData.viewport.value = data
+            localData.viewport.value = data;
           }
         }
         if (event === "apply-file") {
@@ -177,13 +177,12 @@ export default {
         }
         else if(event === "update-layer") {
           const response = await updateLayer(payload)
-          console.log(payload)
           if(response) {
             await componentEvent('fetch-layer');
           }
         }
         else if(event === "fetch-layer") {
-          const response = await fetchLayers()
+          const response = await fetchLayers();
           if(response) {
             localData.layers.value = response;
           }
@@ -211,7 +210,7 @@ export default {
         else if(event === "layer-state") {
           if(typeof payload === 'boolean') {
             windowStates.layer.value = payload;
-            await componentEvent('fetch-layer')
+            await componentEvent('fetch-layer');
           }
         }
         else if(event === "fetch-setting") {
@@ -272,6 +271,13 @@ export default {
             windowStates.fullscreen.value = true;
           }
         }
+        else if(event === 'update-channel') {
+          const response = await updateChannel();
+          if (response) {
+            localData.channel.value = response
+            console.log(response)
+          }
+        }
         else if(event === 'tools-state') {
           fullscreenInfo.title = payload.title;
           fullscreenInfo.id = payload.id
@@ -287,7 +293,7 @@ export default {
     };
 
     const init = async () => {
-      if(localData.layers.value) {
+      if(!localData.layers.value.length) {
         await componentEvent('fetch-layer');
       }
       if(!osSettings.use_gpu) {
