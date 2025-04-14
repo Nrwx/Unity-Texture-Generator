@@ -10,9 +10,9 @@ export function layerModel(props, emit) {
     });
     const tabIndex = ref(0)
     const tabs = [
-        { name: 'Ebenen', icon: 'mdi-water-opacity', content: 'Content for Tab 5' },
-        { name: 'Kanäle', icon: 'mdi-theme-light-dark', content: 'Content for Tab 1' },
-        { name: 'Pfade', icon: 'mdi-panorama-variant-outline', content: 'Content for Tab 2' },
+        { name: 'Ebenen', icon: 'mdi-layers-outline', content: 'Content for Tab 5' },
+        { name: 'Kanäle', icon: 'mdi-card-multiple-outline', content: 'Content for Tab 1' },
+        { name: 'Pfade', icon: 'mdi-square-rounded-badge-outline', content: 'Content for Tab 2' },
     ];
     const emitEvent = (event, payload) => {
         emit("component-event", event, payload);
