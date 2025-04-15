@@ -165,6 +165,20 @@ export default {
         else if(event === "apply-map-auto-optimize") {
           localData.selectedMapAutoOptimize.value = payload
         }
+        else if(event === "apply-rgb-mode") {
+          if(payload === 0) {
+            localData.selectedMapAutoOptimize.value = 0
+          }
+          localData.selectedRgb.value = payload
+          settings.rgb_mode = payload
+        }
+        else if(event === "apply-rgba-mode") {
+          if(payload === 0) {
+            localData.selectedMapAutoOptimize.value = 0
+          }
+          localData.selectedRgba.value = payload
+          settings.rgba_mode = payload
+        }
         else if(event === "update-dimension") {
           localData.dimension.value = payload
         }

@@ -1,3 +1,5 @@
+from .apply_rgb_mode import apply_rgb_mode
+from .apply_rgba_mode import apply_rgba_mode
 from .apply_edge_smooth import apply_edge_smooth
 from .apply_resize import apply_resize
 from .apply_blend_edges import apply_blend_edges
@@ -22,4 +24,3 @@ from .apply_hue_rotation import apply_hue_rotation
 from .apply_invert_colors import apply_invert_colors
 from .apply_color_lookup import apply_color_lookup
 from .apply_cut_out import apply_cut_out
-

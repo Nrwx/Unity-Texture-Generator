@@ -6,13 +6,16 @@ export function uploadModel(emit) {
         emit("component-event", event, payload);
     };
 
+
     const config = reactive({
         method: 9,
         selectedMaps: localData.selectedMaps.value,
         selectedTargetResize: localData.selectedTargetResize.value,
         selectedTargetResizeOption: localData.selectedTargetResizeOption.value,
         selectedUpscaleMethod: localData.selectedUpscaleMethod.value,
-        selectedMapAutoOptimize: localData.selectedMapAutoOptimize.value
+        selectedMapAutoOptimize: localData.selectedMapAutoOptimize.value,
+        selectedRgb: localData.selectedRgb.value,
+        selectedRgba: localData.selectedRgba.value
     })
     const methods = computed(() =>({
         9: {
@@ -63,12 +66,32 @@ export function uploadModel(emit) {
             selectedMapAutoOptimize: {
                 active: true,
                 type: "select",
-                label: "Bildbereinigung/Farbraum-Anpassungen",
+                label: "RGB/RGBA",
                 title: 'Bild-Auto-Optimierung',
-                subtitle: 'Automatische Bildbereinigung und Farbraum-Anpassungen vor dem Upload.',
+                subtitle: 'Automatische Bildoptimierung und Farbraum-Anpassungen',
                 prependIcon: 'mdi-creation',
                 options: localData.mapAutoOptimize.value,
                 event: 'apply-map-auto-optimize'
+            },
+            selectedRgb: {
+                active: localData.selectedMapAutoOptimize.value === 1,
+                type: "select",
+                label: "Pre RGB Konfiguration",
+                title: localData.rgbMode.value[localData.selectedRgb.value]?.title || 'RGB-Auto-Optimierungs Preset',
+                subtitle: localData.rgbMode.value[localData.selectedRgb.value]?.subtitle || 'Legen Sie Ihr Individuelles RGB Preset fest',
+                prependIcon: localData.rgbMode.value[localData.selectedRgb.value]?.icon || 'mdi-image',
+                options: localData.rgbMode.value,
+                event: 'apply-rgb-mode'
+            },
+            selectedRgba: {
+                active: localData.selectedMapAutoOptimize.value === 2,
+                type: "select",
+                label: "Pre RGBA Konfiguration",
+                title: localData.rgbaMode.value[localData.selectedRgba.value]?.title || 'RGBA-Auto-Optimierungs Preset',
+                subtitle: localData.rgbaMode.value[localData.selectedRgba.value]?.subtitle || 'Legen Sie Ihr Individuelles RGBA Preset fest',
+                prependIcon: localData.rgbaMode.value[localData.selectedRgba.value]?.icon || 'mdi-alpha-a-box',
+                options: localData.rgbaMode.value,
+                event: 'apply-rgba-mode'
             },
         },
     }))

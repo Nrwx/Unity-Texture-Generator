@@ -21,6 +21,8 @@ from components import (
     generate_stone_map,
     generate_grass_map,
 
+    apply_rgb_mode,
+    apply_rgba_mode,
     apply_edge_smooth,
     apply_resize,
     apply_cut_out,
@@ -105,11 +107,13 @@ PARAMETERS = {
         "invert_colors": {"type": bool, "default": False},
         # BOOL HANDLER END
 
-        # RESIZE HANDLER START
+        # UPLOAD HANDLER START
         "resize_index": {"type": int, "default": 0},
         "resize_mode": {"type": int, "default": 0},
         "upscale_method": {"type": int, "default": 1},
-        # RESIZE HANDLER END
+        "rgb_mode": {"type": int, "default": 0},
+        "rgba_mode": {"type": int, "default": 0},
+        # UPLOAD HANDLER END
 
         # BLUR PARAMS START
         "blur": {"type": float, "default": 0.5},
@@ -302,8 +306,8 @@ def upload_file():
 
         method_function_map = {
             0: {
-                'keys': {"resize_index", "resize_mode", "upscale_method"},
-                'function': apply_resize_adjustments
+                'keys': {"resize_index", "resize_mode", "upscale_method", "rgb_mode", "rgba_mode"},
+                'function': apply_upload_adjustments
             },
             1: {
                 'keys': {"brightness", "contrast", "sharpness", "edge_detection"},
@@ -956,12 +960,34 @@ def apply_edits(img, cut_out):
 
     return Image.fromarray(img_array.astype(np.uint8))
 
-def apply_resize_adjustments(img, resize_index, resize_mode, upscale_method):
-    width, height = img.size
+def apply_upload_adjustments(img, resize_index, resize_mode, upscale_method, rgb_mode=0, rgba_mode=0):
+    """
+    Kombinierte Verarbeitung der Texture direkt beim Upload:
+    - Resizing
+    - Upscaling
+    - RGB Optimierungen (Farbraum, Kontrast, Filter etc.)
+    - Alpha Handling (Premultiplied, DXT, etc.)
 
-    # RGBA-Einstellungen
-    if resize_index:
+    :param img: PIL.Image oder np.array (je nach Modul)
+    :param resize_index: Index für Zielauflösung
+    :param resize_mode: 0 = Crop, 1 = Padding
+    :param upscale_method: 0 = Nearest, 1 = Bicubic, 2 = AI
+    :param rgb_mode: int – RGB Verarbeitungsschritt (siehe rgb_handling.py)
+    :param alpha_mode: int – Alpha Verarbeitungsschritt (siehe alpha_handling.py)
+    :return: verarbeitetes PIL.Image oder np.array
+    """
+
+    # Step 1: Resize (wenn nicht "Original")
+    if resize_index != 0:
         img = apply_resize(img, resize_index, resize_mode, upscale_method)
+
+    # Step 2: RGB Processing (z. B. sRGB → Linear, Normals etc.)
+    if rgb_mode != 0:
+        img = apply_rgb_mode(img, rgb_mode)
+
+    # Step 3: Alpha Handling (nur wenn Alpha explizit verlangt ist)
+    if rgba_mode != 0:
+        img = apply_rgba_mode(img, rgba_mode)
 
     return img
 

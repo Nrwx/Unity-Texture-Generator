@@ -10,6 +10,8 @@ from .maps.generate_alpha_map import generate_alpha_map
 from .maps.generate_stone_map import generate_stone_map
 from .maps.generate_grass_map import generate_grass_map
 
+from .modifiers.apply_rgb_mode import apply_rgb_mode
+from .modifiers.apply_rgba_mode import apply_rgba_mode
 from .modifiers.apply_edge_smooth import apply_edge_smooth
 from .modifiers.apply_resize import apply_resize
 from .modifiers.apply_cut_out import apply_cut_out

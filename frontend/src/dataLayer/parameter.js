@@ -42,6 +42,8 @@ export const settings = reactive({
     resize_index: 0,
     resize_mode: 0,
     upscale_method: 1,
+    rgb_mode: 0,
+    rgba_mode: 0,
     color_shift: 0,
     hue_variation: 0,
     invert_colors: false,
