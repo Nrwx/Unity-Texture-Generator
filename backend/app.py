@@ -280,7 +280,8 @@ def upload_file():
             image = Image.open(file.stream)
 
             # Überprüfen, ob das Bild RGBA ist, und konvertieren
-            image, alpha = apply_rgb_rgba(image)
+            if params["method"] != 0:
+                image, alpha = apply_rgb_rgba(image)
 
         # Datei aus dem EditFile-Parameter prüfen
         elif params.get("editFile", "").strip():
@@ -359,7 +360,8 @@ def upload_file():
         processed_image = method_function(cropped_image, **method_params)
 
         # Den Alpha-Kanal wieder hinzufügen, falls vorhanden
-        processed_image = apply_alpha(processed_image, alpha)
+        if method != 0:
+            processed_image = apply_alpha(processed_image, alpha)
 
         # Prüfen, ob das Ergebnis eine Animation (Liste von Frames) ist
         if isinstance(processed_image, list):

@@ -1,106 +1,86 @@
 import numpy as np
 from PIL import Image
+from utils.rgba import apply_rgb_rgba, apply_alpha
 
-def apply_rgba_mode(image, mode: int = 0) -> np.ndarray:
+def apply_rgba_mode(image, mode: int = 0) -> Image.Image:
     """
-    Alpha-Optimierungs-Modi für Texture-/UI-/VFX-/Game-Pipelines
-
-    Gruppen:
-    0–2   = Basis-Modi
-    3–4   = Vereinfachung/Quantisierung
-    5–8   = DXT-Kompatibilität
-    9–13  = UI/GFX/FX-Tools
-    14    = Finalisierung/Postprozesse
+    Wendet einen Alpha-Modus an und setzt das Bild ggf. wieder zu RGBA zusammen.
     """
 
-    if not isinstance(image, Image.Image):
-        image = Image.fromarray(image)
+    # Zerlege Bild ggf. in RGB und Alpha
+    image_rgb, alpha_channel = apply_rgb_rgba(image)
 
-    if mode in range(1, 15) and image.mode != "RGBA":
-        image = image.convert("RGBA")
+    # Sicherstellen, dass es ein PIL-Bild ist
+    if not isinstance(image_rgb, Image.Image):
+        image_rgb = Image.fromarray(image_rgb)
 
-    data = np.array(image).astype(np.float32)
-    rgb = data[..., :3]
-    has_alpha = data.shape[-1] == 4
-    alpha = data[..., 3:4] / 255.0 if has_alpha else np.ones_like(rgb[..., :1])
+    # In numpy umwandeln für Verarbeitung
+    data = np.array(image_rgb).astype(np.float32)
+    rgb = data[..., :3]  # RGB
+    alpha = alpha_channel.astype(np.float32)[..., None] / 255.0 if alpha_channel is not None else np.ones_like(rgb[..., :1])
 
-    # -------------------------
-    # 🟦 Basis-Modi (0–2)
-    # -------------------------
+    # Basis-Modi
     if mode == 0:
-        return np.array(image)
+        output = np.array(image)
+    elif mode == 1:
+        output = np.concatenate([rgb, alpha * 255.0], axis=-1)
+    elif mode == 2:
+        output = np.concatenate([rgb * alpha, alpha * 255.0], axis=-1)
 
-    if mode == 1:
-        return np.concatenate([rgb, alpha * 255.0], axis=-1).astype(np.uint8)
-
-    if mode == 2:
-        return np.concatenate([rgb * alpha, alpha * 255.0], axis=-1).astype(np.uint8)
-
-    # -------------------------
-    # ⬛ Vereinfachung (3–4)
-    # -------------------------
-    if mode == 3:
+    # Vereinfachung
+    elif mode == 3:
         alpha_bin = (alpha > 0.5).astype(np.float32)
-        return np.concatenate([rgb, alpha_bin * 255.0], axis=-1).astype(np.uint8)
-
-    if mode == 4:
+        output = np.concatenate([rgb, alpha_bin * 255.0], axis=-1)
+    elif mode == 4:
         alpha_clean = np.round(alpha * 255.0) / 255.0
-        return np.concatenate([rgb, alpha_clean * 255.0], axis=-1).astype(np.uint8)
+        output = np.concatenate([rgb, alpha_clean * 255.0], axis=-1)
 
-    # -------------------------
-    # 🟥 DXT-Kompatibilität (5–8)
-    # -------------------------
-    if mode == 5:
-        result = np.concatenate([rgb, alpha * 255.0], axis=-1).astype(np.uint8)
-        a = result[..., 3]
+    # DXT
+    elif mode == 5:
+        output = np.concatenate([rgb, alpha * 255.0], axis=-1)
+        a = output[..., 3]
         a[a < 8] = 0
         a[a > 248] = 255
-        result[..., 3] = a
-        return result
-
-    if mode == 6:
+        output[..., 3] = a
+    elif mode == 6:
         alpha_1bit = (alpha > 0.5).astype(np.float32)
-        return np.concatenate([rgb, alpha_1bit * 255.0], axis=-1).astype(np.uint8)
-
-    if mode == 7:
+        output = np.concatenate([rgb, alpha_1bit * 255.0], axis=-1)
+    elif mode == 7:
         is_black = np.all(rgb <= 5, axis=-1, keepdims=True)
         alpha_colorkey = np.where(is_black, 0.0, 1.0)
-        return np.concatenate([rgb, alpha_colorkey * 255.0], axis=-1).astype(np.uint8)
-
-    if mode == 8:
+        output = np.concatenate([rgb, alpha_colorkey * 255.0], axis=-1)
+    elif mode == 8:
         quant_alpha = np.round(alpha * 15) / 15.0
-        return np.concatenate([rgb, quant_alpha * 255.0], axis=-1).astype(np.uint8)
+        output = np.concatenate([rgb, quant_alpha * 255.0], axis=-1)
 
-    # -------------------------
-    # 🟨 GFX/UI/Design Tools (9–13)
-    # -------------------------
-    if mode == 9:
+    # UI/GFX Tools
+    elif mode == 9:
         alpha_gray = np.tile(alpha * 255.0, (1, 1, 3))
-        return alpha_gray.astype(np.uint8)
-
-    if mode == 10:
+        output = alpha_gray
+    elif mode == 10:
         boosted = np.clip((alpha - 0.3) * 2.0, 0, 1)
-        return np.concatenate([rgb, boosted * 255.0], axis=-1).astype(np.uint8)
-
-    if mode == 11:
+        output = np.concatenate([rgb, boosted * 255.0], axis=-1)
+    elif mode == 11:
         soft = np.clip((alpha - 0.4) * 5.0, 0, 1)
-        return np.concatenate([rgb, soft * 255.0], axis=-1).astype(np.uint8)
-
-    if mode == 12:
+        output = np.concatenate([rgb, soft * 255.0], axis=-1)
+    elif mode == 12:
         alpha_inverted = 1.0 - alpha
-        return np.concatenate([rgb, alpha_inverted * 255.0], axis=-1).astype(np.uint8)
-
-    if mode == 13:
+        output = np.concatenate([rgb, alpha_inverted * 255.0], axis=-1)
+    elif mode == 13:
         clamped = np.clip(alpha, 0.2, 1.0)
-        return np.concatenate([rgb, clamped * 255.0], axis=-1).astype(np.uint8)
+        output = np.concatenate([rgb, clamped * 255.0], axis=-1)
 
-    # -------------------------
-    # 🟩 Finalisierung (14)
-    # -------------------------
-    if mode == 14:
-        return rgb.astype(np.uint8)
+    # Finalisierung
+    elif mode == 14:
+        output = rgb
+    else:
+        output = np.array(image)
 
-    # -------------------------
-    # Default fallback
-    # -------------------------
-    return np.array(image)
+    output = output.astype(np.uint8)
+
+    # Falls das Ergebnis RGB ist → PIL-RGB-Bild
+    if output.shape[-1] == 3:
+        return Image.fromarray(output, 'RGB')
+
+    # Falls das Ergebnis RGBA ist → PIL-RGBA-Bild
+    return Image.fromarray(output, 'RGBA')
