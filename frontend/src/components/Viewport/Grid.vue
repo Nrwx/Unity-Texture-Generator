@@ -84,7 +84,7 @@
 import {computed, defineComponent, onMounted, onUnmounted, ref} from "vue";
 import Image from "@/components/Image/Image";
 import {transformStates, canvasStates} from "@/dataLayer/state";
-import {localData} from "@/dataLayer/local";
+
 export default defineComponent({
   name: "GridComponent",
   props: {
@@ -239,7 +239,7 @@ export default defineComponent({
         }
 
         // Runden auf zwei Dezimalstellen für die Rotation
-        layer.matrix.rotate = parseFloat(newRotation.toFixed(2));
+        layer.matrix.rotate = parseFloat(newRotation);
       });
 
       rotationStartAngle.value = currentAngle;
@@ -292,8 +292,8 @@ export default defineComponent({
 
 
     const resetSelection = (event) => {
-      if (!canvasContainer.value.contains(event.target) && selectedLayer.value.length) {
-        props.layers.forEach(layer => {
+      if (!canvasContainer.value.contains(event.target) || !transformStates.menu.value) {
+        selectedLayer.value.forEach(layer => {
           updateLayer(layer)
         })
         stopTransform()
@@ -303,25 +303,52 @@ export default defineComponent({
       }
     };
 
+    const hasMatrixChanged = (a, b) => {
+      if (!a || !b) return true;
+
+      for (const key in a) {
+        if (a[key] !== b[key]) {
+          return true;
+        }
+      }
+
+      return false;
+    };
+
+    const storeOriginalMatrix = (layer) => {
+      if (!layer.__originalMatrix) {
+        layer.__originalMatrix = { ...layer.matrix }; // flache Kopie reicht
+      }
+    };
+
     const updateLayer = (layer) => {
-      localData.layers.value = props.layers
-      emitEvent('update-layer', layer);
-      console.log('Layer aktualisiert');
+      if (hasMatrixChanged(layer.__originalMatrix, layer.matrix)) {
+        emitEvent('update-layer', layer);
+        console.log('Layer aktualisiert');
+      } else {
+        console.log('Layer unverändert');
+      }
     };
 
     const toggleSelection = (layer, event) => {
       event.preventDefault();
+      transformStates.menu.value = true
       const index = selectedLayer.value.findIndex(l => l.id === layer.id);
+      storeOriginalMatrix(layer);
+
       if (event.ctrlKey) {
         if (index === -1) {
+          storeOriginalMatrix(layer);
           selectedLayer.value.push(layer);
         } else {
           selectedLayer.value.splice(index, 1);
         }
       } else {
+        storeOriginalMatrix(layer);
         selectedLayer.value = [layer];
       }
     };
+
 
     const columnPositions = computed(() => {
       const positions = [];
@@ -372,6 +399,7 @@ export default defineComponent({
 
     // Stop Transform (Resizing or Rotating)
     const stopTransform = () => {
+      transformStates.menu.value = false
       transformStates.transform.value = false
       transformStates.size.value = false;
       transformStates.rotate.value = false;
@@ -482,6 +510,7 @@ export default defineComponent({
       }
       if (event.key === 'g') {
         if (selectedLayer.value.length) {
+          transformStates.menu.value = true
           transformStates.transform.value = true;
         } else {
           canvasStates.transform.value = true;
@@ -498,6 +527,7 @@ export default defineComponent({
       if (event.key === 'g') {
         canvasStates.transform.value = false;
         transformStates.transform.value = false;
+        transformStates.menu.value = false
       }
       if (event.key === "Shift") {
         if (transformStates.transform.value) {

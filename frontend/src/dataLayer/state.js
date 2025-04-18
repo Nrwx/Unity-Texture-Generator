@@ -12,6 +12,7 @@ export const windowStates = {
 };
 
 export const transformStates = {
+    menu: ref(false),
     rotate: ref(false),
     transform: ref(false),
     size: ref(false),
