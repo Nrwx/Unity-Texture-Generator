@@ -292,7 +292,10 @@ export default defineComponent({
 
 
     const resetSelection = (event) => {
-      if (!canvasContainer.value.contains(event.target) || !transformStates.menu.value) {
+      if (!canvasContainer.value.contains(event.target)
+          || !transformStates.menu.value && !transformStates.transform.value
+          || !transformStates.menu.value && !transformStates.rotate.value
+          || !transformStates.menu.value && !transformStates.size.value) {
         selectedLayer.value.forEach(layer => {
           updateLayer(layer)
         })
