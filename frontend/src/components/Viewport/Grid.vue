@@ -128,6 +128,7 @@ export default defineComponent({
     };
 
     const handleMouseMove = (event) => {
+      event.preventDefault();
       // Berechne die tatsächliche Mausposition relativ zum Canvas Container
       const rect = canvasContainer.value.getBoundingClientRect();
       const scaledX = (event.clientX - rect.left);
@@ -177,6 +178,7 @@ export default defineComponent({
 
     // Start Resize
     const startResize = (corner, event) => {
+      transformStates.menu.value = true
       transformStates.size.value = true;
       resizeDirection.value = corner;
       lastMouse.value.x = event.clientX;
@@ -186,6 +188,7 @@ export default defineComponent({
 
 // Start Rotate
     const startRotate = (direction, event) => {
+      transformStates.menu.value = true
       transformStates.rotate.value = true;
       rotationStartAngle.value = calculateRotation(event.clientX, event.clientY);
       lastMouse.value.x = event.clientX;
@@ -292,17 +295,18 @@ export default defineComponent({
 
 
     const resetSelection = (event) => {
-      if (!canvasContainer.value.contains(event.target)
-          || !transformStates.menu.value && !transformStates.transform.value
-          || !transformStates.menu.value && !transformStates.rotate.value
-          || !transformStates.menu.value && !transformStates.size.value) {
+      event.preventDefault();
+      if (!canvasContainer.value.contains(event.target) && !event.ctrlKey
+          || !transformStates.menu.value && !transformStates.transform.value && !event.ctrlKey
+          || !transformStates.menu.value && !transformStates.rotate.value && !event.ctrlKey
+          || !transformStates.menu.value && !transformStates.size.value && !event.ctrlKey) {
         selectedLayer.value.forEach(layer => {
           updateLayer(layer)
         })
-        stopTransform()
         transformStates.align.value = false
         alignModeStep.value = 0
         selectedLayer.value = []
+        stopTransform()
       }
     };
 
@@ -335,7 +339,9 @@ export default defineComponent({
 
     const toggleSelection = (layer, event) => {
       event.preventDefault();
-      transformStates.menu.value = true
+      transformStates.transform.value = false
+      transformStates.size.value = false
+      transformStates.rotate.value = false
       const index = selectedLayer.value.findIndex(l => l.id === layer.id);
       storeOriginalMatrix(layer);
 
@@ -379,6 +385,7 @@ export default defineComponent({
     }));
 
     const handleMouseDown = (event) => {
+      event.preventDefault();
       const clickedInsideCanvas = event.target.closest('.canvas-container');
 
       if (!clickedInsideCanvas) {
@@ -411,6 +418,7 @@ export default defineComponent({
 
 
     const startPan = (event) => {
+      event.preventDefault();
       if (!canvasStates.transform.value) return;
       lastMouse.value.x = event.clientX;
       lastMouse.value.y = event.clientY;
@@ -432,6 +440,7 @@ export default defineComponent({
     };
 
     const startGuide = (type, event) => {
+      event.preventDefault();
       // Berechne die Position relativ zur aktuellen Verschiebung (Offset)
       const position = type === 'horizontal'
           ? event.clientY - offset.value.y
@@ -452,6 +461,7 @@ export default defineComponent({
     };
 
     const dragGuide = (event) => {
+      event.preventDefault();
       if (!guide.value) return;
 
       const newPosition = guide.value.type === 'horizontal'
@@ -505,6 +515,7 @@ export default defineComponent({
     };
 
     const handleKeyDown = (event) => {
+      event.preventDefault();
       if (event.key.toLowerCase() === "r") {
         //rotateSelectedLayers();
       }
@@ -527,6 +538,7 @@ export default defineComponent({
     };
 
     const handleKeyUp = (event) => {
+      event.preventDefault();
       if (event.key === 'g') {
         canvasStates.transform.value = false;
         transformStates.transform.value = false;
