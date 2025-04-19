@@ -6,7 +6,7 @@
   >
     <v-list density="compact">
       <v-list-item
-          v-for="(item, index) in items"
+          v-for="(item, index) in data"
           :key="index"
           class="cursor-pointer hover:bg-grey-lighten-3 relative"
           @mouseenter="hovered = index"
@@ -33,7 +33,7 @@
             :style="submenuStyle"
         >
           <List
-              :items="item.children"
+              :data="item.children"
               @select="$emit('select', $event)"
               :parent-coords="submenuCoords"
           />

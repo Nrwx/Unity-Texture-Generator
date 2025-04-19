@@ -1,17 +1,15 @@
 <template>
-  <div ref="wrapper" class="fixed top-0 left-0 z-[9999] pointer-events-none">
+  <div ref="wrapper" class="pointer-events-auto"
+       v-if="visible"
+       style="position: absolute; z-index: 9999;"
+       :style="{ top: `${position.y}px`, left: `${position.x}px` }"
+  >
     <v-scale-transition>
-      <div
-          v-if="visible"
-          class="absolute pointer-events-auto"
-          :style="{ top: `${position.y}px`, left: `${position.x}px` }"
-      >
-        <List
-            :data="data"
-            @select="handleSelect"
-            :parent-coords="position"
-        />
-      </div>
+      <List
+          :data="data"
+          @select="handleSelect"
+          :parent-coords="position"
+      />
     </v-scale-transition>
   </div>
 </template>

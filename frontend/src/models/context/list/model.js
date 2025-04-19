@@ -48,6 +48,6 @@ export function listModel(props, emit) {
 }
 
 export const listProps = {
-    items: Array,
+    data: Array,
     parentCoords: Object,
 };
