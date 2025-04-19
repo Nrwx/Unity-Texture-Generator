@@ -19,7 +19,6 @@
     >
       <slot v-if="selectedLayer.includes(layer)" name="menu">
       </slot>
-      <Context :data="menuItems" @select="handleContextAction"/>
     </v-img>
   </v-col>
   <Frame></Frame>
@@ -30,14 +29,12 @@
   import { defineComponent } from "vue";
   import {imageModel, imageProps} from "@/models/image/model";
   import Frame from '@/components/Frame/Frame'
-  import Context from "@/components/Context/Context.vue";
 
   export default defineComponent({
   name: "ImageComponent",
   props: imageProps,
   components: {
-    Frame,
-    Context
+    Frame
   },
   setup(props, { emit }) {
     const { emitUpdateLayer, emitSelectLayer, extractImageSize, handleContextAction, menuItems } = imageModel(props, emit);

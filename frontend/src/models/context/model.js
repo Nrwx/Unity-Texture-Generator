@@ -6,18 +6,18 @@ export function contextModel(props, emit) {
     const position = ref({ x: 0, y: 0 });
     const contextId = ref(null);
 
+    const uniqueId = `context-${Math.random().toString(36).slice(2)}`;
+
     const emitEvent = (event, payload) => {
         emit("component-event", event, payload);
     };
 
-    // 🧠 Hilfsfunktion: Mausposition relativ zu einem Container berechnen
-    function getRelativeMousePosition(event, container) {
-        const rect = container.getBoundingClientRect();
+    const getEventPosition = (event) => {
         return {
-            x: event.clientX - rect.left,
-            y: event.clientY - rect.top,
+            x: event.touches ? event.touches[0].clientX : event.clientX,
+            y: event.touches ? event.touches[0].clientY : event.clientY,
         };
-    }
+    };
 
     const openMenu = (event) => {
         const target = event.target.closest(props.targetSelector);
@@ -30,28 +30,26 @@ export function contextModel(props, emit) {
 
         const sameTarget = contextId.value === id;
         if (sameTarget && visible.value) {
-            visible.value = false; // Toggle off if same is clicked again
+            visible.value = false;
+            contextId.value = null;
             return;
         }
 
-        // 🟡 Container holen via ref
-        const container = document.querySelector('.canvas-container');
-        if (!container) {
-            console.warn('⚠️ Kein [ref="canvasContainer"] gefunden');
-            return;
-        }
+        const closeEvent = new CustomEvent("close-all-context-menus", {
+            detail: { except: uniqueId },
+        });
+        document.dispatchEvent(closeEvent);
 
-        const { x: relX, y: relY } = getRelativeMousePosition(event, container);
+        const { x: mouseX, y: mouseY } = getEventPosition(event);
 
-        const menuWidth = 200; // später dynamisch machen?
+        const menuWidth = 200;
         const menuHeight = 200;
 
-        let posX = relX - menuWidth / 2;
-        let posY = relY - menuHeight / 2;
+        let posX = mouseX - menuWidth / 2;
+        let posY = mouseY - menuHeight / 2;
 
-        // ⛔ innerhalb des Containers halten
-        const maxX = container.clientWidth - menuWidth;
-        const maxY = container.clientHeight - menuHeight;
+        const maxX = window.innerWidth - menuWidth;
+        const maxY = window.innerHeight - menuHeight;
 
         posX = Math.max(0, Math.min(posX, maxX));
         posY = Math.max(0, Math.min(posY, maxY));
@@ -76,23 +74,33 @@ export function contextModel(props, emit) {
         visible.value = false;
     };
 
+    const handleCloseAll = (e) => {
+        if (e.detail?.except !== uniqueId) {
+            visible.value = false;
+            contextId.value = null;
+            document.removeEventListener("click", handleClickOutside);
+        }
+    };
+
     onMounted(() => {
         document.addEventListener("contextmenu", openMenu);
+        document.addEventListener("close-all-context-menus", handleCloseAll);
     });
 
     onBeforeUnmount(() => {
         document.removeEventListener("contextmenu", openMenu);
         document.removeEventListener("click", handleClickOutside);
+        document.removeEventListener("close-all-context-menus", handleCloseAll);
     });
 
     return {
         visible,
         position,
-        handleClickOutside,
-        openMenu,
-        handleSelect,
-        emitEvent,
         wrapper,
+        handleSelect,
+        openMenu,
+        handleClickOutside,
+        emitEvent,
     };
 }
 

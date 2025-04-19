@@ -23,7 +23,11 @@
 
         <!-- Submenu indicator -->
         <template #append>
-          <v-icon v-if="item.children" icon="mdi-chevron-right" size="16" />
+          <v-icon
+              v-if="item.children?.length > 0 && hovered !== index"
+              icon="mdi-chevron-right"
+              size="16"
+          />
         </template>
 
         <!-- Submenu -->

@@ -21,6 +21,8 @@
       <Taskbar @taskbar-event="taskbarEvent('right', $event)" align="right" v-model:items="itemsRight" />
       <!-- Rechter Drawer -->
       <DrawerNew v-model:taskbar-menu="windowStates.drawerRight.value" v-model:item="activeItemRight" align="right" @component-event="componentEvent"/>
+      <!-- Context Menu -->
+      <Context :data="contextData" @select="handleContextAction"/>
     </template>
   </v-app>
 </template>
@@ -52,6 +54,8 @@ import Viewport from "@/view/page/Viewport/Viewport";
 import {viewportSetup} from "@/dataLayer/route/viewport";
 import ViewportGrid from "@/components/Viewport/Grid";
 import {settings} from "@/dataLayer/parameter";
+import Context from "@/components/Context/Context.vue";
+import {contextData} from "@/models/context/item/model";
 
 export default {
   name: 'App',
@@ -62,7 +66,8 @@ export default {
     DrawerNew,
     Layer,
     Setting,
-    Fullscreen
+    Fullscreen,
+    Context
   },
   setup() {
     const itemsLeft = ref(taskbarItemLeft);
@@ -115,6 +120,10 @@ export default {
         }
       }
     };
+
+    const handleContextAction = ({ action, contextId }) => {
+      console.log('Aktion:', action, 'auf Datei:', contextId)
+    }
 
     const componentEvent = async (event, payload) => {
       try {
@@ -329,6 +338,8 @@ export default {
       activeItemLeft,
       activeItemRight,
       fullscreenInfo,
+      contextData,
+      handleContextAction,
       componentEvent,
       taskbarEvent,
       localData,

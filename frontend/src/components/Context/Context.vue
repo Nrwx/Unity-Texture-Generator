@@ -1,7 +1,7 @@
 <template>
   <div ref="wrapper" class="pointer-events-auto"
        v-if="visible"
-       style="position: absolute; z-index: 9999;"
+       style="position: fixed; z-index: 9999;"
        :style="{ top: `${position.y}px`, left: `${position.x}px` }"
   >
     <v-scale-transition>
@@ -26,8 +26,9 @@ export default defineComponent({
     List
   },
   setup(props, { emit }) {
-    const { emitEvent, handleSelect, visible, position } = contextModel(props, emit);
+    const { emitEvent, handleSelect, visible, position, wrapper } = contextModel(props, emit);
     return {
+      wrapper,
       visible,
       position,
       emitEvent,
