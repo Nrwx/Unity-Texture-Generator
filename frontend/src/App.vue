@@ -168,6 +168,8 @@ export default {
         else if(event === "apply-rgb-mode") {
           if(payload === 0) {
             localData.selectedMapAutoOptimize.value = 0
+            localData.selectedRgba.value = 0
+            localData.selectedRgb.value = 0
           }
           localData.selectedRgb.value = payload
           settings.rgb_mode = payload
@@ -175,6 +177,8 @@ export default {
         else if(event === "apply-rgba-mode") {
           if(payload === 0) {
             localData.selectedMapAutoOptimize.value = 0
+            localData.selectedRgba.value = 0
+            localData.selectedRgb.value = 0
           }
           localData.selectedRgba.value = payload
           settings.rgba_mode = payload
