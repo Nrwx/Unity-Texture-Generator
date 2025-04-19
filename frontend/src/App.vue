@@ -144,7 +144,7 @@ export default {
         if (event === "viewport-settings") {
           const data = {mode: payload.mode, title: payload.title, width: payload.width, height: payload.height}
           if(data) {
-            localData.viewport.value = data;
+            localData.viewport.value = localData.viewport.value[data];
           }
         }
         if (event === "apply-file") {

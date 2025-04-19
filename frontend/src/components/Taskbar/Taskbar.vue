@@ -6,14 +6,30 @@
       permanent
       :rail="true"
   >
-    <v-card flat>
-      <template v-for="(item, i) in items" :key="item.id">
-        <TaskbarItem
-            :item="item"
-            @click="emitEvent(item.id)"
-        />
-        <v-divider v-if="items.length > 1 && i < items.length - 1"></v-divider>
-      </template>
+    <v-card flat class="d-flex flex-column fill-height justify-space-between">
+      <!-- Top Section -->
+      <div>
+        <template v-for="(item, i) in topItems" :key="'top-' + item.id">
+          <TaskbarItem :item="item" @click="emitEvent(item.id)" />
+          <v-divider v-if="topItems.length > 1 && i < topItems.length - 1"></v-divider>
+        </template>
+      </div>
+
+      <!-- Center Section -->
+      <div>
+        <template v-for="(item, i) in centerItems" :key="'center-' + item.id">
+          <TaskbarItem :item="item" @click="emitEvent(item.id)" />
+          <v-divider v-if="centerItems.length > 1 && i < centerItems.length - 1"></v-divider>
+        </template>
+      </div>
+
+      <!-- Bottom Section -->
+      <div>
+        <template v-for="(item, i) in bottomItems" :key="'bottom-' + item.id">
+          <TaskbarItem :item="item" @click="emitEvent(item.id)" />
+          <v-divider v-if="bottomItems.length > 1 && i < bottomItems.length - 1"></v-divider>
+        </template>
+      </div>
     </v-card>
     </v-navigation-drawer>
 </template>
@@ -30,9 +46,12 @@ export default defineComponent({
     TaskbarItem
   },
   setup(props, { emit }) {
-    const { taskbar, emitEvent } = taskbarModel(emit);
+    const { taskbar, topItems, centerItems, bottomItems, emitEvent } = taskbarModel(props, emit);
     return {
       taskbar,
+      topItems,
+      centerItems,
+      bottomItems,
       emitEvent,
     };
   },

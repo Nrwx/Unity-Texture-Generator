@@ -8,7 +8,7 @@
   >
     <!-- Ghost Element -->
     <template v-if="dragData.ghost.value">
-      <div class="ghost-item d-flex align-center" :style="{top: `${dragData.transform.value.y}px`,left: `${dragData.transform.value.x}px`}">
+      <div class="ghost-item d-flex align-center" :style="{top: `${this.dragData.transform.value.y}px`,left: `${this.dragData.transform.value.x}px`}">
         <v-avatar rounded="0" variant="elevated" class="mr-2">
           <v-img :src="dragData.ghost.value.url" :alt="dragData.ghost.value.name" />
         </v-avatar>

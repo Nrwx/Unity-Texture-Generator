@@ -1,7 +1,11 @@
-import {ref} from "vue";
+import {computed, ref} from "vue";
 
-export function taskbarModel(emit) {
+export function taskbarModel(props, emit) {
     const taskbar = ref(true);
+
+    const topItems = computed(() => props.items.filter(i => i.position === 'top'));
+    const centerItems = computed(() => props.items.filter(i => i.position === 'center'));
+    const bottomItems = computed(() => props.items.filter(i => i.position === 'bottom'));
 
     const emitEvent = (id) => {
         emit("taskbar-event", id);
@@ -9,6 +13,9 @@ export function taskbarModel(emit) {
 
     return {
         taskbar,
+        topItems,
+        centerItems,
+        bottomItems,
         emitEvent
     };
 }

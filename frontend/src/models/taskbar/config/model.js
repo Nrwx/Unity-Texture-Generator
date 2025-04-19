@@ -5,15 +5,17 @@ import Tools from "@/view/page/Tools/Tools";
 
 export const taskbarItemLeft = [
     {
+        position: 'top',
         id: uuidv4(),
         title: 'Einstellungen',
         subtitle: 'Legen Sie zusätzliche Einstellungen fest...',
         icon: 'mdi-cog',
         active: false,
         tooltip: 'Einstellungen',
-        event: 'setting-state',
+        event: 'setting-state'
     },
     {
+        position: 'top',
         id: uuidv4(),
         title: 'Datei hochladen',
         subtitle: 'Wählen Sie ein Bild aus...',
@@ -26,6 +28,7 @@ export const taskbarItemLeft = [
         },
     },
     {
+        position: 'top',
         id: uuidv4(),
         title: 'Bild Optionen',
         subtitle: 'Legen Sie zusätzliche Einstellungen fest...',
@@ -37,6 +40,7 @@ export const taskbarItemLeft = [
 
 export const taskbarItemRight = [
     {
+        position: 'top',
         id: uuidv4(),
         icon: 'mdi-apps',
         active: false,
@@ -47,6 +51,7 @@ export const taskbarItemRight = [
         },
     },
     {
+        position: 'top',
         id: uuidv4(),
         title: 'Ebenen',
         icon: 'mdi-layers-triple',
@@ -55,6 +60,7 @@ export const taskbarItemRight = [
         event: 'layer-state'
     },
     {
+        position: 'top',
         id: uuidv4(),
         title: 'Verlauf',
         icon: 'mdi-history',
