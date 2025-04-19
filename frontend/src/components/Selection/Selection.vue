@@ -10,7 +10,7 @@
       tabindex="0"
   >
     <!-- Auswahlrahmen via SVG -->
-    <svg v-if="selecting" class="absolute pointer-events-none" :style="svgStyle">
+    <svg v-if="svgStyle.left" class="absolute pointer-events-none" :style="svgStyle">
       <defs>
         <!-- 1. Hauptfarbverlauf Basislinie -->
         <linearGradient id="static-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
