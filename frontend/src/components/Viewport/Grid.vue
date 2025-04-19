@@ -76,6 +76,13 @@
       <div class="cursor-coordinates">
         {{ `X: ${cursor.x}, Y: ${cursor.y}` }}
       </div>
+
+      <!-- Selection Box -->
+      <Selection
+          :state="select"
+          :shape="selectMode"
+          @update:component-event="emitEvent"
+      />
     </div>
   </div>
 </template>
@@ -84,6 +91,7 @@
 import {computed, defineComponent, onMounted, onUnmounted, ref} from "vue";
 import Image from "@/components/Image/Image";
 import {transformStates, canvasStates} from "@/dataLayer/state";
+import Selection from "@/components/Selection/Selection.vue";
 
 export default defineComponent({
   name: "GridComponent",
@@ -96,9 +104,18 @@ export default defineComponent({
       type: Array,
       required: true,
     },
+    select: {
+      type: Boolean,
+      required: true,
+    },
+    selectMode: {
+      type: String,
+      required: true,
+    },
   },
   components: {
-    Image
+    Image,
+    Selection
   },
   setup(props, { emit }) {
     const canvasContainer = ref(null);
@@ -117,6 +134,7 @@ export default defineComponent({
 
     const emitEvent = (event, payload) => {
       emit("component-event", event, payload);
+      console.log(event, payload, 'GRID:VUE')
     };
 
     const cycleAlignMode = () => {
@@ -590,7 +608,7 @@ export default defineComponent({
       resetSelection,
       startRotate,
       startResize,
-      updateLayer,
+      updateLayer
     };
   },
 });

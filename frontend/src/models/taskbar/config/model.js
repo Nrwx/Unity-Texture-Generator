@@ -36,6 +36,15 @@ export const taskbarItemLeft = [
         active: false,
         tooltip: 'Bild Optionen',
     },
+    {
+        position: 'center',
+        id: uuidv4(),
+        title: 'Frei-Maskierung',
+        icon: 'mdi-select',
+        active: false,
+        tooltip: 'Frei-Maskierung',
+        event: 'select-state'
+    },
 ];
 
 export const taskbarItemRight = [

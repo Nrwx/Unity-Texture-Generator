@@ -1,0 +1,9 @@
+.absolute, .windows-container{
+  position: absolute !important;
+}
+
+.windows-container {
+  width: 100%;
+  height: 100%;
+  z-index: $modify_index;
+}

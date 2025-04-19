@@ -14,7 +14,7 @@
       <DrawerNew v-model:taskbar-menu="windowStates.drawerLeft.value" v-model:item="activeItemLeft" align="left" @component-event="componentEvent"/>
       <!-- Main Content -->
       <v-main>
-        <viewport-grid @component-event="componentEvent" v-model:layers="localData.layers.value" v-model:settings="localData.viewport.value" style="position: relative;"/>
+        <viewport-grid @component-event="componentEvent" v-model:layers="localData.layers.value" v-model:settings="localData.viewport.value" v-model:select="windowStates.select.value" v-model:select-mode="localData.selectedShape.value" style="position: relative;"/>
       </v-main>
       <Layer style="position: absolute; top: 40px; right: 70px;" :state="windowStates.layer.value" v-model:layers="localData.layers.value" v-model:channel="localData.channel.value" @component-event="componentEvent"/>
       <!-- Rechte Taskbar -->
@@ -135,80 +135,55 @@ export default {
             localData.viewport.value = data;
             windowStates.viewport = false;
           }
-        }
-        if (event === "viewport-state") {
+        } else if (event === "viewport-state") {
           if(typeof payload === 'boolean') {
             windowStates.viewport.value = payload;
           }
-        }
-        if (event === "viewport-settings") {
+        } else if (event === "viewport-settings") {
           const data = {mode: payload.mode, title: payload.title, width: payload.width, height: payload.height}
           if(data) {
             localData.viewport.value = localData.viewport.value[data];
           }
-        }
-        if (event === "apply-file") {
+        } else if (event === "apply-file") {
           localData.file.value = payload;
-        }
-        else if (event === "upload-file") {
+        } else if (event === "upload-file") {
           const response = await fileUpload(localData.file.value)
           if(response) {
             await componentEvent('fetch-layer');
           }
-        }
-        else if(event === "apply-maps") {
+        } else if(event === "apply-maps") {
           localData.selectedMaps.value = payload
-        }
-        else if(event === "apply-target-size") {
+        } else if(event === "apply-target-size") {
           localData.selectedTargetResize.value = payload
           settings.resize_index = payload
-        }
-        else if(event === "apply-target-size-option") {
+        } else if(event === "apply-target-size-option") {
           localData.selectedTargetResizeOption.value = payload
           settings.resize_index = payload
-        }
-        else if(event === "apply-target-size-method") {
+        } else if(event === "apply-target-size-method") {
           localData.selectedUpscaleMethod.value = payload
           settings.upscale_method = payload
-        }
-        else if(event === "apply-map-auto-optimize") {
+        } else if(event === "apply-map-auto-optimize") {
           localData.selectedMapAutoOptimize.value = payload
-        }
-        else if(event === "apply-rgb-mode") {
-          if(payload === 0) {
-            localData.selectedMapAutoOptimize.value = 0
-            localData.selectedRgba.value = 0
-            localData.selectedRgb.value = 0
-          }
+        } else if(event === "apply-rgb-mode") {
           localData.selectedRgb.value = payload
           settings.rgb_mode = payload
-        }
-        else if(event === "apply-rgba-mode") {
-          if(payload === 0) {
-            localData.selectedMapAutoOptimize.value = 0
-            localData.selectedRgba.value = 0
-            localData.selectedRgb.value = 0
-          }
+        } else if(event === "apply-rgba-mode") {
           localData.selectedRgba.value = payload
           settings.rgba_mode = payload
-        }
-        else if(event === "update-dimension") {
+        } else if(event === "update-dimension") {
           localData.dimension.value = payload
-        }
-        else if(event === "add-layer") {
+        } else if(event === "add-layer") {
           const data = {name: `Layer ${localData.layers.value.length + 1}`, width: localData.dimension.value.width, height: localData.dimension.value.height,}
           const response = await addLayer(data)
           if(response) {
             await componentEvent('fetch-layer');
           }
-        }
-        else if(event === "update-layer") {
+        } else if(event === "update-layer") {
           const response = await updateLayer(payload)
           if(response) {
             await componentEvent('fetch-layer');
           }
-        }
-        else if(event === "fetch-layer") {
+        } else if(event === "fetch-layer") {
           const response = await fetchLayers();
           if(response) {
             localData.layers.value = response;
@@ -219,49 +194,51 @@ export default {
           if(response) {
             await componentEvent('fetch-layer');
           }
-        }
-        else if(event === "order-layer") {
+        } else if(event === "order-layer") {
           const data = {id: payload.id, order: payload.order}
           const response = await orderLayers(data)
           if(response) {
             await componentEvent('fetch-layer');
           }
-        }
-        else if(event === "hide-layer") {
+        } else if(event === "hide-layer") {
           const data = {id: payload.id, hidden: payload.hidden === 0 ? 1 : 0}
           const response = await hideLayer(data)
           if(response) {
             await componentEvent('fetch-layer');
           }
-        }
-        else if(event === "layer-state") {
+        } else if(event === "layer-state") {
           if(typeof payload === 'boolean') {
             windowStates.layer.value = payload;
             await componentEvent('fetch-layer');
           }
-        }
-        else if(event === "fetch-setting") {
+        } else if(event === "select-state") {
+          if(typeof payload === 'boolean') {
+            windowStates.select.value = payload;
+            console.log(payload, 'APP:VUE')
+          } else {
+            windowStates.select.value = payload.state
+            localData.selectedShape.value = payload.shape
+            console.log('Auswahl abgeschlossen:', payload)
+          }
+        } else if(event === "fetch-setting") {
           const response = await fetchOsSettings()
           if(response) {
             Object.assign(osSettings, response)
           }
-        }
-        else if(event === "save-setting") {
+        } else if(event === "save-setting") {
           const response = await saveOsSettings()
           if(response) {
             windowStates.setting.value = false
             await componentEvent('fetch-setting');
           }
-        }
-        else if(event === "setting-state") {
+        } else if(event === "setting-state") {
           if(typeof payload === 'boolean') {
             windowStates.setting.value = payload;
           } else {
             windowStates.setting.value = true;
             await componentEvent('fetch-setting');
           }
-        }
-        else if(event === "fullscreen-state") {
+        } else if(event === "fullscreen-state") {
           if(typeof payload === 'boolean') {
             windowStates.fullscreen.value = payload;
           } else {
@@ -270,8 +247,7 @@ export default {
             fullscreenInfo.src = payload.src
             windowStates.fullscreen.value = true;
           }
-        }
-        else if(event === "tile-state") {
+        } else if(event === "tile-state") {
           if(typeof payload === 'boolean') {
             fullscreenInfo.tile = payload;
           } else {
@@ -288,8 +264,7 @@ export default {
               fullscreenInfo.tileSrc = response.tileSrc;
             }
           }
-        }
-        else if(event === 'preview-layer') {
+        } else if(event === 'preview-layer') {
           const response = await previewLayers();
           if (response) {
             fullscreenInfo.title = response.title;
@@ -297,21 +272,18 @@ export default {
             fullscreenInfo.src = response.src
             windowStates.fullscreen.value = true;
           }
-        }
-        else if(event === 'update-channel') {
+        } else if(event === 'update-channel') {
           const response = await updateChannel();
           if (response) {
             localData.channel.value = response
             console.log(response)
           }
-        }
-        else if(event === 'tools-state') {
+        } else if(event === 'tools-state') {
           fullscreenInfo.title = payload.title;
           fullscreenInfo.id = payload.id
           fullscreenInfo.src = payload.src
           windowStates.fullscreen.value = true;
-        }
-        else if(event === 'reset-selected-layer') {
+        } else if(event === 'reset-selected-layer') {
           localData.selectedLayers.value = []
         }
       } catch (error) {
@@ -350,5 +322,6 @@ export default {
 };
 </script>
 
-<style scoped>
+<style lang="scss">
+@import "./view/scss/Base.scss";
 </style>
