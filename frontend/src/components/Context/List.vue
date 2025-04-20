@@ -4,7 +4,6 @@
       class="overflow-hidden"
       elevation="10"
       min-width="200"
-      max-width="400"
   >
     <v-list density="compact">
       <v-list-item
