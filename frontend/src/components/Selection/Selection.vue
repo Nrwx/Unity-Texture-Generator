@@ -1,6 +1,6 @@
 <template>
   <div
-      class="windows-container inset-0 z-40"
+      class="absolute w-h"
       v-if="state"
       @mousedown="onMouseDown"
       @mousemove="onMouseMove"

@@ -1,16 +1,14 @@
 <template>
-  <div ref="wrapper" class="pointer-events-auto"
+  <div ref="wrapper"
        v-if="visible"
-       style="position: fixed; z-index: 9999;"
+       style="position: fixed; z-index: 1;"
        :style="{ top: `${position.y}px`, left: `${position.x}px` }"
   >
-    <v-scale-transition>
-      <List
-          :data="data"
-          @select="handleSelect"
-          :parent-coords="position"
-      />
-    </v-scale-transition>
+    <List
+        :data="data"
+        @select="handleSelect"
+        :parent-coords="position"
+    />
   </div>
 </template>
 

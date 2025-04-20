@@ -1,4 +1,4 @@
-import { onBeforeUnmount, onMounted, ref } from "vue";
+import {nextTick, onBeforeUnmount, onMounted, ref} from "vue";
 
 export function contextModel(props, emit) {
     const wrapper = ref(null);
@@ -19,7 +19,7 @@ export function contextModel(props, emit) {
         };
     };
 
-    const openMenu = (event) => {
+    const openMenu = async (event) => {
         const target = event.target.closest(props.targetSelector);
         if (!target) return;
 
@@ -42,8 +42,17 @@ export function contextModel(props, emit) {
 
         const { x: mouseX, y: mouseY } = getEventPosition(event);
 
-        const menuWidth = 200;
-        const menuHeight = 200;
+        // Menü sichtbar machen, damit es im DOM gerendert wird
+        contextId.value = id;
+        visible.value = true;
+
+        await nextTick(); // Warten bis das Menü im DOM gerendert ist
+
+        const menu = wrapper.value;
+        if (!menu) return;
+
+        const menuWidth = menu.offsetWidth;
+        const menuHeight = menu.offsetHeight;
 
         let posX = mouseX - menuWidth / 2;
         let posY = mouseY - menuHeight / 2;
@@ -55,8 +64,6 @@ export function contextModel(props, emit) {
         posY = Math.max(0, Math.min(posY, maxY));
 
         position.value = { x: posX, y: posY };
-        contextId.value = id;
-        visible.value = true;
 
         document.addEventListener("click", handleClickOutside);
     };

@@ -11,7 +11,7 @@ export function selectionModel(props, emit) {
     const reverseDashOffset = ref(0);
     const shineOffset = ref(0);
     const reverseShineOffset = ref(0);
-    const activeShape = ref(props.shape); // 👈 neu: aktiver Modus (kann sich durch Shift ändern)
+    const activeShape = ref(props.shape);
 
     let animationFrameId;
 
@@ -53,7 +53,6 @@ export function selectionModel(props, emit) {
         emit("update:component-event", event, payload);
     };
 
-    // ⛓️ Umschaltung des Modus abhängig von shift + ursprünglichem prop
     const onKeyDown = (e) => {
         if (e.key === "Shift" && !key.shift.value) {
             key.shift.value = true;
@@ -77,7 +76,7 @@ export function selectionModel(props, emit) {
     const onKeyUp = (e) => {
         if (e.key === "Shift") {
             key.shift.value = false;
-            activeShape.value = props.shape; // zurück zum ursprünglichen Zustand
+            activeShape.value = props.shape;
         }
     };
 

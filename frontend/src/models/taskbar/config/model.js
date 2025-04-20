@@ -39,6 +39,15 @@ export const taskbarItemLeft = [
     {
         position: 'center',
         id: uuidv4(),
+        title: 'Auswahl',
+        icon: 'mdi-cursor-default-outline',
+        active: false,
+        tooltip: 'Auswahl',
+        event: 'cursor-state'
+    },
+    {
+        position: 'center',
+        id: uuidv4(),
         title: 'Frei-Maskierung',
         icon: 'mdi-select',
         active: false,

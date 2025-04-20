@@ -1,14 +1,16 @@
 <template>
   <v-card
       ref="menu"
-      class="bg-white rounded-lg shadow-lg min-w-[180px] overflow-hidden"
+      class="overflow-hidden"
       elevation="10"
+      min-width="200"
+      max-width="400"
   >
     <v-list density="compact">
       <v-list-item
           v-for="(item, index) in data"
           :key="index"
-          class="cursor-pointer hover:bg-grey-lighten-3 relative"
+          class="cursor-pointer"
           @mouseenter="hovered = index"
           @mouseleave="hovered = null"
           @click.stop="handleClick(item)"
@@ -24,8 +26,8 @@
         <!-- Submenu indicator -->
         <template #append>
           <v-icon
-              v-if="item.children?.length > 0 && hovered !== index"
-              icon="mdi-chevron-right"
+              v-if="item.children?.length > 0"
+              :icon="hovered !== index ? 'mdi-chevron-right' : 'mdi-chevron-down'"
               size="16"
           />
         </template>
@@ -33,7 +35,7 @@
         <!-- Submenu -->
         <div
             v-if="item.children && hovered === index"
-            class="absolute top-0"
+            style="position: fixed; z-index: 2"
             :style="submenuStyle"
         >
           <List

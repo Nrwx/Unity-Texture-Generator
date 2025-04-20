@@ -12,6 +12,8 @@
       <Taskbar @taskbar-event="taskbarEvent('left', $event)" align="left" v-model:items="itemsLeft" />
       <!-- Linker Drawer -->
       <DrawerNew v-model:taskbar-menu="windowStates.drawerLeft.value" v-model:item="activeItemLeft" align="left" @component-event="componentEvent"/>
+      <!-- Context Menu -->
+      <Context :data="contextData" @select="handleContextAction"/>
       <!-- Main Content -->
       <v-main>
         <viewport-grid @component-event="componentEvent" v-model:layers="localData.layers.value" v-model:settings="localData.viewport.value" v-model:select="windowStates.select.value" v-model:select-mode="localData.selectedShape.value" style="position: relative;"/>
@@ -21,8 +23,6 @@
       <Taskbar @taskbar-event="taskbarEvent('right', $event)" align="right" v-model:items="itemsRight" />
       <!-- Rechter Drawer -->
       <DrawerNew v-model:taskbar-menu="windowStates.drawerRight.value" v-model:item="activeItemRight" align="right" @component-event="componentEvent"/>
-      <!-- Context Menu -->
-      <Context :data="contextData" @select="handleContextAction"/>
     </template>
   </v-app>
 </template>
@@ -219,6 +219,13 @@ export default {
             windowStates.select.value = payload.state
             localData.selectedShape.value = payload.shape
             console.log('Auswahl abgeschlossen:', payload)
+          }
+        }else if(event === "cursor-state") {
+          if (typeof payload === 'boolean') {
+            windowStates.cursor = payload
+            windowStates.select.value = false;
+          } else {
+            console.log(payload)
           }
         } else if(event === "fetch-setting") {
           const response = await fetchOsSettings()
