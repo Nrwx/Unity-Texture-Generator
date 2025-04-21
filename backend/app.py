@@ -221,6 +221,7 @@ PARAMETERS = {
         "rotate": {"type": float, "default": 0},
         "order": {"type": int, "default": 0},
         "hidden": {"type": int, "default": 0},
+        "opacity": {"type": float, "default": 1},
     },
 }
 
@@ -577,7 +578,8 @@ def add_layer(name="", path="", id="", width=1024, height=1024):
             "matrix": matrix,
             "source": source_id,
             "order": len(layers),
-            "hidden": 0
+            "hidden": 0,
+            "opacity": 1
         }
         layers.append(layer)
         print(layers)
@@ -585,7 +587,7 @@ def add_layer(name="", path="", id="", width=1024, height=1024):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-def update_layer(name, width, height, id, a, b, c, d, x, y, rotate, order, hidden):
+def update_layer(name, width, height, id, a, b, c, d, x, y, rotate, order, hidden, opacity):
     try:
         layer = next((l for l in layers if l["id"] == id), None)
         if not layer:
@@ -615,6 +617,8 @@ def update_layer(name, width, height, id, a, b, c, d, x, y, rotate, order, hidde
             layer["order"] = order
         if hidden:
             layer["hidden"] = hidden
+        if opacity:
+            layer["opacity"] = opacity
 
         print(layers)
         return jsonify(layer), 200
@@ -891,7 +895,7 @@ def layer_management():
                 'function': add_layer
             },
             "update": {
-                'keys': {"name", "width", "height", "id", "a", "b", "c", "d", "x", "y", "rotate", "order", "hidden"},
+                'keys': {"name", "width", "height", "id", "a", "b", "c", "d", "x", "y", "rotate", "order", "hidden", "opacity"},
                 'function': update_layer
             },
             "delete": {

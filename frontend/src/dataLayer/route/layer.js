@@ -54,6 +54,7 @@ export const updateLayer = async (layer) => {
         formData.append("rotate", layer.matrix.rotate);
         formData.append("order", layer.order);
         formData.append("hidden", layer.hidden);
+        formData.append("opacity", layer.opacity);
         const response = await api.post('/layer', formData, {
             headers: {'Content-Type': 'multipart/form-data'},
         });

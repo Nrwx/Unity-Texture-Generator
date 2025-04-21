@@ -23,6 +23,27 @@
           <span class="text-subtitle-2">{{ tab.name }}</span>
         </v-tab>
       </v-tabs>
+      <!-- Global Opacity Control -->
+      <v-row
+          class="px-4 pt-2"
+          align="center"
+          dense
+      >
+        <v-col cols="auto" class="text-caption font-weight-medium">Deckkraft:</v-col>
+        <v-col cols="6">
+          <v-slider
+              v-model="globalOpacity"
+              min="0"
+              max="100"
+              step="1"
+              :disabled="!selectedLayer.length"
+              density="compact"
+              hide-details
+              @click.stop="updateOpacity"
+          />
+        </v-col>
+        <v-col cols="auto" class="text-caption">{{ globalOpacity }}%</v-col>
+      </v-row>
       <v-card
           class="overflow-hidden overflow-y-auto"
           max-height="300"
@@ -145,7 +166,7 @@ export default defineComponent({
     Channel
   },
   setup(props, { emit }) {
-    const { emitEvent, validRule, selectedLayer, toggleLayerSelection, handleDrop, dragId, hiddenState, tabs, tabIndex, handleTabEmit } = layerModel(props, emit);
+    const { emitEvent, validRule, selectedLayer, toggleLayerSelection, handleDrop, dragId, hiddenState, tabs, tabIndex, handleTabEmit, globalOpacity, updateOpacity } = layerModel(props, emit);
     return {
       emitEvent,
       validRule,
@@ -156,7 +177,9 @@ export default defineComponent({
       hiddenState,
       tabs,
       tabIndex,
-      handleTabEmit
+      handleTabEmit,
+      globalOpacity,
+      updateOpacity
     };
   },
 });

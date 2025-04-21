@@ -5,6 +5,7 @@ import {dragData} from "@/models/drag/data/model";
 
 export function layerModel(props, emit) {
     const selectedLayer = ref([]);
+    const globalOpacity = ref(100); // Startwert bei 100%
     const dragId = computed(() => {
         return dragData.id.value !== null ? props.layers[dragData.id.value]?.id : null;
     });
@@ -65,6 +66,17 @@ export function layerModel(props, emit) {
         }
     };
 
+    const updateOpacity = () => {
+        const newOpacity = globalOpacity.value / 100;
+        props.layers.forEach(layer => {
+            if (selectedLayer.value.includes(layer.id)) {
+                layer.opacity = newOpacity;
+                console.log(newOpacity)
+                emitEvent('update-layer', layer); // Damit ggf. gesynct wird
+            }
+        });
+    };
+
     return {
         emitEvent,
         validRule,
@@ -75,6 +87,8 @@ export function layerModel(props, emit) {
         tabs,
         tabIndex,
         handleTabEmit,
+        updateOpacity,
+        globalOpacity,
     };
 }
 

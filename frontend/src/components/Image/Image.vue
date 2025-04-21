@@ -15,7 +15,7 @@
         :data-context-id="layer.id"
         alt="Layer Image"
         :cover="false"
-        :style="{zIndex: index, transform: `matrix(${layer.matrix.a}, ${layer.matrix.b}, ${layer.matrix.c}, ${layer.matrix.d}, ${layer.matrix.x}, ${layer.matrix.y}) rotate(${layer.matrix.rotate}deg)`}"
+        :style="{opacity: layer.opacity, zIndex: index, transform: `matrix(${layer.matrix.a}, ${layer.matrix.b}, ${layer.matrix.c}, ${layer.matrix.d}, ${layer.matrix.x}, ${layer.matrix.y}) rotate(${layer.matrix.rotate}deg)`}"
     >
       <slot v-if="selectedLayer.includes(layer)" name="menu">
       </slot>
