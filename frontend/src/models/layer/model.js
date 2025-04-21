@@ -1,4 +1,4 @@
-import {computed, ref} from "vue";
+import {computed, reactive, ref} from "vue";
 import {localData} from "@/dataLayer/local";
 import {windowStates} from "@/dataLayer/state";
 import {dragData} from "@/models/drag/data/model";
@@ -36,9 +36,28 @@ export function layerModel(props, emit) {
         };
     };
 
-    const toggleLayerSelection = (id, opacity) => {
+    const config = reactive({
+        method: 10,
+        selectedBlendMode: localData.selectedBlendMode.value,
+    })
+
+    const methods = computed(() =>({
+        10: {
+            selectedBlendMode: {
+                dense: 'compact',
+                active: true,
+                type: "select",
+                disabled: !selectedLayer.value.length,
+                options: localData.blend_mode.value,
+                event: 'layer-blend-mode'
+            },
+        },
+    }))
+
+    const toggleLayerSelection = (id, opacity, blendMode) => {
         const index = selectedLayer.value.indexOf(id);
         globalOpacity.value = opacity * 100
+        localData.selectedBlendMode.value = blendMode
         if (index === -1) {
             selectedLayer.value.push(id);
         } else {
@@ -72,8 +91,16 @@ export function layerModel(props, emit) {
         props.layers.forEach(layer => {
             if (selectedLayer.value.includes(layer.id)) {
                 layer.opacity = newOpacity;
-                console.log(newOpacity)
                 emitEvent('update-layer', layer); // Damit ggf. gesynct wird
+            }
+        });
+    };
+
+    const updateBlend = (event, payload) => {
+        props.layers.forEach(layer => {
+            if (selectedLayer.value.includes(layer.id)) {
+                localData.selectedBlendMode.value = payload
+                emitEvent(event, {id: layer.id, blend_mode: payload});
             }
         });
     };
@@ -90,6 +117,9 @@ export function layerModel(props, emit) {
         handleTabEmit,
         updateOpacity,
         globalOpacity,
+        config,
+        methods,
+        updateBlend
     };
 }
 

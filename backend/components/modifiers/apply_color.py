@@ -402,55 +402,55 @@ def apply_luminance(base, overlay, alpha):
 
 def apply_color_filter(base, overlay, mode, alpha):
     """Wendet den gewählten Blend-Modus an unter Berücksichtigung des Alpha-Werts."""
-    if mode == 1:
+    if mode == 0:
         return apply_normal(base, alpha)
-    elif mode == 2:
+    elif mode == 1:
         return apply_sprenkeln(base, overlay, alpha)
-    elif mode == 3:
+    elif mode == 2:
         return apply_darken(base, overlay, alpha)
-    elif mode == 4:
+    elif mode == 3:
         return apply_multiply(base, overlay, alpha)
-    elif mode == 5:
+    elif mode == 4:
         return apply_color_dodge(base, overlay, alpha)
-    elif mode == 6:
+    elif mode == 5:
         return apply_linear_burn(base, overlay, alpha)
-    elif mode == 7:
+    elif mode == 6:
         return apply_lighten(base, overlay, alpha)
-    elif mode == 8:
+    elif mode == 7:
         return apply_negate_multiply(base, overlay, alpha)
-    elif mode == 9:
+    elif mode == 8:
         return apply_color_burn(base, overlay, alpha)
-    elif mode == 10:
+    elif mode == 9:
         return apply_linear_dodge(base, overlay, alpha)
-    elif mode == 11:
+    elif mode == 10:
         return apply_lighter_color(base, overlay, alpha)
-    elif mode == 12:
+    elif mode == 11:
         return apply_overlay(base, overlay, alpha)
-    elif mode == 13:
+    elif mode == 12:
         return apply_soft_light(base, overlay, alpha)
-    elif mode == 14:
+    elif mode == 13:
         return apply_hard_light(base, overlay, alpha)
-    elif mode == 15:
+    elif mode == 14:
         return apply_vivid_light(base, overlay, alpha)
-    elif mode == 16:
+    elif mode == 15:
         return apply_linear_light(base, overlay, alpha)
-    elif mode == 17:
+    elif mode == 16:
         return apply_lighting_spot(base, overlay, alpha)
-    elif mode == 18:
+    elif mode == 17:
         return apply_hard_mix(base, overlay, alpha)
-    elif mode == 19:
+    elif mode == 18:
         return apply_difference(base, overlay, alpha)
-    elif mode == 20:
+    elif mode == 19:
         return apply_subtract(base, overlay, alpha)
-    elif mode == 21:
+    elif mode == 20:
         return apply_divide(base, overlay, alpha)
-    elif mode == 22:
+    elif mode == 21:
         return apply_hue(base, overlay, alpha)
-    elif mode == 23:
+    elif mode == 22:
         return apply_saturation(base, overlay, alpha)
-    elif mode == 24:
+    elif mode == 23:
         return apply_colored(base, overlay, alpha)
-    elif mode == 25:
+    elif mode == 24:
         return apply_luminance(base, overlay, alpha)
     else:
         raise ValueError("Ungültiger Modus. Wählen Sie eine Zahl von 1 bis 25.")
@@ -475,5 +475,36 @@ def apply_color(img_array, color_overlay, mode=1):
     img_array_rgb = np.zeros_like(img_array, dtype=np.uint8)
     for i in range(3):  # RGB-Kanäle durchlaufen
         img_array_rgb[..., i] = apply_color_filter(img_array[..., i], overlay_alpha[..., i], mode, alpha_map)
+
+    return img_array_rgb
+
+def apply_blend_layer(img_array, color_overlay, alpha_channel, mode=1):
+    """
+    Wendet eine Farbüberlagerung auf ein Bildarray an, wobei color_overlay und alpha_channel ebenfalls Arrays sind.
+
+    Parameter:
+    - img_array: np.ndarray, Form (H, W, 3)
+    - color_overlay: np.ndarray, Form (H, W, 3)
+    - alpha_channel: np.ndarray, Form (H, W)
+    - mode: Blend-Modus
+
+    Rückgabe:
+    - Ergebnisbild als np.ndarray (H, W, 3)
+    """
+
+    # Sicherstellen, dass alpha_channel Werte zwischen 0 und 255 hat
+    alpha_map = np.clip(alpha_channel, 0, 255).astype(np.uint8)
+
+    # Ergebnisbild vorbereiten
+    img_array_rgb = np.zeros_like(img_array, dtype=np.uint8)
+
+    # RGB-Kanäle einzeln verarbeiten
+    for i in range(3):
+        img_array_rgb[..., i] = apply_color_filter(
+            img_array[..., i],
+            color_overlay[..., i],
+            mode,
+            alpha_map
+        )
 
     return img_array_rgb

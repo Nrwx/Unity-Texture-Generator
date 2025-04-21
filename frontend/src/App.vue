@@ -34,7 +34,7 @@ import {localData} from "@/dataLayer/local";
 import DrawerNew from "@/components/Drawer/DrawerNew";
 import {computed, onMounted, reactive, ref} from "vue";
 import {
-  addLayer,
+  addLayer, blendLayer,
   deleteLayer,
   fetchLayers,
   hideLayer,
@@ -168,6 +168,14 @@ export default {
         } else if(event === "apply-rgba-mode") {
           localData.selectedRgba.value = payload
           settings.rgba_mode = payload
+        } else if(event === "layer-blend-mode") {
+          const data = {id: payload.id, blend_mode: payload.blend_mode, color: '#ffffff'}
+          const response = await blendLayer(data)
+          console.log(data)
+          if(response) {
+            await componentEvent('fetch-layer');
+            console.log('RESPONSE-APP-VUE')
+          }
         } else if(event === "update-dimension") {
           localData.dimension.value = payload
         } else if(event === "add-layer") {

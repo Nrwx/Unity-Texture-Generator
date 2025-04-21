@@ -23,14 +23,19 @@
           <span class="text-subtitle-2">{{ tab.name }}</span>
         </v-tab>
       </v-tabs>
-      <!-- Global Opacity Control -->
+      <!-- Layer-Controller -->
       <v-row
+          v-if="tabIndex === 0"
           class="px-4 pt-2"
           align="center"
           dense
+
       >
-        <v-col cols="auto" class="text-caption font-weight-medium">Deckkraft:</v-col>
         <v-col cols="6">
+          <Form @component-event="updateBlend" v-model:operation="methods" v-model:item="config"/>
+        </v-col>
+        <v-col cols="6" class="d-flex align-center flex-wrap">
+          <div class="text-caption font-weight-medium">Deckkraft:</div>
           <v-slider
               v-model="globalOpacity"
               min="0"
@@ -41,8 +46,8 @@
               hide-details
               @click.stop="updateOpacity"
           />
+          <div class="text-caption ml-2">{{ globalOpacity }}%</div>
         </v-col>
-        <v-col cols="auto" class="text-caption">{{ globalOpacity }}%</v-col>
       </v-row>
       <v-card
           class="overflow-hidden overflow-y-auto"
@@ -64,7 +69,7 @@
                     :data-id="layer.id"
                     class="layer-item"
                     :class="{selected: selectedLayer.includes(layer.id),dragging: windowStates.drag.value && dragId === layer.id,'not-dragging': windowStates.drag.value && dragId !== layer.id}"
-                    @click="toggleLayerSelection(layer.id, layer.opacity)"
+                    @click="toggleLayerSelection(layer.id, layer.opacity, layer.blend_mode)"
                 >
                   <template v-slot:prepend>
                     <v-icon color="grey" size="x-small" @click.stop="emitEvent('hide-layer', layer)">
@@ -148,25 +153,18 @@ import {layerModel, layerProps} from "@/models/layer/model";
 import Drag from "@/components/Drag/Drag.vue";
 import {windowStates} from "@/dataLayer/state";
 import Channel from "@/components/Channel/Channel.vue";
-import channel from "@/components/Channel/Channel.vue";
+import Form from "@/components/Form/Form.vue";
 
 export default defineComponent({
   name: "LayerComponent",
-  computed: {
-    channel() {
-      return channel
-    },
-    windowStates() {
-      return windowStates
-    }
-  },
   props: layerProps,
   components: {
+    Form,
     Drag,
     Channel
   },
   setup(props, { emit }) {
-    const { emitEvent, validRule, selectedLayer, toggleLayerSelection, handleDrop, dragId, hiddenState, tabs, tabIndex, handleTabEmit, globalOpacity, updateOpacity } = layerModel(props, emit);
+    const { emitEvent, validRule, selectedLayer, toggleLayerSelection, handleDrop, dragId, hiddenState, tabs, tabIndex, handleTabEmit, globalOpacity, updateOpacity, methods, config, updateBlend } = layerModel(props, emit);
     return {
       emitEvent,
       validRule,
@@ -179,7 +177,11 @@ export default defineComponent({
       tabIndex,
       handleTabEmit,
       globalOpacity,
-      updateOpacity
+      updateOpacity,
+      windowStates,
+      methods,
+      config,
+      updateBlend,
     };
   },
 });

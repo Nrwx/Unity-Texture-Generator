@@ -26,7 +26,7 @@ export function dragModel(props, emit) {
         window.addEventListener("mousemove", moveDrag);
     };
 
-    const startDrag = (event) => {
+    const  startDrag = (event) => {
         dragData.ghost.value = null;
         dragData.id.value = null;
         const target = event.target.closest('[data-id]');

@@ -1,4 +1,4 @@
-export function formModel(emit) {
+export function formModel(props, emit) {
     const emitEvent = (event, payload) => {
         emit("component-event", event, payload);
     };

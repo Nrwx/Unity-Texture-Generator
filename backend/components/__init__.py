@@ -19,6 +19,7 @@ from .modifiers.apply_blend_edges import apply_blend_edges
 from .modifiers.apply_blur import apply_blur
 from .modifiers.apply_brightness_contrast import apply_brightness_contrast
 from .modifiers.apply_color import apply_color
+from .modifiers.apply_color import apply_blend_layer
 from .modifiers.apply_color_shift import apply_color_shift
 from .modifiers.apply_crop_image import apply_crop_image
 from .modifiers.apply_deepness_highness import apply_deepness_highness

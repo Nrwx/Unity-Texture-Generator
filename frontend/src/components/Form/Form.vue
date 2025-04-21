@@ -49,7 +49,10 @@
     <v-select
         v-else-if="prop.type === 'select' && prop.active"
         v-model="item[key]"
+        :density="prop.dense"
+        :hide-details="prop.dense"
         :items="prop.options"
+        :disabled="prop.disabled"
         :label="prop.label"
         :prepend-icon="prop.prependIcon"
         :append-icon="prop.appendIcon"
@@ -80,7 +83,7 @@ export default defineComponent({
   name: "FormComponent",
   props: formProps,
   setup(props, { emit }) {
-    const { selected, emitEvent } = formModel(emit);
+    const { selected, emitEvent } = formModel(props, emit);
     return {
       selected,
       emitEvent

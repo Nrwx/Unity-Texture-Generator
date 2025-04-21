@@ -27,6 +27,7 @@ from components import (
     apply_resize,
     apply_cut_out,
     apply_color,
+    apply_blend_layer,
     apply_crop_image,
     apply_blend_edges,
     apply_brightness_contrast,
@@ -222,6 +223,9 @@ PARAMETERS = {
         "order": {"type": int, "default": 0},
         "hidden": {"type": int, "default": 0},
         "opacity": {"type": float, "default": 1},
+        "blend_mode": {"type": int, "default": 0},
+        "color": {"type": str, "default": "#000000"},
+
     },
 }
 
@@ -579,7 +583,9 @@ def add_layer(name="", path="", id="", width=1024, height=1024):
             "source": source_id,
             "order": len(layers),
             "hidden": 0,
-            "opacity": 1
+            "opacity": 1,
+            "blend_mode": 0,
+            "color": "#ffffff"
         }
         layers.append(layer)
         print(layers)
@@ -587,7 +593,7 @@ def add_layer(name="", path="", id="", width=1024, height=1024):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-def update_layer(name, width, height, id, a, b, c, d, x, y, rotate, order, hidden, opacity):
+def update_layer(name, width, height, id, a, b, c, d, x, y, rotate, order, hidden, opacity, blend_mode, color):
     try:
         layer = next((l for l in layers if l["id"] == id), None)
         if not layer:
@@ -619,6 +625,10 @@ def update_layer(name, width, height, id, a, b, c, d, x, y, rotate, order, hidde
             layer["hidden"] = hidden
         if opacity:
             layer["opacity"] = opacity
+        if blend_mode:
+            layer["blend_mode"] = blend_mode
+        if color:
+            layer["color"] = color
 
         print(layers)
         return jsonify(layer), 200
@@ -758,6 +768,86 @@ def order_layers(id, order):
             layer["order"] = i
 
         return jsonify({"success": True, "message": f"Layer {id} moved to position {order}."}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+def blend_layer(id, blend_mode, color):
+    """
+    Setzt den blend_mode für das Layer mit der gegebenen ID,
+    wendet ihn auf das zugehörige Bild an, speichert das Ergebnis
+    unter /download/{id}.png und aktualisiert layer["url"].
+    """
+    try:
+        # 1) Layer finden
+        layer = next((l for l in layers if l["id"] == id), None)
+        if layer is None:
+            return jsonify({"error": f"Layer with id '{id}' not found."}), 404
+
+        layer1_path = os.path.join(LAYER_FOLDER, f"{id}.png")
+
+        if not os.path.exists(layer1_path):
+            return jsonify({"error": "Layer image not found"}), 404
+
+        img1 = Image.open(layer1_path)
+        image1, alpha = apply_rgb_rgba(img1)
+        img_array1 = np.array(image1)
+
+        # Fallback für Alpha, falls None
+        if alpha is None:
+            alpha = np.full((img_array1.shape[0], img_array1.shape[1]), 255, dtype=np.uint8)
+
+        # 2) Blend Mode und Farbe speichern
+        layer["blend_mode"] = blend_mode
+        layer["color"] = color
+
+        # 3) Layer-Order prüfen
+        layer_order = layer.get("order", 0)
+
+        if layer_order == 0:
+            # Kein darunterliegendes Layer vorhanden
+            img_array1 = apply_color(img_array1, color, alpha, blend_mode)
+        else:
+            index = layer_order - 1
+            if index < 0 or index >= len(layers):
+                return jsonify({"error": "Invalid layer order"}), 400
+
+            findLayer2 = layers[index]
+            layer2_path = os.path.join(LAYER_FOLDER, f"{findLayer2['id']}.png")
+
+            if not os.path.exists(layer2_path):
+                return jsonify({"error": "Base layer image not found"}), 404
+
+            img2 = Image.open(layer2_path)
+            img_array2 = np.array(img2)
+
+            img_array1 = apply_blend_layer(img_array2, img_array1, alpha, blend_mode)
+
+        # 4) Neues Bild erzeugen
+        blended_img = Image.fromarray(img_array1.astype(np.uint8))
+
+        # 5) Speichern & neue URL erzeugen
+        if blend_mode != 0:
+            output_id = str(uuid.uuid4())  # Neue UUID v4
+            map_filename = f"{output_id}.png"
+            map_path = os.path.join(UPLOAD_FOLDER, map_filename)
+            url_path = f"/download/{output_id}.png"
+        else:
+            map_filename = f"{id}.png"
+            map_path = os.path.join(LAYER_FOLDER, map_filename)
+            url_path = f"/download/{id}.png"
+
+        # Bild speichern
+        blended_img.save(map_path)
+
+        # URL aktualisieren
+        layer["url"] = url_path
+
+        return jsonify({
+            "success": True,
+            "message": f"Blend mode '{layer['blend_mode']}' applied with color: {layer['color']}.",
+            "url": url_path
+        }), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -902,7 +992,7 @@ def layer_management():
                 'function': add_layer
             },
             "update": {
-                'keys': {"name", "width", "height", "id", "a", "b", "c", "d", "x", "y", "rotate", "order", "hidden", "opacity"},
+                'keys': {"name", "width", "height", "id", "a", "b", "c", "d", "x", "y", "rotate", "order", "hidden", "opacity", "blend_mode", "color"},
                 'function': update_layer
             },
             "delete": {
@@ -924,6 +1014,10 @@ def layer_management():
             "hide": {
                 'keys': {"id", "hidden"},
                 'function': hide_layer
+            },
+            "blend": {
+                'keys': {"id", "blend_mode", "color"},
+                'function': blend_layer
             },
             "update:channel": {
                 'keys': {},
@@ -994,7 +1088,7 @@ def apply_upload_adjustments(img, resize_index, resize_mode, upscale_method, rgb
     if resize_index != 0:
         img = apply_resize(img, resize_index, resize_mode, upscale_method)
 
-    # Step 2: RGB Processing (z. B. sRGB → Linear, Normals etc.)
+    # Step 2: RGB Processing (z.B. sRGB → Linear, Normals etc.)
     if rgb_mode != 0:
         img = apply_rgb_mode(img, rgb_mode)
 

@@ -6,6 +6,7 @@ from .apply_blend_edges import apply_blend_edges
 from .apply_blur import apply_blur
 from .apply_brightness_contrast import apply_brightness_contrast
 from .apply_color import apply_color
+from .apply_color import apply_blend_layer
 from .apply_color_shift import apply_color_shift
 from .apply_crop_image import apply_crop_image
 from .apply_deepness_highness import apply_deepness_highness

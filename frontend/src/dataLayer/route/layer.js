@@ -149,6 +149,25 @@ export const hideLayer = async (layer) => {
     }
 };
 
+export const blendLayer = async (layer) => {
+    try {
+        const formData = new FormData();
+        formData.append("method", "blend");
+        formData.append("id", layer.id);
+        formData.append("blend_mode", layer.blend_mode);
+        formData.append("color", layer.color);
+
+        const response = await api.post('/layer', formData, {
+            headers: {'Content-Type': 'multipart/form-data'},
+        });
+        if (response) {
+            return response
+        }
+    } catch (error) {
+        console.error("Error fetching layers:", error.response?.data || error.message);
+    }
+};
+
 export const updateChannel = async () => {
     try {
         const formData = new FormData();
