@@ -673,6 +673,13 @@ def preview_layers(return_image=False):
                 scale_x = matrix["a"]
                 scale_y = matrix["d"]
 
+                # Sicherstellen, dass das Bild RGBA ist
+                if layer["opacity"] < 1.0:
+                    # Alphakanal modifizieren
+                    r, g, b, a = layer_img.split()
+                    a = a.point(lambda p: int(p * layer["opacity"]))
+                    layer_img = Image.merge("RGBA", (r, g, b, a))
+
                 # Berechne die Position vor der Skalierung und Rotation
                 pos_x = int(round(matrix["x"]))
                 pos_y = int(round(matrix["y"]))

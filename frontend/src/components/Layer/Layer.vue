@@ -64,7 +64,7 @@
                     :data-id="layer.id"
                     class="layer-item"
                     :class="{selected: selectedLayer.includes(layer.id),dragging: windowStates.drag.value && dragId === layer.id,'not-dragging': windowStates.drag.value && dragId !== layer.id}"
-                    @click="toggleLayerSelection(layer.id)"
+                    @click="toggleLayerSelection(layer.id, layer.opacity)"
                 >
                   <template v-slot:prepend>
                     <v-icon color="grey" size="x-small" @click.stop="emitEvent('hide-layer', layer)">

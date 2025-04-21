@@ -36,8 +36,9 @@ export function layerModel(props, emit) {
         };
     };
 
-    const toggleLayerSelection = (id) => {
+    const toggleLayerSelection = (id, opacity) => {
         const index = selectedLayer.value.indexOf(id);
+        globalOpacity.value = opacity * 100
         if (index === -1) {
             selectedLayer.value.push(id);
         } else {
