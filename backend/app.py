@@ -655,83 +655,77 @@ def delete_layer(id):
 def list_layers():
     return jsonify(layers), 200
 
-def preview_layers(return_image=False):
+def preview_layers(return_image=False, layer_id=None):
     try:
         if not layers:
             return jsonify({"error": "No layers to preview"}), 404
 
-        # Erstelle den leeren Canvas (Viewport)
+        # Erstelle leeren Canvas (Viewport)
         viewport_width = viewportConfig[0]["width"]
         viewport_height = viewportConfig[0]["height"]
-
         composite_image = Image.new('RGBA', (viewport_width, viewport_height), (0, 0, 0, 0))
 
-        for layer in layers:
+        # Nur ein Layer rendern?
+        render_layers = []
+        if layer_id:
+            single_layer = next((l for l in layers if l["id"] == layer_id), None)
+            if single_layer is None:
+                return jsonify({"error": f"Layer with id '{layer_id}' not found."}), 404
+            render_layers.append(single_layer)
+        else:
+            render_layers = [l for l in layers if l.get("hidden", 0) != 1]
 
-            if layer["hidden"] == 1:
+        for layer in render_layers:
+            layer_path = os.path.join(LAYER_FOLDER, f"{layer['id']}.png")
+            if not os.path.exists(layer_path):
                 continue
 
-            layer_path = os.path.join(LAYER_FOLDER, f"{layer['id']}.png")
-            if os.path.exists(layer_path):
-                layer_img = Image.open(layer_path).convert('RGBA')
-                matrix = layer.get("matrix", {
-                    "a": 1, "b": 0, "c": 0, "d": 1,
-                    "x": 0, "y": 0, "rotate": 0
-                })
+            layer_img = Image.open(layer_path).convert('RGBA')
+            matrix = layer.get("matrix", {
+                "a": 1, "b": 0, "c": 0, "d": 1,
+                "x": 0, "y": 0, "rotate": 0
+            })
 
-                original_width, original_height = layer_img.size
-                scale_x = matrix["a"]
-                scale_y = matrix["d"]
+            original_width, original_height = layer_img.size
+            scale_x = matrix.get("a", 1)
+            scale_y = matrix.get("d", 1)
 
-                # Sicherstellen, dass das Bild RGBA ist
-                if layer["opacity"] < 1.0:
-                    # Alphakanal modifizieren
-                    r, g, b, a = layer_img.split()
-                    a = a.point(lambda p: int(p * layer["opacity"]))
-                    layer_img = Image.merge("RGBA", (r, g, b, a))
+            # Alphakanal anwenden
+            if layer.get("opacity", 1.0) < 1.0:
+                r, g, b, a = layer_img.split()
+                a = a.point(lambda p: int(p * layer["opacity"]))
+                layer_img = Image.merge("RGBA", (r, g, b, a))
 
-                # Berechne die Position vor der Skalierung und Rotation
-                pos_x = int(round(matrix["x"]))
-                pos_y = int(round(matrix["y"]))
+            pos_x = int(round(matrix.get("x", 0)))
+            pos_y = int(round(matrix.get("y", 0)))
+            rotate_angle = float(matrix.get("rotate", 0))
 
-                # Rotation
-                rotate_angle = float(matrix.get("rotate", 0))
+            center_x = original_width / 2
+            center_y = original_height / 2
 
-                # Berechne den Mittelpunkt für die Rotation
-                center_x = original_width / 2
-                center_y = original_height / 2
+            if rotate_angle != 0:
+                rotated_img = layer_img.rotate(-rotate_angle, resample=Image.BICUBIC, expand=True, center=(center_x, center_y))
+                rotated_img = apply_edge_smooth(rotated_img)
+                rotated_width, rotated_height = rotated_img.size
+            else:
+                rotated_img = layer_img
+                rotated_width, rotated_height = original_width, original_height
 
-                # Wenn Rotation vorliegt, dann zuerst rotiere das Bild
-                if rotate_angle != 0:
-                    rotated_img = layer_img.rotate(-rotate_angle, resample=Image.BICUBIC, expand=True, center=(center_x, center_y))
-                    rotated_img = apply_edge_smooth(rotated_img)
-                    rotated_width, rotated_height = rotated_img.size
-                else:
-                    rotated_img = layer_img
-                    rotated_width, rotated_height = original_width, original_height
+            new_width = int(round(rotated_width * scale_x))
+            new_height = int(round(rotated_height * scale_y))
+            transformed_img = rotated_img.resize((new_width, new_height), resample=Image.BICUBIC)
 
-                # Skalierung: Jetzt wird das Bild skaliert (unter Berücksichtigung der Rotation)
-                new_width = int(round(rotated_width * scale_x))
-                new_height = int(round(rotated_height * scale_y))
-                transformed_img = rotated_img.resize((new_width, new_height), resample=Image.BICUBIC)
+            center_scaled_x = new_width / 2
+            center_scaled_y = new_height / 2
+            offset_x = center_scaled_x - center_x
+            offset_y = center_scaled_y - center_y
 
-                # Berechne den Offset durch Rotation und Skalierung
-                # Berechne den Mittelpunkt des skalierten Bildes und den Offset nach der Skalierung
-                center_scaled_x = new_width / 2
-                center_scaled_y = new_height / 2
+            paste_x = int(round(pos_x - offset_x))
+            paste_y = int(round(pos_y - offset_y))
 
-                # Berechne den neuen Offset, um das Bild richtig zu platzieren
-                offset_x = center_scaled_x - center_x
-                offset_y = center_scaled_y - center_y
+            composite_image.paste(transformed_img, (paste_x, paste_y), transformed_img)
 
-                # Neue Position im Viewport nach der Skalierung und Rotation
-                paste_x = int(round(pos_x - offset_x))
-                paste_y = int(round(pos_y - offset_y))
-
-                # Layer auf das finale Bild setzen
-                composite_image.paste(transformed_img, (paste_x, paste_y), transformed_img)
-
-        # Speichern der finalen Map
+        # Bild speichern oder zurückgeben
         map_id = str(uuid.uuid4())
         map_filename = f"{map_id}.png"
         map_path = os.path.join(UPLOAD_FOLDER, map_filename)
@@ -740,10 +734,15 @@ def preview_layers(return_image=False):
         if return_image:
             return composite_image
 
-        return jsonify({"id": map_id, "title": "preview", "src": f"/download/{map_filename}"}), 200
+        return jsonify({
+            "id": map_id,
+            "title": "preview",
+            "src": f"/download/{map_filename}"
+        }), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 def order_layers(id, order):
     """
@@ -773,6 +772,7 @@ def order_layers(id, order):
         return jsonify({"error": str(e)}), 500
 
 def blend_layer(id, blend_mode, color):
+
     """
     Setzt den blend_mode für das Layer mit der gegebenen ID,
     wendet ihn auf das zugehörige Bild an, speichert das Ergebnis

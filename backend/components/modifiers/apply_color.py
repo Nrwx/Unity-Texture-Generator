@@ -402,58 +402,38 @@ def apply_luminance(base, overlay, alpha):
 
 def apply_color_filter(base, overlay, mode, alpha):
     """Wendet den gewählten Blend-Modus an unter Berücksichtigung des Alpha-Werts."""
-    if mode == 0:
-        return apply_normal(base, alpha)
-    elif mode == 1:
-        return apply_sprenkeln(base, overlay, alpha)
-    elif mode == 2:
-        return apply_darken(base, overlay, alpha)
-    elif mode == 3:
-        return apply_multiply(base, overlay, alpha)
-    elif mode == 4:
-        return apply_color_dodge(base, overlay, alpha)
-    elif mode == 5:
-        return apply_linear_burn(base, overlay, alpha)
-    elif mode == 6:
-        return apply_lighten(base, overlay, alpha)
-    elif mode == 7:
-        return apply_negate_multiply(base, overlay, alpha)
-    elif mode == 8:
-        return apply_color_burn(base, overlay, alpha)
-    elif mode == 9:
-        return apply_linear_dodge(base, overlay, alpha)
-    elif mode == 10:
-        return apply_lighter_color(base, overlay, alpha)
-    elif mode == 11:
-        return apply_overlay(base, overlay, alpha)
-    elif mode == 12:
-        return apply_soft_light(base, overlay, alpha)
-    elif mode == 13:
-        return apply_hard_light(base, overlay, alpha)
-    elif mode == 14:
-        return apply_vivid_light(base, overlay, alpha)
-    elif mode == 15:
-        return apply_linear_light(base, overlay, alpha)
-    elif mode == 16:
-        return apply_lighting_spot(base, overlay, alpha)
-    elif mode == 17:
-        return apply_hard_mix(base, overlay, alpha)
-    elif mode == 18:
-        return apply_difference(base, overlay, alpha)
-    elif mode == 19:
-        return apply_subtract(base, overlay, alpha)
-    elif mode == 20:
-        return apply_divide(base, overlay, alpha)
-    elif mode == 21:
-        return apply_hue(base, overlay, alpha)
-    elif mode == 22:
-        return apply_saturation(base, overlay, alpha)
-    elif mode == 23:
-        return apply_colored(base, overlay, alpha)
-    elif mode == 24:
-        return apply_luminance(base, overlay, alpha)
-    else:
-        raise ValueError("Ungültiger Modus. Wählen Sie eine Zahl von 1 bis 25.")
+    blend_modes = {
+        0: apply_normal,
+        1: apply_sprenkeln,
+        2: apply_darken,
+        3: apply_multiply,
+        4: apply_color_dodge,
+        5: apply_linear_burn,
+        6: apply_lighten,
+        7: apply_negate_multiply,
+        8: apply_color_burn,
+        9: apply_linear_dodge,
+        10: apply_lighter_color,
+        11: apply_overlay,
+        12: apply_soft_light,
+        13: apply_hard_light,
+        14: apply_vivid_light,
+        15: apply_linear_light,
+        16: apply_lighting_spot,
+        17: apply_hard_mix,
+        18: apply_difference,
+        19: apply_subtract,
+        20: apply_divide,
+        21: apply_hue,
+        22: apply_saturation,
+        23: apply_colored,
+        24: apply_luminance
+    }
+
+    if mode not in blend_modes:
+        raise ValueError("Ungültiger Modus. Wählen Sie eine Zahl von 0 bis 24.")
+
+    return blend_modes[mode](base, overlay, alpha)
 
 def apply_color(img_array, color_overlay, mode=1):
     """Wendet eine Farbüberlagerung mit dem angegebenen Blend-Modus und Alpha-Wert an."""
