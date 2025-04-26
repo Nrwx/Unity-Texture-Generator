@@ -772,63 +772,57 @@ def order_layers(id, order):
         return jsonify({"error": str(e)}), 500
 
 def blend_layer(id, blend_mode, color):
-
-    """
-    Setzt den blend_mode für das Layer mit der gegebenen ID,
-    wendet ihn auf das zugehörige Bild an, speichert das Ergebnis
-    unter /download/{id}.png und aktualisiert layer["url"].
-    """
     try:
         # 1) Layer finden
         layer = next((l for l in layers if l["id"] == id), None)
         if layer is None:
             return jsonify({"error": f"Layer with id '{id}' not found."}), 404
 
-        layer1_path = os.path.join(LAYER_FOLDER, f"{id}.png")
+        # Prepare Layer 1
+        img1 = prepare_layer(layer)
+        if img1 is None:
+            return jsonify({"error": "Failed to prepare layer 1."}), 500
 
-        if not os.path.exists(layer1_path):
-            return jsonify({"error": "Layer image not found"}), 404
-
-        img1 = Image.open(layer1_path)
         image1, alpha = apply_rgb_rgba(img1)
         img_array1 = np.array(image1)
 
-        # Fallback für Alpha, falls None
+        # Fallback für Alpha
         if alpha is None:
             alpha = np.full((img_array1.shape[0], img_array1.shape[1]), 255, dtype=np.uint8)
 
-        # 2) Blend Mode und Farbe speichern
+        # Blend Mode und Farbe speichern
         layer["blend_mode"] = blend_mode
         layer["color"] = color
 
-        # 3) Layer-Order prüfen
+        # Layer-Order prüfen
         layer_order = layer.get("order", 0)
 
         if layer_order == 0:
-            # Kein darunterliegendes Layer vorhanden
-            img_array1 = apply_color(img_array1, color, alpha, blend_mode)
+            img_array1 = apply_color(img_array1, color, blend_mode)
         else:
+            # Prepare Layer 2
             index = layer_order - 1
             if index < 0 or index >= len(layers):
                 return jsonify({"error": "Invalid layer order"}), 400
 
             findLayer2 = layers[index]
-            layer2_path = os.path.join(LAYER_FOLDER, f"{findLayer2['id']}.png")
+            img2 = prepare_layer(findLayer2)
+            if img2 is None:
+                return jsonify({"error": "Failed to prepare base layer."}), 500
 
-            if not os.path.exists(layer2_path):
-                return jsonify({"error": "Base layer image not found"}), 404
-
-            img2 = Image.open(layer2_path)
             img_array2 = np.array(img2)
 
-            img_array1 = apply_blend_layer(img_array2, img_array1, alpha, blend_mode)
+            img_array1 = apply_blend_layer(img_array1, img_array2, alpha, blend_mode)
 
-        # 4) Neues Bild erzeugen
+        # Neues Bild erzeugen
         blended_img = Image.fromarray(img_array1.astype(np.uint8))
 
-        # 5) Speichern & neue URL erzeugen
+        # Jetzt: Padding wegschneiden
+        blended_img = crop_to_content(blended_img)
+
+        # Speichern & neue URL erzeugen
         if blend_mode != 0:
-            output_id = str(uuid.uuid4())  # Neue UUID v4
+            output_id = str(uuid.uuid4())
             map_filename = f"{output_id}.png"
             map_path = os.path.join(UPLOAD_FOLDER, map_filename)
             url_path = f"/download/{output_id}.png"
@@ -837,7 +831,6 @@ def blend_layer(id, blend_mode, color):
             map_path = os.path.join(LAYER_FOLDER, map_filename)
             url_path = f"/download/{id}.png"
 
-        # Bild speichern
         blended_img.save(map_path)
 
         # URL aktualisieren
@@ -851,6 +844,75 @@ def blend_layer(id, blend_mode, color):
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+def crop_to_content(img):
+    """
+    Schneidet die transparente Fläche eines RGBA-Bildes weg,
+    sodass nur der sichtbare Inhalt übrig bleibt.
+    """
+    bbox = img.getbbox()
+    if bbox:
+        return img.crop(bbox)
+    return img  # Falls komplett leer, Bild unverändert zurückgeben
+
+
+def prepare_layer(layer):
+    try:
+        # Viewport Dimensionen
+        viewport_width = viewportConfig[0]["width"]
+        viewport_height = viewportConfig[0]["height"]
+
+        # Leeres Bild in Viewportgröße
+        result_img = Image.new('RGBA', (viewport_width, viewport_height), (0, 0, 0, 0))
+
+        # Original Layerbild laden
+        layer_path = os.path.join(LAYER_FOLDER, f"{layer['id']}.png")
+        layer_img = Image.open(layer_path).convert('RGBA')
+
+        matrix = layer.get("matrix", {
+            "a": 1, "b": 0, "c": 0, "d": 1,
+            "x": 0, "y": 0, "rotate": 0
+        })
+
+        scale_x = matrix.get("a", 1)
+        scale_y = matrix.get("d", 1)
+        pos_x = matrix.get("x", 0)
+        pos_y = matrix.get("y", 0)
+        rotate_angle = matrix.get("rotate", 0)
+
+        original_width, original_height = layer_img.size
+
+        # Erst skalieren
+        scaled_width = int(round(original_width * scale_x))
+        scaled_height = int(round(original_height * scale_y))
+        scaled_img = layer_img.resize((scaled_width, scaled_height), resample=Image.BICUBIC)
+
+        # Danach rotieren (um die Mitte)
+        if rotate_angle != 0:
+            center = (scaled_width / 2, scaled_height / 2)
+            rotated_img = scaled_img.rotate(-rotate_angle, resample=Image.BICUBIC, expand=True, center=center)
+        else:
+            rotated_img = scaled_img
+
+        # Jetzt auf die Viewport große Fläche pasten
+        paste_x = int(round(pos_x - rotated_img.width / 2))
+        paste_y = int(round(pos_y - rotated_img.height / 2))
+
+        # Alphakanal anwenden (falls nötig)
+        if layer.get("opacity", 1.0) < 1.0:
+            r, g, b, a = rotated_img.split()
+            a = a.point(lambda p: int(p * layer["opacity"]))
+            rotated_img = Image.merge("RGBA", (r, g, b, a))
+
+        result_img.paste(rotated_img, (paste_x, paste_y), rotated_img)
+
+        return result_img
+
+    except Exception as e:
+        print(f"Error preparing layer: {e}")
+        return None
+
 
 def hide_layer(id, hidden):
     """

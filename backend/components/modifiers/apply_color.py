@@ -488,3 +488,4 @@ def apply_blend_layer(img_array, color_overlay, alpha_channel, mode=1):
         )
 
     return img_array_rgb
+
