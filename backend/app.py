@@ -773,54 +773,78 @@ def order_layers(id, order):
 
 def blend_layer(id, blend_mode, color):
     try:
-        # 1) Layer finden
+        # 1) Layer-Daten finden
         layer = next((l for l in layers if l["id"] == id), None)
         if layer is None:
             return jsonify({"error": f"Layer with id '{id}' not found."}), 404
 
-        # Prepare Layer 1
-        img1 = prepare_layer(layer)
-        if img1 is None:
-            return jsonify({"error": "Failed to prepare layer 1."}), 500
+        # 2) Aktuellen Layer laden
+        img1_path = os.path.join(LAYER_FOLDER, f"{id}.png")
+        img1 = Image.open(img1_path).convert("RGBA")
+        img_array1 = np.array(img1)
+        alpha1 = img_array1[..., 3]
 
-        image1, alpha = apply_rgb_rgba(img1)
-        img_array1 = np.array(image1)
-
-        # Fallback für Alpha
-        if alpha is None:
-            alpha = np.full((img_array1.shape[0], img_array1.shape[1]), 255, dtype=np.uint8)
-
-        # Blend Mode und Farbe speichern
+        # 3) Farbe + Blend Mode speichern
         layer["blend_mode"] = blend_mode
         layer["color"] = color
 
-        # Layer-Order prüfen
+        # 4) Layer-Order prüfen
         layer_order = layer.get("order", 0)
 
         if layer_order == 0:
-            img_array1 = apply_color(img_array1, color, blend_mode)
+            # Kein darunterliegender Layer → nur Farbe anwenden
+            colored_array = apply_color(img_array1[..., :3], color, blend_mode)
+            blended_rgba = np.dstack((colored_array, alpha1))
+            blended_img = Image.fromarray(blended_rgba.astype(np.uint8))
         else:
-            # Prepare Layer 2
-            index = layer_order - 1
-            if index < 0 or index >= len(layers):
+            # Darunterliegenden Layer laden
+            base_index = layer_order - 1
+            if base_index < 0 or base_index >= len(layers):
                 return jsonify({"error": "Invalid layer order"}), 400
 
-            findLayer2 = layers[index]
-            img2 = prepare_layer(findLayer2)
-            if img2 is None:
-                return jsonify({"error": "Failed to prepare base layer."}), 500
+            base_layer = layers[base_index]
+            base_id = base_layer["id"]
 
+            img2_path = os.path.join(LAYER_FOLDER, f"{base_id}.png")
+            img2 = Image.open(img2_path).convert("RGBA")
             img_array2 = np.array(img2)
+            alpha2 = img_array2[..., 3]
 
-            img_array1 = apply_blend_layer(img_array1, img_array2, alpha, blend_mode)
+            # 5) Positions- und Größeninformationen auslesen
+            x1, y1 = layer["matrix"]["x"], layer["matrix"]["y"]
+            w1, h1 = layer["width"], layer["height"]
 
-        # Neues Bild erzeugen
-        blended_img = Image.fromarray(img_array1.astype(np.uint8))
+            x2, y2 = base_layer["matrix"]["x"], base_layer["matrix"]["y"]
+            w2, h2 = base_layer["width"], base_layer["height"]
 
-        # Jetzt: Padding wegschneiden
-        blended_img = crop_to_content(blended_img)
+            # 6) Bereich aus dem Basislayer ausschneiden
+            # Berechne den Offset relativ zum Basislayer
+            rel_x = int(x1 - x2)
+            rel_y = int(y1 - y2)
 
-        # Speichern & neue URL erzeugen
+            # Grenzen prüfen
+            rel_x = np.clip(rel_x, 0, w2)
+            rel_y = np.clip(rel_y, 0, h2)
+            rel_x_end = np.clip(rel_x + w1, 0, w2)
+            rel_y_end = np.clip(rel_y + h1, 0, h2)
+
+            # Basislayer zuschneiden
+            cropped_base_rgb = img_array2[rel_y:rel_y_end, rel_x:rel_x_end, :3]
+            cropped_base_alpha = alpha2[rel_y:rel_y_end, rel_x:rel_x_end]
+
+            # Falls nötig, auf die Größe von img1 skalieren
+            if cropped_base_rgb.shape[1] != w1 or cropped_base_rgb.shape[0] != h1:
+                cropped_base_rgb = cv2.resize(cropped_base_rgb, (w1, h1), interpolation=cv2.INTER_AREA)
+                cropped_base_alpha = cv2.resize(cropped_base_alpha, (w1, h1), interpolation=cv2.INTER_AREA)
+
+            # 7) Jetzt echtes Blending
+            blended_rgb = apply_blend_layer(img_array1[..., :3], cropped_base_rgb, alpha1, blend_mode)
+
+            # Finales RGBA zusammenbauen
+            blended_rgba = np.dstack((blended_rgb, alpha1))
+            blended_img = Image.fromarray(blended_rgba.astype(np.uint8))
+
+        # 8) Speichern
         if blend_mode != 0:
             output_id = str(uuid.uuid4())
             map_filename = f"{output_id}.png"
@@ -833,12 +857,12 @@ def blend_layer(id, blend_mode, color):
 
         blended_img.save(map_path)
 
-        # URL aktualisieren
+        # 9) URL aktualisieren
         layer["url"] = url_path
 
         return jsonify({
             "success": True,
-            "message": f"Blend mode '{layer['blend_mode']}' applied with color: {layer['color']}.",
+            "message": f"Blend mode '{blend_mode}' applied with color {color}.",
             "url": url_path
         }), 200
 
@@ -846,15 +870,65 @@ def blend_layer(id, blend_mode, color):
         return jsonify({"error": str(e)}), 500
 
 
-def crop_to_content(img):
+
+def create_common_canvas(img1, img2):
     """
-    Schneidet die transparente Fläche eines RGBA-Bildes weg,
-    sodass nur der sichtbare Inhalt übrig bleibt.
+    Skaliert zwei Bilder (1-Kanal oder 3-Kanal) auf dieselbe Breite
+    und richtet sie vertikal mittig aus.
     """
-    bbox = img.getbbox()
-    if bbox:
-        return img.crop(bbox)
-    return img  # Falls komplett leer, Bild unverändert zurückgeben
+
+    # Bildgrößen lesen
+    if len(img1.shape) == 2:
+        h1, w1 = img1.shape
+        channels1 = 1
+    else:
+        h1, w1, channels1 = img1.shape
+
+    if len(img2.shape) == 2:
+        h2, w2 = img2.shape
+        channels2 = 1
+    else:
+        h2, w2, channels2 = img2.shape
+
+    max_width = max(w1, w2)
+
+    # Skaliere beide Bilder
+    scale_factor1 = max_width / w1
+    new_h1 = int(h1 * scale_factor1)
+    resized_img1 = cv2.resize(img1, (max_width, new_h1), interpolation=cv2.INTER_AREA)
+
+    scale_factor2 = max_width / w2
+    new_h2 = int(h2 * scale_factor2)
+    resized_img2 = cv2.resize(img2, (max_width, new_h2), interpolation=cv2.INTER_AREA)
+
+    max_height = max(new_h1, new_h2)
+
+    # Canvas erstellen (richtige Kanäle)
+    if channels1 == 1:
+        canvas1 = np.zeros((max_height, max_width), dtype=np.uint8)
+    else:
+        canvas1 = np.zeros((max_height, max_width, channels1), dtype=np.uint8)
+
+    if channels2 == 1:
+        canvas2 = np.zeros((max_height, max_width), dtype=np.uint8)
+    else:
+        canvas2 = np.zeros((max_height, max_width, channels2), dtype=np.uint8)
+
+    center_y1 = (max_height - new_h1) // 2
+    center_y2 = (max_height - new_h2) // 2
+
+    # Bilder platzieren
+    if channels1 == 1:
+        canvas1[center_y1:center_y1 + new_h1, :] = resized_img1
+    else:
+        canvas1[center_y1:center_y1 + new_h1, :, :] = resized_img1
+
+    if channels2 == 1:
+        canvas2[center_y2:center_y2 + new_h2, :] = resized_img2
+    else:
+        canvas2[center_y2:center_y2 + new_h2, :, :] = resized_img2
+
+    return canvas1, canvas2
 
 
 def prepare_layer(layer):

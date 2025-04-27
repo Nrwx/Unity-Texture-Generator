@@ -458,34 +458,35 @@ def apply_color(img_array, color_overlay, mode=1):
 
     return img_array_rgb
 
-def apply_blend_layer(img_array, color_overlay, alpha_channel, mode=1):
+def apply_blend_layer(base_img, overlay_img, alpha_channel, mode=0):
     """
-    Wendet eine Farbüberlagerung auf ein Bildarray an, wobei color_overlay und alpha_channel ebenfalls Arrays sind.
+    Blendet zwei Bilder basierend auf dem gegebenen Modus und Alpha-Channel.
 
-    Parameter:
-    - img_array: np.ndarray, Form (H, W, 3)
-    - color_overlay: np.ndarray, Form (H, W, 3)
-    - alpha_channel: np.ndarray, Form (H, W)
-    - mode: Blend-Modus
+    base_img: np.ndarray (H, W, 3) -- Hintergrundbild
+    overlay_img: np.ndarray (H, W, 3) -- Overlaybild
+    alpha_channel: np.ndarray (H, W) -- Alpha-Werte (0-255)
+    mode: int -- Blend-Mode (z.B. 0 = normal, 1 = multiply etc.)
 
     Rückgabe:
-    - Ergebnisbild als np.ndarray (H, W, 3)
+    - blended_img: np.ndarray (H, W, 3)
     """
+    # Sicherheit: Typen anpassen
+    base_img = base_img.astype(np.uint8)
+    overlay_img = overlay_img.astype(np.uint8)
+    alpha_channel = np.clip(alpha_channel, 0, 255).astype(np.uint8)
 
-    # Sicherstellen, dass alpha_channel Werte zwischen 0 und 255 hat
-    alpha_map = np.clip(alpha_channel, 0, 255).astype(np.uint8)
+    # Ergebnis vorbereiten
+    blended_img = np.zeros_like(base_img, dtype=np.uint8)
 
-    # Ergebnisbild vorbereiten
-    img_array_rgb = np.zeros_like(img_array, dtype=np.uint8)
-
-    # RGB-Kanäle einzeln verarbeiten
-    for i in range(3):
-        img_array_rgb[..., i] = apply_color_filter(
-            img_array[..., i],
-            color_overlay[..., i],
+    # Pro Kanal blenden
+    for i in range(3):  # R, G, B
+        blended_img[..., i] = apply_color_filter(
+            base_img[..., i],
+            overlay_img[..., i],
             mode,
-            alpha_map
+            alpha_channel
         )
 
-    return img_array_rgb
+    return blended_img
+
 
