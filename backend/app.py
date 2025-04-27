@@ -832,11 +832,6 @@ def blend_layer(id, blend_mode, color):
             cropped_base_rgb = img_array2[rel_y:rel_y_end, rel_x:rel_x_end, :3]
             cropped_base_alpha = alpha2[rel_y:rel_y_end, rel_x:rel_x_end]
 
-            # Falls nötig, auf die Größe von img1 skalieren
-            if cropped_base_rgb.shape[1] != w1 or cropped_base_rgb.shape[0] != h1:
-                cropped_base_rgb = cv2.resize(cropped_base_rgb, (w1, h1), interpolation=cv2.INTER_AREA)
-                cropped_base_alpha = cv2.resize(cropped_base_alpha, (w1, h1), interpolation=cv2.INTER_AREA)
-
             # 7) Jetzt echtes Blending
             blended_rgb = apply_blend_layer(img_array1[..., :3], cropped_base_rgb, alpha1, blend_mode)
 
@@ -868,125 +863,6 @@ def blend_layer(id, blend_mode, color):
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-
-
-def create_common_canvas(img1, img2):
-    """
-    Skaliert zwei Bilder (1-Kanal oder 3-Kanal) auf dieselbe Breite
-    und richtet sie vertikal mittig aus.
-    """
-
-    # Bildgrößen lesen
-    if len(img1.shape) == 2:
-        h1, w1 = img1.shape
-        channels1 = 1
-    else:
-        h1, w1, channels1 = img1.shape
-
-    if len(img2.shape) == 2:
-        h2, w2 = img2.shape
-        channels2 = 1
-    else:
-        h2, w2, channels2 = img2.shape
-
-    max_width = max(w1, w2)
-
-    # Skaliere beide Bilder
-    scale_factor1 = max_width / w1
-    new_h1 = int(h1 * scale_factor1)
-    resized_img1 = cv2.resize(img1, (max_width, new_h1), interpolation=cv2.INTER_AREA)
-
-    scale_factor2 = max_width / w2
-    new_h2 = int(h2 * scale_factor2)
-    resized_img2 = cv2.resize(img2, (max_width, new_h2), interpolation=cv2.INTER_AREA)
-
-    max_height = max(new_h1, new_h2)
-
-    # Canvas erstellen (richtige Kanäle)
-    if channels1 == 1:
-        canvas1 = np.zeros((max_height, max_width), dtype=np.uint8)
-    else:
-        canvas1 = np.zeros((max_height, max_width, channels1), dtype=np.uint8)
-
-    if channels2 == 1:
-        canvas2 = np.zeros((max_height, max_width), dtype=np.uint8)
-    else:
-        canvas2 = np.zeros((max_height, max_width, channels2), dtype=np.uint8)
-
-    center_y1 = (max_height - new_h1) // 2
-    center_y2 = (max_height - new_h2) // 2
-
-    # Bilder platzieren
-    if channels1 == 1:
-        canvas1[center_y1:center_y1 + new_h1, :] = resized_img1
-    else:
-        canvas1[center_y1:center_y1 + new_h1, :, :] = resized_img1
-
-    if channels2 == 1:
-        canvas2[center_y2:center_y2 + new_h2, :] = resized_img2
-    else:
-        canvas2[center_y2:center_y2 + new_h2, :, :] = resized_img2
-
-    return canvas1, canvas2
-
-
-def prepare_layer(layer):
-    try:
-        # Viewport Dimensionen
-        viewport_width = viewportConfig[0]["width"]
-        viewport_height = viewportConfig[0]["height"]
-
-        # Leeres Bild in Viewportgröße
-        result_img = Image.new('RGBA', (viewport_width, viewport_height), (0, 0, 0, 0))
-
-        # Original Layerbild laden
-        layer_path = os.path.join(LAYER_FOLDER, f"{layer['id']}.png")
-        layer_img = Image.open(layer_path).convert('RGBA')
-
-        matrix = layer.get("matrix", {
-            "a": 1, "b": 0, "c": 0, "d": 1,
-            "x": 0, "y": 0, "rotate": 0
-        })
-
-        scale_x = matrix.get("a", 1)
-        scale_y = matrix.get("d", 1)
-        pos_x = matrix.get("x", 0)
-        pos_y = matrix.get("y", 0)
-        rotate_angle = matrix.get("rotate", 0)
-
-        original_width, original_height = layer_img.size
-
-        # Erst skalieren
-        scaled_width = int(round(original_width * scale_x))
-        scaled_height = int(round(original_height * scale_y))
-        scaled_img = layer_img.resize((scaled_width, scaled_height), resample=Image.BICUBIC)
-
-        # Danach rotieren (um die Mitte)
-        if rotate_angle != 0:
-            center = (scaled_width / 2, scaled_height / 2)
-            rotated_img = scaled_img.rotate(-rotate_angle, resample=Image.BICUBIC, expand=True, center=center)
-        else:
-            rotated_img = scaled_img
-
-        # Jetzt auf die Viewport große Fläche pasten
-        paste_x = int(round(pos_x - rotated_img.width / 2))
-        paste_y = int(round(pos_y - rotated_img.height / 2))
-
-        # Alphakanal anwenden (falls nötig)
-        if layer.get("opacity", 1.0) < 1.0:
-            r, g, b, a = rotated_img.split()
-            a = a.point(lambda p: int(p * layer["opacity"]))
-            rotated_img = Image.merge("RGBA", (r, g, b, a))
-
-        result_img.paste(rotated_img, (paste_x, paste_y), rotated_img)
-
-        return result_img
-
-    except Exception as e:
-        print(f"Error preparing layer: {e}")
-        return None
-
 
 def hide_layer(id, hidden):
     """
