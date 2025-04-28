@@ -2,16 +2,18 @@
 <template>
   <v-dialog v-model="state" fullscreen>
     <v-card class="dialog-dimm">
-      <v-btn icon class="close-btn absolute-badge" style="top: 32px; right: 32px;" @click="emitEvent('fullscreen-state', false)">
+      <v-btn icon class="close-btn absolute" style="top: 32px; right: 32px;" @click="emitEvent('fullscreen-state', false)">
         <v-icon>mdi-close</v-icon>
       </v-btn>
-      <v-btn icon class="close-btn absolute-badge" style="top: 32px; right: 96px;" @click="emitEvent('tile-state', !data.tile)">
-        <v-icon>{{ data.tile ? 'mdi-grid-off' : 'mdi-grid'}}</v-icon>
-      </v-btn>
-      <v-btn v-if="data.mode === 0" icon class="close-btn absolute-badge" style="top: 32px; right: 160px;" @click="data.zoom = !data.zoom">
-        <v-icon>{{ data.zoom ? 'mdi-magnify-remove-outline' : 'mdi-magnify-scan'}}</v-icon>
-      </v-btn>
-      <div class="zoomedContainer" v-if="data.zoom && data.mode === 0">
+      <template v-if="data.mode === 0">
+        <v-btn icon class="close-btn absolute" style="top: 32px; right: 96px;" @click="emitEvent('tile-state', !data.tile)">
+          <v-icon>{{ data.tile ? 'mdi-grid-off' : 'mdi-grid'}}</v-icon>
+        </v-btn>
+        <v-btn v-if="data.mode === 0" icon class="close-btn absolute" style="top: 32px; right: 160px;" @click="data.zoom = !data.zoom">
+          <v-icon>{{ data.zoom ? 'mdi-magnify-remove-outline' : 'mdi-magnify-scan'}}</v-icon>
+        </v-btn>
+      </template>
+      <div class="zoomedContainer" v-if="data.zoom">
         <v-img
             :src="data.tile && data.src && data.tileSize.x > 1 && data.tileSize.y > 1 ? data.tileSrc : data.src"
             alt="Zoomed Image"
@@ -23,7 +25,7 @@
         <v-img :src="data.tile && data.tileSrc && data.tileSize.x > 1 && data.tileSize.y > 1 ? data.tileSrc : data.src" alt="Fullscreen Image"></v-img>
         <div v-if="data.zoom" class="targetZoomContainer" :style="zoomedStyle"></div>
       </div>
-      <div class="tileMenu d-flex align-center justify-center pa-4" v-if="data.tile && data.mode === 0">
+      <div class="tileMenu d-flex align-center justify-center pa-4" v-if="data.tile">
         <v-select
             v-model="data.tileSize"
             :items="tileSizes"

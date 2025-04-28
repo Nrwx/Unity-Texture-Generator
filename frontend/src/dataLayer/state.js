@@ -7,6 +7,7 @@ export const windowStates = {
     drawerRight: ref(false),
     layer: ref(false),
     setting: ref(false),
+    dialog: ref(false),
     fullscreen: ref(false),
     drag: ref(false),
     select: ref(false)

@@ -1,13 +1,10 @@
 <template>
   <v-navigation-drawer
-      absolute
       v-model="taskbarMenu"
       :width="width"
       :location="align"
-      permanent
   >
-    <v-progress-linear v-if="!item" color="blue-darken-3" v-model="time" :max="time" :buffer-value="(100 / time) * time" :reverse="align === 'right'"></v-progress-linear>
-    <v-card else flat>
+    <v-card flat>
       <v-card-text class="d-flex align-center flex-nowrap">
         <!-- Titel und Untertitel -->
         <div

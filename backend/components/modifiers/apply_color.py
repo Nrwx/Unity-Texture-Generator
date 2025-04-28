@@ -18,7 +18,7 @@ def hex_to_rgba(hex_color):
 
     return np.array([r, g, b, a])
 
-def apply_normal(base, alpha):
+def apply_normal(base, overlay, alpha):
     """
     Normaler Überlagerungseffekt, der nur das 'base'-Bild und den 'alpha'-Wert verwendet.
     Der Alpha-Wert steuert die Intensität des Effekts.

@@ -6,7 +6,7 @@
     </template>
     <template v-else>
       <!-- Settings Dialog -->
-      <Setting @component-event="componentEvent" v-model:state="windowStates.setting.value" v-model:settings="osSettings"/>
+      <Setting @component-event="componentEvent" v-model:state="windowStates.setting.value" v-model:settings="osSettings" :loading="localData.loading.value"/>
       <Fullscreen @component-event="componentEvent" v-model:state="windowStates.fullscreen.value" v-model:data="fullscreenInfo"/>
       <!-- Linke Taskbar -->
       <Taskbar @taskbar-event="taskbarEvent('left', $event)" align="left" v-model:items="itemsLeft" />
@@ -133,6 +133,10 @@ export default {
             localData.viewport.value = data;
             windowStates.viewport = false;
           }
+        } else if (event === "dialog-state") {
+          if(typeof payload === 'boolean') {
+            windowStates.dialog.value = payload;
+          }
         } else if (event === "viewport-state") {
           if(typeof payload === 'boolean') {
             windowStates.viewport.value = payload;
@@ -174,7 +178,6 @@ export default {
           console.log(data)
           if(response) {
             await componentEvent('fetch-layer');
-            console.log('RESPONSE-APP-VUE')
           }
         } else if(event === "update-dimension") {
           localData.dimension.value = payload
@@ -234,11 +237,14 @@ export default {
             console.log(payload)
           }
         } else if(event === "fetch-setting") {
+          localData.loading.value = true
           const response = await fetchOsSettings()
           if(response) {
             Object.assign(osSettings, response)
+            localData.loading.value = false
           }
         } else if(event === "save-setting") {
+          localData.loading.value = true
           const response = await saveOsSettings()
           if(response) {
             windowStates.setting.value = false
@@ -292,6 +298,7 @@ export default {
             console.log(response)
           }
         } else if(event === 'tools-state') {
+          fullscreenInfo.mode = payload.mode
           fullscreenInfo.title = payload.title;
           fullscreenInfo.id = payload.id
           fullscreenInfo.src = payload.src

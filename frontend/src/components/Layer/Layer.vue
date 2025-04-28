@@ -15,7 +15,7 @@
           background-color="primary"
           dark
           grow
-          height="32px"
+          height="32"
           align="center"
       >
         <v-tab min-width="16" min-height="16" height="24" width="16" max-width="16" max-height="24" v-for="(tab, index) in tabs" :key="tab.index" @click="handleTabEmit(index)">
@@ -26,7 +26,7 @@
       <!-- Layer-Controller -->
       <v-row
           v-if="tabIndex === 0"
-          class="px-4 pt-2"
+          class="pt-2"
           align="center"
           dense
 
