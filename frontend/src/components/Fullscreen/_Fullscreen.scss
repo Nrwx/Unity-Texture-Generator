@@ -2,6 +2,9 @@
   background: rgba(17, 17, 17, 0.9);
   padding: 32px;
   box-shadow: 10px 10px 200px 10px #111 inset;
+  .loading-text {
+    color: #fff !important;
+  }
 }
 
 .tileMenu {
@@ -24,7 +27,7 @@
 
 .zoomedContainer  img {
   opacity: .5;
-  transition: ease-in-out ease-in-out .5s;
+  transition: ease-in-out .5s;
 }
 
 .zoomedContainer:hover img {
@@ -33,11 +36,11 @@
 }
 
 .targetZoomContainer {
-  width: 100%;
+  width: 80%;
   height: 100%;
   position: absolute;
   top: 0;
-  left: 0;
+  left: 10%;
   border: 0;
   right: 0;
 }

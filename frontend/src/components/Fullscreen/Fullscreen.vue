@@ -1,18 +1,15 @@
 <!-- Vollbildansicht -->
 <template>
-  <v-dialog v-model="state" fullscreen>
-    <v-card class="dialog-dimm">
-      <v-btn icon class="close-btn absolute" style="top: 32px; right: 32px;" @click="emitEvent('fullscreen-state', false)">
-        <v-icon>mdi-close</v-icon>
+  <Dialog @update:component-event="emitEvent" :state="state" :data="config" :loading="loading">
+    <template #absolute>
+      <v-btn icon class="close-btn absolute" style="top: 32px; right: 96px;" @click="emitEvent('tile-state', !data.tile)">
+        <v-icon>{{ data.tile ? 'mdi-grid-off' : 'mdi-grid'}}</v-icon>
       </v-btn>
-      <template v-if="data.mode === 0">
-        <v-btn icon class="close-btn absolute" style="top: 32px; right: 96px;" @click="emitEvent('tile-state', !data.tile)">
-          <v-icon>{{ data.tile ? 'mdi-grid-off' : 'mdi-grid'}}</v-icon>
-        </v-btn>
-        <v-btn v-if="data.mode === 0" icon class="close-btn absolute" style="top: 32px; right: 160px;" @click="data.zoom = !data.zoom">
-          <v-icon>{{ data.zoom ? 'mdi-magnify-remove-outline' : 'mdi-magnify-scan'}}</v-icon>
-        </v-btn>
-      </template>
+      <v-btn icon class="close-btn absolute" style="top: 32px; right: 160px;" @click="data.zoom = !data.zoom">
+        <v-icon>{{ data.zoom ? 'mdi-magnify-remove-outline' : 'mdi-magnify-scan'}}</v-icon>
+      </v-btn>
+    </template>
+    <template #content>
       <div class="zoomedContainer" v-if="data.zoom">
         <v-img
             :src="data.tile && data.src && data.tileSize.x > 1 && data.tileSize.y > 1 ? data.tileSrc : data.src"
@@ -21,7 +18,7 @@
             @mouseleave="resetZoom"
         ></v-img>
       </div>
-      <div class="d-flex align-center justify-center ml-auto mr-auto" style="position: relative; width: 100%; height: 100%;  max-width: calc(100% - 20%);">
+      <div class="d-flex align-center justify-center ml-auto mr-auto" style="position: relative; width: 100%; height: 100%;max-height: 85vh;">
         <v-img :src="data.tile && data.tileSrc && data.tileSize.x > 1 && data.tileSize.y > 1 ? data.tileSrc : data.src" alt="Fullscreen Image"></v-img>
         <div v-if="data.zoom" class="targetZoomContainer" :style="zoomedStyle"></div>
       </div>
@@ -35,23 +32,26 @@
             item-value="value"
             label="Kachelgröße"
             outlined
-            @update:modelValue="emitEvent('tile-state', {mode: data.mode, id: data.id, title: data.title, src: data.src, tile: data.tile, tileSrc: data.tileSrc, tileSize: data.tileSize, zoom: data.zoom})"
+            @update:modelValue="emitEvent('tile-state', {id: data.id, title: data.title, src: data.src, tile: data.tile, tileSrc: data.tileSrc, tileSize: data.tileSize, zoom: data.zoom})"
         ></v-select>
       </div>
-    </v-card>
-  </v-dialog>
+    </template>
+  </Dialog>
 </template>
 
 
 <script>
 import { defineComponent } from "vue";
 import {fullscreenModel, fullscreenProps} from "@/models/fullscreen/model";
+import Dialog from "@/components/Dialog/Dialog.vue";
 export default defineComponent({
   name: "FullscreenComponent",
+  components: {Dialog},
   props: fullscreenProps,
   setup(props, { emit }) {
-    const { emitEvent, zoomedStyle, resetZoom, handleImageZoom, tileSizes } = fullscreenModel(props, emit);
+    const {config, emitEvent, zoomedStyle, resetZoom, handleImageZoom, tileSizes } = fullscreenModel(props, emit);
     return {
+      config,
       tileSizes,
       handleImageZoom,
       zoomedStyle,

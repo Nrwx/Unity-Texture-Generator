@@ -7,7 +7,8 @@
     <template v-else>
       <!-- Settings Dialog -->
       <Setting @component-event="componentEvent" v-model:state="windowStates.setting.value" v-model:settings="osSettings" :loading="localData.loading.value"/>
-      <Fullscreen @component-event="componentEvent" v-model:state="windowStates.fullscreen.value" v-model:data="fullscreenInfo"/>
+      <!-- Fullscreen Dialog -->
+      <Fullscreen @component-event="componentEvent" v-model:state="windowStates.fullscreen.value" v-model:data="fullscreenInfo" :loading="localData.loading.value"/>
       <!-- Linke Taskbar -->
       <Taskbar @taskbar-event="taskbarEvent('left', $event)" align="left" v-model:items="itemsLeft" />
       <!-- Linker Drawer -->
@@ -75,7 +76,6 @@ export default {
     const activeItemLeft = computed(() => itemsLeft.value.find(item => item.active));
     const activeItemRight = computed(() => itemsRight.value.find(item => item.active));
     const fullscreenInfo = reactive({
-      mode: 0,
       title: '',
       id: '',
       src: '',
@@ -284,12 +284,14 @@ export default {
             }
           }
         } else if(event === 'preview-layer') {
+          localData.loading.value = true
+          windowStates.fullscreen.value = true;
           const response = await previewLayers();
           if (response) {
             fullscreenInfo.title = response.title;
             fullscreenInfo.id = response.id
             fullscreenInfo.src = response.src
-            windowStates.fullscreen.value = true;
+            localData.loading.value = false
           }
         } else if(event === 'update-channel') {
           const response = await updateChannel();

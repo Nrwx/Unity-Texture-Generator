@@ -1,6 +1,12 @@
 import {ref} from "vue";
 
 export function fullscreenModel(props, emit) {
+    const config = ref({
+        fullscreen : true,
+        class: 'dialog-dimm',
+        title: 'Vollbild-Ansicht',
+        emit: 'fullscreen-state'
+    });
     const tileSizes = [
         { title: "1x1", value: {x: 1, y: 1} },
         { title: "2x2", value: {x: 2, y: 2} },
@@ -40,6 +46,7 @@ export function fullscreenModel(props, emit) {
         emit("component-event", event, payload);
     };
     return {
+        config,
         tileSizes,
         handleImageZoom,
         zoomedStyle,
@@ -51,6 +58,11 @@ export function fullscreenModel(props, emit) {
 
 export const fullscreenProps = {
     state: {
+        type: Boolean,
+        required: true,
+        default: false
+    },
+    loading: {
         type: Boolean,
         required: true,
         default: false

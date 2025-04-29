@@ -6,54 +6,54 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  background: radial-gradient(circle, #0a0a23, #333);
-  color: white;
+  color: #000; // Standard Light: dunkle Schrift auf hellem Hintergrund
+
+  .atom-container {
+    position: relative;
+    width: 100%;
+    max-width: 200px;
+    aspect-ratio: 1 / 1;
+    animation: hueRotate 8s linear infinite;
+    overflow: visible;
+    margin-bottom: 35px;
+  }
+
+  .atom-core {
+    position: absolute;
+    width: 20%;
+    height: 20%;
+    background: radial-gradient(circle, #00bcd4, #ffffff); // heller Stil
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 30px 10px #00bcd4;
+    animation: pulse 1.5s infinite ease-in-out;
+  }
+
+  .electron {
+    position: absolute;
+    width: 10%;
+    height: 10%;
+    background: linear-gradient(45deg, #00f, #0ff, #f0f);
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    opacity: 0;
+    animation-fill-mode: forwards;
+    box-shadow: 0 0 15px #0ff;
+  }
+
+  .loading-text {
+    font-size: 1.5rem;
+    font-weight: 700;
+    animation: pulseText 1.5s ease-in-out infinite;
+    position: absolute;
+    top: 70%;
+    text-align: center;
+  }
 }
 
-.atom-container {
-  position: relative;
-  width: 100%;
-  max-width: 200px; // Container auf 200px begrenzt
-  aspect-ratio: 1 / 1; // Immer quadratisch
-  animation: hueRotate 8s linear infinite;
-  overflow: visible; // wichtig, damit die Elektronen rausfliegen können
-  margin-bottom: 35px;
-}
-
-.atom-core {
-  position: absolute;
-  width: 20%; // Etwas größer als vorher, da der Container kleiner ist
-  height: 20%;
-  background: radial-gradient(circle, #ffffff, #00bcd4);
-  border-radius: 50%;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  box-shadow: 0 0 30px 10px #00bcd4;
-  animation: pulse 1.5s infinite ease-in-out;
-}
-
-.electron {
-  position: absolute;
-  width: 10%; // Elektronen ein wenig größer, da der Container kleiner ist
-  height: 10%;
-  background: linear-gradient(45deg, #00f, #0ff, #f0f);
-  border-radius: 50%;
-  top: 50%;
-  left: 50%;
-  opacity: 0;
-  animation-fill-mode: forwards;
-  box-shadow: 0 0 15px #0ff;
-}
-
-
-.loading-text {
-  font-size: 1.5rem;
-  font-weight: 700;
-  animation: pulseText 1.5s ease-in-out infinite;
-  position: absolute;
-  top: 70%;
-}
 
 // Hintergrund Hue Rotation
 @keyframes hueRotate {
@@ -88,16 +88,16 @@
   $orbit-distance: $base-orbit;
 
   @if ($i % 5 == 1) {
-    $orbit-distance: calc(20% + 15%);
+    $orbit-distance: calc($base-orbit + 15%);
   }
   @else if ($i % 5 == 2) {
-    $orbit-distance: calc(20% + 25%);
+    $orbit-distance: calc($base-orbit + 25%);
   }
   @else if ($i % 5 == 3) {
-    $orbit-distance: calc(20% + 35%);
+    $orbit-distance: calc($base-orbit + 35%);
   }
   @else if ($i % 5 == 4) {
-    $orbit-distance: calc(20% + 45%);
+    $orbit-distance: calc($base-orbit + 45%);
   }
 
   @keyframes orbit-#{$i} {
@@ -115,5 +115,14 @@
       opacity: 0;
       transform: rotate(360deg) translateX(#{$orbit-distance}) rotate(-360deg);
     }
+  }
+}
+
+// Dark Mode über Vuetify (automatisch wenn Dark Theme aktiv)
+.v-theme--dark .atom-wrapper {
+  color: #ffffff; // helle Schrift
+
+  .atom-core {
+    background: radial-gradient(circle, #ffffff, #00bcd4); // heller Kern
   }
 }
