@@ -97,6 +97,8 @@
           :shape="selectMode"
           @update:component-event="emitEvent"
       />
+
+      <Text :state="text" @update:component-event="emitEvent"/>
     </div>
   </div>
 </template>
@@ -106,6 +108,7 @@ import {computed, defineComponent, onMounted, onUnmounted, ref} from "vue";
 import Image from "@/components/Image/Image";
 import {transformStates, canvasStates} from "@/dataLayer/state";
 import Selection from "@/components/Selection/Selection.vue";
+import Text from "@/components/Text/Text.vue";
 
 export default defineComponent({
   name: "GridComponent",
@@ -122,12 +125,17 @@ export default defineComponent({
       type: Boolean,
       required: true,
     },
+    text: {
+      type: Boolean,
+      required: true,
+    },
     selectMode: {
       type: String,
       required: true,
     },
   },
   components: {
+    Text,
     Image,
     Selection
   },

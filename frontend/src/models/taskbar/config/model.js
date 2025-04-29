@@ -54,6 +54,15 @@ export const taskbarItemLeft = [
         tooltip: 'Frei-Maskierung',
         event: 'select-state'
     },
+    {
+        position: 'center',
+        id: uuidv4(),
+        title: 'Textebene',
+        icon: 'mdi-format-text',
+        active: false,
+        tooltip: 'Textebene',
+        event: 'text-state'
+    },
 ];
 
 export const taskbarItemRight = [

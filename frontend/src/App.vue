@@ -17,7 +17,7 @@
       <Context :data="contextData" @select="handleContextAction"/>
       <!-- Main Content -->
       <v-main>
-        <viewport-grid @component-event="componentEvent" v-model:layers="localData.layers.value" v-model:settings="localData.viewport.value" v-model:select="windowStates.select.value" v-model:select-mode="localData.selectedShape.value" style="position: relative;"/>
+        <viewport-grid @component-event="componentEvent" v-model:layers="localData.layers.value" v-model:settings="localData.viewport.value" v-model:select="windowStates.select.value" v-model:select-mode="localData.selectedShape.value" :text="windowStates.text.value" style="position: relative;"/>
       </v-main>
       <Layer style="position: absolute; top: 40px; right: 70px;" :state="windowStates.layer.value" v-model:layers="localData.layers.value" v-model:channel="localData.channel.value" @component-event="componentEvent"/>
       <!-- Rechte Taskbar -->
@@ -230,8 +230,14 @@ export default {
           }
         }else if(event === "cursor-state") {
           if (typeof payload === 'boolean') {
-            windowStates.cursor = payload
+            windowStates.cursor.value = payload
             windowStates.select.value = false;
+          } else {
+            console.log(payload)
+          }
+        } else if(event === "text-state") {
+          if (typeof payload === 'boolean') {
+            windowStates.text.value = payload
           } else {
             console.log(payload)
           }

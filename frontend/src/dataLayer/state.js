@@ -10,7 +10,9 @@ export const windowStates = {
     dialog: ref(false),
     fullscreen: ref(false),
     drag: ref(false),
-    select: ref(false)
+    select: ref(false),
+    text: ref(false),
+    cursor: ref(false)
 };
 
 export const transformStates = {
