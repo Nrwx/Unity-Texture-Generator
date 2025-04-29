@@ -98,8 +98,6 @@
           :stroke-dashoffset="reverseShineOffset"
       />
     </svg>
-
-
     <slot />
   </div>
 </template>

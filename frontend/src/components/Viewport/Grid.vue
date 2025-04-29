@@ -49,24 +49,38 @@
                 :selected-layer="selectedLayer"
                 @update:select-layer="toggleSelection"
             >
-              <!-- Transformations-Overlay -->
-              <template #menu>
-                <div v-if="selectedLayer.length" class="selection-overlay">
-                  <!-- Resize Handles -->
-                  <div class="resize-handle top-left" @mousedown="startResize('top-left', $event)"></div>
-                  <div class="resize-handle top-right" @mousedown="startResize('top-right', $event)"></div>
-                  <div class="resize-handle bottom-left" @mousedown="startResize('bottom-left', $event)"></div>
-                  <div class="resize-handle bottom-right" @mousedown="startResize('bottom-right', $event)"></div>
-
-                  <!-- Rotate Handles -->
-                  <div class="rotate-handle top" @mousedown="startRotate('top', $event)"></div>
-                  <div class="rotate-handle bottom" @mousedown="startRotate('bottom', $event)"></div>
-                  <div class="rotate-handle left" @mousedown="startRotate('left', $event)"></div>
-                  <div class="rotate-handle right" @mousedown="startRotate('right', $event)"></div>
-                </div>
-                <div v-if="selectedLayer.length" class="center-crosshair"></div>
-              </template>
             </Image>
+            <template v-if="selectedLayer.length">
+              <svg
+                  :width="frameBox.width"
+                  :height="frameBox.height"
+                  :style="{ position: 'absolute', top: frameBox.top + 'px', left: frameBox.left + 'px', pointerEvents: 'none', zIndex: 9999 }"
+              >
+                <rect
+                    x="0"
+                    y="0"
+                    :width="frameBox.width"
+                    :height="frameBox.height"
+                    fill="none"
+                    stroke="#00aaff"
+                    stroke-width="4"
+                    stroke-dasharray="4"
+                />
+
+                <!-- Griffe analog -->
+                <circle class="resize-handle" cx="0" cy="0" r="8" @mousedown="startResize('top-left', $event)" />
+                <circle class="resize-handle" :cx="frameBox.width" cy="0" r="8" @mousedown="startResize('top-right', $event)" />
+                <circle class="resize-handle" cx="0" :cy="frameBox.height" r="8" @mousedown="startResize('bottom-left', $event)" />
+                <circle class="resize-handle" :cx="frameBox.width" :cy="frameBox.height" r="8" @mousedown="startResize('bottom-right', $event)" />
+
+                <circle class="rotate-handle" :cx="frameBox.width / 2" cy="0" r="6" @mousedown="startRotate('top', $event)" />
+                <circle class="rotate-handle" :cx="frameBox.width / 2" :cy="frameBox.height" r="6" @mousedown="startRotate('bottom', $event)" />
+                <circle class="rotate-handle" cx="0" :cy="frameBox.height / 2" r="6" @mousedown="startRotate('left', $event)" />
+                <circle class="rotate-handle" :cx="frameBox.width" :cy="frameBox.height / 2" r="6" @mousedown="startRotate('right', $event)" />
+
+                <circle class="center-crosshair" :cx="frameBox.width / 2" :cy="frameBox.height / 2" r="6" fill="#00aaff" />
+              </svg>
+            </template>
             <div v-if="!selectedLayer.length" class="center-crosshair"></div>
           </div>
         </div>
@@ -244,28 +258,38 @@ export default defineComponent({
     const handleRotate = (event) => {
       event.preventDefault();
 
+      const crosshair = document.querySelector(".center-crosshair");
+      const crosshairRect = crosshair.getBoundingClientRect();
+      const centerX = crosshairRect.left + crosshairRect.width / 2;
+      const centerY = crosshairRect.top + crosshairRect.height / 2;
+
+      const dx = event.clientX - centerX;
+      const dy = event.clientY - centerY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      // Vermeide Division durch 0 oder zu kleine Werte (näher am Zentrum)
+      const dampingFactor = Math.min(1, distance / 100); // Skaliert auf max 1, z.B. bei 100px Abstand
+
       const currentAngle = calculateRotation(event.clientX, event.clientY);
       let deltaAngle = currentAngle - rotationStartAngle.value;
 
-      // Verhindern, dass die Drehung den Bereich von -180 bis 180 überschreitet
       if (deltaAngle > 180) deltaAngle -= 360;
       if (deltaAngle < -180) deltaAngle += 360;
+
+      deltaAngle *= dampingFactor; // Hier erfolgt die Dämpfung
 
       selectedLayer.value.forEach(layer => {
         let newRotation = (layer.matrix.rotate + deltaAngle + 360) % 360;
 
         if (transformStates.align.value) {
-          // Wenn Snap-Winkel aktiviert sind, runde den Winkel auf den nächsten Feinschritt
           newRotation = getSnappedAngle(newRotation);
         }
 
-        // Runden auf zwei Dezimalstellen für die Rotation
-        layer.matrix.rotate = parseFloat(newRotation);
+        layer.matrix.rotate = parseFloat(newRotation.toFixed(2));
       });
 
       rotationStartAngle.value = currentAngle;
     };
-
 
     // Handle Resize
     const handleResize = (dx, dy) => {
@@ -571,6 +595,84 @@ export default defineComponent({
       }
     };
 
+    const frameBox = computed(() => {
+      const layers = selectedLayer.value;
+      if (!layers.length) return { top: 0, left: 0, width: 0, height: 0 };
+
+      const allPoints = layers.flatMap(layer => {
+        const matrix = layer.matrix || {};
+        const rotate = (matrix.rotate || 0) * (Math.PI / 180);
+        const scaleX = matrix.a ?? 1;
+        const scaleY = matrix.d ?? 1;
+        const posX = matrix.x ?? 0;
+        const posY = matrix.y ?? 0;
+
+        const width = layer.width;
+        const height = layer.height;
+
+        const cx = width / 2;
+        const cy = height / 2;
+
+        const cos = Math.cos(rotate);
+        const sin = Math.sin(rotate);
+
+        const rotatePoint = (x, y) => {
+          const dx = x - cx;
+          const dy = y - cy;
+
+          const rx = dx * cos - dy * sin + cx;
+          const ry = dx * sin + dy * cos + cy;
+          return { x: rx, y: ry };
+        };
+
+        // 1. Rotierte Punkte (wie PIL rotate(..., center=(cx, cy), expand=True))
+        const rotatedCorners = [
+          rotatePoint(0, 0),
+          rotatePoint(width, 0),
+          rotatePoint(0, height),
+          rotatePoint(width, height)
+        ];
+
+        // 2. Skaliere die rotierte Box
+        const scaledCorners = rotatedCorners.map(p => ({
+          x: p.x * scaleX,
+          y: p.y * scaleY
+        }));
+
+        // 3. Berechne das neue Zentrum nach Skalierung
+        const centerScaledX = (width * scaleX) / 2;
+        const centerScaledY = (height * scaleY) / 2;
+
+        // 4. Offset berechnen wie im Backend
+        const offsetX = centerScaledX - cx;
+        const offsetY = centerScaledY - cy;
+
+        // 5. Endposition: addiere matrix.x, matrix.y, abzüglich des Offsets
+        return scaledCorners.map(p => ({
+          x: p.x + posX - offsetX,
+          y: p.y + posY - offsetY
+        }));
+      });
+
+      const xs = allPoints.map(p => p.x);
+      const ys = allPoints.map(p => p.y);
+
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...ys);
+
+      return {
+        left: minX,
+        top: minY,
+        width: maxX - minX,
+        height: maxY - minY
+      };
+    });
+
+
+
+
     onMounted(() => {
       document.addEventListener("mousedown", resetSelection);
       document.addEventListener("contextmenu", (event) => event.preventDefault());
@@ -608,7 +710,8 @@ export default defineComponent({
       resetSelection,
       startRotate,
       startResize,
-      updateLayer
+      updateLayer,
+      frameBox
     };
   },
 });

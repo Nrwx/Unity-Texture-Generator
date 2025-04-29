@@ -10,7 +10,7 @@
       </v-btn>
     </template>
     <template #content>
-      <div class="zoomedContainer" v-if="data.zoom">
+      <div class="zoomedContainer absolute" v-if="data.zoom">
         <v-img
             :src="data.tile && data.src && data.tileSize.x > 1 && data.tileSize.y > 1 ? data.tileSrc : data.src"
             alt="Zoomed Image"
@@ -20,9 +20,9 @@
       </div>
       <div class="d-flex align-center justify-center ml-auto mr-auto" style="position: relative; width: 100%; height: 100%;max-height: 85vh;">
         <v-img :src="data.tile && data.tileSrc && data.tileSize.x > 1 && data.tileSize.y > 1 ? data.tileSrc : data.src" alt="Fullscreen Image"></v-img>
-        <div v-if="data.zoom" class="targetZoomContainer" :style="zoomedStyle"></div>
+        <div v-if="data.zoom" class="targetZoomContainer absolute" :style="zoomedStyle"></div>
       </div>
-      <div class="tileMenu d-flex align-center justify-center pa-4" v-if="data.tile">
+      <div class="tileMenu absolute d-flex align-center justify-center pa-4" v-if="data.tile">
         <v-select
             v-model="data.tileSize"
             :items="tileSizes"

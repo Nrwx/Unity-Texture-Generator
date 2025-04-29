@@ -16,7 +16,20 @@
   position: absolute !important;
 }
 
-.layer-image.selected {
-  outline: 2px dashed rgba(0, 0, 255, 0.5); // Oder eine andere Farbe, die gut sichtbar ist
-  outline-offset: 2px; // Abstand zur Bildkante
+.resize-handle {
+  fill: white;
+  stroke: #00aaff;
+  stroke-width: 2;
+  cursor: nwse-resize;
+  pointer-events: all;
+}
+
+.rotate-handle {
+  fill: #00aaff;
+  cursor: grab;
+  pointer-events: all;
+}
+
+.center-crosshair {
+  pointer-events: none;
 }

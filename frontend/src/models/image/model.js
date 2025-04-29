@@ -21,11 +21,10 @@ export function imageModel(props, emit) {
         }
     };
 
-
     return {
         emitUpdateLayer,
         emitSelectLayer,
-        extractImageSize
+        extractImageSize,
     };
 }
 

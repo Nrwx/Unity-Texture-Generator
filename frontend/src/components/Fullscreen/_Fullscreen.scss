@@ -11,13 +11,11 @@
   width: auto;
   background: rgb(17, 17, 17);
   color: white;
-  position: absolute;
   border-radius: 12px;
   bottom: 32px;
 }
 
 .zoomedContainer {
-  position: absolute;
   right: 32px;
   width: 100%;
   max-width: 180px;
@@ -38,9 +36,9 @@
 .targetZoomContainer {
   width: 80%;
   height: 100%;
-  position: absolute;
   top: 0;
   left: 10%;
   border: 0;
   right: 0;
+  bottom: 0;
 }

@@ -175,7 +175,6 @@ export default {
         } else if(event === "layer-blend-mode") {
           const data = {id: payload.id, blend_mode: payload.blend_mode, color: '#ffffff'}
           const response = await blendLayer(data)
-          console.log(data)
           if(response) {
             await componentEvent('fetch-layer');
           }
