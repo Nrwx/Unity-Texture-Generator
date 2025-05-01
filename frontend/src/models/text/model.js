@@ -1,93 +1,186 @@
-import { computed, ref } from "vue";
+import {computed, nextTick, onUnmounted, reactive, ref} from "vue";
 
 export function textModel(props, emit) {
+    const overlay = ref(null);
+    const drawing = ref(false);
+    const drawn = ref(false);
+    const textarea = ref(null);
+
+    const startX = ref(0);
+    const startY = ref(0);
+
+    const initialMouseX = ref(0);
+    const initialMouseY = ref(0);
+    const initialWidth = ref(0);
+    const initialHeight = ref(0);
+
+    const layer = reactive({
+        text: '',
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+        fontSize: 16,
+    });
+
+    const focusTextarea = () => {
+        nextTick(() => {
+            textarea.value?.focus();
+        });
+    };
+
+    const confirmText = () => {
+        textarea.value?.blur(); // Fokus entfernen
+        finishEditing();
+    };
+
+    const cancelText = () => {
+        layer.text = '';
+        drawn.value = false;
+    };
+
+    // Nur Zeichnen starten, wenn kein Textfeld bereits sichtbar ist
+    const handleOverlayClick = (e) => {
+        if (!drawn.value) {
+            startDraw(e);
+        }
+    };
+
+    const editAgain = () => {
+        // Bei Doppelklick das Textfeld erneut fokussieren
+        focusTextarea();
+    };
+
     const emitEvent = (event, payload) => {
         emit("update:component-event", event, payload);
     };
 
-    // Text Layer Definition
-    const layer = ref({
-        text: 'Dein Text hier',
-        width: 200,
-        height: 100,
-        fontSize: 16, // Basis-Schriftgröße
-    });
+    const autoGrow = () => {
+        const el = textarea.value;
+        if (!el) return;
+        el.style.height = "auto";
+        el.style.height = el.scrollHeight + "px";
+    };
 
-    let startX = 0;
-    let startY = 0;
-    let startWidth = 0;
-    let startHeight = 0;
+    const startDraw = (e) => {
+        // Falls bereits gezeichnet wurde und das Textfeld angeklickt wird – abbrechen
+        if (drawn.value) return;
 
-    // Berechnung der Container-Styles (Position, Größe, Schriftgröße)
+        if (!overlay.value) return;
+
+        drawing.value = true;
+        drawn.value = false;
+
+        const rect = overlay.value.getBoundingClientRect();
+        startX.value = e.clientX - rect.left;
+        startY.value = e.clientY - rect.top;
+
+        layer.x = startX.value;
+        layer.y = startY.value;
+        layer.width = 0;
+        layer.height = 0;
+
+        window.addEventListener("mousemove", handleDraw);
+        window.addEventListener("mouseup", stopDraw);
+    };
+
+
+    const handleDraw = (e) => {
+        if (!drawing.value || !overlay.value) return;
+
+        const rect = overlay.value.getBoundingClientRect();
+        const currentX = e.clientX - rect.left;
+        const currentY = e.clientY - rect.top;
+
+        layer.x = Math.min(startX.value, currentX);
+        layer.y = Math.min(startY.value, currentY);
+        layer.width = Math.abs(currentX - startX.value);
+        layer.height = Math.abs(currentY - startY.value);
+
+        layer.fontSize = Math.min(layer.width / 10, 32);
+    };
+
+    const stopDraw = () => {
+        drawing.value = false;
+        window.removeEventListener("mousemove", handleDraw);
+        window.removeEventListener("mouseup", stopDraw);
+
+        if (layer.width > 10 && layer.height > 10) {
+            drawn.value = true;
+            nextTick(() => {
+                textarea.value?.focus();
+            });
+        }
+    };
+
+    const finishEditing = () => {
+        emitEvent("text-finished", layer.text);
+    };
+
     const wrapperStyle = computed(() => {
         return {
-            position: 'absolute',
-            top: '150px', // Beispielwert, je nach Bedarf dynamisch
-            left: '100px', // Beispielwert, je nach Bedarf dynamisch
-            width: `${layer.value.width}px`,
-            height: `${layer.value.height}px`,
-            fontSize: `${Math.min(layer.value.width / 10, layer.value.fontSize)}px`, // Dynamische Schriftgröße
-            border: '1px solid #ccc',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            cursor: 'se-resize', // Cursor für Resize
+            top: `${layer.y}px`,
+            left: `${layer.x}px`,
+            width: `${layer.width}px`,
+            height: `${layer.height}px`,
+            fontSize: `${Math.min(layer.width / 10, 32)}px`, // Dynamische Schriftgröße
         };
     });
 
-    const textareaStyle = computed(() => ({
-        width: '100%',
-        height: '100%',
-        fontSize: `${Math.min(layer.value.width / 10, layer.value.fontSize)}px`, // Dynamische Schriftgröße
-        resize: 'none',
-        border: 'none',
-        outline: 'none',
-    }));
+    const textareaStyle = computed(() => {
+        return {
+            fontSize: `${Math.min(layer.width / 10, 32)}px`, // Dynamische Schriftgröße
+        };
+    });
 
-    // Resizing Funktion starten
     const startResize = (e) => {
         e.preventDefault();
-        startX = e.clientX;
-        startY = e.clientY;
-        startWidth = layer.value.width;
-        startHeight = layer.value.height;
+        initialMouseX.value = e.clientX;
+        initialMouseY.value = e.clientY;
+        initialWidth.value = layer.width;
+        initialHeight.value = layer.height;
 
-        window.addEventListener('mousemove', handleResize);
-        window.addEventListener('mouseup', stopResize);
+        window.addEventListener("mousemove", handleResize);
+        window.addEventListener("mouseup", stopResize);
     };
 
-    // Resizing Funktion
     const handleResize = (e) => {
-        const dx = e.clientX - startX;
-        const dy = e.clientY - startY;
-
-        layer.value.width = startWidth + dx;
-        layer.value.height = startHeight + dy;
-
-        // Dynamische Schriftgröße
-        layer.value.fontSize = Math.min(layer.value.width / 10, 30); // Maximale Schriftgröße begrenzen
+        const dx = e.clientX - initialMouseX.value;
+        const dy = e.clientY - initialMouseY.value;
+        layer.width = Math.max(50, initialWidth.value + dx);
+        layer.height = Math.max(30, initialHeight.value + dy);
     };
 
-    // Resize stoppen
     const stopResize = () => {
-        window.removeEventListener('mousemove', handleResize);
-        window.removeEventListener('mouseup', stopResize);
+        window.removeEventListener("mousemove", handleResize);
+        window.removeEventListener("mouseup", stopResize);
     };
 
-    // Beendet den Bearbeitungsmodus
-    const finishEditing = () => {
-        emitEvent('text-state', false)
-    };
+
+    onUnmounted(() => {
+        window.removeEventListener("mousemove", handleDraw);
+        window.removeEventListener("mouseup", stopDraw);
+    });
 
     return {
+        overlay,
         layer,
+        drawn,
+        startDraw,
         finishEditing,
-        startResize,
         wrapperStyle,
         textareaStyle,
-        emitEvent,
+        textarea,
+        handleOverlayClick,
+        editAgain,
+        focusTextarea,
+        confirmText,
+        cancelText,
+        autoGrow,
+        startResize
     };
 }
+
 
 export const textProps = {
     state: {

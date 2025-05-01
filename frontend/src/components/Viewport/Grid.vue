@@ -82,6 +82,8 @@
               </svg>
             </template>
             <div v-if="!selectedLayer.length" class="center-crosshair"></div>
+
+            <Text :state="text" @update:component-event="emitEvent"/>
           </div>
         </div>
       </div>
@@ -97,8 +99,6 @@
           :shape="selectMode"
           @update:component-event="emitEvent"
       />
-
-      <Text :state="text" @update:component-event="emitEvent"/>
     </div>
   </div>
 </template>
@@ -565,6 +565,10 @@ export default defineComponent({
     };
 
     const handleKeyDown = (event) => {
+      // Wenn der Fokus in einem Input oder Textarea liegt → Eingabe zulassen
+      const tag = event.target.tagName.toLowerCase();
+      if (tag === 'input' || tag === 'textarea') return;
+
       event.preventDefault();
       if (event.key.toLowerCase() === "r") {
         //rotateSelectedLayers();
@@ -588,6 +592,9 @@ export default defineComponent({
     };
 
     const handleKeyUp = (event) => {
+      const tag = event.target.tagName.toLowerCase();
+      if (tag === 'input' || tag === 'textarea') return;
+
       event.preventDefault();
       if (event.key === 'g') {
         canvasStates.transform.value = false;
