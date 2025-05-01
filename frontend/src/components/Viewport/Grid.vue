@@ -83,7 +83,7 @@
             </template>
             <div v-if="!selectedLayer.length" class="center-crosshair"></div>
 
-            <Text :state="text" @update:component-event="emitEvent"/>
+            <Text :state="text" @update:component-event="emitEvent" :layer="textLayer"/>
           </div>
         </div>
       </div>
@@ -127,6 +127,10 @@ export default defineComponent({
     },
     text: {
       type: Boolean,
+      required: true,
+    },
+    textLayer: {
+      type: Object,
       required: true,
     },
     selectMode: {

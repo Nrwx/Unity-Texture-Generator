@@ -41,11 +41,11 @@
         @dblclick="editAgain"
     >
       <textarea
+          :id="layer.id"
           v-model="layer.text"
           class="custom-textarea"
           ref="textarea"
           :style="textareaStyle"
-          @blur="finishEditing"
           @mousedown.stop
           @input="adjustHeight"
       />
@@ -74,10 +74,9 @@ export default defineComponent({
   name: "TextComponent",
   props: textProps,
   setup(props, { emit }) {
-    const {drawing, layer, finishEditing, wrapperStyle, textareaStyle, startDraw, drawn, overlay, textarea, editAgain, handleOverlayClick, confirmText, cancelText,autoGrow, startResize, adjustHeight, selectionSvgStyle, predictedFontSize } = textModel(props, emit);
+    const {drawing, finishEditing, wrapperStyle, textareaStyle, startDraw, drawn, overlay, textarea, editAgain, handleOverlayClick, confirmText, cancelText,autoGrow, startResize, adjustHeight, selectionSvgStyle, predictedFontSize } = textModel(props, emit);
     return {
       drawing,
-      layer,
       drawn,
       startDraw,
       finishEditing,

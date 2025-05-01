@@ -34,7 +34,7 @@
             <!-- Form Card -->
             <v-col cols="8">
               <v-card class="pa-4" outlined>
-                <v-form @submit.prevent="emitEvent('viewport-setup', settings)">
+                <v-form :id="settings.id" @submit.prevent="emitEvent('viewport-setup', settings)">
                   <v-text-field
                       v-model="settings.title"
                       label="Project Name (Optional)"

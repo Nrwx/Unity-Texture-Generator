@@ -17,7 +17,7 @@
       <Context :data="contextData" @select="handleContextAction"/>
       <!-- Main Content -->
       <v-main>
-        <viewport-grid @component-event="componentEvent" v-model:layers="localData.layers.value" v-model:settings="localData.viewport.value" v-model:select="windowStates.select.value" v-model:select-mode="localData.selectedShape.value" :text="windowStates.text.value" style="position: relative;"/>
+        <viewport-grid @component-event="componentEvent" v-model:layers="localData.layers.value" v-model:text-layer="textLayer" v-model:settings="localData.viewport.value" v-model:select="windowStates.select.value" v-model:select-mode="localData.selectedShape.value" :text="windowStates.text.value" style="position: relative;"/>
       </v-main>
       <Layer style="position: absolute; top: 40px; right: 70px;" :state="windowStates.layer.value" v-model:layers="localData.layers.value" v-model:channel="localData.channel.value" @component-event="componentEvent"/>
       <!-- Rechte Taskbar -->
@@ -30,17 +30,19 @@
 
 <script>
 import Taskbar from './components/Taskbar/Taskbar.vue';
-import { taskbarItemLeft, taskbarItemRight } from "@/models/taskbar/config/model";
+import {taskbarItemLeft, taskbarItemRight} from "@/models/taskbar/config/model";
 import {localData} from "@/dataLayer/local";
 import DrawerNew from "@/components/Drawer/DrawerNew";
 import {computed, onMounted, reactive, ref} from "vue";
 import {
-  addLayer, blendLayer,
+  addLayer, addTextLayer,
+  blendLayer,
   deleteLayer,
   fetchLayers,
   hideLayer,
   orderLayers,
-  previewLayers, updateChannel,
+  previewLayers,
+  updateChannel,
   updateLayer
 } from "@/dataLayer/route/layer";
 import {fileUpload} from "@/dataLayer/route/upload";
@@ -57,6 +59,7 @@ import ViewportGrid from "@/components/Viewport/Grid";
 import {settings} from "@/dataLayer/parameter";
 import Context from "@/components/Context/Context.vue";
 import {contextData} from "@/models/context/item/model";
+import {textLayer} from "@/models/text/config/model";
 
 export default {
   name: 'App',
@@ -172,6 +175,24 @@ export default {
         } else if(event === "apply-rgba-mode") {
           localData.selectedRgba.value = payload
           settings.rgba_mode = payload
+        } else if(event === "apply-font-size") {
+          textLayer.value.fontSize = payload
+        } else if(event === "apply-font-family") {
+          textLayer.value.fontFamily = payload
+        } else if(event === "apply-font-weight") {
+          textLayer.value.fontWeight = payload
+        } else if(event === "apply-font-text-align") {
+          textLayer.value.textAlign = payload
+        } else if(event === "apply-font-line-height") {
+          textLayer.value.lineHeight = payload
+        } else if(event === "apply-font-letter-spacing") {
+          textLayer.value.letterSpacing = payload
+        } else if(event === "apply-font-text-transform") {
+          textLayer.value.textTransform = payload
+        } else if(event === "apply-font-text-decoration") {
+          textLayer.value.textDecoration = payload
+        } else if(event === "apply-font-color") {
+          textLayer.value.color = payload
         } else if(event === "layer-blend-mode") {
           const data = {id: payload.id, blend_mode: payload.blend_mode, color: '#ffffff'}
           const response = await blendLayer(data)
@@ -181,8 +202,13 @@ export default {
         } else if(event === "update-dimension") {
           localData.dimension.value = payload
         } else if(event === "add-layer") {
-          const data = {name: `Layer ${localData.layers.value.length + 1}`, width: localData.dimension.value.width, height: localData.dimension.value.height,}
+          const data = {name: `Layer ${localData.layers.value.length + 1}`, type: 0, width: localData.dimension.value.width, height: localData.dimension.value.height,}
           const response = await addLayer(data)
+          if(response) {
+            await componentEvent('fetch-layer');
+          }
+        } else if(event === "add-text-layer") {
+          const response = await addTextLayer(payload)
           if(response) {
             await componentEvent('fetch-layer');
           }
@@ -232,6 +258,7 @@ export default {
           if (typeof payload === 'boolean') {
             windowStates.cursor.value = payload
             windowStates.select.value = false;
+            windowStates.text.value = false
           } else {
             console.log(payload)
           }
@@ -343,7 +370,8 @@ export default {
       taskbarEvent,
       localData,
       windowStates,
-      osSettings
+      osSettings,
+      textLayer
     };
   },
 };

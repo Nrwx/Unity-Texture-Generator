@@ -208,6 +208,7 @@ PARAMETERS = {
     },
     "layer": {
         "method": {"type": str, "required": True},
+        "type": {"type": int, "default": 0},
         "name": {"type": str, "default": ""},
         "width": {"type": int, "default": 1024},
         "height": {"type": int, "default": 1024},
@@ -226,6 +227,19 @@ PARAMETERS = {
         "blend_mode": {"type": int, "default": 0},
         "color": {"type": str, "default": "#000000"},
 
+        # TextLayer spezifisch
+        "fontFamily": {"type": str, "default": "sans-serif"},
+        "fontSize": {"type": int, "default": 16},
+        "fontWeight": {"type": str, "default": "normal"},
+        "initFontSize": {"type": int, "default": 16},
+        "initHeight": {"type": int, "default": 0},
+        "initWidth": {"type": int, "default": 0},
+        "letterSpacing": {"type": float, "default": 0.0},
+        "lineHeight": {"type": float, "default": 1.4},
+        "text": {"type": str, "default": ""},
+        "textAlign": {"type": str, "default": "left"},
+        "textDecoration": {"type": str, "default": "none"},
+        "textTransform": {"type": str, "default": "none"},
     },
 }
 
@@ -265,7 +279,7 @@ def viewportCanvas():
         viewportConfig.clear()
         viewportConfig.append(config)
         print(viewportConfig)
-        add_layer(name=params['layer'], path=None, id=None, width=params['width'], height=params['height'])
+        add_layer(name=params['layer'], path=None, id=None, type=0, width=params['width'], height=params['height'])
 
         return jsonify({"message": "Viewport set", "viewport": viewportConfig}), 200
 
@@ -388,7 +402,7 @@ def upload_file():
                         "url": f"/download/{map_filename}",
                     })
 
-                    add_layer(map_name, map_path, map_id)
+                    add_layer(map_name, map_path, map_id, 0)
 
             return jsonify({"animationFrames": animation_frames})
 
@@ -424,7 +438,7 @@ def upload_file():
                         "url": f"/download/{map_filename}",
                     })
 
-                    add_layer(map_name, map_path, map_id)
+                    add_layer(map_name, map_path, map_id, 0)
 
             return jsonify({
                 "additionalMaps": additional_maps
@@ -522,8 +536,62 @@ def parse_parameters(params_section, form):
                 parsed_params[key] = config["type"](value)
     return parsed_params
 
+
+def add_text_layer(type: int,order: int, name: str,hidden: int,opacity: float,color: str,fontFamily: str,fontSize: int,fontWeight: str,initFontSize: int,initHeight: int,initWidth: int,letterSpacing: float,lineHeight: float,text: str,textAlign: str,textDecoration: str,textTransform: str,width: int,height: int,x: int,y: int
+):
+    try:
+        viewport_width = viewportConfig[0]["width"]
+        viewport_height = viewportConfig[0]["height"]
+
+        # Transformation / Matrix
+        matrix = {
+            "a": 1,
+            "b": 0,
+            "c": 0,
+            "d": 1,
+            "x": x if x is not None else int((viewport_width - width) / 2),
+            "y": y if y is not None else int((viewport_height - height) / 2),
+            "rotate": 0,
+        }
+
+        id = str(uuid.uuid4())
+
+        layer = {
+            "type": type,
+            "id": id,
+            "name": name,
+            "width": width,
+            "height": height,
+            "matrix": matrix,
+            "order": order if order is not None else len(layers),
+            "hidden": hidden,
+            "opacity": opacity,
+            "color": color,
+
+            # Text-spezifische Felder
+            "fontFamily": fontFamily,
+            "fontSize": fontSize,
+            "fontWeight": fontWeight,
+            "initFontSize": initFontSize,
+            "initHeight": initHeight,
+            "initWidth": initWidth,
+            "letterSpacing": letterSpacing,
+            "lineHeight": lineHeight,
+            "text": text,
+            "textAlign": textAlign,
+            "textDecoration": textDecoration,
+            "textTransform": textTransform,
+        }
+
+        layers.append(layer)
+        print(layers)
+        return jsonify(layer), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 # Funktionen für Layer-Management
-def add_layer(name="", path="", id="", width=1024, height=1024):
+def add_layer(name="", path="", id="", type=0, width=1024, height=1024):
     try:
         source_id = str(uuid.uuid4())  # UUID für die Source-Datei
         source_path = os.path.join(SOURCE_FOLDER, f"{source_id}.png")
@@ -574,6 +642,7 @@ def add_layer(name="", path="", id="", width=1024, height=1024):
 
         # Layer hinzufügen
         layer = {
+            "type": type,
             "id": id,
             "name": name,
             "width": new_width if scale_factor < 1 else width,
@@ -593,7 +662,7 @@ def add_layer(name="", path="", id="", width=1024, height=1024):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-def update_layer(name, width, height, id, a, b, c, d, x, y, rotate, order, hidden, opacity, blend_mode, color):
+def update_layer(type, name, width, height, id, a, b, c, d, x, y, rotate, order, hidden, opacity, blend_mode, color):
     try:
         layer = next((l for l in layers if l["id"] == id), None)
         if not layer:
@@ -609,6 +678,8 @@ def update_layer(name, width, height, id, a, b, c, d, x, y, rotate, order, hidde
             "rotate": rotate  # Rotation in Grad
         }
 
+        if type:
+            layer["type"] = type
         if name:
             layer["name"] = name
         if width:
@@ -1000,11 +1071,15 @@ def layer_management():
         params = parse_parameters(PARAMETERS['layer'], request.form)
         method_function_map = {
             "add": {
-                'keys': {"name", "width", "height"},
+                'keys': {"name", "type", "width", "height"},
                 'function': add_layer
             },
+            "addText": {
+                'keys': {"type", "order", "name", "hidden", "opacity", "color", "fontFamily", "fontSize", "fontWeight", "initFontSize", "initHeight", "initWidth", "letterSpacing", "lineHeight", "text", "textAlign", "textDecoration", "textTransform", "width", "height", "x", "y"},
+                'function': add_text_layer
+            },
             "update": {
-                'keys': {"name", "width", "height", "id", "a", "b", "c", "d", "x", "y", "rotate", "order", "hidden", "opacity", "blend_mode", "color"},
+                'keys': {"type", "name", "width", "height", "id", "a", "b", "c", "d", "x", "y", "rotate", "order", "hidden", "opacity", "blend_mode", "color"},
                 'function': update_layer
             },
             "delete": {

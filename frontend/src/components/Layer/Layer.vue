@@ -98,7 +98,12 @@
                         <v-tooltip location="bottom">
                           <template v-slot:activator="{ props }">
                             <v-avatar v-bind="props" rounded="0" variant="elevated">
-                              <v-img :src="layer?.url" :alt="layer.name" />
+                              <template v-if="layer?.type === 1">
+                                <v-icon>mdi-format-text</v-icon>
+                              </template>
+                              <template v-else>
+                                <v-img :src="layer?.url" :alt="layer.name" />
+                              </template>
                             </v-avatar>
                           </template>
                           {{ layer.name }}

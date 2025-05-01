@@ -20,22 +20,25 @@
         :label="prop.label"
         :type="prop.inputType || 'number'"
         outlined
+        @update:modelValue="emitEvent(prop.event, item[key])"
     ></v-text-field>
     <!-- Slider -->
     <v-slider
-        v-if="prop.type === 'slider' && prop.active"
+        v-else-if="prop.type === 'slider' && prop.active"
         v-model="item[key]"
         :label="prop.label"
         :min="prop.min"
         :max="prop.max"
         :step="prop.step || 1"
         thumb-label
+        @update:modelValue="emitEvent(prop.event, item[key])"
     ></v-slider>
     <!-- Checkbox -->
     <v-checkbox
         v-else-if="prop.type === 'checkbox' && prop.active"
         v-model="item[key]"
         :label="prop.label"
+        @update:modelValue="emitEvent(prop.event, item[key])"
     ></v-checkbox>
 
     <!-- Switch -->
@@ -43,6 +46,7 @@
         v-else-if="prop.type === 'switch' && prop.active"
         v-model="item[key]"
         :label="prop.label"
+        @update:modelValue="emitEvent(prop.event, item[key])"
     ></v-switch>
 
     <!-- Dropdown -->
@@ -71,6 +75,7 @@
         flat
         elevation="0"
         rounded
+        @update:modelValue="emitEvent(prop.event, item[key])"
     ></v-color-picker>
   </div>
 </template>

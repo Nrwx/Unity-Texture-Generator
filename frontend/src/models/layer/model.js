@@ -91,7 +91,7 @@ export function layerModel(props, emit) {
         props.layers.forEach(layer => {
             if (selectedLayer.value.includes(layer.id)) {
                 layer.opacity = newOpacity;
-                emitEvent('update-layer', layer); // Damit ggf. gesynct wird
+                emitEvent('update-layer', layer);
             }
         });
     };

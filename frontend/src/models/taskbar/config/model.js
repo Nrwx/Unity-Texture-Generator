@@ -2,6 +2,7 @@ import {v4 as uuidv4} from "uuid";
 import Upload from "@/view/page/Upload/Upload.vue";
 import History from "@/components/History/History";
 import Tools from "@/view/page/Tools/Tools";
+import Typographic from "@/view/page/Typographic/Typographic.vue";
 
 export const taskbarItemLeft = [
     {
@@ -85,6 +86,18 @@ export const taskbarItemRight = [
         active: false,
         tooltip: 'Ebenen',
         event: 'layer-state'
+    },
+    {
+        position: 'top',
+        id: uuidv4(),
+        title: 'Typographie',
+        icon: 'mdi-format-font',
+        active: false,
+        tooltip: 'Typographie',
+        component: {
+            path: Typographic,
+            props: {}
+        },
     },
     {
         position: 'top',

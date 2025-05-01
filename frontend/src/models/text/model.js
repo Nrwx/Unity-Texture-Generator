@@ -1,4 +1,4 @@
-import {computed, nextTick, onUnmounted, reactive, ref} from "vue";
+import {computed, nextTick, onUnmounted, ref} from "vue";
 
 export function textModel(props, emit) {
     const overlay = ref(null);
@@ -14,18 +14,6 @@ export function textModel(props, emit) {
     const initialWidth = ref(0);
     const initialHeight = ref(0);
 
-    const layer = reactive({
-        text: '',
-        x: 0,
-        y: 0,
-        width: 0,
-        height: 0,
-        fontSize: 16,
-        initWidth: 0,
-        initHeight: 0,
-        initFontSize: 0,
-    });
-
     const focusTextarea = () => {
         nextTick(() => {
             textarea.value?.focus();
@@ -35,10 +23,13 @@ export function textModel(props, emit) {
     const confirmText = () => {
         textarea.value?.blur(); // Fokus entfernen
         finishEditing();
+        drawn.value = false;
+        drawn.value = false
+        props.layer.text = ''
     };
 
     const cancelText = () => {
-        layer.text = '';
+        props.layer.text = '';
         drawn.value = false;
     };
 
@@ -59,10 +50,10 @@ export function textModel(props, emit) {
     };
 
     const selectionSvgStyle = computed(() => ({
-        top: `${layer.y}px`,
-        left: `${layer.x}px`,
-        width: `${layer.width}px`,
-        height: `${layer.height}px`,
+        top: `${props.layer.y}px`,
+        left: `${props.layer.x}px`,
+        width: `${props.layer.width}px`,
+        height: `${props.layer.height}px`,
         position: 'absolute',
         overflow: 'visible',
         pointerEvents: 'none',
@@ -82,13 +73,13 @@ export function textModel(props, emit) {
         startX.value = e.clientX - rect.left;
         startY.value = e.clientY - rect.top;
 
-        layer.x = startX.value;
-        layer.y = startY.value;
-        layer.width = 0;
-        layer.height = 0;
-        layer.initWidth = 1;
-        layer.initHeight = 1;
-        layer.initFontSize = 0.40;
+        props.layer.x = startX.value;
+        props.layer.y = startY.value;
+        props.layer.width = 0;
+        props.layer.height = 0;
+        props.layer.initWidth = 1;
+        props.layer.initHeight = 1;
+        props.layer.initFontSize = 0.40;
 
         window.addEventListener("mousemove", handleDraw);
         window.addEventListener("mouseup", stopDraw);
@@ -102,10 +93,10 @@ export function textModel(props, emit) {
         const currentX = e.clientX - rect.left;
         const currentY = e.clientY - rect.top;
 
-        layer.x = Math.min(startX.value, currentX);
-        layer.y = Math.min(startY.value, currentY);
-        layer.width = Math.abs(currentX - startX.value);
-        layer.height = Math.abs(currentY - startY.value);
+        props.layer.x = Math.min(startX.value, currentX);
+        props.layer.y = Math.min(startY.value, currentY);
+        props.layer.width = Math.abs(currentX - startX.value);
+        props.layer.height = Math.abs(currentY - startY.value);
     };
 
     const stopDraw = () => {
@@ -113,11 +104,11 @@ export function textModel(props, emit) {
         window.removeEventListener("mousemove", handleDraw);
         window.removeEventListener("mouseup", stopDraw);
 
-        if (layer.width > 10 && layer.height > 10) {
-            layer.initWidth = layer.width;
-            layer.initHeight = layer.height;
-            layer.fontSize = Math.round(Math.min(layer.width, layer.height) / 2.5);
-            layer.initFontSize = layer.fontSize; // neue Property für spätere Referenz
+        if (props.layer.width > 10 && props.layer.height > 10) {
+            props.layer.initWidth = props.layer.width;
+            props.layer.initHeight = props.layer.height;
+            props.layer.fontSize = Math.round(Math.min(props.layer.width, props.layer.height) / 2.5);
+            props.layer.initFontSize = props.layer.fontSize; // neue Property für spätere Referenz
             drawn.value = true;
             nextTick(() => {
                 textarea.value?.focus();
@@ -127,21 +118,29 @@ export function textModel(props, emit) {
 
 
     const finishEditing = () => {
-        emitEvent("text-finished", layer.text);
+        emitEvent("add-text-layer", props.layer);
     };
 
     const wrapperStyle = computed(() => {
         return {
-            top: `${layer.y}px`,
-            left: `${layer.x}px`,
-            width: `${layer.width}px`,
-            height: `${layer.height}px`,
+            top: `${props.layer.y}px`,
+            left: `${props.layer.x}px`,
+            width: `${props.layer.width}px`,
+            height: `${props.layer.height}px`,
         };
     });
 
     const textareaStyle = computed(() => {
         return {
-            fontSize: `${layer.fontSize}px`
+            fontSize:       `${props.layer.fontSize}px`,
+            fontFamily:     props.layer.fontFamily,
+            fontWeight:     props.layer.fontWeight,
+            textAlign:      props.layer.textAlign,
+            lineHeight:     props.layer.lineHeight,
+            letterSpacing:  `${props.layer.letterSpacing}px`,
+            textTransform:  props.layer.textTransform,
+            textDecoration: props.layer.textDecoration,
+            color:          props.layer.color,
         };
     });
 
@@ -149,8 +148,8 @@ export function textModel(props, emit) {
         e.preventDefault();
         initialMouseX.value = e.clientX;
         initialMouseY.value = e.clientY;
-        initialWidth.value = layer.width;
-        initialHeight.value = layer.height;
+        initialWidth.value = props.layer.width;
+        initialHeight.value = props.layer.height;
 
         window.addEventListener("mousemove", handleResize);
         window.addEventListener("mouseup", stopResize);
@@ -163,31 +162,31 @@ export function textModel(props, emit) {
         const newWidth = Math.max(50, initialWidth.value + dx);
         const newHeight = Math.max(30, initialHeight.value + dy);
 
-        layer.width = newWidth;
-        layer.height = newHeight;
+        props.layer.width = newWidth;
+        props.layer.height = newHeight;
 
-        const widthShrinkThreshold = layer.initWidth - 60;
-        const heightShrinkThreshold = layer.initHeight - 30;
-        const widthGrowThreshold = layer.initWidth + 60;
-        const heightGrowThreshold = layer.initHeight + 30;
+        const widthShrinkThreshold = props.layer.initWidth - 60;
+        const heightShrinkThreshold = props.layer.initHeight - 30;
+        const widthGrowThreshold = props.layer.initWidth + 60;
+        const heightGrowThreshold = props.layer.initHeight + 30;
 
-        const widthRatio = newWidth / layer.initWidth;
-        const heightRatio = newHeight / layer.initHeight;
+        const widthRatio = newWidth / props.layer.initWidth;
+        const heightRatio = newHeight / props.layer.initHeight;
         const ratio = Math.min(widthRatio, heightRatio);
 
         // Shrink
         if (newWidth < widthShrinkThreshold || newHeight < heightShrinkThreshold) {
-            const shrunkFontSize = Math.max(12, layer.initFontSize * ratio);
-            if (shrunkFontSize < layer.fontSize) {
-                layer.fontSize = shrunkFontSize;
+            const shrunkFontSize = Math.max(12, props.layer.initFontSize * ratio);
+            if (shrunkFontSize < props.layer.fontSize) {
+                props.layer.fontSize = shrunkFontSize;
             }
         }
 
         // Grow (but not beyond initFontSize)
         if (newWidth > widthGrowThreshold || newHeight > heightGrowThreshold) {
-            const grownFontSize = Math.min(layer.initFontSize, layer.initFontSize * ratio);
-            if (grownFontSize > layer.fontSize) {
-                layer.fontSize = grownFontSize;
+            const grownFontSize = Math.min(props.layer.initFontSize, props.layer.initFontSize * ratio);
+            if (grownFontSize > props.layer.fontSize) {
+                props.layer.fontSize = grownFontSize;
             }
         }
     };
@@ -206,8 +205,8 @@ export function textModel(props, emit) {
     };
 
     const predictedFontSize = computed(() => {
-        const ratio = Math.min(layer.width / layer.initWidth || 1, layer.height / layer.initHeight || 1);
-        return Math.max(12, layer.initFontSize * ratio);
+        const ratio = Math.min(props.layer.width / props.layer.initWidth || 1, props.layer.height / props.layer.initHeight || 1);
+        return Math.max(12, props.layer.initFontSize * ratio);
     });
 
 
@@ -219,7 +218,6 @@ export function textModel(props, emit) {
     return {
         drawing,
         overlay,
-        layer,
         drawn,
         startDraw,
         finishEditing,
@@ -244,4 +242,8 @@ export const textProps = {
         type: Boolean,
         default: false,
     },
+    layer: {
+        type: Object,
+        required: true,
+    }
 };
