@@ -21,6 +21,9 @@ export function textModel(props, emit) {
         width: 0,
         height: 0,
         fontSize: 16,
+        initWidth: 0,
+        initHeight: 0,
+        initFontSize: 0,
     });
 
     const focusTextarea = () => {
@@ -55,12 +58,16 @@ export function textModel(props, emit) {
         emit("update:component-event", event, payload);
     };
 
-    const autoGrow = () => {
-        const el = textarea.value;
-        if (!el) return;
-        el.style.height = "auto";
-        el.style.height = el.scrollHeight + "px";
-    };
+    const selectionSvgStyle = computed(() => ({
+        top: `${layer.y}px`,
+        left: `${layer.x}px`,
+        width: `${layer.width}px`,
+        height: `${layer.height}px`,
+        position: 'absolute',
+        overflow: 'visible',
+        pointerEvents: 'none',
+    }));
+
 
     const startDraw = (e) => {
         // Falls bereits gezeichnet wurde und das Textfeld angeklickt wird – abbrechen
@@ -79,6 +86,9 @@ export function textModel(props, emit) {
         layer.y = startY.value;
         layer.width = 0;
         layer.height = 0;
+        layer.initWidth = 1;
+        layer.initHeight = 1;
+        layer.initFontSize = 0.40;
 
         window.addEventListener("mousemove", handleDraw);
         window.addEventListener("mouseup", stopDraw);
@@ -96,8 +106,6 @@ export function textModel(props, emit) {
         layer.y = Math.min(startY.value, currentY);
         layer.width = Math.abs(currentX - startX.value);
         layer.height = Math.abs(currentY - startY.value);
-
-        layer.fontSize = Math.min(layer.width / 10, 32);
     };
 
     const stopDraw = () => {
@@ -106,12 +114,17 @@ export function textModel(props, emit) {
         window.removeEventListener("mouseup", stopDraw);
 
         if (layer.width > 10 && layer.height > 10) {
+            layer.initWidth = layer.width;
+            layer.initHeight = layer.height;
+            layer.fontSize = Math.round(Math.min(layer.width, layer.height) / 2.5);
+            layer.initFontSize = layer.fontSize; // neue Property für spätere Referenz
             drawn.value = true;
             nextTick(() => {
                 textarea.value?.focus();
             });
         }
     };
+
 
     const finishEditing = () => {
         emitEvent("text-finished", layer.text);
@@ -123,13 +136,12 @@ export function textModel(props, emit) {
             left: `${layer.x}px`,
             width: `${layer.width}px`,
             height: `${layer.height}px`,
-            fontSize: `${Math.min(layer.width / 10, 32)}px`, // Dynamische Schriftgröße
         };
     });
 
     const textareaStyle = computed(() => {
         return {
-            fontSize: `${Math.min(layer.width / 10, 32)}px`, // Dynamische Schriftgröße
+            fontSize: `${layer.fontSize}px`
         };
     });
 
@@ -147,14 +159,56 @@ export function textModel(props, emit) {
     const handleResize = (e) => {
         const dx = e.clientX - initialMouseX.value;
         const dy = e.clientY - initialMouseY.value;
-        layer.width = Math.max(50, initialWidth.value + dx);
-        layer.height = Math.max(30, initialHeight.value + dy);
+
+        const newWidth = Math.max(50, initialWidth.value + dx);
+        const newHeight = Math.max(30, initialHeight.value + dy);
+
+        layer.width = newWidth;
+        layer.height = newHeight;
+
+        const widthShrinkThreshold = layer.initWidth - 60;
+        const heightShrinkThreshold = layer.initHeight - 30;
+        const widthGrowThreshold = layer.initWidth + 60;
+        const heightGrowThreshold = layer.initHeight + 30;
+
+        const widthRatio = newWidth / layer.initWidth;
+        const heightRatio = newHeight / layer.initHeight;
+        const ratio = Math.min(widthRatio, heightRatio);
+
+        // Shrink
+        if (newWidth < widthShrinkThreshold || newHeight < heightShrinkThreshold) {
+            const shrunkFontSize = Math.max(12, layer.initFontSize * ratio);
+            if (shrunkFontSize < layer.fontSize) {
+                layer.fontSize = shrunkFontSize;
+            }
+        }
+
+        // Grow (but not beyond initFontSize)
+        if (newWidth > widthGrowThreshold || newHeight > heightGrowThreshold) {
+            const grownFontSize = Math.min(layer.initFontSize, layer.initFontSize * ratio);
+            if (grownFontSize > layer.fontSize) {
+                layer.fontSize = grownFontSize;
+            }
+        }
     };
+
 
     const stopResize = () => {
         window.removeEventListener("mousemove", handleResize);
         window.removeEventListener("mouseup", stopResize);
     };
+
+    const adjustHeight = () => {
+        const el = textarea.value;
+        if (!el) return;
+        el.style.height = "auto";
+        el.style.height = el.scrollHeight + "px";
+    };
+
+    const predictedFontSize = computed(() => {
+        const ratio = Math.min(layer.width / layer.initWidth || 1, layer.height / layer.initHeight || 1);
+        return Math.max(12, layer.initFontSize * ratio);
+    });
 
 
     onUnmounted(() => {
@@ -163,6 +217,7 @@ export function textModel(props, emit) {
     });
 
     return {
+        drawing,
         overlay,
         layer,
         drawn,
@@ -176,8 +231,10 @@ export function textModel(props, emit) {
         focusTextarea,
         confirmText,
         cancelText,
-        autoGrow,
-        startResize
+        startResize,
+        adjustHeight,
+        selectionSvgStyle,
+        predictedFontSize,
     };
 }
 

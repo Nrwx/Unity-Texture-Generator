@@ -6,10 +6,37 @@
       ref="overlay"
       @mousedown="handleOverlayClick"
   >
+    <!-- Auswahlrahmen als SVG -->
+    <svg
+        v-if="drawing"
+        class="selection-svg absolute"
+        :style="selectionSvgStyle"
+    >
+      <rect
+          x="0" y="0"
+          :width="layer.width"
+          :height="layer.height"
+          rx="10"
+          ry="10"
+          fill="rgba(33, 150, 243, 0.03)"
+          stroke="#2196f3"
+          stroke-width="2"
+          stroke-dasharray="6 3"
+      />
+      <text
+          x="6"
+          y="-8"
+          fill="#2196f3"
+          font-size="12"
+          font-weight="500"
+      >
+        {{ layer.width }} × {{ layer.height }} px — {{ Math.round(predictedFontSize) }} px
+      </text>
+    </svg>
     <!-- Textebene nach erfolgreichem Zeichnen -->
     <div
         v-if="drawn"
-        class="text-layer"
+        class="text-layer d-flex flex-column absolute"
         :style="wrapperStyle"
         @dblclick="editAgain"
     >
@@ -20,7 +47,7 @@
           :style="textareaStyle"
           @blur="finishEditing"
           @mousedown.stop
-          @input="autoGrow"
+          @input="adjustHeight"
       />
       <div class="action-buttons d-flex justify-center align-center">
         <v-btn icon size="20" elevation="0" color="#87ff8c80" title="Bestätigen" @click="confirmText">
@@ -47,8 +74,9 @@ export default defineComponent({
   name: "TextComponent",
   props: textProps,
   setup(props, { emit }) {
-    const {layer, finishEditing, wrapperStyle, textareaStyle, startDraw, drawn, overlay, textarea, editAgain, handleOverlayClick, confirmText, cancelText,autoGrow, startResize} = textModel(props, emit);
+    const {drawing, layer, finishEditing, wrapperStyle, textareaStyle, startDraw, drawn, overlay, textarea, editAgain, handleOverlayClick, confirmText, cancelText,autoGrow, startResize, adjustHeight, selectionSvgStyle, predictedFontSize } = textModel(props, emit);
     return {
+      drawing,
       layer,
       drawn,
       startDraw,
@@ -62,7 +90,10 @@ export default defineComponent({
       confirmText,
       cancelText,
       autoGrow,
-      startResize
+      startResize,
+      adjustHeight,
+      selectionSvgStyle,
+      predictedFontSize
     };
   },
 });
