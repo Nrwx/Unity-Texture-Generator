@@ -25,7 +25,16 @@ export function textModel(props, emit) {
         finishEditing();
         drawn.value = false;
         drawn.value = false
+        drawing.value = false
         props.layer.text = ''
+        overlay.value = null
+        textarea.value = null
+        startX.value = 0
+        startY.value = 0
+        initialMouseX.value = 0
+        initialMouseY.value = 0
+        initialWidth.value = 0
+        initialHeight.value = 0
     };
 
     const cancelText = () => {
@@ -70,8 +79,8 @@ export function textModel(props, emit) {
         drawn.value = false;
 
         const rect = overlay.value.getBoundingClientRect();
-        startX.value = e.clientX - rect.left;
-        startY.value = e.clientY - rect.top;
+        startX.value = Math.round(e.clientX - rect.left);
+        startY.value = Math.round(e.clientY - rect.top);
 
         props.layer.x = startX.value;
         props.layer.y = startY.value;
@@ -90,8 +99,8 @@ export function textModel(props, emit) {
         if (!drawing.value || !overlay.value) return;
 
         const rect = overlay.value.getBoundingClientRect();
-        const currentX = e.clientX - rect.left;
-        const currentY = e.clientY - rect.top;
+        const currentX = Math.round(e.clientX - rect.left);
+        const currentY = Math.round(e.clientY - rect.top);
 
         props.layer.x = Math.min(startX.value, currentX);
         props.layer.y = Math.min(startY.value, currentY);
