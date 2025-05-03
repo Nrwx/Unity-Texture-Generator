@@ -32,7 +32,7 @@
             item-value="value"
             label="Kachelgröße"
             outlined
-            @update:modelValue="emitEvent('tile-state', {id: data.id, title: data.title, src: data.src, tile: data.tile, tileSrc: data.tileSrc, tileSize: data.tileSize, zoom: data.zoom})"
+            @update:modelValue="emitEvent('tile-state', data)"
         ></v-select>
       </div>
     </template>

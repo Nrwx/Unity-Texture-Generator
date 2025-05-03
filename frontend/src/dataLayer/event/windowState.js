@@ -56,7 +56,7 @@ export const windowStateEvent = (route) => ({
     },
     "tile-state": async (payload) => {
         if (typeof payload === "boolean") {
-            route.windowStates.fullscreen.value = payload;
+            route.fullscreenInfo.tile = payload;
         } else {
             route.fullscreenInfo.mode = payload.mode
             route.fullscreenInfo.id = payload.id
