@@ -18,8 +18,6 @@ export const localData = {
     targetResizeOption: ref([{ title: "Auto-Crop", value: 0 }, { title: "Padding", value: 1 }]),
     selectedUpscaleMethod: ref(1),
     upscaleMethods: ref([{ title: "Nearest Neighbor (Pixel-Style)", value: 0 }, { title: "Bicubic / Bilinear", value: 1 }, { title: "AI Scale", value: 2 }]),
-    selectedMapAutoOptimize: ref(0),
-    mapAutoOptimize: ref([{ title: "Original", value: 0 }, { title: "RGB", value: 1 }, { title: "RGBA", value: 2 }]),
     selectedRgb: ref(0),
     rgbMode: ref([
         {
@@ -106,7 +104,7 @@ export const localData = {
         {
             value: 0,
             title: "Original",
-            subtitle: "Keine Farbveränderung oder Konvertierung.",
+            subtitle: "Keine Alpha veränderung oder Konvertierung.",
             icon: "mdi-alpha-a-box"
         },
         {

@@ -29,37 +29,24 @@
 </template>
 
 <script>
+import * as api from "@/dataLayer/route/route"
 import Taskbar from './components/Taskbar/Taskbar.vue';
 import {taskbarItemLeft, taskbarItemRight} from "@/models/taskbar/config/model";
 import {localData} from "@/dataLayer/local";
 import DrawerNew from "@/components/Drawer/DrawerNew";
 import {computed, onMounted, reactive, ref} from "vue";
-import {
-  addLayer, addTextLayer,
-  blendLayer,
-  deleteLayer,
-  fetchLayers,
-  hideLayer,
-  orderLayers,
-  previewLayers,
-  updateChannel,
-  updateLayer
-} from "@/dataLayer/route/layer";
-import {fileUpload} from "@/dataLayer/route/upload";
 import Layer from "@/components/Layer/Layer";
 import {windowStates} from "@/dataLayer/state";
 import Setting from "@/components/Setting/Setting";
-import {fetchOsSettings, saveOsSettings} from "@/dataLayer/route/setting";
 import {osSettings} from "@/dataLayer/setting";
 import Fullscreen from "@/components/Fullscreen/Fullscreen";
-import {generateTileLayout} from "@/dataLayer/route/tile";
 import Viewport from "@/view/page/Viewport/Viewport";
-import {viewportSetup} from "@/dataLayer/route/viewport";
 import ViewportGrid from "@/components/Viewport/Grid";
 import {settings} from "@/dataLayer/parameter";
 import Context from "@/components/Context/Context.vue";
 import {contextData} from "@/models/context/item/model";
 import {textLayer} from "@/models/text/config/model";
+import {createEventSystem} from "@/dataLayer/event";
 
 export default {
   name: 'App',
@@ -87,6 +74,16 @@ export default {
       tileSize: {x: 1, y: 1},
       tileSrc: ''
     })
+
+    const componentEvent = createEventSystem({
+      api,
+      windowStates,
+      localData,
+      textLayer,
+      settings,
+      osSettings,
+      fullscreenInfo
+    });
 
     const taskbarEvent = async (side, itemId) => {
       if (side === 'left') {
@@ -125,225 +122,6 @@ export default {
     const handleContextAction = ({ action, contextId }) => {
       console.log('Aktion:', action, 'auf Datei:', contextId)
     }
-
-    const componentEvent = async (event, payload) => {
-      try {
-        if (event === "viewport-setup") {
-          const data = {mode: payload.mode, title: payload.title, width: payload.width, height: payload.height, layer: payload.layer}
-          const response = await viewportSetup(data)
-          if (response) {
-            await componentEvent('fetch-layer');
-            localData.viewport.value = data;
-            windowStates.viewport = false;
-          }
-        } else if (event === "dialog-state") {
-          if(typeof payload === 'boolean') {
-            windowStates.dialog.value = payload;
-          }
-        } else if (event === "viewport-state") {
-          if(typeof payload === 'boolean') {
-            windowStates.viewport.value = payload;
-          }
-        } else if (event === "viewport-settings") {
-          const data = {mode: payload.mode, title: payload.title, width: payload.width, height: payload.height}
-          if(data) {
-            localData.viewport.value = localData.viewport.value[data];
-          }
-        } else if (event === "apply-file") {
-          localData.file.value = payload;
-        } else if (event === "upload-file") {
-          const response = await fileUpload(localData.file.value)
-          if(response) {
-            await componentEvent('fetch-layer');
-          }
-        } else if(event === "apply-maps") {
-          localData.selectedMaps.value = payload
-        } else if(event === "apply-target-size") {
-          localData.selectedTargetResize.value = payload
-          settings.resize_index = payload
-        } else if(event === "apply-target-size-option") {
-          localData.selectedTargetResizeOption.value = payload
-          settings.resize_index = payload
-        } else if(event === "apply-target-size-method") {
-          localData.selectedUpscaleMethod.value = payload
-          settings.upscale_method = payload
-        } else if(event === "apply-map-auto-optimize") {
-          localData.selectedMapAutoOptimize.value = payload
-        } else if(event === "apply-rgb-mode") {
-          localData.selectedRgb.value = payload
-          settings.rgb_mode = payload
-        } else if(event === "apply-rgba-mode") {
-          localData.selectedRgba.value = payload
-          settings.rgba_mode = payload
-        } else if(event === "apply-font-size") {
-          textLayer.value.fontSize = payload
-        } else if(event === "apply-font-family") {
-          textLayer.value.fontFamily = payload
-        } else if(event === "apply-font-weight") {
-          textLayer.value.fontWeight = payload
-        } else if(event === "apply-font-text-align") {
-          textLayer.value.textAlign = payload
-        } else if(event === "apply-font-line-height") {
-          textLayer.value.lineHeight = payload
-        } else if(event === "apply-font-letter-spacing") {
-          textLayer.value.letterSpacing = payload
-        } else if(event === "apply-font-text-transform") {
-          textLayer.value.textTransform = payload
-        } else if(event === "apply-font-text-decoration") {
-          textLayer.value.textDecoration = payload
-        } else if(event === "apply-font-color") {
-          textLayer.value.color = payload
-        } else if(event === "layer-blend-mode") {
-          const data = {id: payload.id, blend_mode: payload.blend_mode, color: '#ffffff'}
-          const response = await blendLayer(data)
-          if(response) {
-            await componentEvent('fetch-layer');
-          }
-        } else if(event === "update-dimension") {
-          localData.dimension.value = payload
-        } else if(event === "add-layer") {
-          const data = {name: `Layer ${localData.layers.value.length + 1}`, type: 0, width: localData.dimension.value.width, height: localData.dimension.value.height,}
-          const response = await addLayer(data)
-          if(response) {
-            await componentEvent('fetch-layer');
-          }
-        } else if(event === "add-text-layer") {
-          const response = await addTextLayer(payload)
-          if(response) {
-            await componentEvent('fetch-layer');
-          }
-        } else if(event === "update-layer") {
-          const response = await updateLayer(payload)
-          if(response) {
-            await componentEvent('fetch-layer');
-          }
-        } else if(event === "fetch-layer") {
-          const response = await fetchLayers();
-          if(response) {
-            localData.layers.value = response;
-          }
-        }
-        else if(event === "delete-layer") {
-          const response = await deleteLayer(payload)
-          if(response) {
-            await componentEvent('fetch-layer');
-          }
-        } else if(event === "order-layer") {
-          const data = {id: payload.id, order: payload.order}
-          const response = await orderLayers(data)
-          if(response) {
-            await componentEvent('fetch-layer');
-          }
-        } else if(event === "hide-layer") {
-          const data = {id: payload.id, hidden: payload.hidden === 0 ? 1 : 0}
-          const response = await hideLayer(data)
-          if(response) {
-            await componentEvent('fetch-layer');
-          }
-        } else if(event === "layer-state") {
-          if(typeof payload === 'boolean') {
-            windowStates.layer.value = payload;
-            await componentEvent('fetch-layer');
-          }
-        } else if(event === "select-state") {
-          if(typeof payload === 'boolean') {
-            windowStates.select.value = payload;
-            console.log(payload, 'APP:VUE')
-          } else {
-            windowStates.select.value = payload.state
-            localData.selectedShape.value = payload.shape
-            console.log('Auswahl abgeschlossen:', payload)
-          }
-        }else if(event === "cursor-state") {
-          if (typeof payload === 'boolean') {
-            windowStates.cursor.value = payload
-            windowStates.select.value = false;
-            windowStates.text.value = false
-          } else {
-            console.log(payload)
-          }
-        } else if(event === "text-state") {
-          if (typeof payload === 'boolean') {
-            windowStates.text.value = payload
-          } else {
-            console.log(payload)
-          }
-        } else if(event === "fetch-setting") {
-          localData.loading.value = true
-          const response = await fetchOsSettings()
-          if(response) {
-            Object.assign(osSettings, response)
-            localData.loading.value = false
-          }
-        } else if(event === "save-setting") {
-          localData.loading.value = true
-          const response = await saveOsSettings()
-          if(response) {
-            windowStates.setting.value = false
-            await componentEvent('fetch-setting');
-          }
-        } else if(event === "setting-state") {
-          if(typeof payload === 'boolean') {
-            windowStates.setting.value = payload;
-          } else {
-            windowStates.setting.value = true;
-            await componentEvent('fetch-setting');
-          }
-        } else if(event === "fullscreen-state") {
-          if(typeof payload === 'boolean') {
-            windowStates.fullscreen.value = payload;
-          } else {
-            fullscreenInfo.title = payload.title
-            fullscreenInfo.id = payload.id
-            fullscreenInfo.src = payload.src
-            windowStates.fullscreen.value = true;
-          }
-        } else if(event === "tile-state") {
-          if(typeof payload === 'boolean') {
-            fullscreenInfo.tile = payload;
-          } else {
-            fullscreenInfo.mode = payload.mode
-            fullscreenInfo.id = payload.id
-            fullscreenInfo.title = payload.title
-            fullscreenInfo.src = payload.src
-            fullscreenInfo.tile = payload.tile
-            fullscreenInfo.tileSrc = payload.tileSrc
-            fullscreenInfo.tileSize = payload.tileSize
-            fullscreenInfo.zoom = payload.zoom
-            const response = await generateTileLayout(fullscreenInfo);
-            if(response) {
-              fullscreenInfo.tileSrc = response.tileSrc;
-            }
-          }
-        } else if(event === 'preview-layer') {
-          localData.loading.value = true
-          windowStates.fullscreen.value = true;
-          const response = await previewLayers();
-          if (response) {
-            fullscreenInfo.title = response.title;
-            fullscreenInfo.id = response.id
-            fullscreenInfo.src = response.src
-            localData.loading.value = false
-          }
-        } else if(event === 'update-channel') {
-          const response = await updateChannel();
-          if (response) {
-            localData.channel.value = response
-            console.log(response)
-          }
-        } else if(event === 'tools-state') {
-          fullscreenInfo.mode = payload.mode
-          fullscreenInfo.title = payload.title;
-          fullscreenInfo.id = payload.id
-          fullscreenInfo.src = payload.src
-          windowStates.fullscreen.value = true;
-        } else if(event === 'reset-selected-layer') {
-          localData.selectedLayers.value = []
-        }
-      } catch (error) {
-        console.error("Error adding layer:", error.response?.data || error.message);
-      }
-    };
 
     const init = async () => {
       if(!localData.layers.value.length) {

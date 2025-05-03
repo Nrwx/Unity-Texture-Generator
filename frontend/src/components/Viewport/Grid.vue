@@ -106,7 +106,7 @@
 <script>
 import {computed, defineComponent, onMounted, onUnmounted, ref} from "vue";
 import Image from "@/components/Image/Image";
-import {transformStates, canvasStates} from "@/dataLayer/state";
+import {transformStates, canvasStates, windowStates} from "@/dataLayer/state";
 import Selection from "@/components/Selection/Selection.vue";
 import Text from "@/components/Text/Text.vue";
 
@@ -364,7 +364,7 @@ export default defineComponent({
       }
     };
 
-    const hasMatrixChanged = (a, b) => {
+    const hasLayerChanged = (a, b) => {
       if (!a || !b) return true;
 
       for (const key in a) {
@@ -382,13 +382,39 @@ export default defineComponent({
       }
     };
 
-    const updateLayer = (layer) => {
-      if (hasMatrixChanged(layer.__originalMatrix, layer.matrix)) {
-        emitEvent('update-layer', layer);
-        console.log('Layer aktualisiert');
-      } else {
-        console.log('Layer unverändert');
+    const storedText = (layer) => {
+      if (!layer.__orginalStyle) {
+        layer.__orginalStyle = {
+          width: layer.width,
+          height: layer.height,
+          fontSize: layer.fontSize,
+          fontFamily: layer.fontFamily,
+          fontWeight: layer.fontWeight,
+          textAlign: layer.textAlign,
+          lineHeight: layer.lineHeight,
+          letterSpacing: layer.letterSpacing,
+          textTransform: layer.textTransform,
+          textDecoration: layer.textDecoration,
+          color: layer.color,
+        };
       }
+    };
+
+    const updateLayer = (layer) => {
+        if(layer.type === 1) {
+          if(hasLayerChanged(layer.__orginalStyle, layer))  {
+            emitEvent('update-text-layer', {layer});
+            console.log('Textebene aktualisiert');
+          } else {
+            console.log('Textebene unverändert');
+          }
+        }
+        if (hasLayerChanged(layer.__originalMatrix, layer.matrix)) {
+          emitEvent('update-layer', layer);
+          console.log('Layer aktualisiert');
+        } else {
+            console.log('Layer unverändert');
+        }
     };
 
     const toggleSelection = (layer, event) => {
@@ -397,17 +423,32 @@ export default defineComponent({
       transformStates.size.value = false
       transformStates.rotate.value = false
       const index = selectedLayer.value.findIndex(l => l.id === layer.id);
-      storeOriginalMatrix(layer);
+      if (layer.type === 0) {
+        storeOriginalMatrix(layer);
+      }
+      else if (layer.type === 1) {
+        storedText(layer)
+      }
 
       if (event.ctrlKey) {
         if (index === -1) {
-          storeOriginalMatrix(layer);
+          if (layer.type === 0) {
+            storeOriginalMatrix(layer);
+          }
+          else if (layer.type === 1) {
+            storedText(layer)
+          }
           selectedLayer.value.push(layer);
         } else {
           selectedLayer.value.splice(index, 1);
         }
       } else {
-        storeOriginalMatrix(layer);
+        if (layer.type === 0) {
+          storeOriginalMatrix(layer);
+        }
+        else if (layer.type === 1) {
+          storedText(layer)
+        }
         selectedLayer.value = [layer];
       }
     };
@@ -569,9 +610,7 @@ export default defineComponent({
     };
 
     const handleKeyDown = (event) => {
-      // Wenn der Fokus in einem Input oder Textarea liegt → Eingabe zulassen
-      const tag = event.target.tagName.toLowerCase();
-      if (tag === 'input' || tag === 'textarea') return;
+      if (windowStates.text.value) return;
 
       event.preventDefault();
       if (event.key.toLowerCase() === "r") {
@@ -596,8 +635,7 @@ export default defineComponent({
     };
 
     const handleKeyUp = (event) => {
-      const tag = event.target.tagName.toLowerCase();
-      if (tag === 'input' || tag === 'textarea') return;
+      if (windowStates.text.value) return;
 
       event.preventDefault();
       if (event.key === 'g') {

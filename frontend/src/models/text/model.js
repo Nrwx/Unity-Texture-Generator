@@ -35,6 +35,7 @@ export function textModel(props, emit) {
         initialMouseY.value = 0
         initialWidth.value = 0
         initialHeight.value = 0
+        emitEvent('text-state', false)
     };
 
     const cancelText = () => {

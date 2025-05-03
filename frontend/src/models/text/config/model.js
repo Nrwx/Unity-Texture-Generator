@@ -27,3 +27,6 @@ export const textLayer = ref({
     textDecoration: 'none',
     color: '#000000'
 });
+
+export const editText = ref(null);
+

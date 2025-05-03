@@ -71,7 +71,7 @@ import { defineComponent } from "vue";
 import {viewportModel, viewportProps} from "@/view/models/page/viewport/model";
 
 export default defineComponent({
-  name: "ViewportComponent",
+  name: "ViewportPage",
   props: viewportProps,
   setup(props, { emit }) {
     const { presets, emitEvent, selectPreset } = viewportModel(props, emit);
