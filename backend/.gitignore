@@ -2,13 +2,10 @@
 /public
 /venv
 
-# Python-Cache-Dateien
-*.pyc
-*.pyo
-*.pyd
-
-# Cache-Ordner
+# Python-Bytecode und Cache-Dateien (rekursiv)
 __pycache__/
+*.py[cod]
+**/*.py[cod]
 
 # Distribution/Build
 build/

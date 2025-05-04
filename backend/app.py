@@ -8,6 +8,8 @@ import io
 import math
 import cv2
 import uuid
+import zipfile
+import tempfile
 from werkzeug.utils import secure_filename
 from config.app.app_settings import ANIMATION_SETTINGS, get_app_settings, save_app_settings
 
@@ -58,8 +60,13 @@ from utils import (
 # Initialising
 app = Flask(__name__)
 PUBLIC_FOLDER = "public"
+ASSETS_FOLDER = "assets"
 if os.path.exists(PUBLIC_FOLDER):
     shutil.rmtree(PUBLIC_FOLDER)
+
+# Assets folder for standard fonts (persistent)
+PRE_FONTS_FOLDER = os.path.join(ASSETS_FOLDER, 'font')
+os.makedirs(PRE_FONTS_FOLDER, exist_ok=True)
 
 # Ordner für temporäre Dateien
 
@@ -75,12 +82,26 @@ os.makedirs(CHANNEL_FOLDER, exist_ok=True)
 LAYER_FOLDER = os.path.join(PUBLIC_FOLDER, "layer")
 os.makedirs(LAYER_FOLDER, exist_ok=True)
 
+FONTS_FOLDER = os.path.join(PUBLIC_FOLDER, "font")
+os.makedirs(FONTS_FOLDER, exist_ok=True)
+
+STATIC_FOLDER = os.path.join(PUBLIC_FOLDER, "static")
+os.makedirs(STATIC_FOLDER, exist_ok=True)
+
 SOURCE_FOLDER = os.path.join(PUBLIC_FOLDER, "backup")
 os.makedirs(SOURCE_FOLDER, exist_ok=True)
 
-viewportConfig = []
-layers = []
-channels = []
+# Predefined standard fonts
+STANDARD_FONTS = [
+    {'id': 'ca495c67-9c44-4780-ada5-817a39663413', 'name': 'Roboto', 'source': 'google', 'file': None, 'favorite': False},
+    {'id': '3307155b-bb11-4e05-b6bd-3401dca65b97', 'name': 'Sans Serif', 'source': 'standard', 'file': None, 'favorite': False}
+]
+
+
+VIEWPORT_CONFIG = []
+LAYERS = []
+CHANNELS = []
+FONTS = []
 
 # Definition der Eingabeparameter und deren Standardwerte
 PARAMETERS = {
@@ -275,14 +296,15 @@ def viewportCanvas():
             "title": params['title'],
             "layer": params['layer']
         }
-        channels.clear()
-        layers.clear()
-        viewportConfig.clear()
-        viewportConfig.append(config)
-        print(viewportConfig)
+        CHANNELS.clear()
+        LAYERS.clear()
+        VIEWPORT_CONFIG.clear()
+        VIEWPORT_CONFIG.append(config)
+        print(VIEWPORT_CONFIG)
+        print(FONTS)
         add_layer(name=params['layer'], path=None, id=None, type=0, width=params['width'], height=params['height'])
 
-        return jsonify({"message": "Viewport set", "viewport": viewportConfig}), 200
+        return jsonify({"message": "Viewport set", "viewport": VIEWPORT_CONFIG}), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -509,7 +531,6 @@ def apply_app_settings():
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
-
 def update_animation_settings(new_settings):
     """Aktualisiere die Animationseinstellungen mit den neuen Werten."""
     updated_settings = get_app_settings().copy()  # Kopiere die aktuellen Einstellungen
@@ -519,6 +540,158 @@ def update_animation_settings(new_settings):
     updated_settings["preferred_unit"] = new_settings.get("preferred_unit", updated_settings["preferred_unit"])
 
     return updated_settings
+
+# Kopiert Standard-Fonts aus assets/font/* beim ersten Start
+def copy_standard_assets():
+    if not os.listdir(FONTS_FOLDER):  # Nur wenn Zielordner leer
+        for entry in os.listdir(PRE_FONTS_FOLDER):
+            entry_path = os.path.join(PRE_FONTS_FOLDER, entry)
+
+            # Falls ZIP-Datei → temporär entpacken
+            if zipfile.is_zipfile(entry_path):
+                with zipfile.ZipFile(entry_path, 'r') as zip_ref:
+                    with tempfile.TemporaryDirectory() as temp_dir:
+                        zip_ref.extractall(temp_dir)
+                        process_font_folder(entry, temp_dir)
+
+            # Falls Verzeichnis → direkt verarbeiten
+            elif os.path.isdir(entry_path):
+                process_font_folder(entry, entry_path)
+
+# Hilfsfunktion: verarbeitet Ordner mit Font-Dateien rekursiv
+def process_font_folder(folder_name, src_dir):
+    group_id = str(uuid.uuid4())
+    dest_dir = os.path.join(FONTS_FOLDER, group_id)
+    os.makedirs(dest_dir, exist_ok=True)
+
+    children = []
+
+    for dirpath, dirnames, filenames in os.walk(src_dir):
+        for fn in filenames:
+            if fn.lower().endswith(('.ttf', '.woff', '.otf')):
+                original_name = os.path.splitext(fn)[0]
+                ext = os.path.splitext(fn)[1]
+                file_id = str(uuid.uuid4())
+                new_filename = f"{file_id}{ext}"
+
+                shutil.copyfile(os.path.join(dirpath, fn), os.path.join(dest_dir, new_filename))
+
+                children.append({
+                    'id': file_id,
+                    'name': original_name,
+                    'path': f"/font/{group_id}/{new_filename}"
+                })
+
+    if children:
+        FONTS.append({
+            'id': group_id,
+            'name': folder_name,
+            'path': f"/font/{group_id}",
+            'favorite': False,
+            'children': children
+        })
+
+
+# Falls Fonts nachträglich eingelesen werden sollen (z. B. bei Upload)
+def scan_fonts():
+    FONTS.clear()  # Lösche das bestehende Array
+
+    # Gehe rekursiv durch alle Ordner im FONTS_FOLDER
+    for dirpath, dirnames, filenames in os.walk(FONTS_FOLDER):
+        if dirpath != FONTS_FOLDER:  # Vermeide das Verarbeiten des Wurzelordners
+            folder_name = os.path.basename(dirpath)
+            children = []  # Liste für alle Font-Dateien in dieser Gruppe
+
+            for fn in filenames:
+                if fn.lower().endswith(('.ttf', '.woff', '.otf')):
+                    file_id = str(uuid.uuid4())  # UUID für jede Datei (wenn nötig)
+                    children.append({
+                        'id': file_id,
+                        'name': os.path.splitext(fn)[0],  # Der Name der Datei ohne Erweiterung
+                        'path': f"/font/{folder_name}/{fn}"  # Der Pfad zur Font-Datei
+                    })
+
+            # Wenn es Font-Dateien gibt, füge die Gruppe in FONTS hinzu
+            if children:
+                FONTS.append({
+                    'id': folder_name,
+                    'name': folder_name,  # Der Name des Ordners (in diesem Fall der Ordnername als Gruppe)
+                    'path': f"/font/{folder_name}",
+                    'favorite': False,
+                    'children': children
+                })
+
+
+# Initialize once
+copy_standard_assets()
+FONTS = scan_fonts()
+print(FONTS)
+
+# Central fonts handler
+@app.route('/fonts', methods=['GET', 'POST'])
+def fonts_management():
+    global FONTS
+    if request.method == 'GET':
+        return jsonify(FONTS)
+
+    mode = request.form.get('mode')
+    if mode == 'list':
+        FONTS = scan_fonts()
+        return jsonify(FONTS)
+
+    if mode == 'fetch':
+        fid = request.form.get('id')
+        group = next((g for g in FONTS if g['id'] == fid), None)
+        return jsonify(group or {'error': 'Font group not found'}), (200 if group else 404)
+
+    if mode == 'upload':
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file part'}), 400
+        f = request.files['file']
+        filename = secure_filename(f.filename)
+        base = os.path.splitext(filename)[0]
+        dest = os.path.join(FONTS_FOLDER, base)
+        if os.path.isdir(dest):
+            shutil.rmtree(dest)
+        os.makedirs(dest, exist_ok=True)
+
+        if filename.lower().endswith('.zip'):
+            zip_path = os.path.join(dest, filename)
+            f.save(zip_path)
+            with zipfile.ZipFile(zip_path, 'r') as z:
+                z.extractall(dest)
+            os.remove(zip_path)
+        else:
+            f.save(os.path.join(dest, filename))
+
+        FONTS = scan_fonts()
+        return jsonify({'status': 'uploaded'})
+
+    if mode == 'update':
+        data = request.get_json() or {}
+        fid = data.get('id')
+        group = next((g for g in FONTS if g['id'] == fid), None)
+        if not group:
+            return jsonify({'error': 'Font group not found'}), 404
+        if 'favorite' in data:
+            group['favorite'] = bool(data['favorite'])
+        return jsonify(group)
+
+    if mode == 'delete':
+        fid = request.form.get('id')
+        group = next((g for g in FONTS if g['id'] == fid), None)
+        if not group:
+            return jsonify({'error': 'Font group not found'}), 404
+        shutil.rmtree(os.path.join(FONTS_FOLDER, fid), ignore_errors=True)
+        FONTS = scan_fonts()
+        return jsonify({'status': 'deleted'})
+
+    return jsonify({'error': 'Invalid mode'}), 400
+
+# Serve font files
+@app.route('/font/<folder>/<filename>')
+def serve_font(folder, filename):
+    return send_from_directory(os.path.join(FONTS_FOLDER, folder), filename)
 
 def parse_parameters(params_section, form):
     parsed_params = {}
@@ -541,8 +714,8 @@ def parse_parameters(params_section, form):
 def add_text_layer(type: int,order: int, name: str,hidden: int,opacity: float,color: str,fontFamily: str,fontSize: int,fontWeight: str,initFontSize: int,initHeight: int,initWidth: int,letterSpacing: float,lineHeight: float,text: str,textAlign: str,textDecoration: str,textTransform: str,width: int,height: int,x: int,y: int
 ):
     try:
-        viewport_width = viewportConfig[0]["width"]
-        viewport_height = viewportConfig[0]["height"]
+        viewport_width = VIEWPORT_CONFIG[0]["width"]
+        viewport_height = VIEWPORT_CONFIG[0]["height"]
 
         # Transformation / Matrix
         matrix = {
@@ -564,7 +737,7 @@ def add_text_layer(type: int,order: int, name: str,hidden: int,opacity: float,co
             "width": width,
             "height": height,
             "matrix": matrix,
-            "order": order if order is not None else len(layers),
+            "order": order if order is not None else len(LAYERS),
             "hidden": hidden,
             "opacity": opacity,
             "color": color,
@@ -584,8 +757,8 @@ def add_text_layer(type: int,order: int, name: str,hidden: int,opacity: float,co
             "textTransform": textTransform,
         }
 
-        layers.append(layer)
-        print(layers)
+        LAYERS.append(layer)
+        print(LAYERS)
         return jsonify(layer), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -596,8 +769,8 @@ def add_layer(name="", path="", id="", type=0, width=1024, height=1024):
     try:
         source_id = str(uuid.uuid4())  # UUID für die Source-Datei
         source_path = os.path.join(SOURCE_FOLDER, f"{source_id}.png")
-        viewport_width = viewportConfig[0]["width"]  # Base Width
-        viewport_height = viewportConfig[0]["height"]  # Base Height
+        viewport_width = VIEWPORT_CONFIG[0]["width"]  # Base Width
+        viewport_height = VIEWPORT_CONFIG[0]["height"]  # Base Height
 
         if not id:  # Falls keine ID übergeben wurde, neue generieren
             id = str(uuid.uuid4())  # Neue UUID v4 generieren
@@ -651,21 +824,21 @@ def add_layer(name="", path="", id="", type=0, width=1024, height=1024):
             "url": f"/download/{id}.png",
             "matrix": matrix,
             "source": source_id,
-            "order": len(layers),
+            "order": len(LAYERS),
             "hidden": 0,
             "opacity": 1,
             "blend_mode": 0,
             "color": "#ffffff"
         }
-        layers.append(layer)
-        print(layers)
+        LAYERS.append(layer)
+        print(LAYERS)
         return jsonify(layer), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 def update_layer(type, name, width, height, id, a, b, c, d, x, y, rotate, order, hidden, opacity, blend_mode, color):
     try:
-        layer = next((l for l in layers if l["id"] == id), None)
+        layer = next((l for l in LAYERS if l["id"] == id), None)
         if not layer:
             return jsonify({"error": "Layer not found"}), 404
 
@@ -702,19 +875,19 @@ def update_layer(type, name, width, height, id, a, b, c, d, x, y, rotate, order,
         if color:
             layer["color"] = color
 
-        print(layers)
+        print(LAYERS)
         return jsonify(layer), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 def delete_layer(id):
     try:
-        layer = next((l for l in layers if l["id"] == id), None)
+        layer = next((l for l in LAYERS if l["id"] == id), None)
         if not layer:
             return jsonify({"error": "Layer not found"}), 404
 
         image_path = os.path.join(LAYER_FOLDER, f"{id}.png")
-        layers.remove(layer)
+        LAYERS.remove(layer)
 
         print(f"Deleting layer: {image_path}")
         if os.path.exists(image_path):
@@ -725,27 +898,27 @@ def delete_layer(id):
         return jsonify({"error": str(e)}), 500
 
 def list_layers():
-    return jsonify(layers), 200
+    return jsonify(LAYERS), 200
 
 def preview_layers(return_image=False, layer_id=None):
     try:
-        if not layers:
+        if not LAYERS:
             return jsonify({"error": "No layers to preview"}), 404
 
         # Erstelle leeren Canvas (Viewport)
-        viewport_width = viewportConfig[0]["width"]
-        viewport_height = viewportConfig[0]["height"]
+        viewport_width = VIEWPORT_CONFIG[0]["width"]
+        viewport_height = VIEWPORT_CONFIG[0]["height"]
         composite_image = Image.new('RGBA', (viewport_width, viewport_height), (0, 0, 0, 0))
 
         # Nur ein Layer rendern?
         render_layers = []
         if layer_id:
-            single_layer = next((l for l in layers if l["id"] == layer_id), None)
+            single_layer = next((l for l in LAYERS if l["id"] == layer_id), None)
             if single_layer is None:
                 return jsonify({"error": f"Layer with id '{layer_id}' not found."}), 404
             render_layers.append(single_layer)
         else:
-            render_layers = [l for l in layers if l.get("hidden", 0) != 1]
+            render_layers = [l for l in LAYERS if l.get("hidden", 0) != 1]
 
         for layer in render_layers:
             layer_path = os.path.join(LAYER_FOLDER, f"{layer['id']}.png")
@@ -826,16 +999,16 @@ def order_layers(id, order):
         order = int(order)
 
         # Layer mit gegebener ID finden
-        index = next((i for i, l in enumerate(layers) if l["id"] == id), None)
+        index = next((i for i, l in enumerate(LAYERS) if l["id"] == id), None)
         if index is None:
             return jsonify({"error": f"Layer with id {id} not found."}), 404
 
         # Layer verschieben
-        moved_layer = layers.pop(index)
-        layers.insert(order, moved_layer)
+        moved_layer = LAYERS.pop(index)
+        LAYERS.insert(order, moved_layer)
 
         # Reihenfolge neu nummerieren
-        for i, layer in enumerate(layers):
+        for i, layer in enumerate(LAYERS):
             layer["order"] = i
 
         return jsonify({"success": True, "message": f"Layer {id} moved to position {order}."}), 200
@@ -846,7 +1019,7 @@ def order_layers(id, order):
 def paste_layer(id):
     try:
         # 1) Ursprüngliches Layer finden
-        layer = next((l for l in layers if l["id"] == id), None)
+        layer = next((l for l in LAYERS if l["id"] == id), None)
         if layer is None:
             return jsonify({"error": f"Layer with id '{id}' not found."}), 404
 
@@ -869,8 +1042,8 @@ def paste_layer(id):
             img.save(new_img_path)
 
         # 5) In Liste einfügen (über dem Original)
-        index = layers.index(layer)
-        layers.insert(index, new_layer)
+        index = LAYERS.index(layer)
+        LAYERS.insert(index, new_layer)
 
         print(f"Pasted layer with new ID {new_id}")
         return jsonify(new_layer), 200
@@ -881,7 +1054,7 @@ def paste_layer(id):
 def blend_layer(id, blend_mode, color):
     try:
         # 1) Layer-Daten finden
-        layer = next((l for l in layers if l["id"] == id), None)
+        layer = next((l for l in LAYERS if l["id"] == id), None)
         if layer is None:
             return jsonify({"error": f"Layer with id '{id}' not found."}), 404
 
@@ -906,10 +1079,10 @@ def blend_layer(id, blend_mode, color):
         else:
             # Darunterliegenden Layer laden
             base_index = layer_order - 1
-            if base_index < 0 or base_index >= len(layers):
+            if base_index < 0 or base_index >= len(LAYERS):
                 return jsonify({"error": "Invalid layer order"}), 400
 
-            base_layer = layers[base_index]
+            base_layer = LAYERS[base_index]
             base_id = base_layer["id"]
 
             img2_path = os.path.join(LAYER_FOLDER, f"{base_id}.png")
@@ -982,7 +1155,7 @@ def hide_layer(id, hidden):
             return jsonify({"error": "'hidden' must be 0 or 1."}), 400
 
         # Layer mit der gegebenen ID finden
-        layer = next((l for l in layers if l["id"] == id), None)
+        layer = next((l for l in LAYERS if l["id"] == id), None)
         if layer is None:
             return jsonify({"error": f"Layer with id {id} not found."}), 404
 
@@ -1019,7 +1192,7 @@ def update_channel():
             "A": "Alpha"
         }
 
-        channels = []
+        CHANNELS = []
 
         if not os.path.exists(CHANNEL_FOLDER):
             os.makedirs(CHANNEL_FOLDER, exist_ok=True)
@@ -1030,7 +1203,7 @@ def update_channel():
             path = os.path.join(CHANNEL_FOLDER, filename)
             img.save(path, format="PNG", quality=100)
 
-            channels.append({
+            CHANNELS.append({
                 "id": f"{map_id}",
                 "name": channel_titles.get(key, key),
                 "url": f"/download/{filename}",
@@ -1038,7 +1211,7 @@ def update_channel():
                 "height": img.height
             })
 
-        return jsonify(channels), 200
+        return jsonify(CHANNELS), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -1046,7 +1219,7 @@ def update_channel():
 def generate_layer_channel(layer_id):
     try:
         # 1. Layer-Objekt finden
-        layer = next((l for l in layers if l["id"] == layer_id), None)
+        layer = next((l for l in LAYERS if l["id"] == layer_id), None)
         if not layer:
             return jsonify({"error": "Layer not found"}), 404
 
@@ -1058,7 +1231,7 @@ def generate_layer_channel(layer_id):
         img = Image.open(image_path)
 
         # 3. Channels erzeugen
-        channels = generate_channels(img)
+        CHANNELS = generate_channels(img)
 
         # 4. Alte Channel-IDs lesen (falls vorhanden)
         old_channels = layer.get("channel", [])
@@ -1073,7 +1246,7 @@ def generate_layer_channel(layer_id):
             "A": "Alpha"
         }
 
-        for key, channel_img in channels.items():
+        for key, channel_img in CHANNELS.items():
             name = channel_titles.get(key, key)
             channel_id = id_map.get(name, f"{str(uuid.uuid4())}_{key}")
             filename = f"{channel_id}.png"
