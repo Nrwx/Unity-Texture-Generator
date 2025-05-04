@@ -10,6 +10,7 @@ import cv2
 import uuid
 import zipfile
 import tempfile
+import tarfile
 from werkzeug.utils import secure_filename
 from config.app.app_settings import ANIMATION_SETTINGS, get_app_settings, save_app_settings
 
@@ -301,7 +302,6 @@ def viewportCanvas():
         VIEWPORT_CONFIG.clear()
         VIEWPORT_CONFIG.append(config)
         print(VIEWPORT_CONFIG)
-        print(FONTS)
         add_layer(name=params['layer'], path=None, id=None, type=0, width=params['width'], height=params['height'])
 
         return jsonify({"message": "Viewport set", "viewport": VIEWPORT_CONFIG}), 200
@@ -579,6 +579,7 @@ def process_font_folder(folder_name, src_dir):
                 children.append({
                     'id': file_id,
                     'name': original_name,
+                    'filename': original_name,
                     'path': f"/font/{group_id}/{new_filename}"
                 })
 
@@ -594,38 +595,57 @@ def process_font_folder(folder_name, src_dir):
 
 # Falls Fonts nachträglich eingelesen werden sollen (z. B. bei Upload)
 def scan_fonts():
-    FONTS.clear()  # Lösche das bestehende Array
+    scanned_fonts = []
 
     # Gehe rekursiv durch alle Ordner im FONTS_FOLDER
     for dirpath, dirnames, filenames in os.walk(FONTS_FOLDER):
-        if dirpath != FONTS_FOLDER:  # Vermeide das Verarbeiten des Wurzelordners
+        if dirpath != FONTS_FOLDER:
             folder_name = os.path.basename(dirpath)
-            children = []  # Liste für alle Font-Dateien in dieser Gruppe
+            children = []
+
+            # Versuche, existierende Metadaten aus dem bestehenden FONTS-Array zu finden
+            existing_group = next((f for f in FONTS if f["id"] == folder_name), None)
 
             for fn in filenames:
                 if fn.lower().endswith(('.ttf', '.woff', '.otf')):
-                    file_id = str(uuid.uuid4())  # UUID für jede Datei (wenn nötig)
+                    file_id = None
+                    original_name = os.path.splitext(fn)[0]
+                    filename = original_name
+
+                    # Wenn Gruppe vorhanden ist → versuche, ID und filename zu übernehmen
+                    if existing_group:
+                        match = next((c for c in existing_group["children"] if c["path"].endswith(f"/{fn}")), None)
+                        if match:
+                            file_id = match.get("id")
+                            filename = match.get("filename", original_name)
+                            original_name = match.get("name", filename)
+
+                    if not file_id:
+                        file_id = str(uuid.uuid4())
+
                     children.append({
                         'id': file_id,
-                        'name': os.path.splitext(fn)[0],  # Der Name der Datei ohne Erweiterung
-                        'path': f"/font/{folder_name}/{fn}"  # Der Pfad zur Font-Datei
+                        'name': original_name,
+                        'path': f"/font/{folder_name}/{fn}"
                     })
 
-            # Wenn es Font-Dateien gibt, füge die Gruppe in FONTS hinzu
             if children:
-                FONTS.append({
+                scanned_fonts.append({
                     'id': folder_name,
-                    'name': folder_name,  # Der Name des Ordners (in diesem Fall der Ordnername als Gruppe)
+                    'name': existing_group["name"] if existing_group else folder_name,
                     'path': f"/font/{folder_name}",
-                    'favorite': False,
+                    'favorite': existing_group["favorite"] if existing_group else False,
                     'children': children
                 })
+
+    FONTS.clear()
+    FONTS.extend(scanned_fonts)
+    return FONTS
 
 
 # Initialize once
 copy_standard_assets()
 FONTS = scan_fonts()
-print(FONTS)
 
 # Central fonts handler
 @app.route('/fonts', methods=['GET', 'POST'])
