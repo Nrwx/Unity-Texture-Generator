@@ -850,11 +850,12 @@ def paste_layer(id):
         if layer is None:
             return jsonify({"error": f"Layer with id '{id}' not found."}), 404
 
-        # 2) Bild laden
-        img_path = os.path.join(LAYER_FOLDER, f"{id}.png")
-        if not os.path.exists(img_path):
-            return jsonify({"error": "Original image file not found"}), 404
-        img = Image.open(img_path).convert("RGBA")
+        if layer["type"] == 0:
+            # 2) Bild laden
+            img_path = os.path.join(LAYER_FOLDER, f"{id}.png")
+            if not os.path.exists(img_path):
+                return jsonify({"error": "Original image file not found"}), 404
+            img = Image.open(img_path).convert("RGBA")
 
         # 3) Layer duplizieren
         new_layer = copy.deepcopy(layer)
@@ -862,9 +863,10 @@ def paste_layer(id):
         new_layer["id"] = new_id
         new_layer["order"] = layer["order"]
 
-        # 4) Neues Bild speichern
-        new_img_path = os.path.join(LAYER_FOLDER, f"{new_id}.png")
-        img.save(new_img_path)
+        if layer["type"] == 0:
+            # 4) Neues Bild speichern
+            new_img_path = os.path.join(LAYER_FOLDER, f"{new_id}.png")
+            img.save(new_img_path)
 
         # 5) In Liste einfügen (über dem Original)
         index = layers.index(layer)
