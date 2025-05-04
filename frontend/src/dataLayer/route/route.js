@@ -1,6 +1,6 @@
 export {
     addLayer, addTextLayer, blendLayer, deleteLayer, fetchLayers,
-    hideLayer, orderLayers, previewLayers, updateChannel, updateLayer
+    hideLayer, orderLayers, previewLayers, updateChannel, updateLayer, pasteLayer
 } from "./layer";
 
 export { fileUpload } from "./upload";

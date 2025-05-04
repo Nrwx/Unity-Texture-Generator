@@ -139,6 +139,23 @@ export const deleteLayer = async (layers) => {
     }
 };
 
+export const pasteLayer = async (layer) => {
+    try {
+        const formData = new FormData();
+        formData.append("method", "paste");
+        formData.append("id", layer.id);
+
+        const response = await api.post('/layer', formData, {
+            headers: {'Content-Type': 'multipart/form-data'},
+        });
+        if (response) {
+            return response
+        }
+    } catch (error) {
+        console.error("Error fetching layers:", error.response?.data || error.message);
+    }
+};
+
 export const previewLayers = async () => {
     try {
         const formData = new FormData();

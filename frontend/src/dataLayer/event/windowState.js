@@ -79,4 +79,9 @@ export const windowStateEvent = (route) => ({
         route.fullscreenInfo.src = payload.src
         route.windowStates.fullscreen.value = true;
     },
+    "context-menu-state": (payload) => {
+        if (typeof payload === "boolean") {
+            route.windowStates.context.value = payload;
+        }
+    },
 });

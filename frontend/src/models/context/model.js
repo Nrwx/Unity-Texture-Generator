@@ -1,15 +1,15 @@
 import {nextTick, onBeforeUnmount, onMounted, ref} from "vue";
+import {v4 as uuidv4} from "uuid";
 
 export function contextModel(props, emit) {
     const wrapper = ref(null);
-    const visible = ref(false);
     const position = ref({ x: 0, y: 0 });
     const contextId = ref(null);
 
-    const uniqueId = `context-${Math.random().toString(36).slice(2)}`;
+    const uniqueId = uuidv4()
 
     const emitEvent = (event, payload) => {
-        emit("component-event", event, payload);
+        emit("update:component-event", event, payload);
     };
 
     const getEventPosition = (event) => {
@@ -29,8 +29,8 @@ export function contextModel(props, emit) {
         event.preventDefault();
 
         const sameTarget = contextId.value === id;
-        if (sameTarget && visible.value) {
-            visible.value = false;
+        if (sameTarget && props.state) {
+            emitEvent('context-menu-state', false)
             contextId.value = null;
             return;
         }
@@ -44,7 +44,7 @@ export function contextModel(props, emit) {
 
         // Menü sichtbar machen, damit es im DOM gerendert wird
         contextId.value = id;
-        visible.value = true;
+        emitEvent('context-menu-state', true);
 
         await nextTick(); // Warten bis das Menü im DOM gerendert ist
 
@@ -63,27 +63,27 @@ export function contextModel(props, emit) {
         posX = Math.max(0, Math.min(posX, maxX));
         posY = Math.max(0, Math.min(posY, maxY));
 
-        position.value = { x: posX, y: posY };
+        position.value = { x: Math.round(posX), y: Math.round(posY) };
 
         document.addEventListener("click", handleClickOutside);
     };
 
     const handleClickOutside = (e) => {
         if (!wrapper.value?.contains(e.target)) {
-            visible.value = false;
+            emitEvent('context-menu-state', false);
             contextId.value = null;
             document.removeEventListener("click", handleClickOutside);
         }
     };
 
     const handleSelect = (item) => {
-        emit("select", { ...item, contextId: contextId.value });
-        visible.value = false;
+        emitEvent("context-menu-select", { ...item, contextId: contextId.value });
+        emitEvent('context-menu-state', false);
     };
 
     const handleCloseAll = (e) => {
         if (e.detail?.except !== uniqueId) {
-            visible.value = false;
+            emitEvent('context-menu-state', false);
             contextId.value = null;
             document.removeEventListener("click", handleClickOutside);
         }
@@ -101,7 +101,6 @@ export function contextModel(props, emit) {
     });
 
     return {
-        visible,
         position,
         wrapper,
         handleSelect,
@@ -112,6 +111,14 @@ export function contextModel(props, emit) {
 }
 
 export const contextProps = {
+    state: {
+        type: Boolean,
+        default: false,
+    },
+    copy: {
+        type: Boolean,
+        default: false,
+    },
     data: {
         type: Array,
         required: true,

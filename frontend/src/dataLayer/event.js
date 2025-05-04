@@ -4,6 +4,7 @@ import {windowStateEvent} from "@/dataLayer/event/windowState";
 import {fileEvent, fileSettingEvent} from "@/dataLayer/event/file";
 import {settingEvent} from "@/dataLayer/event/setting";
 import {channelEvent} from "@/dataLayer/event/channel";
+import {contextMenuEvent} from "@/dataLayer/event/contextMenu";
 
 /**
  * Kombiniert alle Events zu einem Handler-Objekt
@@ -18,7 +19,8 @@ const eventHandler = (route) => ({
     ...layerModifierEvent(route),
     ...textLayerEvent(route),
     ...textModifierEvent(route),
-    ...channelEvent(route)
+    ...channelEvent(route),
+    ...contextMenuEvent(route)
 });
 
 /**

@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, send_file, send_from_directory
+import copy
 from PIL import Image, ImageOps, ImageFilter, ImageEnhance
 import numpy as np
 import os
@@ -842,6 +843,39 @@ def order_layers(id, order):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+def paste_layer(id):
+    try:
+        # 1) Ursprüngliches Layer finden
+        layer = next((l for l in layers if l["id"] == id), None)
+        if layer is None:
+            return jsonify({"error": f"Layer with id '{id}' not found."}), 404
+
+        # 2) Bild laden
+        img_path = os.path.join(LAYER_FOLDER, f"{id}.png")
+        if not os.path.exists(img_path):
+            return jsonify({"error": "Original image file not found"}), 404
+        img = Image.open(img_path).convert("RGBA")
+
+        # 3) Layer duplizieren
+        new_layer = copy.deepcopy(layer)
+        new_id = str(uuid.uuid4())
+        new_layer["id"] = new_id
+        new_layer["order"] = layer["order"]
+
+        # 4) Neues Bild speichern
+        new_img_path = os.path.join(LAYER_FOLDER, f"{new_id}.png")
+        img.save(new_img_path)
+
+        # 5) In Liste einfügen (über dem Original)
+        index = layers.index(layer)
+        layers.insert(index, new_layer)
+
+        print(f"Pasted layer with new ID {new_id}")
+        return jsonify(new_layer), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 def blend_layer(id, blend_mode, color):
     try:
         # 1) Layer-Daten finden
@@ -1105,6 +1139,10 @@ def layer_management():
             "blend": {
                 'keys': {"id", "blend_mode", "color"},
                 'function': blend_layer
+            },
+            "paste": {
+                'keys': {"id"},
+                'function': paste_layer
             },
             "update:channel": {
                 'keys': {},

@@ -12,7 +12,8 @@ export const windowStates = {
     drag: ref(false),
     select: ref(false),
     text: ref(false),
-    cursor: ref(false)
+    cursor: ref(false),
+    context: ref(false)
 };
 
 export const transformStates = {
@@ -29,4 +30,8 @@ export const canvasStates = {
     size: ref(false),
     zoom: ref(false),
     select: ref(false),
+};
+
+export const contextStates = {
+    copy: ref(false),
 };

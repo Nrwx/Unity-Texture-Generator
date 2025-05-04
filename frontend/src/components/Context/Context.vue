@@ -1,12 +1,13 @@
 <template>
   <div ref="wrapper"
-       v-if="visible"
+       v-if="state"
        style="position: fixed; z-index: 1;"
        :style="{ top: `${position.y}px`, left: `${position.x}px` }"
   >
     <List
         :data="data"
         @select="handleSelect"
+        @update:component-event="emitEvent"
         :parent-coords="position"
     />
   </div>
@@ -24,10 +25,9 @@ export default defineComponent({
     List
   },
   setup(props, { emit }) {
-    const { emitEvent, handleSelect, visible, position, wrapper } = contextModel(props, emit);
+    const { emitEvent, handleSelect, position, wrapper } = contextModel(props, emit);
     return {
       wrapper,
-      visible,
       position,
       emitEvent,
       handleSelect,

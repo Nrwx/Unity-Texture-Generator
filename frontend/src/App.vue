@@ -14,7 +14,7 @@
       <!-- Linker Drawer -->
       <DrawerNew v-model:taskbar-menu="windowStates.drawerLeft.value" v-model:item="activeItemLeft" align="left" @component-event="componentEvent"/>
       <!-- Context Menu -->
-      <Context :data="contextData" @select="handleContextAction"/>
+      <Context :state="windowStates.context.value" :copy="contextStates.copy.value" :data="contextData" @update:component-event="componentEvent"/>
       <!-- Main Content -->
       <v-main>
         <viewport-grid @component-event="componentEvent" v-model:layers="localData.layers.value" v-model:text-layer="textLayer" v-model:settings="localData.viewport.value" v-model:select="windowStates.select.value" v-model:select-mode="localData.selectedShape.value" :text="windowStates.text.value" style="position: relative;"/>
@@ -29,17 +29,18 @@
 </template>
 
 <script>
+import {computed, onMounted, reactive, ref} from "vue";
 import * as api from "@/dataLayer/route/route"
 import Taskbar from './components/Taskbar/Taskbar.vue';
 import {taskbarItemLeft, taskbarItemRight} from "@/models/taskbar/config/model";
 import {localData} from "@/dataLayer/local";
 import DrawerNew from "@/components/Drawer/DrawerNew";
-import {computed, onMounted, reactive, ref} from "vue";
 import Layer from "@/components/Layer/Layer";
 import {windowStates} from "@/dataLayer/state";
 import Setting from "@/components/Setting/Setting";
 import {osSettings} from "@/dataLayer/setting";
 import Fullscreen from "@/components/Fullscreen/Fullscreen";
+import {contextStates} from "@/dataLayer/state";
 import Viewport from "@/view/page/Viewport/Viewport";
 import ViewportGrid from "@/components/Viewport/Grid";
 import {settings} from "@/dataLayer/parameter";
@@ -78,6 +79,7 @@ export default {
     const componentEvent = createEventSystem({
       api,
       windowStates,
+      contextStates,
       localData,
       textLayer,
       settings,
@@ -119,10 +121,6 @@ export default {
       }
     };
 
-    const handleContextAction = ({ action, contextId }) => {
-      console.log('Aktion:', action, 'auf Datei:', contextId)
-    }
-
     const init = async () => {
       if(!localData.layers.value.length) {
         await componentEvent('fetch-layer');
@@ -143,11 +141,11 @@ export default {
       activeItemRight,
       fullscreenInfo,
       contextData,
-      handleContextAction,
       componentEvent,
       taskbarEvent,
       localData,
       windowStates,
+      contextStates,
       osSettings,
       textLayer
     };

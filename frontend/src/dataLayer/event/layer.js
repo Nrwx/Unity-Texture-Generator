@@ -32,6 +32,12 @@ export const layerEvent = (route) => ({
             await route.emit("fetch-layer");
         }
     },
+    "paste-layer": async (payload) => {
+        const response = await route.api.pasteLayer(payload);
+        if (response) {
+            await route.emit("fetch-layer");
+        }
+    },
     "preview-layer": async () => {
         route.localData.loading.value = true
         route.windowStates.fullscreen.value = true;
