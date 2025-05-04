@@ -7,7 +7,7 @@ export function listModel(props, emit) {
     const submenuCoords = ref({ x: 0, y: 0 });
 
     const emitEvent = (event, payload) => {
-        emit("component-event", event, payload);
+        emit("update:component-event", event, payload);
     };
 
     const handleClick = (item) => {
@@ -61,4 +61,5 @@ export function listModel(props, emit) {
 export const listProps = {
     data: Array,
     parentCoords: Object,
+    copy: Boolean,
 };

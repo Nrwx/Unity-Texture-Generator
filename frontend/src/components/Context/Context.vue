@@ -7,7 +7,6 @@
     <List
         :data="data"
         @select="handleSelect"
-        @update:component-event="emitEvent"
         :parent-coords="position"
     />
   </div>

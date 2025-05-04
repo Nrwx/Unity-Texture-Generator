@@ -35,6 +35,7 @@ export function contextModel(props, emit) {
             return;
         }
 
+
         const closeEvent = new CustomEvent("close-all-context-menus", {
             detail: { except: uniqueId },
         });
@@ -44,6 +45,7 @@ export function contextModel(props, emit) {
 
         // Menü sichtbar machen, damit es im DOM gerendert wird
         contextId.value = id;
+        updateDisabledStates(props.disabled)
         emitEvent('context-menu-state', true);
 
         await nextTick(); // Warten bis das Menü im DOM gerendert ist
@@ -89,6 +91,37 @@ export function contextModel(props, emit) {
         }
     };
 
+    const updateDisabledStates = ({ enabled, exclude = [], active = [], inactive = []}) => {
+        const walk = (items) => {
+            items.forEach(item => {
+                if (item.children) {
+                    walk(item.children);
+                }
+                if (item.action) {
+                    item.disabled = enabled && !exclude.includes(item.action);
+
+                    if (active.includes(item.action)) {
+                        item.active = true;
+                    } else if (inactive.includes(item.action)) {
+                        item.active = false;
+                    }
+                } else {
+                    item.disabled = false;
+                }
+            });
+        };
+
+        walk(props.data);
+        const update = {
+            enabled: enabled,
+            exclude: exclude,
+            active: active,
+            inactive: inactive,
+            data: props.data
+        }
+        emitEvent("update-context-menu", update);
+    };
+
     onMounted(() => {
         document.addEventListener("contextmenu", openMenu);
         document.addEventListener("close-all-context-menus", handleCloseAll);
@@ -119,10 +152,19 @@ export const contextProps = {
         type: Boolean,
         default: false,
     },
+    refId: {
+        type: String,
+        default: '',
+    },
+
     data: {
         type: Array,
         required: true,
         default: () => [],
+    },
+    disabled: {
+        type: Object,
+        required: true,
     },
     targetSelector: {
         type: String,

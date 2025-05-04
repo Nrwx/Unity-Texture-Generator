@@ -11,6 +11,7 @@
           :key="index"
           class="cursor-pointer"
           :disabled="item.disabled"
+          :hidden="!item.active"
           @mouseenter="hovered = index"
           @mouseleave="hovered = null"
           @click.stop="handleClick(item)"

@@ -14,7 +14,7 @@
       <!-- Linker Drawer -->
       <DrawerNew v-model:taskbar-menu="windowStates.drawerLeft.value" v-model:item="activeItemLeft" align="left" @component-event="componentEvent"/>
       <!-- Context Menu -->
-      <Context :state="windowStates.context.value" :copy="contextStates.copy.value" :data="contextData" @update:component-event="componentEvent"/>
+      <Context :state="windowStates.context.value" :copy="contextStates.copy.value" :ref-id="contextConfig.contextRefId.value" :data="contextConfig.contextData.value" v-model:disabled="contextConfig.disabledData.value" @update:component-event="componentEvent"/>
       <!-- Main Content -->
       <v-main>
         <viewport-grid @component-event="componentEvent" v-model:layers="localData.layers.value" v-model:text-layer="textLayer" v-model:settings="localData.viewport.value" v-model:select="windowStates.select.value" v-model:select-mode="localData.selectedShape.value" :text="windowStates.text.value" style="position: relative;"/>
@@ -45,9 +45,9 @@ import Viewport from "@/view/page/Viewport/Viewport";
 import ViewportGrid from "@/components/Viewport/Grid";
 import {settings} from "@/dataLayer/parameter";
 import Context from "@/components/Context/Context.vue";
-import {contextData} from "@/models/context/item/model";
 import {textLayer} from "@/models/text/config/model";
 import {createEventSystem} from "@/dataLayer/event";
+import {contextConfig} from "@/models/context/config/model";
 
 export default {
   name: 'App',
@@ -80,6 +80,7 @@ export default {
       api,
       windowStates,
       contextStates,
+      contextConfig,
       localData,
       textLayer,
       settings,
@@ -140,12 +141,12 @@ export default {
       activeItemLeft,
       activeItemRight,
       fullscreenInfo,
-      contextData,
       componentEvent,
       taskbarEvent,
       localData,
       windowStates,
       contextStates,
+      contextConfig,
       osSettings,
       textLayer
     };
