@@ -8,11 +8,7 @@ import io
 import math
 import cv2
 import uuid
-import zipfile
-import tempfile
-import tarfile
 from werkzeug.utils import secure_filename
-from config.app.app_settings import ANIMATION_SETTINGS, get_app_settings, save_app_settings
 
 from components import (
     generate_channels,
@@ -53,6 +49,10 @@ from components import (
     texture_projection,
 )
 
+from router.index import register_router
+
+from model.fonts_model import FontsModel
+
 from utils import (
     apply_rgb_rgba,
     apply_alpha,
@@ -60,6 +60,7 @@ from utils import (
 
 # Initialising
 app = Flask(__name__)
+
 PUBLIC_FOLDER = "public"
 ASSETS_FOLDER = "assets"
 if os.path.exists(PUBLIC_FOLDER):
@@ -92,17 +93,13 @@ os.makedirs(STATIC_FOLDER, exist_ok=True)
 SOURCE_FOLDER = os.path.join(PUBLIC_FOLDER, "backup")
 os.makedirs(SOURCE_FOLDER, exist_ok=True)
 
-# Predefined standard fonts
-STANDARD_FONTS = [
-    {'id': 'ca495c67-9c44-4780-ada5-817a39663413', 'name': 'Roboto', 'source': 'google', 'file': None, 'favorite': False},
-    {'id': '3307155b-bb11-4e05-b6bd-3401dca65b97', 'name': 'Sans Serif', 'source': 'standard', 'file': None, 'favorite': False}
-]
+register_router(app)
 
+FontsModel.initialize()
 
 VIEWPORT_CONFIG = []
 LAYERS = []
 CHANNELS = []
-FONTS = []
 
 # Definition der Eingabeparameter und deren Standardwerte
 PARAMETERS = {
@@ -501,217 +498,6 @@ def tile_image_endpoint():
     except Exception as e:
         print(f"Fehler: {str(e)}")
         return jsonify({"error": str(e)}), 500
-
-@app.route('/settings', methods=['GET', 'POST'])
-def apply_app_settings():
-    if request.method == 'GET':
-        # Liefere aktuelle Einstellungen
-        return jsonify(get_app_settings())
-
-    if request.method == 'POST':
-        # Neue Einstellungen übernehmen
-        new_settings = request.json
-        if not new_settings:
-            return jsonify({"error": "Keine Daten übermittelt"}), 400
-
-        # Versuche, die Einstellungen zu aktualisieren
-        try:
-            updated_settings = update_animation_settings(new_settings)
-
-            # Speichern der neuen Einstellungen
-            save_app_settings(updated_settings)
-
-            # ANIMATION_SETTINGS nach dem Speichern aktualisieren
-            global ANIMATION_SETTINGS
-            ANIMATION_SETTINGS = updated_settings
-
-            # Rückmeldung mit den neuen Einstellungen
-            return jsonify({"success": True, "updated_settings": updated_settings})
-
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
-def update_animation_settings(new_settings):
-    """Aktualisiere die Animationseinstellungen mit den neuen Werten."""
-    updated_settings = get_app_settings().copy()  # Kopiere die aktuellen Einstellungen
-
-    updated_settings["use_gpu"] = bool(new_settings.get("use_gpu", updated_settings["use_gpu"]))
-    updated_settings["cpu_threads"] = int(new_settings.get("cpu_threads", updated_settings["cpu_threads"]))
-    updated_settings["preferred_unit"] = new_settings.get("preferred_unit", updated_settings["preferred_unit"])
-
-    return updated_settings
-
-# Kopiert Standard-Fonts aus assets/font/* beim ersten Start
-def copy_standard_assets():
-    if not os.listdir(FONTS_FOLDER):  # Nur wenn Zielordner leer
-        for entry in os.listdir(PRE_FONTS_FOLDER):
-            entry_path = os.path.join(PRE_FONTS_FOLDER, entry)
-
-            # Falls ZIP-Datei → temporär entpacken
-            if zipfile.is_zipfile(entry_path):
-                with zipfile.ZipFile(entry_path, 'r') as zip_ref:
-                    with tempfile.TemporaryDirectory() as temp_dir:
-                        zip_ref.extractall(temp_dir)
-                        process_font_folder(entry, temp_dir)
-
-            # Falls Verzeichnis → direkt verarbeiten
-            elif os.path.isdir(entry_path):
-                process_font_folder(entry, entry_path)
-
-# Hilfsfunktion: verarbeitet Ordner mit Font-Dateien rekursiv
-def process_font_folder(folder_name, src_dir):
-    group_id = str(uuid.uuid4())
-    dest_dir = os.path.join(FONTS_FOLDER, group_id)
-    os.makedirs(dest_dir, exist_ok=True)
-
-    children = []
-
-    for dirpath, dirnames, filenames in os.walk(src_dir):
-        for fn in filenames:
-            if fn.lower().endswith(('.ttf', '.woff', '.otf')):
-                original_name = os.path.splitext(fn)[0]
-                ext = os.path.splitext(fn)[1]
-                file_id = str(uuid.uuid4())
-                new_filename = f"{file_id}{ext}"
-
-                shutil.copyfile(os.path.join(dirpath, fn), os.path.join(dest_dir, new_filename))
-
-                children.append({
-                    'id': file_id,
-                    'name': original_name,
-                    'filename': original_name,
-                    'path': f"/font/{group_id}/{new_filename}"
-                })
-
-    if children:
-        FONTS.append({
-            'id': group_id,
-            'name': folder_name,
-            'path': f"/font/{group_id}",
-            'favorite': False,
-            'children': children
-        })
-
-
-# Falls Fonts nachträglich eingelesen werden sollen (z. B. bei Upload)
-def scan_fonts():
-    scanned_fonts = []
-
-    # Gehe rekursiv durch alle Ordner im FONTS_FOLDER
-    for dirpath, dirnames, filenames in os.walk(FONTS_FOLDER):
-        if dirpath != FONTS_FOLDER:
-            folder_name = os.path.basename(dirpath)
-            children = []
-
-            # Versuche, existierende Metadaten aus dem bestehenden FONTS-Array zu finden
-            existing_group = next((f for f in FONTS if f["id"] == folder_name), None)
-
-            for fn in filenames:
-                if fn.lower().endswith(('.ttf', '.woff', '.otf')):
-                    file_id = None
-                    original_name = os.path.splitext(fn)[0]
-                    filename = original_name
-
-                    # Wenn Gruppe vorhanden ist → versuche, ID und filename zu übernehmen
-                    if existing_group:
-                        match = next((c for c in existing_group["children"] if c["path"].endswith(f"/{fn}")), None)
-                        if match:
-                            file_id = match.get("id")
-                            filename = match.get("filename", original_name)
-                            original_name = match.get("name", filename)
-
-                    if not file_id:
-                        file_id = str(uuid.uuid4())
-
-                    children.append({
-                        'id': file_id,
-                        'name': original_name,
-                        'path': f"/font/{folder_name}/{fn}"
-                    })
-
-            if children:
-                scanned_fonts.append({
-                    'id': folder_name,
-                    'name': existing_group["name"] if existing_group else folder_name,
-                    'path': f"/font/{folder_name}",
-                    'favorite': existing_group["favorite"] if existing_group else False,
-                    'children': children
-                })
-
-    FONTS.clear()
-    FONTS.extend(scanned_fonts)
-    return FONTS
-
-
-# Initialize once
-copy_standard_assets()
-FONTS = scan_fonts()
-
-# Central fonts handler
-@app.route('/fonts', methods=['GET', 'POST'])
-def fonts_management():
-    global FONTS
-    if request.method == 'GET':
-        return jsonify(FONTS)
-
-    mode = request.form.get('mode')
-    if mode == 'list':
-        FONTS = scan_fonts()
-        return jsonify(FONTS)
-
-    if mode == 'fetch':
-        fid = request.form.get('id')
-        group = next((g for g in FONTS if g['id'] == fid), None)
-        return jsonify(group or {'error': 'Font group not found'}), (200 if group else 404)
-
-    if mode == 'upload':
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file part'}), 400
-        f = request.files['file']
-        filename = secure_filename(f.filename)
-        base = os.path.splitext(filename)[0]
-        dest = os.path.join(FONTS_FOLDER, base)
-        if os.path.isdir(dest):
-            shutil.rmtree(dest)
-        os.makedirs(dest, exist_ok=True)
-
-        if filename.lower().endswith('.zip'):
-            zip_path = os.path.join(dest, filename)
-            f.save(zip_path)
-            with zipfile.ZipFile(zip_path, 'r') as z:
-                z.extractall(dest)
-            os.remove(zip_path)
-        else:
-            f.save(os.path.join(dest, filename))
-
-        FONTS = scan_fonts()
-        return jsonify({'status': 'uploaded'})
-
-    if mode == 'update':
-        data = request.get_json() or {}
-        fid = data.get('id')
-        group = next((g for g in FONTS if g['id'] == fid), None)
-        if not group:
-            return jsonify({'error': 'Font group not found'}), 404
-        if 'favorite' in data:
-            group['favorite'] = bool(data['favorite'])
-        return jsonify(group)
-
-    if mode == 'delete':
-        fid = request.form.get('id')
-        group = next((g for g in FONTS if g['id'] == fid), None)
-        if not group:
-            return jsonify({'error': 'Font group not found'}), 404
-        shutil.rmtree(os.path.join(FONTS_FOLDER, fid), ignore_errors=True)
-        FONTS = scan_fonts()
-        return jsonify({'status': 'deleted'})
-
-    return jsonify({'error': 'Invalid mode'}), 400
-
-# Serve font files
-@app.route('/font/<folder>/<filename>')
-def serve_font(folder, filename):
-    return send_from_directory(os.path.join(FONTS_FOLDER, folder), filename)
 
 def parse_parameters(params_section, form):
     parsed_params = {}
