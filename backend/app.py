@@ -9,77 +9,26 @@ import math
 import cv2
 import uuid
 from werkzeug.utils import secure_filename
-
+# PATH Initialising
 from config.setup.generate_paths import init_paths
-
 if os.path.exists("generated"):
     shutil.rmtree("generated")
-
-# Pfade generieren, falls noch nicht vorhanden
 if not os.path.exists("generated/paths.py"):
     init_paths()
-
-# Jetzt: Import der generierten Pfade NACHDEM sie existieren
-from generated.paths import (
-    PUBLIC_FOLDER,
-    ASSETS_FOLDER,
-    PUBLIC_TEMP_FOLDER,
-    PUBLIC_TEMP_UPLOAD_FOLDER,
-    PUBLIC_TEMP_CHANNEL_FOLDER,
-    PUBLIC_LAYER_FOLDER,
-    PUBLIC_STATIC_FOLDER,
-    PUBLIC_BACKUP_FOLDER,
-)
-
+# PATH Initialising
+from generated.paths import ( PUBLIC_FOLDER, ASSETS_FOLDER, PUBLIC_TEMP_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER, PUBLIC_TEMP_CHANNEL_FOLDER, PUBLIC_LAYER_FOLDER, PUBLIC_STATIC_FOLDER, PUBLIC_BACKUP_FOLDER )
+from config.api.parameter import PARAMETERS
+from router.index import register_router
+from model.fonts_model import FontsModel
+from utils import ( apply_rgb_rgba, apply_alpha, parse_parameters )
 from components import (
-    generate_channels,
-    generate_diffuse_map,
-    generate_normal_map,
-    generate_specular_map,
-    generate_bump_map,
-    generate_light_map,
-    generate_alpha_map,
-    generate_stone_map,
-    generate_grass_map,
+    generate_channels, generate_diffuse_map, generate_normal_map, generate_specular_map, generate_bump_map, generate_light_map, generate_alpha_map, generate_stone_map, generate_grass_map,
 
-    apply_rgb_mode,
-    apply_rgba_mode,
-    apply_edge_smooth,
-    apply_resize,
-    apply_cut_out,
-    apply_color,
-    apply_blend_layer,
-    apply_crop_image,
-    apply_blend_edges,
-    apply_brightness_contrast,
-    apply_shift_tiles,
-    apply_tile_image,
-    apply_brightness_contrast,
-    apply_color_shift,
-    apply_noise,
-    apply_random_shift,
-    apply_blur,
-    apply_sharpness,
-    apply_invert_colors,
-    apply_blend_edges,
-    apply_edge_detection,
-    apply_rotation,
-    apply_hue_rotation,
-    apply_color_lookup,
+    apply_rgb_mode, apply_rgba_mode, apply_edge_smooth, apply_resize, apply_cut_out, apply_color, apply_blend_layer, apply_crop_image, apply_blend_edges, apply_brightness_contrast, apply_shift_tiles, apply_tile_image,
+    apply_brightness_contrast, apply_color_shift, apply_noise, apply_random_shift, apply_blur, apply_sharpness, apply_invert_colors, apply_blend_edges, apply_edge_detection, apply_rotation, apply_hue_rotation, apply_color_lookup,
 
     texture_projection,
 )
-
-from router.index import register_router
-
-from model.fonts_model import FontsModel
-
-from utils import (
-    apply_rgb_rgba,
-    apply_alpha,
-    parse_parameters,
-)
-
 # Initialising
 app = Flask(__name__)
 
@@ -90,168 +39,6 @@ FontsModel.initialize()
 VIEWPORT_CONFIG = []
 LAYERS = []
 CHANNELS = []
-
-# Definition der Eingabeparameter und deren Standardwerte
-PARAMETERS = {
-    "viewport": {
-        "mode": {"type": int, "default": 1},
-        "width": {"type": int, "default": 2048},
-        "height": {"type": int, "default": 2048},
-        "title": {"type": str, "default": "Unknown"},
-        "layer": {"type": str, "default": "Layer"},
-    },
-    "upload": {
-        # STANDARD METHODS PARAMS START
-        "selectedMaps": {"type": list, "default": []},
-        "cropLeft": {"type": int, "default": 0},
-        "cropTop": {"type": int, "default": 0},
-        "cropRight": {"type": int, "default": 0},
-        "cropBottom": {"type": int, "default": 0},
-        "method": {"type": int, "default": 0},
-        "output_format": {"type": str, "default": "PNG"},
-        "quality": {"type": int, "default": 80},
-        "editFile": {"type": str, "default": ""},
-        # STANDARD METHODS PARAMS END
-
-        # BOOL HANDLER START
-        "edge_detection": {"type": bool, "default": False},
-        "invert_colors": {"type": bool, "default": False},
-        # BOOL HANDLER END
-
-        # UPLOAD HANDLER START
-        "resize_index": {"type": int, "default": 0},
-        "resize_mode": {"type": int, "default": 0},
-        "upscale_method": {"type": int, "default": 1},
-        "rgb_mode": {"type": int, "default": 0},
-        "rgba_mode": {"type": int, "default": 0},
-        # UPLOAD HANDLER END
-
-        # BLUR PARAMS START
-        "blur": {"type": float, "default": 0.5},
-        "blur_mode": {"type": int, "default": 1},  # Gaussian Blur
-        "blur_radius": {"type": float, "default": 50.0},  # Radius für radiale und quadratische Modi
-        "blur_type": {"type": int, "default": 1},  # 1 = Inner, 2 = Outer
-        "blur_center": {"type": tuple, "default": (0.5, 0.5)},  # Normalisierter Mittelpunkt des Effekts (Proportionen: 0.0 bis 1.0)
-        "blur_falloff_mode": {"type": int, "default": 1},  # 1 = Linear, 2 = Exponential, 3 = Logarithmic, 4 = Quadratic, 5 = Cubic
-        "blur_falloff_strength": {"type": float, "default": 1.0},  # Stärke des Falloff
-        "blur_channel_weights": {"type": list, "default": [1.0, 1.0, 1.0]},  # Gewichtung der RGB-Kanäle
-        "blur_iterations": {"type": int, "default": 1},  # Anzahl der Effektwiederholungen
-        "blur_edge_sensitivity": {"type": float, "default": 0.5},  # Empfindlichkeit für Ränder (bei blur_edges)
-        "blur_harmonic_strength": {"type": float, "default": 1.0},  # Stärke des harmonischen Blurs
-        "blur_motion_angle": {"type": float, "default": 0.0},  # Winkel der Bewegungsunschärfe (0 = horizontal)
-        "blur_direction": {"type": tuple, "default": (1.0, 0.0)},  # Richtung der Bewegungsunschärfe (Vektor)
-        "blur_fisheye_strength": {"type": float, "default": 1.0},  # Stärke des FishEye-Effekts
-        "blur_randomness": {"type": float, "default": 0.0},  # Zufälligkeit der Unschärfe
-        "blur_transition_width": {"type": float, "default": 0.1},  # Übergangsbreite bei blur_edges
-        "blur_boost": {"type": float, "default": 1.0},  # Verstärkung des Effekts
-        "blur_lightness_limit": {"type": float, "default": 1.0},  # Begrenzung der Helligkeit durch den Effekt
-        # BLUR PARAMS END
-
-        # COLOR PARAMS START
-        "color_overlay": {"type": str, "default": "#000000"},
-        "color_overlay_mode": {"type": int, "default": 1},
-        "color_lookup": {"type": int, "default": 0},
-        "color_shift": {"type": int, "default": 0},
-        "hue_variation": {"type": int, "default": 0},
-        # COLOR PARAMS END
-
-        # EDIT PARAMS START
-        "cut_out": {"type": int, "default": 0},
-        # EDIT PARAMS END
-
-        # NOISE PARAMS START
-        "noise_level": {"type": int, "default": 0},
-        # NOISE PARAMS END
-
-        # SIMULATE PARAMS START
-        "simulate_mode": {"type": int, "default": 0},
-        "amplitude": {"type": int, "default": 50},
-        "frame_count": {"type": int, "default": 1},
-        "frequency": {"type": float, "default": 0},
-        "phase_shift": {"type": float, "default": 0},
-        "amplitude_multiplier": {"type": float, "default": 0},
-        "wave_type": {"type": int, "default": 0},
-        # SIMULATE PARAMS END
-
-        "blending_intensity": {"type": float, "default": 0.5},
-        "gradient_intensity": {"type": float, "default": 0.0},
-
-        "opacity": {"type": float, "default": 0.7},
-        "brightness": {"type": float, "default": 0.0},
-        "sharpness": {"type": float, "default": 0.0},
-        "smoothness": {"type": float, "default": 0.7},
-        "contrast": {"type": float, "default": 100.0},
-        "base_brightness": {"type": float, "default": 0.0},
-        "base_contrast": {"type": float, "default": 0.0},
-        "base_sharpness": {"type": float, "default": 0.0},
-        "base_smoothness": {"type": float, "default": 0.7},
-        "base_contrast": {"type": float, "default": 100.0},
-        "base_opacity": {"type": float, "default": 0.7},
-        # FILTER AND COLOR PARAMS END
-
-        # IMAGE ADJUSTING PARAMS START
-        "intensity": {"type": int, "default": 0},
-        "radius": {"type": int, "default": 1},
-        "max_shift_ratio": {"type": float, "default": 0.1},
-        "shift_x": {"type": float, "default": 0.1},
-        "shift_y": {"type": float, "default": 0.1},
-        "border_width": {"type": int, "default": 10},
-        "stone_size": {"type": int, "default": 10},
-        "stone_variance": {"type": float, "default": 0.5},
-        "density": {"type": float, "default": 0.5},
-        "rotation_angle": {"type": float, "default": 0.0},
-        "fade_edges": {"type": float, "default": 0.0},
-        "tile_size": {"type": int, "default": None},
-        "tile_x": {"type": int, "default": 6},
-        "tile_y": {"type": int, "default": 6},
-        "base_tile_x": {"type": int, "default": 4},
-        "base_tile_y": {"type": int, "default": 4},
-        "base_fade_alpha": {"type": float, "default": 0.1},
-        "fade_alpha": {"type": float, "default": 0.1},
-        "randomness": {"type": float, "default": 0.2},
-        # IMAGE ADJUSTING PARAMS END
-    },
-    "tile": {
-        "diffuse_image_url": {"type": str, "required": True},
-        "tile_x": {"type": int, "default": 1},
-        "tile_y": {"type": int, "default": 1},
-    },
-    "layer": {
-        "method": {"type": str, "required": True},
-        "type": {"type": int, "default": 0},
-        "name": {"type": str, "default": ""},
-        "width": {"type": int, "default": 1024},
-        "height": {"type": int, "default": 1024},
-        "id": {"type": str, "default": ""},
-        "url": {"type": str, "default": ""},
-        "a": {"type": float, "default": 1},
-        "b": {"type": float, "default": 0},
-        "c": {"type": float, "default": 0},
-        "d": {"type": float, "default": 1},
-        "x": {"type": int, "default": 0},
-        "y": {"type": int, "default": 0},
-        "rotate": {"type": float, "default": 0},
-        "order": {"type": int, "default": 0},
-        "hidden": {"type": int, "default": 0},
-        "opacity": {"type": float, "default": 1},
-        "blend_mode": {"type": int, "default": 0},
-        "color": {"type": str, "default": "#000000"},
-
-        # TextLayer spezifisch
-        "fontFamily": {"type": str, "default": "sans-serif"},
-        "fontSize": {"type": int, "default": 16},
-        "fontWeight": {"type": str, "default": "normal"},
-        "initFontSize": {"type": int, "default": 16},
-        "initHeight": {"type": int, "default": 0},
-        "initWidth": {"type": int, "default": 0},
-        "letterSpacing": {"type": float, "default": 0.0},
-        "lineHeight": {"type": float, "default": 1.4},
-        "text": {"type": str, "default": ""},
-        "textAlign": {"type": str, "default": "left"},
-        "textDecoration": {"type": str, "default": "none"},
-        "textTransform": {"type": str, "default": "none"},
-    },
-}
 
 @app.route('/')
 def serve_frontend():
@@ -479,7 +266,7 @@ def tile_image_endpoint():
         # UUID für Dateinamen
         file_uuid = uuid.uuid4().hex
         tiled_filename = f"tiled_image_{file_uuid}.png"
-        tiled_path = os.path.join(PUBLIC_LAYER_FOLDER , tiled_filename)
+        tiled_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER , tiled_filename)
 
         # Speichern
         tiled_image.save(tiled_path, format="PNG")
