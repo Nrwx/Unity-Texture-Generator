@@ -245,38 +245,6 @@ def upload_file():
         print(f"Fehler beim Hochladen der Datei: {str(e)}")  # Fehler im Terminal ausgeben
         return jsonify({"error": str(e)}), 500
 
-@app.route('/tile', methods=['POST'])
-def tile_image_endpoint():
-    try:
-        url = str(request.form.get('diffuse_image_url', ""))
-        tile_x = int(request.form.get('tile_x', 1))
-        tile_y = int(request.form.get('tile_y', 1))
-
-        # Diffuse-Bildpfad prüfen
-        diffuse_image_path = os.path.join(PUBLIC_LAYER_FOLDER , os.path.basename(url))
-        if not os.path.exists(diffuse_image_path):
-            raise FileNotFoundError(f"File not found: {diffuse_image_path}")
-
-        # Bild laden
-        image = Image.open(diffuse_image_path)
-
-        # Kachelbild erstellen
-        tiled_image = apply_tile_image(image, tile_x, tile_y)
-
-        # UUID für Dateinamen
-        file_uuid = uuid.uuid4().hex
-        tiled_filename = f"tiled_image_{file_uuid}.png"
-        tiled_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER , tiled_filename)
-
-        # Speichern
-        tiled_image.save(tiled_path, format="PNG")
-
-        return jsonify({"url": f"/download/{tiled_filename}"})
-    except Exception as e:
-        print(f"Fehler: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-
-
 def add_text_layer(type: int,order: int, name: str,hidden: int,opacity: float,color: str,fontFamily: str,fontSize: int,fontWeight: str,initFontSize: int,initHeight: int,initWidth: int,letterSpacing: float,lineHeight: float,text: str,textAlign: str,textDecoration: str,textTransform: str,width: int,height: int,x: int,y: int
 ):
     try:
