@@ -202,6 +202,7 @@ def update_settings_if_changed():
 
     current_settings = load_app_settings()
 
+
     updated_settings = {
         "use_gpu": GPU_AVAILABLE,
         "gpu_name": GPU_NAME,

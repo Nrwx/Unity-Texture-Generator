@@ -2,9 +2,9 @@ from flask import Blueprint, request, jsonify
 from controller.settings_controller import SettingsController
 from model.settings_model import SettingsModel
 
-settings_bp = Blueprint('settings', __name__)
+router_settings = Blueprint('settings', __name__)
 
-@settings_bp.route("/", methods=["GET", "POST"])
+@router_settings.route("/", methods=["GET", "POST"])
 def apply_app_settings():
     if request.method == 'GET':
         return jsonify(SettingsModel.get_settings())

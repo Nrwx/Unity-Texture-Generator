@@ -56,6 +56,7 @@ from model.fonts_model import FontsModel
 from utils import (
     apply_rgb_rgba,
     apply_alpha,
+    parse_parameters,
 )
 
 # Initialising
@@ -498,23 +499,6 @@ def tile_image_endpoint():
     except Exception as e:
         print(f"Fehler: {str(e)}")
         return jsonify({"error": str(e)}), 500
-
-def parse_parameters(params_section, form):
-    parsed_params = {}
-    for key, config in params_section.items():
-        value = form.get(key, None)
-        if value is None:
-            if config.get("required"):
-                raise ValueError(f"Parameter '{key}' is required")
-            parsed_params[key] = config.get("default")
-        else:
-            if config["type"] == list:
-                parsed_params[key] = value.split(',')
-            elif config["type"] == bool:
-                parsed_params[key] = value.lower() == 'true'
-            else:
-                parsed_params[key] = config["type"](value)
-    return parsed_params
 
 
 def add_text_layer(type: int,order: int, name: str,hidden: int,opacity: float,color: str,fontFamily: str,fontSize: int,fontWeight: str,initFontSize: int,initHeight: int,initWidth: int,letterSpacing: float,lineHeight: float,text: str,textAlign: str,textDecoration: str,textTransform: str,width: int,height: int,x: int,y: int
