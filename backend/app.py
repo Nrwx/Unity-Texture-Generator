@@ -10,6 +10,27 @@ import cv2
 import uuid
 from werkzeug.utils import secure_filename
 
+from config.setup.generate_paths import init_paths
+
+if os.path.exists("generated"):
+    shutil.rmtree("generated")
+
+# Pfade generieren, falls noch nicht vorhanden
+if not os.path.exists("generated/paths.py"):
+    init_paths()
+
+# Jetzt: Import der generierten Pfade NACHDEM sie existieren
+from generated.paths import (
+    PUBLIC_FOLDER,
+    ASSETS_FOLDER,
+    PUBLIC_TEMP_FOLDER,
+    PUBLIC_TEMP_UPLOAD_FOLDER,
+    PUBLIC_TEMP_CHANNEL_FOLDER,
+    PUBLIC_LAYER_FOLDER,
+    PUBLIC_STATIC_FOLDER,
+    PUBLIC_BACKUP_FOLDER,
+)
+
 from components import (
     generate_channels,
     generate_diffuse_map,
@@ -61,38 +82,6 @@ from utils import (
 
 # Initialising
 app = Flask(__name__)
-
-PUBLIC_FOLDER = "public"
-ASSETS_FOLDER = "assets"
-if os.path.exists(PUBLIC_FOLDER):
-    shutil.rmtree(PUBLIC_FOLDER)
-
-# Assets folder for standard fonts (persistent)
-PRE_FONTS_FOLDER = os.path.join(ASSETS_FOLDER, 'font')
-os.makedirs(PRE_FONTS_FOLDER, exist_ok=True)
-
-# Ordner für temporäre Dateien
-
-TEMP_FOLDER = os.path.join(PUBLIC_FOLDER, "temp")
-os.makedirs(TEMP_FOLDER, exist_ok=True)
-
-UPLOAD_FOLDER = os.path.join(PUBLIC_FOLDER, "temp\\upload")
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-CHANNEL_FOLDER = os.path.join(PUBLIC_FOLDER, "temp\\channel")
-os.makedirs(CHANNEL_FOLDER, exist_ok=True)
-
-LAYER_FOLDER = os.path.join(PUBLIC_FOLDER, "layer")
-os.makedirs(LAYER_FOLDER, exist_ok=True)
-
-FONTS_FOLDER = os.path.join(PUBLIC_FOLDER, "font")
-os.makedirs(FONTS_FOLDER, exist_ok=True)
-
-STATIC_FOLDER = os.path.join(PUBLIC_FOLDER, "static")
-os.makedirs(STATIC_FOLDER, exist_ok=True)
-
-SOURCE_FOLDER = os.path.join(PUBLIC_FOLDER, "backup")
-os.makedirs(SOURCE_FOLDER, exist_ok=True)
 
 register_router(app)
 
@@ -274,7 +263,7 @@ def serve_static_files(path):
 
 @app.route('/download/<filename>', methods=['GET'])
 def download_file(filename):
-    file_paths = [os.path.join(LAYER_FOLDER, filename), os.path.join(UPLOAD_FOLDER, filename), os.path.join(CHANNEL_FOLDER, filename)]
+    file_paths = [os.path.join(PUBLIC_LAYER_FOLDER , filename), os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER , filename), os.path.join(PUBLIC_TEMP_CHANNEL_FOLDER , filename)]
 
     for file_path in file_paths:
         if os.path.exists(file_path):
@@ -326,7 +315,7 @@ def upload_file():
         # Datei aus dem EditFile-Parameter prüfen
         elif params.get("editFile", "").strip():
             url = str(request.form.get('editFile', ""))
-            diffuse_image_path = os.path.join(LAYER_FOLDER, os.path.basename(url))
+            diffuse_image_path = os.path.join(PUBLIC_LAYER_FOLDER , os.path.basename(url))
 
             if not os.path.exists(diffuse_image_path):
                 raise FileNotFoundError(f"File not found: {diffuse_image_path}")
@@ -412,7 +401,7 @@ def upload_file():
                     map_id = str(uuid.uuid4())
                     map_name = f"frame_{idx}"
                     map_filename = f"{map_id}.png"
-                    map_path = os.path.join(UPLOAD_FOLDER, map_filename)
+                    map_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER , map_filename)
 
                     # Speichern jedes Frames
                     frame.save(map_path, format=params.get("output_format", "PNG"), quality=params.get("quality", 90))
@@ -449,7 +438,7 @@ def upload_file():
                     map_id = str(uuid.uuid4())
                     map_name = map_type
                     map_filename = f"{map_id}.png"
-                    map_path = os.path.join(UPLOAD_FOLDER, map_filename)
+                    map_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER , map_filename)
 
                     # Speichern der Datei
                     map_image.save(map_path, format=params["output_format"], quality=params["quality"])
@@ -477,7 +466,7 @@ def tile_image_endpoint():
         tile_y = int(request.form.get('tile_y', 1))
 
         # Diffuse-Bildpfad prüfen
-        diffuse_image_path = os.path.join(LAYER_FOLDER, os.path.basename(url))
+        diffuse_image_path = os.path.join(PUBLIC_LAYER_FOLDER , os.path.basename(url))
         if not os.path.exists(diffuse_image_path):
             raise FileNotFoundError(f"File not found: {diffuse_image_path}")
 
@@ -490,7 +479,7 @@ def tile_image_endpoint():
         # UUID für Dateinamen
         file_uuid = uuid.uuid4().hex
         tiled_filename = f"tiled_image_{file_uuid}.png"
-        tiled_path = os.path.join(LAYER_FOLDER, tiled_filename)
+        tiled_path = os.path.join(PUBLIC_LAYER_FOLDER , tiled_filename)
 
         # Speichern
         tiled_image.save(tiled_path, format="PNG")
@@ -558,13 +547,13 @@ def add_text_layer(type: int,order: int, name: str,hidden: int,opacity: float,co
 def add_layer(name="", path="", id="", type=0, width=1024, height=1024):
     try:
         source_id = str(uuid.uuid4())  # UUID für die Source-Datei
-        source_path = os.path.join(SOURCE_FOLDER, f"{source_id}.png")
+        source_path = os.path.join(PUBLIC_BACKUP_FOLDER, f"{source_id}.png")
         viewport_width = VIEWPORT_CONFIG[0]["width"]  # Base Width
         viewport_height = VIEWPORT_CONFIG[0]["height"]  # Base Height
 
         if not id:  # Falls keine ID übergeben wurde, neue generieren
             id = str(uuid.uuid4())  # Neue UUID v4 generieren
-            path = os.path.join(LAYER_FOLDER, f"{id}.png")
+            path = os.path.join(PUBLIC_LAYER_FOLDER , f"{id}.png")
             img = Image.new("RGBA", (width, height), (0, 0, 0, 0))  # Leeres PNG erzeugen
         else:  # Falls ID übergeben wurde, bestehendes Bild laden
             img = Image.open(path)
@@ -574,7 +563,7 @@ def add_layer(name="", path="", id="", type=0, width=1024, height=1024):
         img.save(source_path)
         # Skalierungsfaktor berechnen
         scale_factor = min(viewport_width / width, viewport_height / height)
-        image_path = os.path.join(LAYER_FOLDER, f"{id}.png")
+        image_path = os.path.join(PUBLIC_LAYER_FOLDER , f"{id}.png")
         # Falls Skalierung notwendig ist
         if scale_factor < 1:
             new_width = int(width * scale_factor)
@@ -676,7 +665,7 @@ def delete_layer(id):
         if not layer:
             return jsonify({"error": "Layer not found"}), 404
 
-        image_path = os.path.join(LAYER_FOLDER, f"{id}.png")
+        image_path = os.path.join(PUBLIC_LAYER_FOLDER , f"{id}.png")
         LAYERS.remove(layer)
 
         print(f"Deleting layer: {image_path}")
@@ -711,7 +700,7 @@ def preview_layers(return_image=False, layer_id=None):
             render_layers = [l for l in LAYERS if l.get("hidden", 0) != 1]
 
         for layer in render_layers:
-            layer_path = os.path.join(LAYER_FOLDER, f"{layer['id']}.png")
+            layer_path = os.path.join(PUBLIC_LAYER_FOLDER , f"{layer['id']}.png")
             if not os.path.exists(layer_path):
                 continue
 
@@ -763,7 +752,7 @@ def preview_layers(return_image=False, layer_id=None):
         # Bild speichern oder zurückgeben
         map_id = str(uuid.uuid4())
         map_filename = f"{map_id}.png"
-        map_path = os.path.join(UPLOAD_FOLDER, map_filename)
+        map_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER , map_filename)
         composite_image.save(map_path, format="PNG", quality=100)
 
         if return_image:
@@ -815,7 +804,7 @@ def paste_layer(id):
 
         if layer["type"] == 0:
             # 2) Bild laden
-            img_path = os.path.join(LAYER_FOLDER, f"{id}.png")
+            img_path = os.path.join(PUBLIC_LAYER_FOLDER , f"{id}.png")
             if not os.path.exists(img_path):
                 return jsonify({"error": "Original image file not found"}), 404
             img = Image.open(img_path).convert("RGBA")
@@ -828,7 +817,7 @@ def paste_layer(id):
 
         if layer["type"] == 0:
             # 4) Neues Bild speichern
-            new_img_path = os.path.join(LAYER_FOLDER, f"{new_id}.png")
+            new_img_path = os.path.join(PUBLIC_LAYER_FOLDER , f"{new_id}.png")
             img.save(new_img_path)
 
         # 5) In Liste einfügen (über dem Original)
@@ -849,7 +838,7 @@ def blend_layer(id, blend_mode, color):
             return jsonify({"error": f"Layer with id '{id}' not found."}), 404
 
         # 2) Aktuellen Layer laden
-        img1_path = os.path.join(LAYER_FOLDER, f"{id}.png")
+        img1_path = os.path.join(PUBLIC_LAYER_FOLDER , f"{id}.png")
         img1 = Image.open(img1_path).convert("RGBA")
         img_array1 = np.array(img1)
         alpha1 = img_array1[..., 3]
@@ -875,7 +864,7 @@ def blend_layer(id, blend_mode, color):
             base_layer = LAYERS[base_index]
             base_id = base_layer["id"]
 
-            img2_path = os.path.join(LAYER_FOLDER, f"{base_id}.png")
+            img2_path = os.path.join(PUBLIC_LAYER_FOLDER , f"{base_id}.png")
             img2 = Image.open(img2_path).convert("RGBA")
             img_array2 = np.array(img2)
             alpha2 = img_array2[..., 3]
@@ -913,11 +902,11 @@ def blend_layer(id, blend_mode, color):
         if blend_mode != 0:
             output_id = str(uuid.uuid4())
             map_filename = f"{output_id}.png"
-            map_path = os.path.join(UPLOAD_FOLDER, map_filename)
+            map_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER , map_filename)
             url_path = f"/download/{output_id}.png"
         else:
             map_filename = f"{id}.png"
-            map_path = os.path.join(LAYER_FOLDER, map_filename)
+            map_path = os.path.join(PUBLIC_LAYER_FOLDER , map_filename)
             url_path = f"/download/{id}.png"
 
         blended_img.save(map_path)
@@ -962,8 +951,8 @@ def hide_layer(id, hidden):
 
 def update_channel():
     try:
-        if os.path.exists(CHANNEL_FOLDER):
-            shutil.rmtree(CHANNEL_FOLDER)
+        if os.path.exists(PUBLIC_TEMP_CHANNEL_FOLDER ):
+            shutil.rmtree(PUBLIC_TEMP_CHANNEL_FOLDER )
 
         # 1. Komposition rendern
         result = preview_layers(return_image=True)
@@ -984,13 +973,13 @@ def update_channel():
 
         CHANNELS = []
 
-        if not os.path.exists(CHANNEL_FOLDER):
-            os.makedirs(CHANNEL_FOLDER, exist_ok=True)
+        if not os.path.exists(PUBLIC_TEMP_CHANNEL_FOLDER ):
+            os.makedirs(PUBLIC_TEMP_CHANNEL_FOLDER , exist_ok=True)
 
         for key, img in temp_channels.items():
             map_id = str(uuid.uuid4())
             filename = f"{map_id}.png"
-            path = os.path.join(CHANNEL_FOLDER, filename)
+            path = os.path.join(PUBLIC_TEMP_CHANNEL_FOLDER , filename)
             img.save(path, format="PNG", quality=100)
 
             CHANNELS.append({
@@ -1014,7 +1003,7 @@ def generate_layer_channel(layer_id):
             return jsonify({"error": "Layer not found"}), 404
 
         # 2. Bild laden
-        image_path = os.path.join(LAYER_FOLDER, f"{layer_id}.png")
+        image_path = os.path.join(PUBLIC_LAYER_FOLDER , f"{layer_id}.png")
         if not os.path.exists(image_path):
             return jsonify({"error": "Layer image not found"}), 404
 
@@ -1040,7 +1029,7 @@ def generate_layer_channel(layer_id):
             name = channel_titles.get(key, key)
             channel_id = id_map.get(name, f"{str(uuid.uuid4())}_{key}")
             filename = f"{channel_id}.png"
-            path = os.path.join(CHANNEL_FOLDER, filename)
+            path = os.path.join(PUBLIC_TEMP_CHANNEL_FOLDER , filename)
             channel_img.save(path, format="PNG", quality=100)
 
             channel_temp.append({
@@ -1133,7 +1122,7 @@ def getImg(image_id):
         # Unterstützte Endungen (kannst du erweitern falls nötig)
         extensions = [".png", ".jpg", ".jpeg"]
 
-        folders = [LAYER_FOLDER, UPLOAD_FOLDER, CHANNEL_FOLDER]
+        folders = [PUBLIC_LAYER_FOLDER , PUBLIC_TEMP_UPLOAD_FOLDER , PUBLIC_TEMP_CHANNEL_FOLDER ]
 
         for folder in folders:
             for ext in extensions:

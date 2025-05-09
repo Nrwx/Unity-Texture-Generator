@@ -10,6 +10,7 @@ __pycache__/
 # Distribution/Build
 build/
 dist/
+generated/
 *.egg-info/
 
 # local env files

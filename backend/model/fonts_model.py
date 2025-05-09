@@ -1,10 +1,12 @@
 import os, shutil, zipfile, uuid, tempfile
 from flask import jsonify
 from werkzeug.utils import secure_filename
+from generated.paths import (
+    ASSETS_FONT_FOLDER,
+    PUBLIC_FONT_FOLDER,
+)
 
 FONTS = []
-FONTS_FOLDER = "public\\font"
-PRE_FONTS_FOLDER = "assets\\font"
 
 class FontsModel:
 
@@ -15,8 +17,8 @@ class FontsModel:
     @staticmethod
     def scan_fonts():
         scanned_fonts = []
-        for dirpath, dirnames, filenames in os.walk(FONTS_FOLDER):
-            if dirpath != FONTS_FOLDER:
+        for dirpath, dirnames, filenames in os.walk(PUBLIC_FONT_FOLDER ):
+            if dirpath != PUBLIC_FONT_FOLDER :
                 folder_name = os.path.basename(dirpath)
                 children = []
                 existing_group = next((f for f in FONTS if f["id"] == folder_name), None)
@@ -59,12 +61,12 @@ class FontsModel:
 
     @staticmethod
     def copy_standard_assets():
-        if not os.path.exists(FONTS_FOLDER):
-            os.makedirs(FONTS_FOLDER)
+        if not os.path.exists(PUBLIC_FONT_FOLDER ):
+            os.makedirs(PUBLIC_FONT_FOLDER )
 
-        if not os.listdir(FONTS_FOLDER):
-            for entry in os.listdir(PRE_FONTS_FOLDER):
-                entry_path = os.path.join(PRE_FONTS_FOLDER, entry)
+        if not os.listdir(PUBLIC_FONT_FOLDER ):
+            for entry in os.listdir(ASSETS_FONT_FOLDER ):
+                entry_path = os.path.join(ASSETS_FONT_FOLDER , entry)
 
                 if zipfile.is_zipfile(entry_path):
                     with zipfile.ZipFile(entry_path, 'r') as zip_ref:
@@ -78,7 +80,7 @@ class FontsModel:
     @staticmethod
     def process_font_folder(folder_name, src_dir):
         group_id = str(uuid.uuid4())
-        dest_dir = os.path.join(FONTS_FOLDER, group_id)
+        dest_dir = os.path.join(PUBLIC_FONT_FOLDER , group_id)
         os.makedirs(dest_dir, exist_ok=True)
 
         children = []
@@ -126,7 +128,7 @@ class FontsModel:
 
         f = files['file']
         filename = secure_filename(f.filename)
-        dest = os.path.join(FONTS_FOLDER, os.path.splitext(filename)[0])
+        dest = os.path.join(PUBLIC_FONT_FOLDER , os.path.splitext(filename)[0])
 
         if os.path.isdir(dest):
             shutil.rmtree(dest)
@@ -157,9 +159,9 @@ class FontsModel:
         group = next((g for g in FONTS if g['id'] == fid), None)
         if not group:
             return jsonify({'error': 'Font group not found'}), 404
-        shutil.rmtree(os.path.join(FONTS_FOLDER, fid), ignore_errors=True)
+        shutil.rmtree(os.path.join(PUBLIC_FONT_FOLDER , fid), ignore_errors=True)
         return jsonify({'status': 'deleted'})
 
     @staticmethod
     def get_font_path(folder):
-        return os.path.join(FONTS_FOLDER, folder)
+        return os.path.join(PUBLIC_FONT_FOLDER , folder)
