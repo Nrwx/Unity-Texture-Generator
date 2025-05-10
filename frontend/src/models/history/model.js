@@ -1,7 +1,7 @@
 import {localData} from "@/dataLayer/local";
 import {computed} from "vue";
 
-export function historyModel(emit) {
+export function     historyModel(emit) {
 
     const sortOptions = [
         { title: "Neueste", value: "newest" },

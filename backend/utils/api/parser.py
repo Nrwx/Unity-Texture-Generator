@@ -6,16 +6,7 @@ def convert_value(value, expected_type):
     return expected_type(value)
 
 def parse_parameters(params_section: dict, form_data: dict) -> dict:
-    """
-    Parsed Formulardaten anhand einer Parametertabelle mit Typen, Required-Flags und Defaults.
-
-    :param params_section: Dict mit Parameternamen und Typ-Konfiguration
-    :param form_data: Eingehende Form-Daten (z.B. request.form)
-    :return: Dict mit getypten Parametern
-    :raises ValueError: Wenn ein erforderlicher Parameter fehlt oder Typumwandlung fehlschlägt
-    """
     parsed_params = {}
-
     for key, config in params_section.items():
         raw_value = form_data.get(key)
 
@@ -30,3 +21,8 @@ def parse_parameters(params_section: dict, form_data: dict) -> dict:
                 raise ValueError(f"Parameter '{key}' must be of type {config['type'].__name__}")
 
     return parsed_params
+
+def parse_response(result, default_status=200):
+    if isinstance(result, tuple) and len(result) == 2:
+        return result
+    return result, default_status

@@ -64,17 +64,12 @@ export const addTextLayer = async (layer) => {
 
 export const fetchLayers = async () => {
     try {
-        const formData = new FormData();
-        formData.append("method", "list");
-
-        const response = await api.post('/layer', formData, {
-            headers: {'Content-Type': 'multipart/form-data'},
-        });
-        if (response) {
-            return response
+        const data = await api.get('/layer');
+        if(data) {
+            return data
         }
-    } catch (error) {
-        console.error("Error fetching layers:", error.response?.data || error.message);
+    } catch (err) {
+        console.error('Fehler beim Abrufen der Einstellungen:', err);
     }
 };
 

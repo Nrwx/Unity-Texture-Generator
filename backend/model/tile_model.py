@@ -1,14 +1,14 @@
 import os
 import uuid
 from PIL import Image
-from generated.paths import PUBLIC_TEMP_UPLOAD_FOLDER
+from generated.paths import PUBLIC_TEMP_UPLOAD_FOLDER, PUBLIC_LAYER_FOLDER
 
 class TileModel:
     def __init__(self, diffuse_image_url, tile_x=1, tile_y=1):
         self.diffuse_image_url = diffuse_image_url
         self.tile_x = tile_x
         self.tile_y = tile_y
-        self.layer_folder = PUBLIC_TEMP_UPLOAD_FOLDER
+        self.layer_folder = PUBLIC_LAYER_FOLDER
 
     def _validate_path(self):
         path = os.path.join(self.layer_folder, os.path.basename(self.diffuse_image_url))
@@ -33,4 +33,4 @@ class TileModel:
         save_path = os.path.join(self.layer_folder, filename)
         tiled.save(save_path, format="PNG")
 
-        return f"/download/{filename}"
+        return {"url": f"/download/{tiled_filename}"}, 200

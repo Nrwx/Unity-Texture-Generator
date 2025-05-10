@@ -1,7 +1,32 @@
-from flask import Blueprint
+from flask import Blueprint, request, jsonify
 from controller.fonts_controller import FontsController
+from utils import parse_response
 
 router_fonts = Blueprint('fonts', __name__)
+@router_fonts.route('', methods=['GET', 'POST'])
+def handle_fonts():
+    if request.method == 'GET':
+        try:
+            result = FontsController.fetch()
 
-router_fonts.add_url_rule('', view_func=FontsController.handle_fonts, methods=['GET', 'POST'])
-router_fonts.add_url_rule('/<folder>/<filename>', view_func=FontsController.serve_font)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    elif request.method == 'POST':
+        try:
+            result = FontsController.handle(request.form)
+
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    else:
+        return jsonify({"error": str(e)}), 500
+
+    response, status = parse_response(result)
+
+    return jsonify(response), status
+
+
+@router_fonts.route('/<folder>/<filename>', methods=['GET'])
+def serve_font(folder, filename):
+    return FontsController.serve_font(folder, filename)

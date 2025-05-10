@@ -5,8 +5,7 @@ from generated.paths import (
     ASSETS_FONT_FOLDER,
     PUBLIC_FONT_FOLDER,
 )
-
-FONTS = []
+from config.data.constant import ( FONTS )
 
 class FontsModel:
 

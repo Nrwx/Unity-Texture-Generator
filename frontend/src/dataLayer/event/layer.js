@@ -24,7 +24,7 @@ export const layerEvent = (route) => ({
         }
     },
     "reset-selected-layer": () => {
-        route.localData.selectedLayers.value = [];
+        route.localData.selectedLayers.value = null;
     },
     "delete-layer": async (payload) => {
         const response = await route.api.deleteLayer(payload);

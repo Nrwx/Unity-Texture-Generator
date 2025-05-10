@@ -8,18 +8,15 @@ OUTPUT_DIR = os.path.join(ROOT_PATH, "generated")
 OUTPUT_MODULE = os.path.join(OUTPUT_DIR, "paths.py")
 
 def clean_folders(folders):
-    # Lösche die Ordner, die in FOLDERS_TO_RESET definiert sind
     for folder in folders:
         abs_path = os.path.join(ROOT_PATH, folder)
         if os.path.exists(abs_path):
             shutil.rmtree(abs_path)
         os.makedirs(abs_path, exist_ok=True)
-        # Nur für den 'generated/'-Ordner wird eine __init__.py erstellt
         if "generated" in folder:
             create_init(abs_path)
 
 def create_init(folder_path: str):
-    """Erstellt eine leere __init__.py Datei im angegebenen Ordner"""
     init_file = os.path.join(folder_path, '__init__.py')
     if not os.path.exists(init_file):
         with open(init_file, 'w', encoding='utf-8'):
@@ -32,7 +29,6 @@ def create_structure(base_paths: Dict[str, Any]) -> Dict[str, str]:
         for key, val in structure.items():
             path = os.path.join(base, key)
             os.makedirs(path, exist_ok=True)
-            # Nur für den 'generated/'-Ordner wird eine __init__.py erstellt
             if "generated" in path:
                 create_init(path)
 
@@ -57,7 +53,6 @@ def create_structure(base_paths: Dict[str, Any]) -> Dict[str, str]:
     for root, structure in base_paths.items():
         abs_root = os.path.join(ROOT_PATH, root)
         os.makedirs(abs_root, exist_ok=True)
-        # Nur für den 'generated/'-Ordner wird eine __init__.py erstellt
         if "generated" in abs_root:
             create_init(abs_root)
         created_paths[root.upper()] = root
@@ -82,13 +77,9 @@ def write_paths_module(paths: Dict[str, str]):
     print(f"✅ Pfadmodul geschrieben: {OUTPUT_MODULE}")
 
 def init_paths():
-    # Alle relevanten Ordner, inklusive 'generated', löschen und neu erstellen
     clean_folders(FOLDERS_TO_RESET)
-    # 'generated' immer löschen und neu erstellen
     if os.path.exists(OUTPUT_DIR):
         shutil.rmtree(OUTPUT_DIR)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    # Struktur basierend auf FOLDER_STRUCTURE erstellen
     created = create_structure(FOLDER_STRUCTURE)
-    # Das generierte Paths-Modul schreiben
     write_paths_module(created)

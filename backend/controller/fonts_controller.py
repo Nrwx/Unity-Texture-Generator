@@ -5,9 +5,6 @@ class FontsController:
 
     @staticmethod
     def handle_fonts():
-        if request.method == 'GET':
-            return jsonify(FontsModel.get_fonts())
-
         mode = request.form.get('mode')
         if mode == 'list':
             return jsonify(FontsModel.scan_fonts())
@@ -29,3 +26,7 @@ class FontsController:
     @staticmethod
     def serve_font(folder, filename):
         return send_from_directory(FontsModel.get_font_path(folder), filename)
+
+    @classmethod
+    def fetch():
+        return jsonify(FontsModel.get_fonts())

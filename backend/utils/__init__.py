@@ -1,2 +1,2 @@
-from .api.parser import parse_parameters
+from .api.parser import parse_parameters, parse_response
 from .rgba.rgb_rgba import apply_rgb_rgba, apply_alpha

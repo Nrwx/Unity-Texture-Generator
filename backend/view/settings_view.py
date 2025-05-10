@@ -3,13 +3,12 @@ from controller.settings_controller import SettingsController
 from model.settings_model import SettingsModel
 
 router_settings = Blueprint('settings', __name__)
-
 @router_settings.route("/", methods=["GET", "POST"])
 def apply_app_settings():
     if request.method == 'GET':
-        return jsonify(SettingsModel.get_settings())
+        return jsonify(SettingsModel.get_settings()), 200
 
-    if request.method == 'POST':
+    elif request.method == 'POST':
         new_settings = request.json
         if not new_settings:
             return jsonify({"error": "Keine Daten übermittelt"}), 400
@@ -25,3 +24,5 @@ def apply_app_settings():
             return jsonify({"success": True, "updated_settings": updated_settings})
         except Exception as e:
             return jsonify({"error": str(e)}), 500
+    else:
+        return jsonify({"error": str(e)}), 500
