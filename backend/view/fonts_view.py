@@ -1,9 +1,10 @@
 from flask import Blueprint, request, jsonify
 from controller.fonts_controller import FontsController
 from utils import parse_response
+from config.data.constant import ( REDIRECT_ROUTE )
 
 router_fonts = Blueprint('fonts', __name__)
-@router_fonts.route('', methods=['GET', 'POST'])
+@router_fonts.route('/', methods=['GET', 'POST'], strict_slashes=REDIRECT_ROUTE)
 def handle_fonts():
     if request.method == 'GET':
         try:

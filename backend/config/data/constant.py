@@ -2,3 +2,5 @@ VIEWPORT_CONFIG = []
 LAYERS = []
 CHANNELS = []
 FONTS = []
+
+REDIRECT_ROUTE = False

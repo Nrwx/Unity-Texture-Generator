@@ -1,14 +1,14 @@
 from flask import Blueprint, request, jsonify
-from controller.tile_controller import TileController
+from controller.viewport_controller import ViewportController
 from utils import parse_response
 from config.data.constant import ( REDIRECT_ROUTE )
 
-router_tile = Blueprint("tile", __name__)
-@router_tile.route('', methods=['POST'], strict_slashes=REDIRECT_ROUTE)
-def handle_tile():
+router_viewport = Blueprint("viewport", __name__)
+@router_viewport.route("", methods=["POST"], strict_slashes=REDIRECT_ROUTE)
+def handle_viewport():
     if request.method == 'POST':
         try:
-            result = TileController.handle(request.form)
+            result = ViewportController.handle(request.form)
 
         except Exception as e:
             return jsonify({"error": str(e)}), 500

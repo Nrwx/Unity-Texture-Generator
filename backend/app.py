@@ -16,9 +16,8 @@ if os.path.exists("generated"):
 if not os.path.exists("generated/paths.py"):
     init_paths()
 # PATH Initialising
-from generated.paths import ( PUBLIC_FOLDER, ASSETS_FOLDER, PUBLIC_TEMP_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER, PUBLIC_TEMP_CHANNEL_FOLDER, PUBLIC_LAYER_FOLDER, PUBLIC_STATIC_FOLDER, PUBLIC_BACKUP_FOLDER )
+from generated.paths import ( PUBLIC_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER, PUBLIC_TEMP_CHANNEL_FOLDER, PUBLIC_LAYER_FOLDER )
 from config.api.parameter import PARAMETERS
-from config.data.constant import ( VIEWPORT_CONFIG, LAYERS, CHANNELS, FONTS)
 from router.index import register_router
 from model.fonts_model import FontsModel
 from model.layer_model import LayerModel
@@ -55,31 +54,6 @@ def download_file(filename):
             return send_file(file_path, mimetype='image/png')
 
     return jsonify({"error": "File not found"}), 404
-
-@app.route('/viewport', methods=['POST'])
-def viewportCanvas():
-    try:
-        params = parse_parameters(PARAMETERS['viewport'], request.form)
-
-        # Layer hinzufügen
-        config = {
-            "mode": params['mode'],
-            "width": params['width'],
-            "height": params['height'],
-            "title": params['title'],
-            "layer": params['layer']
-        }
-        CHANNELS.clear()
-        LAYERS.clear()
-        VIEWPORT_CONFIG.clear()
-        VIEWPORT_CONFIG.append(config)
-        print(VIEWPORT_CONFIG)
-        LayerModel.add(name=params['layer'], path=None, id=None, type=0, width=params['width'], height=params['height'])
-
-        return jsonify({"message": "Viewport set", "viewport": VIEWPORT_CONFIG}), 200
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 @app.route('/upload', methods=['POST'])
 def upload_file():

@@ -1,9 +1,10 @@
 from flask import Blueprint, request, jsonify
 from controller.layer_controller import LayerController
 from utils import parse_response
+from config.data.constant import ( REDIRECT_ROUTE )
 
 router_layer = Blueprint("layer", __name__)
-@router_layer.route("/", methods=["GET", "POST"])
+@router_layer.route("", methods=["GET", "POST"], strict_slashes=REDIRECT_ROUTE)
 def handle_layer():
     if request.method == 'GET':
         try:
