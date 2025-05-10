@@ -37,24 +37,6 @@ register_router(app)
 
 FontsModel.initialize()
 
-@app.route('/')
-def serve_frontend():
-    return send_from_directory('../frontend/dist', 'index.html')
-
-@app.route('/<path:path>')
-def serve_static_files(path):
-    return send_from_directory('../frontend/dist', path)
-
-@app.route('/download/<filename>', methods=['GET'])
-def download_file(filename):
-    file_paths = [os.path.join(PUBLIC_LAYER_FOLDER , filename), os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER , filename), os.path.join(PUBLIC_TEMP_CHANNEL_FOLDER , filename)]
-
-    for file_path in file_paths:
-        if os.path.exists(file_path):
-            return send_file(file_path, mimetype='image/png')
-
-    return jsonify({"error": "File not found"}), 404
-
 @app.route('/upload', methods=['POST'])
 def upload_file():
     try:
