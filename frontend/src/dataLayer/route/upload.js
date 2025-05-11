@@ -26,21 +26,22 @@ export const fileUpload = async (file) => {
         }
         const newMaps = response.additionalMaps.map((map) => ({
             src: map.url,
+            width: map.width,
+            height: map.height,
+            id: map.id,
             type: map.type,
         }));
         const id = uuidv4();
         localData.buildId.value = id
-        const newBuild = {
+        return {
             id: id,
-            maps: localData.selectedMaps.value.join(", "), // Ausgewählte Maps
-            buildMaps: [...newMaps], // Kopie der Maps (nicht den globalen array referenzieren)
-            timestamp: dayjs().format('YYYY-MM-DD HH:mm:ss'), // Zeitstempel mit dayjs
-            imageCount: response.additionalMaps.length, // Anzahl der verarbeiteten Bilder
+            maps: localData.selectedMaps.value.join(", "),
+            buildMaps: [...newMaps],
+            timestamp: dayjs().format('YYYY-MM-DD HH:mm:ss'),
+            imageCount: response.additionalMaps.length,
             tiledMaps: [],
             collapsed: true,
-        };
-        localData.builds.value.push(newBuild);
-        return true
+        }
     } catch (error) {
         console.error('Error processing image:', error);
     }

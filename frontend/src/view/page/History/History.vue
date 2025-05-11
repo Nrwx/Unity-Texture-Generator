@@ -19,9 +19,9 @@
       <div class="scrollTop"></div>
       <div class="scrollBottom"></div>
     </div>
-    <v-card-text>
+    <v-card-text style="padding: 0; max-width: 100%;">
       <!-- Anzeigen der letzten Builds -->
-      <v-row  v-if="sortedBuilds.length" class="map-grid overflow-hidden overflow-y-auto py-8" justify="start" style="height: 80vh; max-height: 80vh;">
+      <div v-if="sortedBuilds.length" class="map-grid overflow-hidden overflow-y-auto py-8" style="height: 80vh; max-height: 80vh; max-width: 100%;">
         <v-col
             v-for="(build, index) in sortedBuilds"
             :key="build.id"
@@ -29,7 +29,7 @@
             cols="12"
         >
           <v-badge class="absolute-badge" color="error" :content="build.buildMaps.length + build.tiledMaps.length"></v-badge>
-          <v-badge style="top: 36px;" class="absolute-badge" @click="emitEvent('delete-build', build.id)" color="error" icon="mdi-delete"></v-badge>
+          <v-badge style="top: 36px;" class="absolute-badge nav-badge" @click="emitEvent('delete-build', build.id)" color="error" icon="mdi-delete"></v-badge>
           <!-- Build Info: Zeitstempel und Karten -->
           <v-card class="py-6 px-4" :style="index === 0 ? 'background-color: #fff8d8;' : ''">
             <v-card-title style="font-size: 14px;">{{ build.timestamp }}</v-card-title>
@@ -43,13 +43,14 @@
             <v-card-text v-if="!build.collapsed">
               <v-row class="map-grid" justify="start">
                 <v-col
+
                     v-for="(map, mapIndex) in build.buildMaps"
                     :key="mapIndex"
                     class="map-item"
                     cols="4"
                 >
-                  <v-badge style="right: 26px;" class="absolute-badge" rounded="0" color="error" icon="mdi-fullscreen" @click="emitEvent('fullscreen-state', {mode: 0, src: map.src, id: build.id, title: map.type})"></v-badge>
-                  <v-badge style="top: 36px; right: 26px;" rounded="0" class="absolute-badge" @click="emitEvent('download-image', map.src)" color="error" icon="mdi-download"></v-badge>
+                  <v-badge style="right: 26px;" class="absolute-badge nav-badge" rounded="0" color="error" icon="mdi-fullscreen" @click="emitEvent('fullscreen-state', {mode: 1, src: map.src, id: build.id, title: map.type})"></v-badge>
+                  <v-badge style="top: 36px; right: 26px;" rounded="0" class="absolute-badge nav-badge" @click="emitEvent('download-file', map.src)" color="error" icon="mdi-download"></v-badge>
                   <v-img
                       :src="map.src"
                       :alt="map.type"
@@ -57,7 +58,7 @@
                       height="40"
                       rounded="12"
                       class="map-image"
-                      @click="emitEvent('update-output', map.src)"
+                      @click="emitEvent('import-build', {id: map.id, title: map.type, width: map.width, height: map.height})"
                       contain
                   ></v-img>
                   <p
@@ -73,7 +74,7 @@
                     class="map-item"
                     cols="4"
                 >
-                  <v-badge style="top: 12px; right: 26px;" rounded="0" class="absolute-badge" @click="emitEvent('download-image', tile.src)" color="error" icon="mdi-download"></v-badge>
+                  <v-badge style="top: 12px; right: 26px;" rounded="0" class="absolute-badge nav-badge" @click="emitEvent('download-file', tile.src)" color="error" icon="mdi-download"></v-badge>
                   <v-img
                       :src="tile.src"
                       :alt="tile.type"
@@ -81,7 +82,7 @@
                       height="40"
                       rounded="12"
                       class="map-image"
-                      @click="emitEvent('update-output', tile.src)"
+                      @click="emitEvent('import-build', {id: tile.id, title: tile.type, width: tile.width, height: tile.height})"
                       contain
                   ></v-img>
                   <p
@@ -95,21 +96,21 @@
             </v-card-text>
           </v-card>
         </v-col>
-      </v-row>
+      </div>
     </v-card-text>
   </v-card>
 </template>
 
 <script>
 import { defineComponent } from "vue";
-import {historyModel, historyProps} from "@/models/history/model";
+import {historyModel, historyProps} from "@/view/models/page/history/model";
 import {localData} from "@/dataLayer/local";
 
 export default defineComponent({
-  name: "HistoryComponent",
+  name: "HistoryPage",
   props: historyProps,
   setup(props, { emit }) {
-    const { emitEvent, sortedBuilds, sortOptions, toggleCollapse } = historyModel(emit);
+    const { emitEvent, sortedBuilds, sortOptions, toggleCollapse } = historyModel(props, emit);
     return {
       sortedBuilds,
       sortOptions,
@@ -122,5 +123,5 @@ export default defineComponent({
 </script>
 
 <style scoped lang="scss">
-@import '_History.scss';
+@import 'History';
 </style>

@@ -43,10 +43,15 @@ export const layerEvent = (route) => ({
         route.windowStates.fullscreen.value = true;
         const response = await route.api.previewLayers();
         if (response) {
-            route.fullscreenInfo.title = response.title;
-            route.fullscreenInfo.id = response.id;
-            route.fullscreenInfo.src = response.src;
-            route.localData.loading.value = false;
+            const payload = {
+                title: response.title,
+                id: response.id,
+                src: response.src,
+            }
+            const data = route.emit('fullscreen-state', payload)
+            if(data) {
+                route.localData.loading.value = false;
+            }
         }
     },
 });

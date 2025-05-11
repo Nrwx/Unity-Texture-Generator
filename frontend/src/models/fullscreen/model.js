@@ -38,7 +38,7 @@ export function fullscreenModel(props, emit) {
         // Zoom-Stil anpassen
         zoomedStyle.value = {
             backgroundImage: `url(${props.data.tile && props.data.tileSrc && props.data.tileSize.x > 1 && props.data.tileSize.y > 1 ? props.data.tileSrc : props.data.src})`,
-            backgroundSize: '200%', // Zoom-Level
+            backgroundSize: '200%',
             backgroundPosition: `${xPercent}% ${yPercent}%`,
         };
     };

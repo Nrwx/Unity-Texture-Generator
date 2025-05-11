@@ -5,10 +5,11 @@ import shutil
 from generated.paths import ( PUBLIC_BACKUP_FOLDER, PUBLIC_LAYER_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER, PUBLIC_TEMP_CHANNEL_FOLDER )
 from config.data.constant import ( VIEWPORT_CONFIG, LAYERS, CHANNELS )
 from components import ( generate_channels, apply_color, apply_edge_smooth, apply_blend_layer)
+from utils import get_path
 
 class LayerModel:
     @staticmethod
-    def add(name="", path="", id=None, type=0, width=1024, height=1024):
+    def add(name="", path="", id="", type=0, width=1024, height=1024):
         source_id = str(uuid.uuid4())
         source_path = os.path.join(PUBLIC_BACKUP_FOLDER, f"{source_id}.png")
         viewport_width = VIEWPORT_CONFIG[0]["width"]
@@ -18,6 +19,11 @@ class LayerModel:
             id = str(uuid.uuid4())
             path = os.path.join(PUBLIC_LAYER_FOLDER , f"{id}.png")
             img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        elif not path and id:
+            path = get_path(id)
+            img = Image.open(path)
+            width, height = img.size
+            id = str(uuid.uuid4())
         else:
             img = Image.open(path)
             width, height = img.size

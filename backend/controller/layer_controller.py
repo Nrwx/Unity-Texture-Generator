@@ -6,7 +6,7 @@ class LayerController:
 
     METHOD_MAP = {
         "add": {
-            "keys": {"name", "type", "width", "height"},
+            "keys": {"name", "type", "width", "height", "id"},
             "function": LayerModel.add
         },
         "addText": {

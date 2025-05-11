@@ -9,6 +9,9 @@ export const addLayer = async (layer) => {
         formData.append("type", layer.type);
         formData.append("width", layer.width);
         formData.append("height",  layer.height);
+        if(layer.id) {
+            formData.append("id",  layer.id);
+        }
 
         const response = await api.post('/layer', formData, {
             headers: {'Content-Type': 'multipart/form-data'},

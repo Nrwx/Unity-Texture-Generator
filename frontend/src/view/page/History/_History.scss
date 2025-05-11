@@ -13,7 +13,7 @@
   height: 80vh;
   width: 100%;
   left: 0;
-  top: 84px;
+  top: 80px;
   z-index: 2;
   display: flex;
   flex-wrap: wrap;
@@ -32,6 +32,8 @@
   background: linear-gradient(0deg, white 0%, transparent) !important;
 }
 
-.nav-badge {
-  cursor: pointer;
+.nav-badge, .map-image {
+  &:hover{
+    cursor: pointer;
+  }
 }

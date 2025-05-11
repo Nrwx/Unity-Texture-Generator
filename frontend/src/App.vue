@@ -8,7 +8,7 @@
       <!-- Settings Dialog -->
       <Setting @component-event="componentEvent" v-model:state="windowStates.setting.value" v-model:settings="osSettings" :loading="localData.loading.value"/>
       <!-- Fullscreen Dialog -->
-      <Fullscreen @component-event="componentEvent" v-model:state="windowStates.fullscreen.value" v-model:data="fullscreenInfo" :loading="localData.loading.value"/>
+      <Fullscreen @component-event="componentEvent" v-model:state="windowStates.fullscreen.value" v-model:data="localData.fullscreenData" :loading="localData.loading.value"/>
       <!-- Linke Taskbar -->
       <Taskbar @taskbar-event="taskbarEvent('left', $event)" align="left" v-model:items="itemsLeft" />
       <!-- Linker Drawer -->
@@ -29,7 +29,7 @@
 </template>
 
 <script>
-import {computed, onMounted, reactive, ref} from "vue";
+import {computed, onMounted, ref} from "vue";
 import * as api from "@/dataLayer/route/route"
 import Taskbar from './components/Taskbar/Taskbar.vue';
 import {taskbarItemLeft, taskbarItemRight} from "@/models/taskbar/config/model";
@@ -66,15 +66,6 @@ export default {
     const itemsRight = ref(taskbarItemRight);
     const activeItemLeft = computed(() => itemsLeft.value.find(item => item.active));
     const activeItemRight = computed(() => itemsRight.value.find(item => item.active));
-    const fullscreenInfo = reactive({
-      title: '',
-      id: '',
-      src: '',
-      tile: false,
-      zoom: false,
-      tileSize: {x: 1, y: 1},
-      tileSrc: ''
-    })
 
     const componentEvent = createEventSystem({
       api,
@@ -84,8 +75,7 @@ export default {
       localData,
       textLayer,
       settings,
-      osSettings,
-      fullscreenInfo
+      osSettings
     });
 
     const taskbarEvent = async (side, itemId) => {
@@ -140,7 +130,6 @@ export default {
       itemsRight,
       activeItemLeft,
       activeItemRight,
-      fullscreenInfo,
       componentEvent,
       taskbarEvent,
       localData,

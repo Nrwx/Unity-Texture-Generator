@@ -19,7 +19,7 @@ export function layerModel(props, emit) {
         emit("component-event", event, payload);
     };
     const validRule = (value) => {
-        const pattern = /^[a-zA-Z0-9\s]+$/;
+        const pattern = /^[a-zA-Z0-9\s()*_+]+$/;
         const isValid = value.trim() !== "" && pattern.test(value);
 
         return {

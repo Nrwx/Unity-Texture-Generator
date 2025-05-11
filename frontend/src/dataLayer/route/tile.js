@@ -20,6 +20,9 @@ export const generateTileLayout = async (data) => {
             if (response && response.url) {
                 const newTileMap = {
                     src: response.url,
+                    id: response.id,
+                    width: response.width,
+                    height: response.height,
                     type: prefix,
                 };
 

@@ -149,8 +149,11 @@ def upload_file():
 
                     # Hinzufügen zur Animation
                     animation_frames.append({
+                        "id" : map_id,
                         "type": f"Frame {idx}",
                         "url": f"/download/{map_filename}",
+                        "width": frame.width,
+                        "height": frame.height,
                     })
 
                     LayerModel.add(map_name, map_path, map_id, 0)
@@ -185,8 +188,11 @@ def upload_file():
                     map_image.save(map_path, format=params["output_format"], quality=params["quality"])
 
                     additional_maps.append({
+                        "id" : map_id,
                         "type": map_type,
                         "url": f"/download/{map_filename}",
+                        "width": map_image.width,
+                        "height": map_image.height,
                     })
 
                     LayerModel.add(map_name, map_path, map_id, 0)
@@ -198,25 +204,6 @@ def upload_file():
     except Exception as e:
         print(f"Fehler beim Hochladen der Datei: {str(e)}")  # Fehler im Terminal ausgeben
         return jsonify({"error": str(e)}), 500
-
-def getImg(image_id):
-    try:
-        # Unterstützte Endungen (kannst du erweitern falls nötig)
-        extensions = [".png", ".jpg", ".jpeg"]
-
-        folders = [PUBLIC_LAYER_FOLDER , PUBLIC_TEMP_UPLOAD_FOLDER , PUBLIC_TEMP_CHANNEL_FOLDER ]
-
-        for folder in folders:
-            for ext in extensions:
-                path = os.path.join(folder, f"{image_id}{ext}")
-                if os.path.exists(path):
-                    return Image.open(path).convert("RGBA")
-
-        return jsonify({"error": f"No image found for ID: {image_id}"}), 404
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
 
 def apply_edits(img, cut_out):
     width, height = img.size

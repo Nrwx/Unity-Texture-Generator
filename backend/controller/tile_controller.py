@@ -7,4 +7,4 @@ class TileController:
     def handle(form_data):
         params = parse_parameters(PARAMETERS['tile'], form_data)
         model = TileModel(**params)
-        return jsonify(model.generate())
+        return model.generate()

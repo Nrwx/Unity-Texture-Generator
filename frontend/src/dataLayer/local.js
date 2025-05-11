@@ -1,10 +1,20 @@
-import {ref} from "vue";
+import {reactive, ref} from "vue";
 import {v4 as uuidv4} from "uuid";
 
 export const localData = {
     loading: ref(false),
     viewport: ref({id: uuidv4(), width: 1024, height: 1024, mode: 1, title: 'Unbekannt', layer: 'Ebene'}),
     file: ref(null),
+    fullscreenData: reactive({
+        mode: 0,
+        title: '',
+        id: '',
+        src: '',
+        tile: false,
+        zoom: false,
+        tileSize: {x: 1, y: 1},
+        tileSrc: ''
+    }),
     output: ref(''),
     dimension: ref({width: 1024, height: 1024}),
     layers: ref([]),

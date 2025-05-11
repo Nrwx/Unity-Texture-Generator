@@ -48,36 +48,51 @@ export const windowStateEvent = (route) => ({
         if (typeof payload === "boolean") {
             route.windowStates.fullscreen.value = payload;
         } else {
-            route.fullscreenInfo.title = payload.title
-            route.fullscreenInfo.id = payload.id
-            route.fullscreenInfo.src = payload.src
+            if(payload?.mode) {
+                route.localData.fullscreenData.mode = payload.mode
+            } else {
+                route.localData.fullscreenData.mode = 0
+            }
+            route.localData.fullscreenData.title = payload.title
+            route.localData.fullscreenData.id = payload.id
+            route.localData.fullscreenData.src = payload.src
+            if(payload?.tile) {
+                route.localData.fullscreenData.tile = payload.tile
+                route.localData.fullscreenData.tileSrc = payload.tileSrc
+                route.localData.fullscreenData.tileSize = payload.tileSize
+            } else if (payload?.mode === 1 && payload.tile) {
+                route.localData.fullscreenData.tile = true
+                route.localData.fullscreenData.tileSrc = ''
+                route.localData.fullscreenData.tileSize = {x: 1, y: 1}
+            } else {
+                route.localData.fullscreenData.tile = false
+                route.localData.fullscreenData.tileSrc = ''
+                route.localData.fullscreenData.tileSize = {x: 1, y: 1}
+            }
+            if(payload?.zoom) {
+                route.localData.fullscreenData.zoom = payload.zoom
+            }
             route.windowStates.fullscreen.value = true;
         }
     },
     "tile-state": async (payload) => {
         if (typeof payload === "boolean") {
-            route.fullscreenInfo.tile = payload;
+            route.localData.fullscreenData.tile = payload;
         } else {
-            route.fullscreenInfo.mode = payload.mode
-            route.fullscreenInfo.id = payload.id
-            route.fullscreenInfo.title = payload.title
-            route.fullscreenInfo.src = payload.src
-            route.fullscreenInfo.tile = payload.tile
-            route.fullscreenInfo.tileSrc = payload.tileSrc
-            route.fullscreenInfo.tileSize = payload.tileSize
-            route.fullscreenInfo.zoom = payload.zoom
-            const response = await route.api.generateTileLayout(route.fullscreenInfo);
-            if(response) {
-                route.fullscreenInfo.tileSrc = response.tileSrc;
+            route.localData.loading.value = true
+            const data = route.emit('fullscreen-state', payload);
+            if(data) {
+                const response = await route.api.generateTileLayout(route.localData.fullscreenData);
+                if(response) {
+                    route.localData.fullscreenData.tileSrc = response.tileSrc;
+                    route.localData.fullscreenData.id = response.id;
+                    route.localData.loading.value = false
+                }
             }
         }
     },
     "tools-state": (payload) => {
-        route.fullscreenInfo.mode = payload.mode
-        route.fullscreenInfo.title = payload.title;
-        route.fullscreenInfo.id = payload.id
-        route.fullscreenInfo.src = payload.src
-        route.windowStates.fullscreen.value = true;
+        route.emit('fullscreen-state', payload);
     },
     "context-menu-state": (payload) => {
         if (typeof payload === "boolean") {

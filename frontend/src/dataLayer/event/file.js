@@ -5,9 +5,32 @@ export const fileEvent = (route) => ({
     "upload-file": async () => {
         const response = await route.api.fileUpload(route.localData.file.value);
         if (response) {
+            const build = route.emit("generate-upload-build", response)
+            if(build) await route.emit("fetch-layer");
+        }
+    },
+    "download-file": (payload) => {
+        const link = document.createElement("a");
+        link.href = payload;
+        link.download = payload.split("/").pop();
+        link.click();
+    },
+    "generate-upload-build": (payload) => {
+        route.localData.builds.value.push(payload);
+    },
+    "import-build": async (payload) => {
+        const build = {
+            name: payload.title,
+            type: 0,
+            id: payload.id,
+            width: payload.width,
+            height: payload.height,
+        }
+        const response = await route.api.addLayer(build);
+        if (response) {
             await route.emit("fetch-layer");
         }
-    }
+    },
 })
 
 export const fileSettingEvent = (route) => ({
