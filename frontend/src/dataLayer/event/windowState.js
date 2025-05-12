@@ -60,10 +60,6 @@ export const windowStateEvent = (route) => ({
                 route.localData.fullscreenData.tile = payload.tile
                 route.localData.fullscreenData.tileSrc = payload.tileSrc
                 route.localData.fullscreenData.tileSize = payload.tileSize
-            } else if (payload?.mode === 1 && payload.tile) {
-                route.localData.fullscreenData.tile = true
-                route.localData.fullscreenData.tileSrc = ''
-                route.localData.fullscreenData.tileSize = {x: 1, y: 1}
             } else {
                 route.localData.fullscreenData.tile = false
                 route.localData.fullscreenData.tileSrc = ''

@@ -204,6 +204,7 @@ export const localData = {
     ]),
     buildId: ref(''),
     builds: ref([]),
+    modified: ref([]),
     sort: ref("newest"),
     animation: ref([]),
     tile: ref({x: 1, y: 1}),
