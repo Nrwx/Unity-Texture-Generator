@@ -2,6 +2,7 @@ import os
 import uuid
 from PIL import Image
 import shutil
+import copy
 from generated.paths import ( PUBLIC_BACKUP_FOLDER, PUBLIC_LAYER_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER, PUBLIC_TEMP_CHANNEL_FOLDER )
 from config.data.constant import ( VIEWPORT_CONFIG, LAYERS, CHANNELS )
 from components import ( generate_channels, apply_color, apply_edge_smooth, apply_blend_layer)
@@ -278,7 +279,7 @@ class LayerModel:
         return {"success": True, "message": f"Layer {id} moved to position {order}."}, 200
 
     @staticmethod
-    def paste(id, order):
+    def paste(id):
         layer = next((l for l in LAYERS if l["id"] == id), None)
 
         if layer is None:
