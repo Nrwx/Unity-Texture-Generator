@@ -96,6 +96,7 @@ export const updateLayer = async (layer) => {
         formData.append("hidden", layer.hidden);
         formData.append("opacity", layer.opacity);
         formData.append("color", layer.color);
+        formData.append("mask", layer.mask);
         const response = await api.post('/layer', formData, {
             headers: {'Content-Type': 'multipart/form-data'},
         });
@@ -225,6 +226,26 @@ export const blendLayer = async (layer) => {
         console.error("Error fetching layers:", error.response?.data || error.message);
     }
 };
+
+export const maskLayer = async (id, id2) => {
+    try {
+        const formData = new FormData();
+        formData.append("method", "mask");
+        formData.append("id", id);
+        formData.append("id2", id2);
+
+        const response = await api.post('/layer', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        if (response) {
+            return response;
+        }
+    } catch (error) {
+        console.error("Fehler beim Maskieren:", error.response?.data || error.message);
+    }
+};
+
 
 export const updateChannel = async () => {
     try {

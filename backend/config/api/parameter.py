@@ -130,6 +130,7 @@ PARAMETERS = {
         "width": {"type": int, "default": 1024},
         "height": {"type": int, "default": 1024},
         "id": {"type": str, "default": ""},
+        "id2": {"type": str, "default": ""},
         "url": {"type": str, "default": ""},
         "a": {"type": float, "default": 1},
         "b": {"type": float, "default": 0},
@@ -143,6 +144,7 @@ PARAMETERS = {
         "opacity": {"type": float, "default": 1},
         "blend_mode": {"type": int, "default": 0},
         "color": {"type": str, "default": "#000000"},
+        "mask": {"type": str, "default": ""},
 
         # TextLayer spezifisch
         "fontFamily": {"type": str, "default": "sans-serif"},

@@ -1,12 +1,13 @@
 import os
 import uuid
-from PIL import Image
+import numpy as np
+from PIL import Image, ImageChops
 import shutil
 import copy
 from generated.paths import ( PUBLIC_BACKUP_FOLDER, PUBLIC_LAYER_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER, PUBLIC_TEMP_CHANNEL_FOLDER )
 from config.data.constant import ( VIEWPORT_CONFIG, LAYERS, CHANNELS )
-from components import ( generate_channels, apply_color, apply_edge_smooth, apply_blend_layer)
-from utils import get_path
+from components import ( generate_channels, apply_color, apply_mask, apply_edge_smooth, apply_blend_layer)
+from utils import get_path, apply_rgb_rgba, apply_alpha
 
 class LayerModel:
     @staticmethod
@@ -71,7 +72,8 @@ class LayerModel:
             "hidden": 0,
             "opacity": 1,
             "blend_mode": 0,
-            "color": "#ffffff"
+            "color": "#ffffff",
+            "mask": ""
         }
         LAYERS.append(layer)
         print(LAYERS)
@@ -97,7 +99,7 @@ class LayerModel:
         return LAYERS, 200
 
     @staticmethod
-    def update(type, name, width, height, id, a, b, c, d, x, y, rotate, order, hidden, opacity, blend_mode, color):
+    def update(type, name, width, height, id, a, b, c, d, x, y, rotate, order, hidden, opacity, blend_mode, color, mask):
         layer = next((l for l in LAYERS if l["id"] == id), None)
         if not layer:
             return {"error": "Layer not found"}, 404
@@ -134,6 +136,8 @@ class LayerModel:
             layer["blend_mode"] = blend_mode
         if color:
             layer["color"] = color
+        if mask:
+            layer["mask"] = mask
 
         print(LAYERS)
         return layer, 200
@@ -438,5 +442,74 @@ class LayerModel:
             })
 
         return CHANNELS, 200
+
+    @staticmethod
+    def mask(id, id2):
+        path1 = os.path.join(PUBLIC_LAYER_FOLDER, f"{id}.png")
+        path2 = os.path.join(PUBLIC_LAYER_FOLDER, f"{id2}.png")
+
+        if not os.path.exists(path1) or not os.path.exists(path2):
+            return {"error": "One or both image files not found"}, 404
+
+        # Layer finden
+        layer1 = next((l for l in LAYERS if l["id"] == id), None)
+        layer2 = next((l for l in LAYERS if l["id"] == id2), None)
+        if not layer1 or not layer2:
+            return {"error": "One or both layers not found"}, 404
+
+        # Wer ist Base, wer Maske
+        if layer1["order"] < layer2["order"]:
+            base_layer, mask_layer = layer1, layer2
+        else:
+            base_layer, mask_layer = layer2, layer1
+
+        base_image = Image.open(os.path.join(PUBLIC_LAYER_FOLDER, f"{base_layer['id']}.png"))
+        mask_image = Image.open(os.path.join(PUBLIC_LAYER_FOLDER, f"{mask_layer['id']}.png"))
+
+        # Koordinaten
+        bx, by = base_layer["matrix"]["x"], base_layer["matrix"]["y"]
+        mx, my = mask_layer["matrix"]["x"], mask_layer["matrix"]["y"]
+        bw, bh = base_image.size
+        mw, mh = mask_image.size
+
+        # Überlappung berechnen
+        x1 = max(bx, mx)
+        y1 = max(by, my)
+        x2 = min(bx + bw, mx + mw)
+        y2 = min(by + bh, my + mh)
+
+        if x2 <= x1 or y2 <= y1:
+            return {"error": "Layers do not overlap"}, 400
+
+        # Alphakanal extrahieren oder weiße Maske erzeugen
+        _, alpha_array = apply_rgb_rgba(mask_image)
+        if alpha_array is None:
+            alpha_array = np.full((mh, mh), 255, dtype=np.uint8)
+
+        # In PIL-Image umwandeln
+        alpha_image = Image.fromarray(alpha_array, mode='L')
+
+        # Überlappung croppen
+        crop_box = (x1 - mx, y1 - my, x2 - mx, y2 - my)
+        cropped_alpha = alpha_image.crop(crop_box)
+
+        # Neues schwarz-weiß Bild mit der exakten Base-Größe
+        result = Image.new("L", (bw, bh), 0)  # Alles transparent
+        result.paste(cropped_alpha, (x1 - bx, y1 - by))
+
+        # Speichern
+        mask_filename = f"masked_{base_layer['id']}_with_{mask_layer['id']}_alpha.png"
+        result_path = os.path.join(PUBLIC_LAYER_FOLDER, mask_filename)
+        result.save(result_path)
+
+        # Layer aktualisieren
+        base_layer["mask"] = f"/download/{mask_filename}"
+
+        return {
+            "success": True,
+            "message": f"Alpha mask (grayscale) generated from {mask_layer['id']} to {base_layer['id']}."
+        }, 200
+
+
 
     # ADD METHODS END

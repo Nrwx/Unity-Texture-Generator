@@ -28,7 +28,6 @@ export function protocolModel(props, emit) {
         cursor.value = localData.modified.value.length - 1;
 
         emitEvent("restore-state", modifier);
-
         newDescription.value = "";
     };
 
@@ -36,7 +35,7 @@ export function protocolModel(props, emit) {
         if (index >= 0 && index < localData.modified.value.length) {
             cursor.value = index;
             const modifier = localData.modified.value[index];
-            emitEvent("restore-state", modifier); // Wiederherstellen
+            emitEvent("restore-state", modifier);
         }
     };
 

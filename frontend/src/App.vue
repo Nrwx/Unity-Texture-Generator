@@ -80,14 +80,11 @@ export default {
 
     const taskbarEvent = async (side, itemId) => {
       if (side === 'left') {
-        // Setze vorheriges aktives Item zurück
         itemsLeft.value.forEach(item => item.active = false);
 
-        // Finde das neue aktive Item
         const activeItem = itemsLeft.value.find(item => item.id === itemId);
         if (activeItem) activeItem.active = !activeItem.active;
 
-        // Event auslösen, falls vorhanden
         if (activeItem?.event) {
           await componentEvent(activeItem.event, activeItem.active);
           windowStates.drawerLeft.value = !activeItem.active;
@@ -95,14 +92,11 @@ export default {
           windowStates.drawerLeft.value = activeItem.active;
         }
       } else if (side === 'right') {
-        // Setze vorheriges aktives Item zurück
         itemsRight.value.forEach(item => item.active = false);
 
-        // Finde das neue aktive Item
         const activeItem = itemsRight.value.find(item => item.id === itemId);
         if (activeItem) activeItem.active = !activeItem.active;
 
-        // Event auslösen, falls vorhanden
         if (activeItem?.event) {
           await componentEvent(activeItem.event, activeItem.active);
           windowStates.drawerRight.value = !activeItem.active;

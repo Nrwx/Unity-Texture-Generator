@@ -73,7 +73,8 @@
                 >
                   <template v-slot:prepend>
                     <v-icon color="grey" size="x-small" @click.stop="emitEvent('hide-layer', layer)">
-                      {{ layer?.hidden === 1 ? 'mdi-eye-off' : 'mdi-eye' }}</v-icon>
+                      {{ layer?.hidden === 1 ? 'mdi-eye-off' : 'mdi-eye' }}
+                    </v-icon>
                   </template>
 
                   <template v-slot:append>
@@ -97,6 +98,14 @@
                       <template v-slot:prepend-inner>
                         <v-tooltip location="bottom">
                           <template v-slot:activator="{ props }">
+                            <v-tooltip v-if="layer?.mask" location="bottom">
+                              <template v-slot:activator="{ props }">
+                                <v-avatar class="mr-2" v-bind="props" rounded="0" variant="elevated">
+                                  <v-img :src="layer?.mask" :alt="'Mask ' + layer.name" />
+                                </v-avatar>
+                              </template>
+                              {{ 'Mask ' + layer.name }}
+                            </v-tooltip>
                             <v-avatar v-bind="props" rounded="0" variant="elevated">
                               <template v-if="layer?.type === 1">
                                 <v-icon>mdi-format-text</v-icon>
@@ -127,6 +136,15 @@
             @click="emitEvent('add-layer')"
         >
           <v-icon color="black">mdi-plus</v-icon>
+        </v-btn>
+        <v-btn
+            icon
+            color="#DCFDD4"
+            size="x-small"
+            :disabled="selectedLayer.length !== 2"
+            @click="emitEvent('mask-layer', {id: selectedLayer[0], id2: selectedLayer[1]})"
+        >
+          <v-icon color="black">mdi-vector-intersection</v-icon>
         </v-btn>
         <v-btn
             icon

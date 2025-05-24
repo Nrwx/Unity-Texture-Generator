@@ -1,5 +1,5 @@
 export {
-    addLayer, addTextLayer, blendLayer, deleteLayer, fetchLayers,
+    addLayer, addTextLayer, blendLayer, deleteLayer, fetchLayers, maskLayer,
     hideLayer, orderLayers, previewLayers, updateChannel, updateLayer, pasteLayer
 } from "./layer";
 

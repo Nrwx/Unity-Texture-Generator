@@ -22,7 +22,7 @@ class LayerController:
             "function": LayerModel.fetch
         },
         "update": {
-            'keys': {"type", "name", "width", "height", "id", "a", "b", "c", "d", "x", "y", "rotate", "order", "hidden", "opacity", "blend_mode", "color"},
+            'keys': {"type", "name", "width", "height", "id", "a", "b", "c", "d", "x", "y", "rotate", "order", "hidden", "opacity", "blend_mode", "color", "mask"},
             'function': LayerModel.update
         },
         "preview": {
@@ -45,7 +45,10 @@ class LayerController:
             'keys': {"id"},
             'function': LayerModel.paste
         },
-
+        "mask": {
+            'keys': {"id", "id2"},
+            'function': LayerModel.mask
+        },
         "update:channel": {
             'keys': {},
             'function': LayerModel.channel

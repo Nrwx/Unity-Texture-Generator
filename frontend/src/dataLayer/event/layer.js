@@ -78,6 +78,18 @@ export const layerModifierEvent = (route) => ({
             await route.emit("fetch-layer");
         }
     },
+    "mask-layer": async (payload) => {
+        const { id, id2 } = payload;
+
+        if (!id || !id2) {
+            console.warn("mask-layer: Ungültiger Payload", payload);
+            return;
+        }
+        const response = await route.api.maskLayer(id, id2);
+        if (response) {
+            await route.emit("fetch-layer");
+        }
+    },
 });
 
 export const textLayerEvent = (route) => ({
