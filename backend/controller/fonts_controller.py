@@ -30,7 +30,6 @@ class FontsController:
         font_path = os.path.join(PUBLIC_FONT_FOLDER, folder, filename)
 
         if os.path.exists(font_path):
-            print(font_path)
             return send_file(font_path, mimetype='font/ttf')
 
         return jsonify({"error": "Font file not found"}), 404
