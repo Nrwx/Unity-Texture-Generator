@@ -28,6 +28,6 @@ def handle_fonts():
     return jsonify(response), status
 
 
-@router_fonts.route('/<folder>/<filename>', methods=['GET'])
+@router_fonts.route('font/<folder>/<filename>', methods=['GET'], strict_slashes=REDIRECT_ROUTE)
 def serve_font(folder, filename):
     return FontsController.serve_font(folder, filename)

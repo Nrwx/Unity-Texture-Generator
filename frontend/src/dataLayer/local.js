@@ -5,6 +5,8 @@ export const localData = {
     loading: ref(false),
     viewport: ref({id: uuidv4(), width: 1024, height: 1024, mode: 1, title: 'Unbekannt', layer: 'Ebene'}),
     file: ref(null),
+    fonts: ref([]),
+    loadedFonts: ref(new Set()),
     fullscreenData: reactive({
         mode: 0,
         title: '',

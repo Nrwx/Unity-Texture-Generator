@@ -9,4 +9,6 @@ export { fetchOsSettings, saveOsSettings } from "./setting";
 
 export { generateTileLayout } from "./tile";
 
+export { fetchFont } from "./font";
+
 export { viewportSetup } from "./viewport";

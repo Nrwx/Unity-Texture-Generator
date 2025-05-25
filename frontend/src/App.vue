@@ -110,6 +110,9 @@ export default {
       if(!localData.layers.value.length) {
         await componentEvent('fetch-layer');
       }
+      if(!localData.fonts.value.length) {
+        await componentEvent('fetch-fonts');
+      }
       if(!osSettings.use_gpu) {
         await componentEvent('fetch-setting');
       }

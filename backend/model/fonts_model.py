@@ -11,7 +11,7 @@ class FontsModel:
 
     @staticmethod
     def get_fonts():
-        return FONTS
+        return FONTS, 200
 
     @staticmethod
     def scan_fonts():

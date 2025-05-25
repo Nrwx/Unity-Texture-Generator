@@ -1,5 +1,7 @@
-from flask import request, jsonify, send_from_directory
+import os
+from flask import request, jsonify, send_file
 from model.fonts_model import FontsModel
+from generated.paths import PUBLIC_FONT_FOLDER
 
 class FontsController:
 
@@ -25,8 +27,14 @@ class FontsController:
 
     @staticmethod
     def serve_font(folder, filename):
-        return send_from_directory(FontsModel.get_font_path(folder), filename)
+        font_path = os.path.join(PUBLIC_FONT_FOLDER, folder, filename)
 
-    @classmethod
+        if os.path.exists(font_path):
+            print(font_path)
+            return send_file(font_path, mimetype='font/ttf')
+
+        return jsonify({"error": "Font file not found"}), 404
+
+    @staticmethod
     def fetch():
-        return jsonify(FontsModel.get_fonts())
+        return FontsModel.get_fonts()

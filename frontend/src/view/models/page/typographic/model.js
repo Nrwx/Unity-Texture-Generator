@@ -1,10 +1,38 @@
 import {computed, reactive} from "vue";
 import {textLayer} from "@/models/text/config/model";
+import { normalizeFontName, injectFontFace } from "@/view/models/page/typographic/loader/model";
+import {localData} from "@/dataLayer/local";
 
 export function typographicModel(props, emit) {
     const emitEvent = (event, payload) => {
         emit("component-event", event, payload);
     };
+
+    const fontOptions = computed(() => {
+        const rawFonts = localData.fonts.value || [];
+        const options = [];
+
+        for (const fontGroup of rawFonts) {
+            const children = fontGroup.children || [];
+
+            for (const font of children) {
+                const fontName = normalizeFontName(font.name);
+                const fontUrl = font.path;
+
+                if (!localData.loadedFonts.value.has(fontName)) {
+                    injectFontFace(fontName, fontUrl);
+                    localData.loadedFonts.value.add(fontName);
+                }
+
+                options.push({
+                    title: font.name,
+                    value: `'${fontName}', sans-serif`,
+                });
+            }
+        }
+
+        return options;
+    });
 
     const config = reactive({
         method: 10,
@@ -33,13 +61,7 @@ export function typographicModel(props, emit) {
             fontFamily: {
                 type: 'select',
                 label: 'Schriftart',
-                options: [
-                    { title: 'Sans Serif', value: 'sans-serif' },
-                    { title: 'Serif', value: 'serif' },
-                    { title: 'Monospace', value: 'monospace' },
-                    { title: 'Cursive', value: 'cursive' },
-                    { title: 'Roboto', value: '"Roboto", sans-serif' }
-                ],
+                options: fontOptions.value,
                 event: 'apply-font-family',
                 active: true
             },
