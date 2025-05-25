@@ -246,6 +246,25 @@ export const maskLayer = async (id, id2) => {
     }
 };
 
+export const maskedLayer = async (id, id2) => {
+    try {
+        const formData = new FormData();
+        formData.append("method", "masked");
+        formData.append("id", id);
+        formData.append("id2", id2);
+
+        const response = await api.post('/layer', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        if (response) {
+            return response;
+        }
+    } catch (error) {
+        console.error("Fehler beim Maskieren:", error.response?.data || error.message);
+    }
+};
+
 
 export const updateChannel = async () => {
     try {

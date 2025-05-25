@@ -4,7 +4,7 @@ import numpy as np
 from PIL import Image, ImageChops
 import shutil
 import copy
-from generated.paths import ( PUBLIC_BACKUP_FOLDER, PUBLIC_LAYER_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER, PUBLIC_TEMP_CHANNEL_FOLDER )
+from generated.paths import ( PUBLIC_BACKUP_FOLDER, PUBLIC_LAYER_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER, PUBLIC_TEMP_CHANNEL_FOLDER, PUBLIC_TEMP_MASK_FOLDER )
 from config.data.constant import ( VIEWPORT_CONFIG, LAYERS, CHANNELS )
 from components import ( generate_channels, apply_color, apply_mask, apply_edge_smooth, apply_blend_layer)
 from utils import get_path, apply_rgb_rgba, apply_alpha
@@ -463,53 +463,136 @@ class LayerModel:
         else:
             base_layer, mask_layer = layer2, layer1
 
-        base_image = Image.open(os.path.join(PUBLIC_LAYER_FOLDER, f"{base_layer['id']}.png"))
-        mask_image = Image.open(os.path.join(PUBLIC_LAYER_FOLDER, f"{mask_layer['id']}.png"))
-
-        # Koordinaten
-        bx, by = base_layer["matrix"]["x"], base_layer["matrix"]["y"]
-        mx, my = mask_layer["matrix"]["x"], mask_layer["matrix"]["y"]
+        # Base-Daten
+        base_image = Image.open(os.path.join(PUBLIC_LAYER_FOLDER, f"{base_layer['id']}.png")).convert("RGBA")
+        base_x = base_layer.get("matrix", {}).get("x", 0)
+        base_y = base_layer.get("matrix", {}).get("y", 0)
         bw, bh = base_image.size
-        mw, mh = mask_image.size
 
-        # Überlappung berechnen
-        x1 = max(bx, mx)
-        y1 = max(by, my)
-        x2 = min(bx + bw, mx + mw)
-        y2 = min(by + bh, my + mh)
+        # Maske vorbereiten
+        mask_img = Image.open(os.path.join(PUBLIC_LAYER_FOLDER, f"{mask_layer['id']}.png")).convert("RGBA")
+        matrix = mask_layer.get("matrix", {
+            "a": 1, "d": 1, "x": 0, "y": 0, "rotate": 0
+        })
+        opacity = mask_layer.get("opacity", 1.0)
+
+        scale_x = matrix.get("a", 1)
+        scale_y = matrix.get("d", 1)
+        translate_x = matrix.get("x", 0)
+        translate_y = matrix.get("y", 0)
+        rotate_angle = float(matrix.get("rotate", 0))
+
+        orig_w, orig_h = mask_img.size
+        center_x = orig_w / 2
+        center_y = orig_h / 2
+
+        # 1. Rotation um Bildzentrum (mit expand)
+        rotated = mask_img.rotate(-rotate_angle, resample=Image.BICUBIC, expand=True, center=(center_x, center_y))
+        rotated = apply_edge_smooth(rotated)  # Optionaler Weichzeichner wie in preview()
+
+        # 2. Skalierung
+        rotated_w, rotated_h = rotated.size
+        new_w = int(round(rotated_w * scale_x))
+        new_h = int(round(rotated_h * scale_y))
+        transformed = rotated.resize((new_w, new_h), resample=Image.BICUBIC)
+
+        # 3. Offset-Berechnung wie in preview()
+        center_scaled_x = new_w / 2
+        center_scaled_y = new_h / 2
+        offset_x = center_scaled_x - center_x
+        offset_y = center_scaled_y - center_y
+
+        paste_x = int(round(translate_x - offset_x))
+        paste_y = int(round(translate_y - offset_y))
+
+        # 4. Alphakanal extrahieren + Opacity anwenden
+        alpha = transformed.split()[-1]
+        if opacity < 1.0:
+            alpha = alpha.point(lambda p: int(p * opacity))
+
+        # 5. Überlappung berechnen
+        mx1 = paste_x
+        my1 = paste_y
+        mx2 = mx1 + new_w
+        my2 = my1 + new_h
+
+        bx1 = base_x
+        by1 = base_y
+        bx2 = bx1 + bw
+        by2 = by1 + bh
+
+        x1 = max(mx1, bx1)
+        y1 = max(my1, by1)
+        x2 = min(mx2, bx2)
+        y2 = min(my2, by2)
 
         if x2 <= x1 or y2 <= y1:
             return {"error": "Layers do not overlap"}, 400
 
-        # Alphakanal extrahieren oder weiße Maske erzeugen
-        _, alpha_array = apply_rgb_rgba(mask_image)
-        if alpha_array is None:
-            alpha_array = np.full((mh, mh), 255, dtype=np.uint8)
+        # 6. Zuschneiden + Maske erzeugen
+        crop_box_mask = (x1 - mx1, y1 - my1, x2 - mx1, y2 - my1)
+        crop_box_base = (x1 - bx1, y1 - by1)
+        cropped_alpha = alpha.crop(crop_box_mask)
 
-        # In PIL-Image umwandeln
-        alpha_image = Image.fromarray(alpha_array, mode='L')
+        result = Image.new("L", (bw, bh), 0)
+        result.paste(cropped_alpha, crop_box_base)
 
-        # Überlappung croppen
-        crop_box = (x1 - mx, y1 - my, x2 - mx, y2 - my)
-        cropped_alpha = alpha_image.crop(crop_box)
-
-        # Neues schwarz-weiß Bild mit der exakten Base-Größe
-        result = Image.new("L", (bw, bh), 0)  # Alles transparent
-        result.paste(cropped_alpha, (x1 - bx, y1 - by))
-
-        # Speichern
-        mask_filename = f"masked_{base_layer['id']}_with_{mask_layer['id']}_alpha.png"
-        result_path = os.path.join(PUBLIC_LAYER_FOLDER, mask_filename)
+        # 7. Speichern
+        new_id = str(uuid.uuid4())
+        mask_filename = f"{new_id}.png"
+        result_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER, mask_filename)
         result.save(result_path)
 
-        # Layer aktualisieren
+        # 8. Masken-Link setzen
         base_layer["mask"] = f"/download/{mask_filename}"
 
         return {
             "success": True,
-            "message": f"Alpha mask (grayscale) generated from {mask_layer['id']} to {base_layer['id']}."
+            "message": f"Alpha mask generated from {mask_layer['id']} to {base_layer['id']}.",
+            "id": base_layer['id'],
+            "id2": new_id
         }, 200
 
+    @staticmethod
+    def masked(id, id2):
+        layer = next((l for l in LAYERS if l["id"] == id), None)
+        if not layer:
+            return {"error": f"Layer with id '{id}' not found."}, 404
+
+        if "url" not in layer:
+            return {"error": "Layer has no 'url' for base image."}, 400
+
+        base_path = os.path.join(PUBLIC_LAYER_FOLDER, f"{layer['id']}.png")
+        if not os.path.exists(base_path):
+            return {"error": f"Base image file not found: {layer['url']}"}, 404
+        base_img = Image.open(base_path).convert("RGBA")
+
+        if "mask" not in layer or not layer["mask"]:
+            return {"error": "Layer has no mask to apply."}, 400
+
+        mask_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER, f"{id2}.png")
+        if not os.path.exists(mask_path):
+            return {"error": f"Mask file not found: {layer['mask']}"}, 404
+        mask_img = Image.open(mask_path).convert("L")
+
+        # Anwendung der Maske
+        masked_img = apply_mask(base_img, mask_img)
+
+        # Speichern
+        new_id = str(uuid.uuid4())
+        masked_filename = f"{new_id}.png"
+        masked_path = os.path.join(PUBLIC_TEMP_MASK_FOLDER, masked_filename)
+        masked_img.save(masked_path, format="PNG")
+
+        # Layer aktualisieren
+        layer["masked"] = f"/download/{masked_filename}"
+
+        print(LAYERS)
+
+        return {
+            "success": True,
+            "message": f"Masked image generated for layer {id}."
+        }, 200
 
 
     # ADD METHODS END

@@ -1,6 +1,6 @@
 import os
 from flask import send_from_directory, send_file, jsonify
-from generated.paths import PUBLIC_LAYER_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER, PUBLIC_TEMP_CHANNEL_FOLDER
+from generated.paths import PUBLIC_LAYER_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER, PUBLIC_TEMP_CHANNEL_FOLDER, PUBLIC_TEMP_MASK_FOLDER
 from config.data.constant import ( FRONTEND_PATH )
 
 class AppController:
@@ -18,7 +18,8 @@ class AppController:
         file_paths = [
             os.path.join(PUBLIC_LAYER_FOLDER, filename),
             os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER, filename),
-            os.path.join(PUBLIC_TEMP_CHANNEL_FOLDER, filename)
+            os.path.join(PUBLIC_TEMP_CHANNEL_FOLDER, filename),
+            os.path.join(PUBLIC_TEMP_MASK_FOLDER, filename)
         ]
 
         for file_path in file_paths:

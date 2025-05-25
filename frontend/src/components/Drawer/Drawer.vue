@@ -50,7 +50,7 @@
           <v-img
               v-for="(layer, index) in layers"
               :key="layer.id"
-              :src="layer.url"
+              :src="layer?.masked && layer.mask ? layer?.masked : layer.url"
               :aspect-ratio="1"
               class="layer-image"
               alt="Layer Image"

@@ -49,6 +49,10 @@ class LayerController:
             'keys': {"id", "id2"},
             'function': LayerModel.mask
         },
+        "masked": {
+            'keys': {"id", "id2"},
+            'function': LayerModel.masked
+        },
         "update:channel": {
             'keys': {},
             'function': LayerModel.channel

@@ -1,6 +1,6 @@
 FOLDER_STRUCTURE = {
     "public": {
-        "temp": ["upload", "channel"],
+        "temp": ["upload", "channel", "mask"],
         "layer": None,
         "font": None,
         "static": None,

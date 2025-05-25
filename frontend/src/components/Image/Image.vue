@@ -4,7 +4,7 @@
       <!-- 📷 Bild-Layer -->
       <v-img
           v-if="layer.type === 0"
-          :src="layer.url"
+          :src="layer?.masked && layer.mask ? layer?.masked : layer.url"
           :hidden="layer.hidden"
           :aspect-ratio="1"
           class="layer-image"

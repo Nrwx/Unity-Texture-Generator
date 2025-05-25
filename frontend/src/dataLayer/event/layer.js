@@ -87,7 +87,10 @@ export const layerModifierEvent = (route) => ({
         }
         const response = await route.api.maskLayer(id, id2);
         if (response) {
-            await route.emit("fetch-layer");
+            const res = await route.api.maskedLayer(response?.id, response?.id2);
+            if(res) {
+                await route.emit("fetch-layer");
+            }
         }
     },
 });
