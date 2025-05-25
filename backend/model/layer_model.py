@@ -316,7 +316,7 @@ class LayerModel:
         if layer is None:
             return {"error": f"Layer with id '{id}' not found."}, 404
 
-        img1_path = os.path.join(PUBLIC_LAYER_FOLDER , f"{id}.png")
+        img1_path = os.path.join(PUBLIC_LAYER_FOLDER, f"{id}.png")
         img1 = Image.open(img1_path).convert("RGBA")
         img_array1 = np.array(img1)
         alpha1 = img_array1[..., 3]
@@ -338,45 +338,63 @@ class LayerModel:
             base_layer = LAYERS[base_index]
             base_id = base_layer["id"]
 
-            img2_path = os.path.join(PUBLIC_LAYER_FOLDER , f"{base_id}.png")
+            img2_path = os.path.join(PUBLIC_LAYER_FOLDER, f"{base_id}.png")
             img2 = Image.open(img2_path).convert("RGBA")
             img_array2 = np.array(img2)
             alpha2 = img_array2[..., 3]
 
-            x1, y1 = layer["matrix"]["x"], layer["matrix"]["y"]
-            w1, h1 = layer["width"], layer["height"]
+            x1, y1 = int(layer["matrix"]["x"]), int(layer["matrix"]["y"])
+            w1, h1 = int(layer["width"]), int(layer["height"])
 
-            x2, y2 = base_layer["matrix"]["x"], base_layer["matrix"]["y"]
-            w2, h2 = base_layer["width"], base_layer["height"]
+            x2, y2 = int(base_layer["matrix"]["x"]), int(base_layer["matrix"]["y"])
+            w2, h2 = int(base_layer["width"]), int(base_layer["height"])
 
-            rel_x = int(x1 - x2)
-            rel_y = int(y1 - y2)
+            # Überlappung berechnen
+            overlap_x1 = max(x1, x2)
+            overlap_y1 = max(y1, y2)
+            overlap_x2 = min(x1 + w1, x2 + w2)
+            overlap_y2 = min(y1 + h1, y2 + h2)
 
-            rel_x = np.clip(rel_x, 0, w2)
-            rel_y = np.clip(rel_y, 0, h2)
-            rel_x_end = np.clip(rel_x + w1, 0, w2)
-            rel_y_end = np.clip(rel_y + h1, 0, h2)
+            if overlap_x1 >= overlap_x2 or overlap_y1 >= overlap_y2:
+                return {"error": "No overlapping region between layers."}, 400
 
-            cropped_base_rgb = img_array2[rel_y:rel_y_end, rel_x:rel_x_end, :3]
-            cropped_base_alpha = alpha2[rel_y:rel_y_end, rel_x:rel_x_end]
+            # Lokale Koordinaten berechnen
+            layer_offset_x = overlap_x1 - x1
+            layer_offset_y = overlap_y1 - y1
+            base_offset_x = overlap_x1 - x2
+            base_offset_y = overlap_y1 - y2
+            region_w = overlap_x2 - overlap_x1
+            region_h = overlap_y2 - overlap_y1
 
-            blended_rgb = apply_blend_layer(img_array1[..., :3], cropped_base_rgb, alpha1, blend_mode)
+            # Überlappenden Bereich aus beiden Bildern ausschneiden
+            cropped_layer_rgb = img_array1[layer_offset_y:layer_offset_y + region_h, layer_offset_x:layer_offset_x + region_w, :3]
+            cropped_layer_alpha = alpha1[layer_offset_y:layer_offset_y + region_h, layer_offset_x:layer_offset_x + region_w]
 
-            blended_rgba = np.dstack((blended_rgb, alpha1))
-            blended_img = Image.fromarray(blended_rgba.astype(np.uint8))
+            cropped_base_rgb = img_array2[base_offset_y:base_offset_y + region_h, base_offset_x:base_offset_x + region_w, :3]
 
+            # Blend anwenden
+            blended_rgb = apply_blend_layer(cropped_layer_rgb, cropped_base_rgb, cropped_layer_alpha, blend_mode)
+            blended_rgba = np.dstack((blended_rgb, cropped_layer_alpha))
+
+            # Original Layer-Bild vorbereiten, aber als numpy kopieren
+            full_layer = img_array1.copy()
+            # Nur den überlappenden Bereich ersetzen
+            full_layer[layer_offset_y:layer_offset_y + region_h, layer_offset_x:layer_offset_x + region_w, :4] = blended_rgba
+
+            blended_img = Image.fromarray(full_layer.astype(np.uint8))
+
+        # Speichern
         if blend_mode != 0:
             output_id = str(uuid.uuid4())
             map_filename = f"{output_id}.png"
-            map_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER , map_filename)
+            map_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER, map_filename)
             url_path = f"/download/{output_id}.png"
         else:
             map_filename = f"{id}.png"
-            map_path = os.path.join(PUBLIC_LAYER_FOLDER , map_filename)
+            map_path = os.path.join(PUBLIC_LAYER_FOLDER, map_filename)
             url_path = f"/download/{id}.png"
 
         blended_img.save(map_path)
-
         layer["url"] = url_path
 
         return {
@@ -384,6 +402,7 @@ class LayerModel:
             "message": f"Blend mode '{blend_mode}' applied with color {color}.",
             "url": url_path
         }, 200
+
 
     @staticmethod
     def hide(id, hidden):
