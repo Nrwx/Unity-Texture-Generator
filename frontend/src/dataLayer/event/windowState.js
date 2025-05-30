@@ -95,4 +95,7 @@ export const windowStateEvent = (route) => ({
             route.windowStates.context.value = payload;
         }
     },
+    "color-slot-state": (payload) => {
+        route.windowStates.color.value = payload;
+    },
 });

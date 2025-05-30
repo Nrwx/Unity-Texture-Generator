@@ -20,6 +20,7 @@ class FontsController:
         if mode == 'update':
             return FontsModel.update_group(request.get_json())
 
+
         if mode == 'delete':
             return FontsModel.delete_group(request.form.get('id'))
 

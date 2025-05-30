@@ -17,6 +17,7 @@ export const localData = {
         tileSize: {x: 1, y: 1},
         tileSrc: ''
     }),
+    color: ref('#ffffff'),
     output: ref(''),
     dimension: ref({width: 1024, height: 1024}),
     layers: ref([]),

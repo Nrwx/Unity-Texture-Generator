@@ -3,6 +3,7 @@
     <v-tooltip location="bottom">
       <template v-slot:activator="{ props }">
         <v-btn
+            v-if="!item.subComponent"
             v-bind="props"
             icon
             width="100%"
@@ -13,6 +14,21 @@
             @click="emitEvent"
         >
           <v-icon>{{ item.icon }}</v-icon>
+        </v-btn>
+        <v-btn
+            v-else
+            v-bind="props"
+            icon
+            width="100%"
+            size="small"
+            class="rounded-0"
+            elevation="0"
+        >
+          <component
+              :is="item.subComponent.path"
+              v-bind="item.subComponent.props"
+              @update:componentEvent="emitEvent"
+          />
         </v-btn>
       </template>
       {{ item.tooltip }}

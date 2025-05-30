@@ -13,7 +13,8 @@ export const windowStates = {
     select: ref(false),
     text: ref(false),
     cursor: ref(false),
-    context: ref(false)
+    context: ref(false),
+    color: ref(false)
 };
 
 export const transformStates = {

@@ -3,6 +3,7 @@ import Upload from "@/view/page/Upload/Upload.vue";
 import History from "@/view/page/History/History";
 import Tools from "@/view/page/Tools/Tools";
 import Typographic from "@/view/page/Typographic/Typographic.vue";
+import Color from "@/components/Color/Color.vue";
 
 export const taskbarItemLeft = [
     {
@@ -63,6 +64,18 @@ export const taskbarItemLeft = [
         active: false,
         tooltip: 'Textebene',
         event: 'text-state'
+    },
+    {
+        position: 'center',
+        id: uuidv4(),
+        title: 'Farbauswahl',
+        active: false,
+        tooltip: 'Farbauswahl',
+        event: 'color-slot-state',
+        subComponent: {
+            path: Color,
+            props: {}
+        },
     },
 ];
 

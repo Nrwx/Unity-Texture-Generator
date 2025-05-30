@@ -58,7 +58,8 @@ export const layerEvent = (route) => ({
 
 export const layerModifierEvent = (route) => ({
     "layer-blend-mode": async (payload) => {
-        const data = {id: payload.id, blend_mode: payload.blend_mode, color: '#ffffff'}
+        const data = {id: payload.id, blend_mode: payload.blend_mode, color: route.localData.color.value}
+        console.log(data)
         const response = await route.api.blendLayer(data);
         if (response) {
             await route.emit("fetch-layer");
