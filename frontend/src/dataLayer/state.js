@@ -17,6 +17,10 @@ export const windowStates = {
     color: ref(false)
 };
 
+export const modifierStates = {
+    fill: ref(false),
+};
+
 export const transformStates = {
     menu: ref(false),
     rotate: ref(false),

@@ -68,6 +68,15 @@ export const taskbarItemLeft = [
     {
         position: 'center',
         id: uuidv4(),
+        title: 'Füllwerkzeug',
+        icon: 'mdi-format-color-fill',
+        active: false,
+        tooltip: 'Füllwerkzeug',
+        event: 'fill-color-state'
+    },
+    {
+        position: 'center',
+        id: uuidv4(),
         title: 'Farbauswahl',
         active: false,
         tooltip: 'Farbauswahl',

@@ -2,12 +2,13 @@ import os
 import uuid
 import numpy as np
 from PIL import Image, ImageChops
+from datetime import datetime
 import shutil
 import copy
 from generated.paths import ( PUBLIC_BACKUP_FOLDER, PUBLIC_LAYER_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER, PUBLIC_TEMP_CHANNEL_FOLDER, PUBLIC_TEMP_MASK_FOLDER )
 from config.data.constant import ( VIEWPORT_CONFIG, LAYERS, CHANNELS )
 from components import ( generate_channels, apply_color, apply_mask, apply_edge_smooth, apply_blend_layer)
-from utils import get_path, apply_rgb_rgba, apply_alpha
+from utils import get_path, apply_rgb_rgba, apply_alpha, time
 
 class LayerModel:
     @staticmethod
@@ -60,6 +61,7 @@ class LayerModel:
         }
 
         layer = {
+            "time": time('unix_ms'),
             "type": type,
             "id": id,
             "name": name,
@@ -138,6 +140,8 @@ class LayerModel:
             layer["color"] = color
         if mask:
             layer["mask"] = mask
+
+        layer["time"] = time('unix_ms')
 
         print(LAYERS)
         return layer, 200
@@ -241,6 +245,7 @@ class LayerModel:
         id = str(uuid.uuid4())
 
         layer = {
+            "time": time('unix_ms'),
             "type": type,
             "id": id,
             "name": name,
@@ -280,6 +285,7 @@ class LayerModel:
         LAYERS.insert(order, moved_layer)
         for i, layer in enumerate(LAYERS):
             layer["order"] = i
+            layer["time"] = time('unix_ms')
         return {"success": True, "message": f"Layer {id} moved to position {order}."}, 200
 
     @staticmethod
@@ -298,6 +304,7 @@ class LayerModel:
         new_layer = copy.deepcopy(layer)
         new_id = str(uuid.uuid4())
         new_layer["id"] = new_id
+        new_layer["time"] = time('unix_ms')
         new_layer["order"] = layer["order"]
 
         if layer["type"] == 0:
@@ -395,6 +402,7 @@ class LayerModel:
             url_path = f"/download/{id}.png"
 
         blended_img.save(map_path)
+        layer["time"] = time('unix_ms')
         layer["url"] = url_path
 
         return {
@@ -414,6 +422,7 @@ class LayerModel:
         if layer is None:
             return {"error": f"Layer with id {id} not found."}, 404
 
+        layer["time"] = time('unix_ms')
         layer["hidden"] = hidden
 
         return {
@@ -453,6 +462,7 @@ class LayerModel:
             img.save(path, format="PNG", quality=100)
 
             CHANNELS.append({
+                "time": time('unix_ms'),
                 "id": f"{map_id}",
                 "name": channel_titles.get(key, key),
                 "url": f"/download/{filename}",
@@ -563,6 +573,7 @@ class LayerModel:
         result.save(result_path)
 
         # 8. Masken-Link setzen
+        base_layer["time"] = time('unix_ms')
         base_layer["mask"] = f"/download/{mask_filename}"
 
         return {
@@ -604,6 +615,7 @@ class LayerModel:
         masked_img.save(masked_path, format="PNG")
 
         # Layer aktualisieren
+        layer["time"] = time('unix_ms')
         layer["masked"] = f"/download/{masked_filename}"
 
         print(LAYERS)

@@ -1,11 +1,12 @@
 <template>
-  <v-col v-model:layers="layers" cols="auto" class="pa-0" style="position:relative; height: 100%; width: 100%;">
-    <template v-for="(layer, index) in layers" :key="layer.id">
+  <v-col cols="auto" class="pa-0" style="position:relative; height: 100%; width: 100%;" @click="handleClick($event)">
+    <template v-for="(layer, index) in layers">
       <!-- 📷 Bild-Layer -->
       <v-img
           v-if="layer.type === 0"
           :src="layer?.masked && layer.mask ? layer?.masked : layer.url"
           :hidden="layer.hidden"
+          :key="layer.id"
           :aspect-ratio="1"
           class="layer-image"
           :width="layer.width"
@@ -31,6 +32,7 @@
           @click="emitSelectLayer(layer, $event)"
           :class="{ 'absolute': index > 0, 'selected': selectedLayer.includes(layer) }"
           :data-context-id="layer.id"
+          :key="layer.id"
           :style="{
           width: `${layer.width}px`,
           height: `${layer.height}px`,
@@ -70,8 +72,9 @@
     Frame
   },
   setup(props, { emit }) {
-    const { emitUpdateLayer, emitSelectLayer, extractImageSize} = imageModel(props, emit);
+    const { emitUpdateLayer, emitSelectLayer, extractImageSize, handleClick} = imageModel(props, emit);
     return {
+      handleClick,
       emitUpdateLayer,
       emitSelectLayer,
       extractImageSize,

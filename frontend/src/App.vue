@@ -17,7 +17,7 @@
       <Context :state="windowStates.context.value" :copy="contextStates.copy.value" :ref-id="contextConfig.contextRefId.value" :data="contextConfig.contextData.value" v-model:disabled="contextConfig.disabledData.value" @update:component-event="componentEvent"/>
       <!-- Main Content -->
       <v-main>
-        <viewport-grid @component-event="componentEvent" v-model:layers="localData.layers.value" v-model:text-layer="textLayer" v-model:settings="localData.viewport.value" v-model:select="windowStates.select.value" v-model:select-mode="localData.selectedShape.value" :text="windowStates.text.value" style="position: relative;"/>
+        <viewport-grid @component-event="componentEvent" v-model:layers="localData.layers.value" v-model:text-layer="textLayer" v-model:settings="localData.viewport.value" v-model:fill-state="modifierStates.fill.value" v-model:select="windowStates.select.value" v-model:select-mode="localData.selectedShape.value" :text="windowStates.text.value" style="position: relative;"/>
       </v-main>
       <Layer style="position: absolute; top: 40px; right: 70px;" :state="windowStates.layer.value" v-model:layers="localData.layers.value" v-model:channel="localData.channel.value" @component-event="componentEvent"/>
       <!-- Rechte Taskbar -->
@@ -36,7 +36,7 @@ import {taskbarItemLeft, taskbarItemRight} from "@/models/taskbar/config/model";
 import {localData} from "@/dataLayer/local";
 import DrawerNew from "@/components/Drawer/DrawerNew";
 import Layer from "@/components/Layer/Layer";
-import {windowStates} from "@/dataLayer/state";
+import {modifierStates, windowStates} from "@/dataLayer/state";
 import Setting from "@/components/Setting/Setting";
 import {osSettings} from "@/dataLayer/setting";
 import Fullscreen from "@/components/Fullscreen/Fullscreen";
@@ -70,6 +70,7 @@ export default {
     const componentEvent = createEventSystem({
       api,
       windowStates,
+      modifierStates,
       contextStates,
       contextConfig,
       localData,
@@ -131,6 +132,7 @@ export default {
       taskbarEvent,
       localData,
       windowStates,
+      modifierStates,
       contextStates,
       contextConfig,
       osSettings,

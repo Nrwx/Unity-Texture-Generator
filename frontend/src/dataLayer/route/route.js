@@ -11,4 +11,6 @@ export { generateTileLayout } from "./tile";
 
 export { fetchFont } from "./font";
 
+export { fillModifier } from  "./modifier";
+
 export { viewportSetup } from "./viewport";

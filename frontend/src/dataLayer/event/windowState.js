@@ -1,4 +1,12 @@
+import {nextTick} from "vue";
+
 export const windowStateEvent = (route) => ({
+    "reset:window-states": async (payload) => {
+        await route.emit("reset:modifiers", payload);
+        await nextTick()
+        await route.emit("select-state", payload);
+        await route.emit("text-state", payload);
+    },
     "viewport-state": (payload) => {
         if (typeof payload === "boolean") {
             route.windowStates.viewport.value = payload;
@@ -24,11 +32,11 @@ export const windowStateEvent = (route) => ({
             console.log('Auswahl abgeschlossen:', payload)
         }
     },
-    "cursor-state": (payload) => {
+    "cursor-state": async (payload) => {
         if (typeof payload === "boolean") {
+            await route.emit("reset:window-states", false);
+            await nextTick()
             route.windowStates.cursor.value = payload;
-            route.windowStates.select.value = false;
-            route.windowStates.text.value = false;
         }
     },
     "text-state": (payload) => {

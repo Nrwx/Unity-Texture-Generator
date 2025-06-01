@@ -160,4 +160,11 @@ PARAMETERS = {
         "textDecoration": {"type": str, "default": "none"},
         "textTransform": {"type": str, "default": "none"},
     },
+    "modifier": {
+            "method": {"type": str, "required": True},
+            "id": {"type": str, "default": ""},
+            "x": {"type": int, "default": 0},
+            "y": {"type": int, "default": 0},
+            "color": {"type": str, "default": "#000000"},
+        },
 }

@@ -47,6 +47,9 @@
             <Image
                 :layers="layers"
                 :selected-layer="selectedLayer"
+                :fill-state="fillState"
+                @update:selected-layer="updateSelectedLayer"
+                @update:componentEvent="emitEvent"
                 @update:select-layer="toggleSelection"
             >
             </Image>
@@ -104,7 +107,7 @@
 </template>
 
 <script>
-import {computed, defineComponent, onMounted, onUnmounted, ref} from "vue";
+import {computed, defineComponent, nextTick, onMounted, onUnmounted, ref} from "vue";
 import Image from "@/components/Image/Image";
 import {transformStates, canvasStates, windowStates} from "@/dataLayer/state";
 import Selection from "@/components/Selection/Selection.vue";
@@ -135,6 +138,10 @@ export default defineComponent({
     },
     selectMode: {
       type: String,
+      required: true,
+    },
+    fillState: {
+      type: Boolean,
       required: true,
     },
   },
@@ -171,7 +178,7 @@ export default defineComponent({
       }
     };
 
-    const handleMouseMove = (event) => {
+    const handleMouseMove = async (event) => {
       event.preventDefault();
       // Berechne die tatsächliche Mausposition relativ zum Canvas Container
       const rect = canvasContainer.value.getBoundingClientRect();
@@ -209,11 +216,11 @@ export default defineComponent({
       }
       // Resizing (Skalierung)
       else if (transformStates.size.value) {
-        handleResize(dx, dy);
+        await handleResize(dx, dy);
       }
       // Rotation
       else if (transformStates.rotate.value) {
-        handleRotate(event);
+        await handleRotate(event);
       }
 
       lastMouse.value.x = event.clientX;
@@ -221,7 +228,9 @@ export default defineComponent({
     };
 
     // Start Resize
-    const startResize = (corner, event) => {
+    const startResize = async (corner, event) => {
+      emitEvent('reset:window-states', false)
+      await nextTick()
       transformStates.menu.value = true
       transformStates.size.value = true;
       resizeDirection.value = corner;
@@ -231,7 +240,9 @@ export default defineComponent({
     };
 
 // Start Rotate
-    const startRotate = (direction, event) => {
+    const startRotate = async (direction, event) => {
+      emitEvent('reset:window-states', false)
+      await nextTick()
       transformStates.menu.value = true
       transformStates.rotate.value = true;
       rotationStartAngle.value = calculateRotation(event.clientX, event.clientY);
@@ -267,7 +278,7 @@ export default defineComponent({
     };
 
 // Handle der Rotation
-    const handleRotate = (event) => {
+    const handleRotate = async (event) => {
       event.preventDefault();
 
       const crosshair = document.querySelector(".center-crosshair");
@@ -304,7 +315,7 @@ export default defineComponent({
     };
 
     // Handle Resize
-    const handleResize = (dx, dy) => {
+    const handleResize = async (dx, dy) => {
       selectedLayer.value.forEach(layer => {
         const originalWidth = layer.width;
         const originalHeight = layer.height;
@@ -348,7 +359,7 @@ export default defineComponent({
     }
 
 
-    const resetSelection = (event) => {
+    const resetSelection = async (event) => {
       event.preventDefault();
       if (!canvasContainer.value.contains(event.target) && !event.ctrlKey
           || !transformStates.menu.value && !transformStates.transform.value && !event.ctrlKey
@@ -425,8 +436,7 @@ export default defineComponent({
       const index = selectedLayer.value.findIndex(l => l.id === layer.id);
       if (layer.type === 0) {
         storeOriginalMatrix(layer);
-      }
-      else if (layer.type === 1) {
+      } else if (layer.type === 1) {
         storedText(layer)
       }
 
@@ -434,8 +444,7 @@ export default defineComponent({
         if (index === -1) {
           if (layer.type === 0) {
             storeOriginalMatrix(layer);
-          }
-          else if (layer.type === 1) {
+          } else if (layer.type === 1) {
             storedText(layer)
           }
           selectedLayer.value.push(layer);
@@ -445,12 +454,16 @@ export default defineComponent({
       } else {
         if (layer.type === 0) {
           storeOriginalMatrix(layer);
-        }
-        else if (layer.type === 1) {
+        } else if (layer.type === 1) {
           storedText(layer)
         }
         selectedLayer.value = [layer];
       }
+    };
+
+    const updateSelectedLayer = (payload) => {
+      selectedLayer.value = payload
+      console.log('THIS IS UODATE SELECT LAYER', payload)
     };
 
 
@@ -512,7 +525,8 @@ export default defineComponent({
     };
 
 
-    const startPan = (event) => {
+    const startPan = async (event) => {
+      await nextTick()
       event.preventDefault();
       if (!canvasStates.transform.value) return;
       lastMouse.value.x = event.clientX;
@@ -527,14 +541,16 @@ export default defineComponent({
       document.removeEventListener("mouseup", stopPan);
     };
 
-    const startDraggingGuide = (helper, event) => {
+    const startDraggingGuide = async (helper, event) => {
+      await nextTick()
       event.preventDefault();
       guide.value = helper;
       document.addEventListener("mousemove", dragGuide);
       document.addEventListener("mouseup", stopDraggingGuide);
     };
 
-    const startGuide = (type, event) => {
+    const startGuide = async (type, event) => {
+      await nextTick()
       event.preventDefault();
       // Berechne die Position relativ zur aktuellen Verschiebung (Offset)
       const position = type === 'horizontal'
@@ -549,9 +565,9 @@ export default defineComponent({
         guides.value.splice(index, 1);
       } else {
         // Neue Hilfslinie erstellen
-        const guide = { id: Date.now(), type, position };
+        const guide = {id: Date.now(), type, position};
         guides.value.push(guide);
-        startDraggingGuide(guide, event);
+        await startDraggingGuide(guide, event);
       }
     };
 
@@ -764,6 +780,7 @@ export default defineComponent({
       getGuideStyle,
       emitEvent,
       toggleSelection,
+      updateSelectedLayer,
       resetSelection,
       startRotate,
       startResize,
