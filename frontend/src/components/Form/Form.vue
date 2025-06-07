@@ -73,6 +73,7 @@
         v-model="item[key]"
         :label="prop.label"
         flat
+        mode="hex"
         elevation="0"
         rounded
         @update:modelValue="emitEvent(prop.event, item[key])"

@@ -1,7 +1,7 @@
 {
     "use_gpu": true,
-    "gpu_name": "Radeon (TM) RX 480 Graphics",
-    "gpu_memory_mb": 16346,
-    "cpu_threads": 4,
+    "gpu_name": "GeForce GTX 1050 Ti",
+    "gpu_memory_mb": 4096,
+    "cpu_threads": 12,
     "preferred_unit": "GPU"
 }

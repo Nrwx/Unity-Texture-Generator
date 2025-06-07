@@ -21,6 +21,7 @@
         <v-color-picker
             v-model="colors[selectedIndex]"
             hide-inputs
+            mode="hex"
             @update:model-value="onColorChange"
         ></v-color-picker>
       </v-menu>
