@@ -10,7 +10,7 @@ class LayerController:
             "function": LayerModel.add
         },
         "addText": {
-            'keys': {"type", "order", "name", "hidden", "opacity", "color", "fontFamily", "fontSize", "fontWeight", "initFontSize", "initHeight", "initWidth", "letterSpacing", "lineHeight", "text", "textAlign", "textDecoration", "textTransform", "width", "height", "x", "y"},
+            'keys': {"type", "order", "name", "hidden", "opacity", "color", "font", "fontFamily", "fontSize", "fontWeight", "initFontSize", "initHeight", "initWidth", "letterSpacing", "lineHeight", "text", "textAlign", "textDecoration", "textTransform", "width", "height", "x", "y", "mask"},
             'function': LayerModel.addText
         },
         "delete": {

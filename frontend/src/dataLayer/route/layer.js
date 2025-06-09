@@ -37,6 +37,7 @@ export const addTextLayer = async (layer) => {
         formData.append("opacity",  layer.opacity);
         formData.append("color", layer.color);
         formData.append("fontFamily", layer.fontFamily);
+        formData.append("font", layer.font);
         formData.append("fontSize", layer.fontSize);
         formData.append("fontWeight",  layer.fontWeight);
         formData.append("initFontSize", layer.initFontSize);
@@ -52,6 +53,7 @@ export const addTextLayer = async (layer) => {
         formData.append("height", layer.height);
         formData.append("x", layer.x);
         formData.append("y",  layer.y);
+        formData.append("mask",  layer.mask);
 
         const response = await api.post('/layer', formData, {
             headers: {'Content-Type': 'multipart/form-data'},

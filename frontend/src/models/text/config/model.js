@@ -5,6 +5,7 @@ export const textLayer = ref({
     type: 1,
     order: 0,
     id: '',
+    font: '',
     name: 'Textelement',
     opacity: 1,
     hidden: 0,
@@ -25,7 +26,9 @@ export const textLayer = ref({
     letterSpacing: 0,
     textTransform: 'none',
     textDecoration: 'none',
-    color: '#000000'
+    color: '#000000',
+
+    mask: ''
 });
 
 export const editText = ref(null);

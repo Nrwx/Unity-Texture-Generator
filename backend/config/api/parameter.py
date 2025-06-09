@@ -147,6 +147,7 @@ PARAMETERS = {
         "mask": {"type": str, "default": ""},
 
         # TextLayer spezifisch
+        "font": {"type": str, "default": ""},
         "fontFamily": {"type": str, "default": "sans-serif"},
         "fontSize": {"type": int, "default": 16},
         "fontWeight": {"type": str, "default": "normal"},

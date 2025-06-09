@@ -110,7 +110,8 @@ export const textModifierEvent = (route) => ({
         route.textLayer.value.fontSize = payload;
     },
     "apply-font-family": (payload) => {
-        route.textLayer.value.fontFamily = payload;
+        route.textLayer.value.fontFamily = payload.value;
+        route.textLayer.value.font = payload.id
     },
     "apply-font-weight": (payload) => {
         route.textLayer.value.fontWeight = payload;

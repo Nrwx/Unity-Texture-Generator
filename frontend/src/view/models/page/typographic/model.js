@@ -27,9 +27,12 @@ export function typographicModel(props, emit) {
                 options.push({
                     title: font.name,
                     value: `'${fontName}', sans-serif`,
+                    id: font.id
                 });
             }
         }
+
+        console.log(options)
 
         return options;
     });
@@ -63,7 +66,8 @@ export function typographicModel(props, emit) {
                 label: 'Schriftart',
                 options: fontOptions.value,
                 event: 'apply-font-family',
-                active: true
+                active: true,
+                return: true
             },
             fontWeight: {
                 type: 'select',

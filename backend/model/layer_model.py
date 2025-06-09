@@ -1,12 +1,12 @@
 import os
 import uuid
 import numpy as np
-from PIL import Image, ImageChops
+from PIL import Image, ImageChops, ImageFont, ImageDraw
 from datetime import datetime
 import shutil
 import copy
-from generated.paths import ( PUBLIC_BACKUP_FOLDER, PUBLIC_LAYER_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER, PUBLIC_TEMP_CHANNEL_FOLDER, PUBLIC_TEMP_MASK_FOLDER )
-from config.data.constant import ( VIEWPORT_CONFIG, LAYERS, CHANNELS )
+from generated.paths import ( PUBLIC_BACKUP_FOLDER, PUBLIC_LAYER_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER, PUBLIC_TEMP_CHANNEL_FOLDER, PUBLIC_TEMP_MASK_FOLDER, PUBLIC_FONT_FOLDER )
+from config.data.constant import ( VIEWPORT_CONFIG, LAYERS, CHANNELS, FONTS )
 from components import ( generate_channels, apply_color, apply_mask, apply_edge_smooth, apply_blend_layer)
 from utils import get_path, apply_rgb_rgba, apply_alpha, time
 
@@ -165,11 +165,43 @@ class LayerModel:
             render_layers = [l for l in LAYERS if l.get("hidden", 0) != 1]
 
         for layer in render_layers:
-            layer_path = os.path.join(PUBLIC_LAYER_FOLDER , f"{layer['id']}.png")
-            if not os.path.exists(layer_path):
-                continue
+            if layer.get("type") == 1:  # Text Layer
+                text = layer.get("text", "")
+                font_id = layer.get("font")
+                font_size = int(layer.get("fontSize", 20))
+                color = layer.get("color", "#000000")
 
-            layer_img = Image.open(layer_path).convert('RGBA')
+                # Font-Pfad aus FONTS ermitteln via ID
+                font_path = None
+                for group in FONTS:
+                    for child in group.get("children", []):
+                        if child.get("id") == font_id:
+                            font_path = os.path.join(PUBLIC_FONT_FOLDER, group["id"], os.path.basename(child["path"]))
+                            break
+                    if font_path:
+                        break
+
+                # Font laden oder Default verwenden
+                try:
+                    if font_path and os.path.exists(font_path):
+                        font = ImageFont.truetype(font_path, font_size)
+                    else:
+                        font = ImageFont.load_default()
+                except Exception:
+                    font = ImageFont.load_default()
+
+                # Text in Bild rendern
+                text_img = Image.new('RGBA', (layer['width'], layer['height']), (0, 0, 0, 0))
+                draw = ImageDraw.Draw(text_img)
+                draw.text((0, 0), text, font=font, fill=color)
+                layer_img = text_img
+            else:
+                # Bild-Layer
+                layer_path = os.path.join(PUBLIC_LAYER_FOLDER, f"{layer['id']}.png")
+                if not os.path.exists(layer_path):
+                    continue
+                layer_img = Image.open(layer_path).convert('RGBA')
+
             matrix = layer.get("matrix", {
                 "a": 1, "b": 0, "c": 0, "d": 1,
                 "x": 0, "y": 0, "rotate": 0
@@ -215,7 +247,7 @@ class LayerModel:
 
         map_id = str(uuid.uuid4())
         map_filename = f"{map_id}.png"
-        map_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER , map_filename)
+        map_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER, map_filename)
         composite_image.save(map_path, format="PNG", quality=100)
 
         if return_image:
@@ -228,7 +260,7 @@ class LayerModel:
         }, 200
 
     @staticmethod
-    def addText(type: int,order: int, name: str,hidden: int,opacity: float,color: str,fontFamily: str,fontSize: int,fontWeight: str,initFontSize: int,initHeight: int,initWidth: int,letterSpacing: float,lineHeight: float,text: str,textAlign: str,textDecoration: str,textTransform: str,width: int,height: int,x: int,y: int):
+    def addText(type: int,order: int, name: str,hidden: int,opacity: float,color: str, font: str, fontFamily: str,fontSize: int,fontWeight: str,initFontSize: int,initHeight: int,initWidth: int,letterSpacing: float,lineHeight: float,text: str,textAlign: str,textDecoration: str,textTransform: str,width: int,height: int,x: int,y: int, mask: str):
         viewport_width = VIEWPORT_CONFIG[0]["width"]
         viewport_height = VIEWPORT_CONFIG[0]["height"]
 
@@ -257,6 +289,7 @@ class LayerModel:
             "opacity": opacity,
             "color": color,
 
+            "font": font,
             "fontFamily": fontFamily,
             "fontSize": fontSize,
             "fontWeight": fontWeight,
@@ -269,6 +302,7 @@ class LayerModel:
             "textAlign": textAlign,
             "textDecoration": textDecoration,
             "textTransform": textTransform,
+            "mask" : mask
         }
 
         LAYERS.append(layer)

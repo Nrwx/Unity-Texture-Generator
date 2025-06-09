@@ -62,8 +62,8 @@
         :append-icon="prop.appendIcon"
         :multiple="prop.multi"
         item-title="title"
-        item-value="value"
-        @update:modelValue="emitEvent(prop.event, item[key])"
+        :item-value="prop.return ? (opt) => opt : 'value'"
+        @update:modelValue="(val) => selectUpdate(prop, val)"
     ></v-select>
 
     <!-- Farbwähler -->
@@ -89,9 +89,9 @@ export default defineComponent({
   name: "FormComponent",
   props: formProps,
   setup(props, { emit }) {
-    const { selected, emitEvent } = formModel(props, emit);
+    const { selectUpdate, emitEvent } = formModel(props, emit);
     return {
-      selected,
+      selectUpdate,
       emitEvent
     };
   },
