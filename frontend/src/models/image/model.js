@@ -13,7 +13,7 @@ export function imageModel(props, emit) {
 
     const handleClick = async (event) => {
         if (!props.fillState) {
-            return console.log('No image select')
+            return console.log('Fill-event not aktiv')
         } else {
             const target = event.target.closest('[data-context-id]')
             const rect = target.getBoundingClientRect()
