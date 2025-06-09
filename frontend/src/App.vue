@@ -29,7 +29,7 @@
 </template>
 
 <script>
-import {computed, onMounted, ref} from "vue";
+import {computed, nextTick, onMounted, ref} from "vue";
 import * as api from "@/dataLayer/route/route"
 import Taskbar from './components/Taskbar/Taskbar.vue';
 import {taskbarItemLeft, taskbarItemRight} from "@/models/taskbar/config/model";
@@ -88,6 +88,7 @@ export default {
 
         if (activeItem?.event) {
           await componentEvent(activeItem.event, activeItem.active);
+          await nextTick()
           windowStates.drawerLeft.value = !activeItem.active;
         } else {
           windowStates.drawerLeft.value = activeItem.active;
@@ -100,6 +101,7 @@ export default {
 
         if (activeItem?.event) {
           await componentEvent(activeItem.event, activeItem.active);
+          await nextTick()
           windowStates.drawerRight.value = !activeItem.active;
         } else {
           windowStates.drawerRight.value = activeItem.active;

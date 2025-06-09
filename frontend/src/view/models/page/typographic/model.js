@@ -32,8 +32,6 @@ export function typographicModel(props, emit) {
             }
         }
 
-        console.log(options)
-
         return options;
     });
 

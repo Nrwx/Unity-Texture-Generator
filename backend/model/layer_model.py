@@ -7,8 +7,9 @@ import shutil
 import copy
 from generated.paths import ( PUBLIC_BACKUP_FOLDER, PUBLIC_LAYER_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER, PUBLIC_TEMP_CHANNEL_FOLDER, PUBLIC_TEMP_MASK_FOLDER, PUBLIC_FONT_FOLDER )
 from config.data.constant import ( VIEWPORT_CONFIG, LAYERS, CHANNELS, FONTS )
+from model.fonts_model import FontsModel
 from components import ( generate_channels, apply_color, apply_mask, apply_edge_smooth, apply_blend_layer)
-from utils import get_path, apply_rgb_rgba, apply_alpha, time
+from utils import get_path, apply_rgb_rgba, apply_alpha, time, layer_transform
 
 class LayerModel:
     @staticmethod
@@ -166,85 +167,27 @@ class LayerModel:
 
         for layer in render_layers:
             if layer.get("type") == 1:  # Text Layer
-                text = layer.get("text", "")
-                font_id = layer.get("font")
-                font_size = int(layer.get("fontSize", 20))
-                color = layer.get("color", "#000000")
-
-                # Font-Pfad aus FONTS ermitteln via ID
-                font_path = None
-                for group in FONTS:
-                    for child in group.get("children", []):
-                        if child.get("id") == font_id:
-                            font_path = os.path.join(PUBLIC_FONT_FOLDER, group["id"], os.path.basename(child["path"]))
-                            break
-                    if font_path:
-                        break
-
-                # Font laden oder Default verwenden
-                try:
-                    if font_path and os.path.exists(font_path):
-                        font = ImageFont.truetype(font_path, font_size)
-                    else:
-                        font = ImageFont.load_default()
-                except Exception:
-                    font = ImageFont.load_default()
-
-                # Text in Bild rendern
-                text_img = Image.new('RGBA', (layer['width'], layer['height']), (0, 0, 0, 0))
-                draw = ImageDraw.Draw(text_img)
-                draw.text((0, 0), text, font=font, fill=color)
-                layer_img = text_img
+                layer_img = FontsModel.render(layer)
+                if not layer_img:
+                    continue
             else:
-                # Bild-Layer
                 layer_path = os.path.join(PUBLIC_LAYER_FOLDER, f"{layer['id']}.png")
                 if not os.path.exists(layer_path):
                     continue
                 layer_img = Image.open(layer_path).convert('RGBA')
 
-            matrix = layer.get("matrix", {
-                "a": 1, "b": 0, "c": 0, "d": 1,
-                "x": 0, "y": 0, "rotate": 0
-            })
+            # Transformation anwenden
+            transformed_img, paste_x, paste_y = layer_transform(
+                layer,
+                layer_img,
+                apply_opacity=True,
+                edge_smooth_fn=apply_edge_smooth
+            )
 
-            original_width, original_height = layer_img.size
-            scale_x = matrix.get("a", 1)
-            scale_y = matrix.get("d", 1)
-
-            if layer.get("opacity", 1.0) < 1.0:
-                r, g, b, a = layer_img.split()
-                a = a.point(lambda p: int(p * layer["opacity"]))
-                layer_img = Image.merge("RGBA", (r, g, b, a))
-
-            pos_x = int(round(matrix.get("x", 0)))
-            pos_y = int(round(matrix.get("y", 0)))
-            rotate_angle = float(matrix.get("rotate", 0))
-
-            center_x = original_width / 2
-            center_y = original_height / 2
-
-            if rotate_angle != 0:
-                rotated_img = layer_img.rotate(-rotate_angle, resample=Image.BICUBIC, expand=True, center=(center_x, center_y))
-                rotated_img = apply_edge_smooth(rotated_img)
-                rotated_width, rotated_height = rotated_img.size
-            else:
-                rotated_img = layer_img
-                rotated_width, rotated_height = original_width, original_height
-
-            new_width = int(round(rotated_width * scale_x))
-            new_height = int(round(rotated_height * scale_y))
-            transformed_img = rotated_img.resize((new_width, new_height), resample=Image.BICUBIC)
-
-            center_scaled_x = new_width / 2
-            center_scaled_y = new_height / 2
-            offset_x = center_scaled_x - center_x
-            offset_y = center_scaled_y - center_y
-
-            paste_x = int(round(pos_x - offset_x))
-            paste_y = int(round(pos_y - offset_y))
-
+            # In Gesamtdarstellung einfügen
             composite_image.paste(transformed_img, (paste_x, paste_y), transformed_img)
 
+        # Speichern & Rückgabe
         map_id = str(uuid.uuid4())
         map_filename = f"{map_id}.png"
         map_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER, map_filename)

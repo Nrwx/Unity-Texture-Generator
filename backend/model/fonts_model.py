@@ -1,6 +1,7 @@
 import os, shutil, zipfile, uuid, tempfile
 from flask import jsonify
 from werkzeug.utils import secure_filename
+from PIL import Image, ImageDraw, ImageFont
 from generated.paths import (
     ASSETS_FONT_FOLDER,
     PUBLIC_FONT_FOLDER,
@@ -143,6 +144,44 @@ class FontsModel:
             f.save(os.path.join(dest, filename))
 
         return jsonify({'status': 'uploaded'})
+
+    @staticmethod
+    def render(layer):
+        if layer.get("type") != 1:
+            return None
+
+        text = layer.get("text", "")
+        font_id = layer.get("font")
+        font_size = int(layer.get("fontSize", 20))
+        color = layer.get("color", "#000000")
+        width = int(layer.get("width", 200))
+        height = int(layer.get("height", 50))
+
+        # Font-Dateipfad ermitteln
+        font_path = None
+        for group in FONTS:
+            for child in group.get("children", []):
+                if child.get("id") == font_id:
+                    font_path = os.path.join(PUBLIC_FONT_FOLDER, group["id"], os.path.basename(child["path"]))
+                    break
+            if font_path:
+                break
+
+        # Font laden oder Default verwenden
+        try:
+            if font_path and os.path.exists(font_path):
+                font = ImageFont.truetype(font_path, font_size)
+            else:
+                font = ImageFont.load_default()
+        except Exception:
+            font = ImageFont.load_default()
+
+        # Neues leeres Bild erstellen
+        img = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        draw.text((0, 0), text, font=font, fill=color)
+
+        return img
 
     @staticmethod
     def update_group(data):

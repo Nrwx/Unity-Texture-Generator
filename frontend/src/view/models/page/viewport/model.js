@@ -41,6 +41,6 @@ export const viewportProps = {
     settings: {
         type: Object,
         required: true,
-        default: () => {},
+        default: () => ({})
     }
 };
