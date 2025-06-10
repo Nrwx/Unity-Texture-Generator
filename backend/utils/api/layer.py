@@ -1,7 +1,8 @@
 from PIL import Image
 import math
+from components import apply_edge_smooth
 
-def layer_transform(layer, img, apply_opacity=True, edge_smooth_fn=None):
+def layer_transform(layer, img, apply_opacity=True, apply_smooth=None):
     """
     Führt Transformationen auf ein Layer-Bild aus: rotate → scale → translate.
     Gibt transformiertes Bild und Position (paste_x, paste_y) zurück.
@@ -24,8 +25,8 @@ def layer_transform(layer, img, apply_opacity=True, edge_smooth_fn=None):
     # 1. Rotation (optional mit Kantenglättung)
     if rotate_angle != 0:
         img = img.rotate(-rotate_angle, resample=Image.BICUBIC, expand=True, center=(center_x, center_y))
-        if edge_smooth_fn:
-            img = edge_smooth_fn(img)
+        if apply_smooth:
+            img = apply_edge_smooth(img)
 
     # 2. Skalierung
     rotated_width, rotated_height = img.size

@@ -5,10 +5,11 @@ from PIL import Image, ImageChops, ImageFont, ImageDraw
 from datetime import datetime
 import shutil
 import copy
+import math
 from generated.paths import ( PUBLIC_BACKUP_FOLDER, PUBLIC_LAYER_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER, PUBLIC_TEMP_CHANNEL_FOLDER, PUBLIC_TEMP_MASK_FOLDER, PUBLIC_FONT_FOLDER )
 from config.data.constant import ( VIEWPORT_CONFIG, LAYERS, CHANNELS, FONTS )
 from model.fonts_model import FontsModel
-from components import ( generate_channels, apply_color, apply_mask, apply_edge_smooth, apply_blend_layer)
+from components import ( generate_channels, apply_color, apply_mask, apply_blend_layer)
 from utils import get_path, apply_rgb_rgba, apply_alpha, time, layer_transform
 
 class LayerModel:
@@ -180,8 +181,7 @@ class LayerModel:
             transformed_img, paste_x, paste_y = layer_transform(
                 layer,
                 layer_img,
-                apply_opacity=True,
-                edge_smooth_fn=apply_edge_smooth
+                apply_opacity=True
             )
 
             # In Gesamtdarstellung einfügen
@@ -300,14 +300,17 @@ class LayerModel:
         if layer is None:
             return {"error": f"Layer with id '{id}' not found."}, 404
 
-        img1_path = os.path.join(PUBLIC_LAYER_FOLDER, f"{id}.png")
-        img1 = Image.open(img1_path).convert("RGBA")
+        # Bild des aktuellen Layers über render() laden (inkl. Transformation)
+        img1 = LayerModel.render(layer)
+
+        w1, h1 = img1.size
+
         img_array1 = np.array(img1)
         alpha1 = img_array1[..., 3]
 
+        # Blend-Infos setzen
         layer["blend_mode"] = blend_mode
         layer["color"] = color
-
         layer_order = layer.get("order", 0)
 
         if layer_order == 0:
@@ -320,18 +323,15 @@ class LayerModel:
                 return {"error": "Invalid layer order"}, 404
 
             base_layer = LAYERS[base_index]
-            base_id = base_layer["id"]
+            img2 = LayerModel.render(base_layer)
 
-            img2_path = os.path.join(PUBLIC_LAYER_FOLDER, f"{base_id}.png")
-            img2 = Image.open(img2_path).convert("RGBA")
+            w2, h2 = img2.size
+
             img_array2 = np.array(img2)
             alpha2 = img_array2[..., 3]
 
             x1, y1 = int(layer["matrix"]["x"]), int(layer["matrix"]["y"])
-            w1, h1 = int(layer["width"]), int(layer["height"])
-
             x2, y2 = int(base_layer["matrix"]["x"]), int(base_layer["matrix"]["y"])
-            w2, h2 = int(base_layer["width"]), int(base_layer["height"])
 
             # Überlappung berechnen
             overlap_x1 = max(x1, x2)
@@ -342,7 +342,7 @@ class LayerModel:
             if overlap_x1 >= overlap_x2 or overlap_y1 >= overlap_y2:
                 return {"error": "No overlapping region between layers."}, 400
 
-            # Lokale Koordinaten berechnen
+            # Lokale Offsets und Region
             layer_offset_x = overlap_x1 - x1
             layer_offset_y = overlap_y1 - y1
             base_offset_x = overlap_x1 - x2
@@ -350,21 +350,15 @@ class LayerModel:
             region_w = overlap_x2 - overlap_x1
             region_h = overlap_y2 - overlap_y1
 
-            # Überlappenden Bereich aus beiden Bildern ausschneiden
             cropped_layer_rgb = img_array1[layer_offset_y:layer_offset_y + region_h, layer_offset_x:layer_offset_x + region_w, :3]
             cropped_layer_alpha = alpha1[layer_offset_y:layer_offset_y + region_h, layer_offset_x:layer_offset_x + region_w]
-
             cropped_base_rgb = img_array2[base_offset_y:base_offset_y + region_h, base_offset_x:base_offset_x + region_w, :3]
 
-            # Blend anwenden
             blended_rgb = apply_blend_layer(cropped_layer_rgb, cropped_base_rgb, cropped_layer_alpha, blend_mode)
             blended_rgba = np.dstack((blended_rgb, cropped_layer_alpha))
 
-            # Original Layer-Bild vorbereiten, aber als numpy kopieren
             full_layer = img_array1.copy()
-            # Nur den überlappenden Bereich ersetzen
             full_layer[layer_offset_y:layer_offset_y + region_h, layer_offset_x:layer_offset_x + region_w, :4] = blended_rgba
-
             blended_img = Image.fromarray(full_layer.astype(np.uint8))
 
         # Speichern
@@ -475,48 +469,21 @@ class LayerModel:
         base_y = base_layer.get("matrix", {}).get("y", 0)
         bw, bh = base_image.size
 
-        # Maske vorbereiten
+        # Maske vorbereiten (Transform + Position berechnen)
         mask_img = Image.open(os.path.join(PUBLIC_LAYER_FOLDER, f"{mask_layer['id']}.png")).convert("RGBA")
-        matrix = mask_layer.get("matrix", {
-            "a": 1, "d": 1, "x": 0, "y": 0, "rotate": 0
-        })
-        opacity = mask_layer.get("opacity", 1.0)
+        transformed, paste_x, paste_y = layer_transform(
+            mask_layer, mask_img,
+            apply_opacity=False
+        )
 
-        scale_x = matrix.get("a", 1)
-        scale_y = matrix.get("d", 1)
-        translate_x = matrix.get("x", 0)
-        translate_y = matrix.get("y", 0)
-        rotate_angle = float(matrix.get("rotate", 0))
-
-        orig_w, orig_h = mask_img.size
-        center_x = orig_w / 2
-        center_y = orig_h / 2
-
-        # 1. Rotation um Bildzentrum (mit expand)
-        rotated = mask_img.rotate(-rotate_angle, resample=Image.BICUBIC, expand=True, center=(center_x, center_y))
-        rotated = apply_edge_smooth(rotated)  # Optionaler Weichzeichner wie in preview()
-
-        # 2. Skalierung
-        rotated_w, rotated_h = rotated.size
-        new_w = int(round(rotated_w * scale_x))
-        new_h = int(round(rotated_h * scale_y))
-        transformed = rotated.resize((new_w, new_h), resample=Image.BICUBIC)
-
-        # 3. Offset-Berechnung wie in preview()
-        center_scaled_x = new_w / 2
-        center_scaled_y = new_h / 2
-        offset_x = center_scaled_x - center_x
-        offset_y = center_scaled_y - center_y
-
-        paste_x = int(round(translate_x - offset_x))
-        paste_y = int(round(translate_y - offset_y))
-
-        # 4. Alphakanal extrahieren + Opacity anwenden
+        # Alphakanal extrahieren + Opacity anwenden
         alpha = transformed.split()[-1]
+        opacity = mask_layer.get("opacity", 1.0)
         if opacity < 1.0:
             alpha = alpha.point(lambda p: int(p * opacity))
 
-        # 5. Überlappung berechnen
+        # Überlappung berechnen
+        new_w, new_h = transformed.size
         mx1 = paste_x
         my1 = paste_y
         mx2 = mx1 + new_w
@@ -535,7 +502,7 @@ class LayerModel:
         if x2 <= x1 or y2 <= y1:
             return {"error": "Layers do not overlap"}, 400
 
-        # 6. Zuschneiden + Maske erzeugen
+        # Zuschneiden + Maske erzeugen
         crop_box_mask = (x1 - mx1, y1 - my1, x2 - mx1, y2 - my1)
         crop_box_base = (x1 - bx1, y1 - by1)
         cropped_alpha = alpha.crop(crop_box_mask)
@@ -543,13 +510,13 @@ class LayerModel:
         result = Image.new("L", (bw, bh), 0)
         result.paste(cropped_alpha, crop_box_base)
 
-        # 7. Speichern
+        # Speichern
         new_id = str(uuid.uuid4())
         mask_filename = f"{new_id}.png"
         result_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER, mask_filename)
         result.save(result_path)
 
-        # 8. Masken-Link setzen
+        # Masken-Link setzen
         base_layer["time"] = time('unix_ms')
         base_layer["mask"] = f"/download/{mask_filename}"
 
@@ -601,6 +568,43 @@ class LayerModel:
             "success": True,
             "message": f"Masked image generated for layer {id}."
         }, 200
+
+    @staticmethod
+    def render(layer):
+        img_path = os.path.join(PUBLIC_LAYER_FOLDER, f"{layer['id']}.png")
+        img = Image.open(img_path).convert("RGBA")
+
+        # Transformation anwenden
+        transformed_img, paste_x, paste_y = layer_transform(layer, img)
+
+        # Neue Größe ermitteln
+        w, h = transformed_img.size
+
+        # Transformation zurücksetzen, neue Position übernehmen
+        new_matrix = {
+            "a": 1, "b": 0,
+            "c": 0, "d": 1,
+            "x": paste_x,
+            "y": paste_y,
+            "rotate": 0
+        }
+
+        # Speichern
+        filename = f"{layer['id']}.png"
+        path = os.path.join(PUBLIC_LAYER_FOLDER, filename)
+        transformed_img.save(path, format="PNG")
+
+        # Layer im globalen LAYERS-Array aktualisieren
+        for i, l in enumerate(LAYERS):
+            if l["id"] == layer["id"]:
+                LAYERS[i]["matrix"] = new_matrix
+                LAYERS[i]["width"] = w
+                LAYERS[i]["height"] = h
+                LAYERS[i]["url"] = f"/download/{filename}"
+
+                break
+
+        return transformed_img
 
 
     # ADD METHODS END
