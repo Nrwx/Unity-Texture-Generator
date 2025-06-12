@@ -7,6 +7,11 @@ PARAMETERS = {
         "title": {"type": str, "default": "Unknown"},
         "layer": {"type": str, "default": "Layer"},
     },
+    "backup": {
+        "state": {"type": str},
+        "index": {"type": int},
+        "id": {"type": str}
+    },
     "upload": {
         # STANDARD METHODS PARAMS START
         "selectedMaps": {"type": list, "default": []},

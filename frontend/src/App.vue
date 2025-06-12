@@ -36,7 +36,7 @@ import {taskbarItemLeft, taskbarItemRight} from "@/models/taskbar/config/model";
 import {localData} from "@/dataLayer/local";
 import DrawerNew from "@/components/Drawer/DrawerNew";
 import Layer from "@/components/Layer/Layer";
-import {modifierStates, windowStates} from "@/dataLayer/state";
+import {backupStates, modifierStates, windowStates} from "@/dataLayer/state";
 import Setting from "@/components/Setting/Setting";
 import {osSettings} from "@/dataLayer/setting";
 import Fullscreen from "@/components/Fullscreen/Fullscreen";
@@ -70,6 +70,7 @@ export default {
     const componentEvent = createEventSystem({
       api,
       windowStates,
+      backupStates,
       modifierStates,
       contextStates,
       contextConfig,

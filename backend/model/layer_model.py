@@ -300,80 +300,89 @@ class LayerModel:
         if layer is None:
             return {"error": f"Layer with id '{id}' not found."}, 404
 
-        # Bild des aktuellen Layers über render() laden (inkl. Transformation)
-        img1 = LayerModel.render(layer)
+        # Viewport-Größe laden
+        viewport_width = VIEWPORT_CONFIG[0]["width"]
+        viewport_height = VIEWPORT_CONFIG[0]["height"]
 
+        # Fixiertes Layer-Image (Transformationen übernommen & Matrix zurückgesetzt)
+        img1 = LayerModel.render(layer)  # apply_matrix = True
+        x1 = int(layer["matrix"]["x"])
+        y1 = int(layer["matrix"]["y"])
         w1, h1 = img1.size
-
         img_array1 = np.array(img1)
         alpha1 = img_array1[..., 3]
 
-        # Blend-Infos setzen
+        # Blend-Daten setzen
         layer["blend_mode"] = blend_mode
         layer["color"] = color
         layer_order = layer.get("order", 0)
 
         if layer_order == 0:
+            # Farb-Overlay direkt anwenden
             colored_array = apply_color(img_array1[..., :3], color, blend_mode)
             blended_rgba = np.dstack((colored_array, alpha1))
             blended_img = Image.fromarray(blended_rgba.astype(np.uint8))
+
         else:
             base_index = layer_order - 1
             if base_index < 0 or base_index >= len(LAYERS):
                 return {"error": "Invalid layer order"}, 404
 
             base_layer = LAYERS[base_index]
-            img2 = LayerModel.render(base_layer)
-
+            img2 = LayerModel.render(base_layer, apply_matrix=False)
+            x2 = int(base_layer["matrix"]["x"])
+            y2 = int(base_layer["matrix"]["y"])
             w2, h2 = img2.size
-
             img_array2 = np.array(img2)
             alpha2 = img_array2[..., 3]
 
-            x1, y1 = int(layer["matrix"]["x"]), int(layer["matrix"]["y"])
-            x2, y2 = int(base_layer["matrix"]["x"]), int(base_layer["matrix"]["y"])
+            # Positionsberechnung im globalen Canvas
+            canvas_x1 = x1 + viewport_width // 2
+            canvas_y1 = y1 + viewport_height // 2
+            canvas_x2 = x2 + viewport_width // 2
+            canvas_y2 = y2 + viewport_height // 2
 
-            # Überlappung berechnen
-            overlap_x1 = max(x1, x2)
-            overlap_y1 = max(y1, y2)
-            overlap_x2 = min(x1 + w1, x2 + w2)
-            overlap_y2 = min(y1 + h1, y2 + h2)
+            # Überlappungsbereich berechnen
+            overlap_x1 = max(canvas_x1, canvas_x2)
+            overlap_y1 = max(canvas_y1, canvas_y2)
+            overlap_x2 = min(canvas_x1 + w1, canvas_x2 + w2)
+            overlap_y2 = min(canvas_y1 + h1, canvas_y2 + h2)
 
             if overlap_x1 >= overlap_x2 or overlap_y1 >= overlap_y2:
                 return {"error": "No overlapping region between layers."}, 400
 
-            # Lokale Offsets und Region
-            layer_offset_x = overlap_x1 - x1
-            layer_offset_y = overlap_y1 - y1
-            base_offset_x = overlap_x1 - x2
-            base_offset_y = overlap_y1 - y2
             region_w = overlap_x2 - overlap_x1
             region_h = overlap_y2 - overlap_y1
 
-            cropped_layer_rgb = img_array1[layer_offset_y:layer_offset_y + region_h, layer_offset_x:layer_offset_x + region_w, :3]
-            cropped_layer_alpha = alpha1[layer_offset_y:layer_offset_y + region_h, layer_offset_x:layer_offset_x + region_w]
-            cropped_base_rgb = img_array2[base_offset_y:base_offset_y + region_h, base_offset_x:base_offset_x + region_w, :3]
+            # Lokale Offsets
+            layer_off_x = overlap_x1 - canvas_x1
+            layer_off_y = overlap_y1 - canvas_y1
+            base_off_x = overlap_x1 - canvas_x2
+            base_off_y = overlap_y1 - canvas_y2
 
+            # Bildausschnitte für beide Layer extrahieren
+            cropped_layer_rgb = img_array1[layer_off_y:layer_off_y + region_h, layer_off_x:layer_off_x + region_w, :3]
+            cropped_layer_alpha = alpha1[layer_off_y:layer_off_y + region_h, layer_off_x:layer_off_x + region_w]
+            cropped_base_rgb = img_array2[base_off_y:base_off_y + region_h, base_off_x:base_off_x + region_w, :3]
+
+            # Blend anwenden
             blended_rgb = apply_blend_layer(cropped_layer_rgb, cropped_base_rgb, cropped_layer_alpha, blend_mode)
             blended_rgba = np.dstack((blended_rgb, cropped_layer_alpha))
 
+            # Endbild zusammensetzen
             full_layer = img_array1.copy()
-            full_layer[layer_offset_y:layer_offset_y + region_h, layer_offset_x:layer_offset_x + region_w, :4] = blended_rgba
+            full_layer[layer_off_y:layer_off_y + region_h, layer_off_x:layer_off_x + region_w, :4] = blended_rgba
             blended_img = Image.fromarray(full_layer.astype(np.uint8))
 
-        # Speichern
-        if blend_mode != 0:
-            output_id = str(uuid.uuid4())
-            map_filename = f"{output_id}.png"
-            map_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER, map_filename)
-            url_path = f"/download/{output_id}.png"
-        else:
-            map_filename = f"{id}.png"
-            map_path = os.path.join(PUBLIC_LAYER_FOLDER, map_filename)
-            url_path = f"/download/{id}.png"
+        # Speicherpfad
+        output_id = str(uuid.uuid4()) if blend_mode != 0 else id
+        map_filename = f"{output_id}.png"
+        map_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER if blend_mode != 0 else PUBLIC_LAYER_FOLDER, map_filename)
+        url_path = f"/download/{map_filename}"
 
+        # Bild speichern
         blended_img.save(map_path)
-        layer["time"] = time('unix_ms')
+        layer["time"] = time("unix_ms")
         layer["url"] = url_path
 
         return {
@@ -382,6 +391,41 @@ class LayerModel:
             "url": url_path
         }, 200
 
+
+
+    @staticmethod
+    def render(layer, apply_matrix=True):
+        img_path = os.path.join(PUBLIC_LAYER_FOLDER, f"{layer['id']}.png")
+        img = Image.open(img_path).convert("RGBA")
+
+        # Transformation anwenden
+        transformed_img, paste_x, paste_y = layer_transform(layer, img)
+
+        if apply_matrix:
+            # Neue Größe ermitteln
+            w, h = transformed_img.size
+
+            # Speichern
+            filename = f"{layer['id']}.png"
+            path = os.path.join(PUBLIC_LAYER_FOLDER, filename)
+            transformed_img.save(path, format="PNG")
+
+            # Layer im globalen LAYERS-Array aktualisieren
+            for i, l in enumerate(LAYERS):
+                if l["id"] == layer["id"]:
+                    LAYERS[i]["matrix"] = {
+                      "a": 1, "b": 0,
+                      "c": 0, "d": 1,
+                      "x": paste_x,
+                      "y": paste_y,
+                      "rotate": 0
+                    }
+                    LAYERS[i]["width"] = w
+                    LAYERS[i]["height"] = h
+                    LAYERS[i]["url"] = f"/download/{filename}"
+                    break
+
+        return transformed_img
 
     @staticmethod
     def hide(id, hidden):
@@ -568,43 +612,6 @@ class LayerModel:
             "success": True,
             "message": f"Masked image generated for layer {id}."
         }, 200
-
-    @staticmethod
-    def render(layer):
-        img_path = os.path.join(PUBLIC_LAYER_FOLDER, f"{layer['id']}.png")
-        img = Image.open(img_path).convert("RGBA")
-
-        # Transformation anwenden
-        transformed_img, paste_x, paste_y = layer_transform(layer, img)
-
-        # Neue Größe ermitteln
-        w, h = transformed_img.size
-
-        # Transformation zurücksetzen, neue Position übernehmen
-        new_matrix = {
-            "a": 1, "b": 0,
-            "c": 0, "d": 1,
-            "x": paste_x,
-            "y": paste_y,
-            "rotate": 0
-        }
-
-        # Speichern
-        filename = f"{layer['id']}.png"
-        path = os.path.join(PUBLIC_LAYER_FOLDER, filename)
-        transformed_img.save(path, format="PNG")
-
-        # Layer im globalen LAYERS-Array aktualisieren
-        for i, l in enumerate(LAYERS):
-            if l["id"] == layer["id"]:
-                LAYERS[i]["matrix"] = new_matrix
-                LAYERS[i]["width"] = w
-                LAYERS[i]["height"] = h
-                LAYERS[i]["url"] = f"/download/{filename}"
-
-                break
-
-        return transformed_img
 
 
     # ADD METHODS END

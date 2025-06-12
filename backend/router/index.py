@@ -5,6 +5,7 @@ from view.tile_view import router_tile
 from view.layer_view import router_layer
 from view.viewport_view import router_viewport
 from view.modifier_view import router_modifier
+from view.backup_view import router_backup
 
 def register_router(app):
     app.register_blueprint(router_app, url_prefix='/')
@@ -14,3 +15,4 @@ def register_router(app):
     app.register_blueprint(router_layer, url_prefix='/layer')
     app.register_blueprint(router_tile, url_prefix='/tile')
     app.register_blueprint(router_modifier, url_prefix='/modifier')
+    app.register_blueprint(router_backup, url_prefix="/backup")

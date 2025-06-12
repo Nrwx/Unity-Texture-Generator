@@ -3,6 +3,11 @@ export {
     hideLayer, orderLayers, previewLayers, updateChannel, updateLayer, pasteLayer, maskedLayer
 } from "./layer";
 
+export {
+    createGlobalBackup, createLayerBackup, forwardLayerBackup, getCurrentGlobalBackup, jumpToGlobalBackup,
+    listGlobalBackups, listLayerBackups, previousLayerBackup, redoGlobalBackup, restoreLayerBackup, undoGlobalBackup, getCurrentLayerBackup
+} from "./backup"
+
 export { fileUpload } from "./upload";
 
 export { fetchOsSettings, saveOsSettings } from "./setting";

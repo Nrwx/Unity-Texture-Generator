@@ -1,5 +1,5 @@
 // Zustände für Windows
-import {ref} from "vue";
+import {reactive, ref} from "vue";
 
 export const windowStates = {
     viewport: ref(true),
@@ -39,4 +39,9 @@ export const canvasStates = {
 
 export const contextStates = {
     copy: ref(false),
+};
+
+export const backupStates = {
+    global: ref([]),
+    layer: reactive({}),
 };

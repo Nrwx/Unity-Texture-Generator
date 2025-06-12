@@ -87,7 +87,7 @@ export function layerModel(props, emit) {
     };
 
     const updateOpacity = () => {
-        const newOpacity = globalOpacity.value / 100;
+        const newOpacity = Math.round(globalOpacity.value / 100);
         props.layers.forEach(layer => {
             if (selectedLayer.value.includes(layer.id)) {
                 layer.opacity = newOpacity;

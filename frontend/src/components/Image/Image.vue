@@ -9,6 +9,8 @@
           :key="layer.id"
           :aspect-ratio="1"
           class="layer-image"
+          :transition="false"
+          :lazy-src="layer.url"
           :width="layer.width"
           :height="layer.height"
           @click="emitSelectLayer(layer, $event)"

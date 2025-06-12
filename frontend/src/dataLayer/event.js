@@ -1,5 +1,6 @@
 import {viewportEvent} from "@/dataLayer/event/viewport";
 import {layerEvent, layerModifierEvent, textLayerEvent, textModifierEvent} from "@/dataLayer/event/layer";
+import {globalBackupEvent, layerBackupEvent} from "@/dataLayer/event/backup";
 import {windowStateEvent} from "@/dataLayer/event/windowState";
 import {fileEvent, fileSettingEvent} from "@/dataLayer/event/file";
 import {settingEvent} from "@/dataLayer/event/setting";
@@ -13,6 +14,7 @@ import {modifierEvent} from "@/dataLayer/event/modifier";
  */
 const eventHandler = (route) => ({
     ...fontsEvent(route),
+    ...globalBackupEvent(route),
     ...windowStateEvent(route),
     ...settingEvent(route),
     ...viewportEvent(route),
@@ -20,6 +22,7 @@ const eventHandler = (route) => ({
     ...fileEvent(route),
     ...fileSettingEvent(route),
     ...layerEvent(route),
+    ...layerBackupEvent(route),
     ...layerModifierEvent(route),
     ...textLayerEvent(route),
     ...textModifierEvent(route),
