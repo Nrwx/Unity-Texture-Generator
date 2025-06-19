@@ -59,29 +59,17 @@
           </v-btn>
         </v-card-title>
         <v-card-text class="overflow-y-auto" style="max-height: 70vh;">
-          <v-expansion-panels>
-            <v-expansion-panel
-                v-for="layer in selectedLayers"
-                :key="layer.id"
+          <v-list dense>
+            <v-list-item
+                v-for="(backup, idx) in backupStates.layer[backup.id] || []"
+                :key="idx"
+                @click="emitEvent('backup:jump-to-layer', { id: backup.id, index: idx })"
             >
-              <v-expansion-panel-title>
-                {{ layer.name || layer.id }}
-              </v-expansion-panel-title>
-              <v-expansion-panel-text>
-                <v-list dense>
-                  <v-list-item
-                      v-for="(backup, idx) in backupStates.layer[layer.id] || []"
-                      :key="idx"
-                      @click="emitEvent('backup:jump-to-layer', { id: layer.id, index: idx })"
-                  >
-                    <v-list-item-title>
-                      {{ idx + 1 }}. Backup {{ idx + 1 }}
-                    </v-list-item-title>
-                  </v-list-item>
-                </v-list>
-              </v-expansion-panel-text>
-            </v-expansion-panel>
-          </v-expansion-panels>
+              <v-list-item-title>
+                {{ idx + 1 }}. Backup {{ idx + 1 }}
+              </v-list-item-title>
+            </v-list-item>
+          </v-list>
         </v-card-text>
       </template>
 
@@ -199,7 +187,7 @@ export default defineComponent({
   name: "HistoryPage",
   props: historyProps,
   setup(props, { emit }) {
-    const { emitEvent, sortedBuilds, sortOptions, toggleCollapse, tabIndex, handleTabEmit, tabs, selectedLayers, canUndoGlobal, canRedoGlobal, canUndoLayer, canRedoLayer, bulkLayerUndo, bulkLayerRedo } = historyModel(props, emit);
+    const { emitEvent, sortedBuilds, sortOptions, toggleCollapse, tabIndex, handleTabEmit, tabs, canUndoGlobal, canRedoGlobal, canUndoLayer, canRedoLayer, bulkLayerUndo, bulkLayerRedo } = historyModel(props, emit);
     return {
       sortedBuilds,
       sortOptions,
@@ -208,7 +196,6 @@ export default defineComponent({
       tabs,
       tabIndex,
       handleTabEmit,
-      selectedLayers,
       canUndoGlobal,
       canRedoGlobal,
       backupStates,

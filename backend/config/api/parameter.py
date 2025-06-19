@@ -1,5 +1,9 @@
 # Definition der Eingabeparameter und deren Standardwerte
 PARAMETERS = {
+    "ai": {
+        "prompt": {"type": str, "required": True},
+        "model": {"type": str, "required": True},
+    },
     "viewport": {
         "mode": {"type": int, "default": 1},
         "width": {"type": int, "default": 2048},

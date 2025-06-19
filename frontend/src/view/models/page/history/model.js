@@ -12,7 +12,6 @@ export function historyModel(props, emit) {
         { name: 'Builds',    icon: 'mdi-cube-outline',          content: 'Content for Builds' },
     ];
 
-    const selectedLayers = computed(() => localData.layers.value);
 
     // globale Undo/Redo Verfügbarkeit
     const canUndoGlobal = computed(() => {
@@ -27,7 +26,7 @@ export function historyModel(props, emit) {
     // layer-spezifisch: wir können undo/redo ausführen, indem wir prüfen,
     // ob es für mindestens einen ausgewählten Layer >1 Backup gibt
     const canUndoLayer = computed(() =>
-        selectedLayers.value.some(
+        localData.layers.value.some(
             (l) => (backupStates.layer[l.id]?.length || 0) > 1
         )
     );
@@ -35,12 +34,12 @@ export function historyModel(props, emit) {
 
     // Batch Undo/Redo für alle selektierten Layer
     const bulkLayerUndo = () => {
-        selectedLayers.value.forEach((l) =>
+        localData.layers.value.forEach((l) =>
             emitEvent("backup:previous-layer", l.id)
         );
     };
     const bulkLayerRedo = () => {
-        selectedLayers.value.forEach((l) =>
+        localData.layers.value.forEach((l) =>
             emitEvent("backup:forward-layer", l.id)
         );
     };
@@ -64,8 +63,8 @@ export function historyModel(props, emit) {
             emitEvent('backup:fetch-list')
         }
         if(index === 1) {
-            if (localData.selectedLayers.value.length){
-                localData.selectedLayers.value.forEach((l) =>
+            if (localData.layers.value.length){
+                localData.layers.value.forEach((l) =>
                     emitEvent('backup:fetch-layer-list', l.id)
                 );
             } else {
@@ -89,7 +88,6 @@ export function historyModel(props, emit) {
         emitEvent,
         toggleCollapse,
         handleTabEmit,
-        selectedLayers,
         canUndoGlobal,
         canRedoGlobal,
         canUndoLayer,

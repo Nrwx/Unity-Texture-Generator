@@ -35,7 +35,7 @@ export const globalBackupEvent = (route) => ({
     },
 
     "backup:fetch-list": async () => {
-        const list = await route.api.listGlobalBackups();
+        const list = await route.api.fetchGlobalBackup();
         route.backupStates.global.value = list;
     },
 
@@ -75,8 +75,9 @@ export const layerBackupEvent = (route) => ({
         }
     },
 
-    "backup:fetch-layer-list": async (id) => {
-        const list = await route.api.listLayerBackups(id);
-        route.backupStates.layer[id] = list;
+    "backup:fetch-layer-list": async (payload) => {
+        console.log(payload)
+        const list = await route.api.fetchLayerBackup(payload);
+        route.backupStates.layer[payload] = list;
     },
 });

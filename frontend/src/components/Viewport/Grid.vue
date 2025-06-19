@@ -390,6 +390,7 @@ export default defineComponent({
     const storeOriginalMatrix = (layer) => {
       if (!layer.__originalMatrix) {
         layer.__originalMatrix = { ...layer.matrix }; // flache Kopie reicht
+        emitEvent("backup:create-layer", layer.id);
       }
     };
 
@@ -626,7 +627,7 @@ export default defineComponent({
     };
 
     const handleKeyDown = (event) => {
-      if (windowStates.text.value) return;
+      if (windowStates.text.value || windowStates.typing.value) return;
 
       event.preventDefault();
       if (event.key.toLowerCase() === "r") {
@@ -651,7 +652,7 @@ export default defineComponent({
     };
 
     const handleKeyUp = (event) => {
-      if (windowStates.text.value) return;
+      if (windowStates.text.value || windowStates.typing.value) return;
 
       event.preventDefault();
       if (event.key === 'g') {

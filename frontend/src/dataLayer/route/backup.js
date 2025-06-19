@@ -1,7 +1,6 @@
 import api from "@/dataLayer/api";
 
 // --- GLOBAL BACKUP ---
-
 export const createGlobalBackup = async (state) => {
     try {
         const formData = new FormData();
@@ -64,8 +63,9 @@ export const jumpToGlobalBackup = async (index) => {
     }
 };
 
-// **neu**: GET statt POST
-export const listGlobalBackups = async () => {
+
+// LIST GLOBAL BACKUPS
+export const fetchGlobalBackup = async () => {
     try {
         const response = await api.get("/backup/global/list");
         return response.data;
@@ -75,7 +75,6 @@ export const listGlobalBackups = async () => {
     }
 };
 
-// **neu**: GET statt POST
 export const getCurrentGlobalBackup = async () => {
     try {
         const response = await api.get("/backup/global");
@@ -152,10 +151,10 @@ export const forwardLayerBackup = async (id) => {
     }
 };
 
-// **neu**: GET statt POST
-export const listLayerBackups = async (id) => {
+// LIST LAYER BACKUPS
+export const fetchLayerBackup = async () => {
     try {
-        const response = await api.get(`/backup/layer/${id}/list`);
+        const response = await api.get(`/backup/layer/list`);
         return response.data;
     } catch (error) {
         console.error("Fehler beim Auflisten der Layer-Backups:", error.response?.data || error.message);

@@ -12,6 +12,7 @@ export const windowStates = {
     drag: ref(false),
     select: ref(false),
     text: ref(false),
+    typing: ref(false),
     cursor: ref(false),
     context: ref(false),
     color: ref(false)

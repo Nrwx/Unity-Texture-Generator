@@ -19,7 +19,8 @@ export function layerModel(props, emit) {
         emit("component-event", event, payload);
     };
     const validRule = (value) => {
-        const pattern = /^[a-zA-Z0-9\s()*_+]+$/;
+        const pattern = /^[a-zA-Z0-9\s()*_+-]+$/;  // '-' am Ende, kein Escape nötig
+
         const isValid = value.trim() !== "" && pattern.test(value);
 
         return {
@@ -29,7 +30,7 @@ export function layerModel(props, emit) {
                     return "Field cannot be empty";
                 }
                 if (!pattern.test(value)) {
-                    return "Only letters, spaces, and numbers are allowed";
+                    return "Only letters, spaces, numbers, and - are allowed";
                 }
                 return true;
             },

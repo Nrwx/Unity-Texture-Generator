@@ -5,10 +5,13 @@ export {
 
 export {
     createGlobalBackup, createLayerBackup, forwardLayerBackup, getCurrentGlobalBackup, jumpToGlobalBackup,
-    listGlobalBackups, listLayerBackups, previousLayerBackup, redoGlobalBackup, restoreLayerBackup, undoGlobalBackup, getCurrentLayerBackup
+    fetchGlobalBackup, fetchLayerBackup, previousLayerBackup, redoGlobalBackup, restoreLayerBackup, undoGlobalBackup, getCurrentLayerBackup
 } from "./backup"
 
 export { fileUpload } from "./upload";
+
+export { generateImage  } from "./ai";
+
 
 export { fetchOsSettings, saveOsSettings } from "./setting";
 

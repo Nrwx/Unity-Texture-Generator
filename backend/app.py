@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, send_file, send_from_directory
+from dotenv import load_dotenv
 import copy
 from PIL import Image, ImageOps, ImageFilter, ImageEnhance
 import numpy as np
@@ -33,7 +34,10 @@ from components import (
 # Initialising
 app = Flask(__name__)
 
+load_dotenv()
+
 register_router(app)
+
 
 FontsModel.initialize()
 

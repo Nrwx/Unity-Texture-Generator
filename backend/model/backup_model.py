@@ -1,6 +1,6 @@
 from collections import deque
 import copy
-from config.data.constant import (LAYERS, LAYER_BACKUPS, BACKUP_INDEX, MAX_BACKUPS)
+from config.data.constant import (LAYERS, LAYER_BACKUPS, GLOBAL_BACKUP, BACKUP_INDEX, MAX_BACKUPS)
 from utils import time
 
 class BackupModel:
@@ -177,10 +177,33 @@ class BackupModel:
         return BackupModel._apply_backup(id, backup)
 
     @staticmethod
-    def list_backups(id):
-        if id not in LAYER_BACKUPS:
+    def list_backups():
+        if id not in GLOBAL_BACKUP:
             return {"backups": []}, 200
         return {
-            "backups": list(LAYER_BACKUPS[id]),
+            "global_backups": list(GLOBAL_BACKUP),
             "currentIndex": BACKUP_INDEX.get(id, -1)
+        }, 200
+
+    @staticmethod
+    def list_layer():
+        return {
+            "layer_backups": list(LAYER_BACKUPS),
+        }, 200
+
+    @staticmethod
+    def get_current(layer_id):
+        """
+        Gibt das aktuelle Backup für einen Layer zurück.
+        """
+        if layer_id not in LAYER_BACKUPS:
+            return {"error": "Keine Backups vorhanden."}, 404
+
+        current_index = BACKUP_INDEX.get(layer_id, -1)
+        if current_index == -1 or current_index >= len(LAYER_BACKUPS[layer_id]):
+            return {"error": "Ungültiger aktueller Index."}, 400
+
+        return {
+            "currentIndex": current_index,
+            "backup": LAYER_BACKUPS[layer_id][current_index]
         }, 200

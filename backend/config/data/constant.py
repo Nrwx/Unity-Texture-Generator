@@ -1,5 +1,10 @@
 VIEWPORT_CONFIG = []
 
+GLOBAL_BACKUP = {
+    "history": [],
+    "index": -1
+}
+
 LAYERS = []
 LAYER_BACKUPS = []
 BACKUP_INDEX = {}

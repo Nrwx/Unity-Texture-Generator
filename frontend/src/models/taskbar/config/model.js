@@ -4,6 +4,7 @@ import History from "@/view/page/History/History";
 import Tools from "@/view/page/Tools/Tools";
 import Typographic from "@/view/page/Typographic/Typographic.vue";
 import Color from "@/components/Color/Color.vue";
+import Ai from "@/view/page/Ai/Ai";
 
 export const taskbarItemLeft = [
     {
@@ -26,6 +27,19 @@ export const taskbarItemLeft = [
         tooltip: 'Bild hochladen',
         component: {
             path: Upload,
+            props: {}
+        },
+    },
+    {
+        position: 'top',
+        id: uuidv4(),
+        title: 'AI Bild generieren',
+        subtitle: 'Generiere ein Bild mit OpenAI DALL·E',
+        icon: 'mdi-robot',
+        active: false,
+        tooltip: 'Erzeuge ein KI-generiertes Bild',
+        component: {
+            path: Ai,
             props: {}
         },
     },
