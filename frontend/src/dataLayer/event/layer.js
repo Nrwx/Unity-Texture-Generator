@@ -15,6 +15,7 @@ export const layerEvent = (route) => ({
         const response = await route.api.addLayer(data);
         if (response) {
             await route.emit("fetch-layer");
+            await route.emit("backup:fetch-list");
         }
     },
     "update-layer": async (payload) => {

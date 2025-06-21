@@ -6,6 +6,7 @@ MAX_BACKUPS = 5
 
 CHANNELS = []
 FONTS = []
+BRUSHES = []
 
 EXTENSION = [".png", ".jpg", ".jpeg"]
 REDIRECT_ROUTE = False

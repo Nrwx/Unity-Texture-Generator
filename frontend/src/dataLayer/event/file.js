@@ -7,6 +7,7 @@ export const fileEvent = (route) => ({
         if (response) {
             const build = route.emit("generate-upload-build", response)
             if(build) await route.emit("fetch-layer");
+            if(build) await route.emit("backup:fetch-list");
         }
     },
     "download-file": (payload) => {

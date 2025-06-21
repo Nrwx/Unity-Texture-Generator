@@ -9,6 +9,7 @@ import math
 from generated.paths import ( PUBLIC_BACKUP_FOLDER, PUBLIC_LAYER_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER, PUBLIC_TEMP_CHANNEL_FOLDER, PUBLIC_TEMP_MASK_FOLDER, PUBLIC_FONT_FOLDER )
 from config.data.constant import ( VIEWPORT_CONFIG, LAYERS, CHANNELS, FONTS )
 from model.fonts_model import FontsModel
+from model.backup_model import BackupModel
 from components import ( generate_channels, apply_color, apply_mask, apply_blend_layer)
 from utils import get_path, apply_rgb_rgba, apply_alpha, time, layer_transform
 
@@ -80,6 +81,8 @@ class LayerModel:
             "mask": ""
         }
         LAYERS.append(layer)
+        BackupModel.create(layer, id, name)
+
         print(LAYERS)
         return layer, 200
 

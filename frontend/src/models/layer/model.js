@@ -5,7 +5,7 @@ import {dragData} from "@/models/drag/data/model";
 
 export function layerModel(props, emit) {
     const selectedLayer = ref([]);
-    const globalOpacity = ref(100); // Startwert bei 100%
+    const globalOpacity = ref(100);
     const dragId = computed(() => {
         return dragData.id.value !== null ? props.layers[dragData.id.value]?.id : null;
     });
@@ -88,7 +88,7 @@ export function layerModel(props, emit) {
     };
 
     const updateOpacity = () => {
-        const newOpacity = Math.round(globalOpacity.value / 100);
+        const newOpacity = globalOpacity.value / 100;
         props.layers.forEach(layer => {
             if (selectedLayer.value.includes(layer.id)) {
                 layer.opacity = newOpacity;

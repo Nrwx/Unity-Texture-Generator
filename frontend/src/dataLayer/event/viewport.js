@@ -4,6 +4,7 @@ export const viewportEvent = (route) => ({
         const response = await route.api.viewportSetup(data);
         if (response) {
             await route.emit("fetch-layer");
+            await route.emit("backup:fetch-list");
             route.localData.viewport.value = data;
             route.windowStates.viewport = false;
         }

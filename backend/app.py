@@ -21,6 +21,7 @@ from generated.paths import ( PUBLIC_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER, PUBLIC_T
 from config.api.parameter import PARAMETERS
 from router.index import register_router
 from model.fonts_model import FontsModel
+from model.brush_model import BrushModel
 from model.layer_model import LayerModel
 from utils import ( apply_rgb_rgba, apply_alpha, parse_parameters )
 from components import (
@@ -40,6 +41,7 @@ register_router(app)
 
 
 FontsModel.initialize()
+BrushModel.initialize()
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
