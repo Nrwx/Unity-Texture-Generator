@@ -74,10 +74,9 @@
     Frame
   },
   setup(props, { emit }) {
-    const { emitUpdateLayer, emitSelectLayer, extractImageSize, handleClick} = imageModel(props, emit);
+    const { emitSelectLayer, extractImageSize, handleClick} = imageModel(props, emit);
     return {
       handleClick,
-      emitUpdateLayer,
       emitSelectLayer,
       extractImageSize,
     };

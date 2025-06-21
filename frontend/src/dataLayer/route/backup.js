@@ -1,174 +1,87 @@
 import api from "@/dataLayer/api";
 
-// --- GLOBAL BACKUP ---
-export const createGlobalBackup = async (state) => {
+export const createBackup = async (id, state, title) => {
     try {
         const formData = new FormData();
-        formData.append("method", "create_global");
-        formData.append("state", JSON.stringify(state));
+        formData.append("method", "create");
+        if(state) {
+            const data = {
+                type: state.type,
+                id: state.id,
+                url: state.url,
+                width: state.width,
+                height: state.height,
+                order: state.order,
+                name: state.name,
+                hidden: state.hidden,
+                opacity: state.opacity,
+                color: state.color,
+                matrix: state.matrix,
+                mask: state.mask,
+                time: state.time,
+                source: state.source,
+                blend_mode: state.blend_mode
+            }
+            if(state.type === 1) {
+                const mergedData = {
+                    ...data,
+                    fontFamily: state.fontFamily,
+                    font: state.font,
+                    fontSize: state.fontSize,
+                    fontWeight: state.fontWeight,
+                    initFontSize: state.initFontSize,
+                    initHeight: state.initHeight,
+                    initWidth: state.initWidth,
+                    letterSpacing: state.letterSpacing,
+                    lineHeight: state.lineHeight,
+                    text: state.text,
+                    textAlign: state.textAlign,
+                    textDecoration: state.textDecoration,
+                    textTransform: state.textTransform,
+                }
 
-        const response = await api.post("/backup", formData, {
-            headers: { "Content-Type": "multipart/form-data" },
-        });
-        return response.data;
+                formData.append("state", JSON.stringify(mergedData));
+            } else {
+                formData.append("state", JSON.stringify(data));
+            }
+
+        }
+        formData.append("id", id);
+        formData.append("title", title);
+
+        const response = await api.post("/backup", formData);
+        if(response) {
+            return true;
+        }
     } catch (error) {
-        console.error("Fehler beim Erstellen des globalen Backups:", error.response?.data || error.message);
+        console.error("Fehler beim Erstellen des Backups:", error.response?.data || error.message);
         throw error;
     }
 };
 
-export const undoGlobalBackup = async () => {
-    try {
-        const formData = new FormData();
-        formData.append("method", "undo");
-
-        const response = await api.post("/backup", formData, {
-            headers: { "Content-Type": "multipart/form-data" },
-        });
-        return response.data;
-    } catch (error) {
-        console.error("Fehler beim Undo:", error.response?.data || error.message);
-        throw error;
-    }
-};
-
-export const redoGlobalBackup = async () => {
-    try {
-        const formData = new FormData();
-        formData.append("method", "redo");
-
-        const response = await api.post("/backup", formData, {
-            headers: { "Content-Type": "multipart/form-data" },
-        });
-        return response.data;
-    } catch (error) {
-        console.error("Fehler beim Redo:", error.response?.data || error.message);
-        throw error;
-    }
-};
-
-export const jumpToGlobalBackup = async (index) => {
+export const jumpToBackup = async (id, index) => {
     try {
         const formData = new FormData();
         formData.append("method", "jump");
         formData.append("index", index);
+        formData.append("id", id);
 
-        const response = await api.post("/backup", formData, {
-            headers: { "Content-Type": "multipart/form-data" },
-        });
-        return response.data;
+        const response = await api.post("/backup", formData);
+        if(response) {
+            return true;
+        }
     } catch (error) {
         console.error("Fehler beim Sprung zum Backup:", error.response?.data || error.message);
         throw error;
     }
 };
 
-
-// LIST GLOBAL BACKUPS
-export const fetchGlobalBackup = async () => {
+export const fetchBackupList = async () => {
     try {
-        const response = await api.get("/backup/global/list");
-        return response.data;
+        const response = await api.get('/backup');
+        return response;
     } catch (error) {
-        console.error("Fehler beim Auflisten der globalen Backups:", error.response?.data || error.message);
-        throw error;
-    }
-};
-
-export const getCurrentGlobalBackup = async () => {
-    try {
-        const response = await api.get("/backup/global");
-        return response.data;
-    } catch (error) {
-        console.error("Fehler beim Holen des aktuellen globalen States:", error.response?.data || error.message);
-        throw error;
-    }
-};
-
-// --- LAYER BACKUP ---
-
-export const createLayerBackup = async (id) => {
-    try {
-        const formData = new FormData();
-        formData.append("method", "create");
-        formData.append("id", id);
-
-        const response = await api.post("/backup", formData, {
-            headers: { "Content-Type": "multipart/form-data" },
-        });
-        return response.data;
-    } catch (error) {
-        console.error("Fehler beim Erstellen des Layer-Backups:", error.response?.data || error.message);
-        throw error;
-    }
-};
-
-export const restoreLayerBackup = async (id) => {
-    try {
-        const formData = new FormData();
-        formData.append("method", "restore");
-        formData.append("id", id);
-
-        const response = await api.post("/backup", formData, {
-            headers: { "Content-Type": "multipart/form-data" },
-        });
-        return response.data;
-    } catch (error) {
-        console.error("Fehler beim Wiederherstellen des Layer-Backups:", error.response?.data || error.message);
-        throw error;
-    }
-};
-
-export const previousLayerBackup = async (id) => {
-    try {
-        const formData = new FormData();
-        formData.append("method", "previous");
-        formData.append("id", id);
-
-        const response = await api.post("/backup", formData, {
-            headers: { "Content-Type": "multipart/form-data" },
-        });
-        return response.data;
-    } catch (error) {
-        console.error("Fehler beim Zurückspringen im Layer-Backup:", error.response?.data || error.message);
-        throw error;
-    }
-};
-
-export const forwardLayerBackup = async (id) => {
-    try {
-        const formData = new FormData();
-        formData.append("method", "forward");
-        formData.append("id", id);
-
-        const response = await api.post("/backup", formData, {
-            headers: { "Content-Type": "multipart/form-data" },
-        });
-        return response.data;
-    } catch (error) {
-        console.error("Fehler beim Vorspringen im Layer-Backup:", error.response?.data || error.message);
-        throw error;
-    }
-};
-
-// LIST LAYER BACKUPS
-export const fetchLayerBackup = async () => {
-    try {
-        const response = await api.get(`/backup/layer/list`);
-        return response.data;
-    } catch (error) {
-        console.error("Fehler beim Auflisten der Layer-Backups:", error.response?.data || error.message);
-        throw error;
-    }
-};
-
-// Optional: GET aktuellen Index + Liste
-export const getCurrentLayerBackup = async (id) => {
-    try {
-        const response = await api.get(`/backup/layer/${id}/current`);
-        return response.data;
-    } catch (error) {
-        console.error("Fehler beim Holen des aktuellen Layer-Backup-States:", error.response?.data || error.message);
+        console.error("Fehler beim Auflisten der Backups:", error.response?.data || error.message);
         throw error;
     }
 };

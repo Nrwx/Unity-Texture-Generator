@@ -1,5 +1,5 @@
 # model/viewport_model.py
-from config.data.constant import ( VIEWPORT_CONFIG, CHANNELS, LAYERS )
+from config.data.constant import ( VIEWPORT_CONFIG, CHANNELS, LAYERS, BACKUP )
 from model.layer_model import LayerModel
 
 class ViewportModel:
@@ -14,6 +14,7 @@ class ViewportModel:
             "layer": layer_name
         }
 
+        BACKUP.clear()
         CHANNELS.clear()
         LAYERS.clear()
         VIEWPORT_CONFIG.clear()

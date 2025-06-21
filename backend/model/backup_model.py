@@ -1,209 +1,89 @@
-from collections import deque
-import copy
-from config.data.constant import (LAYERS, LAYER_BACKUPS, GLOBAL_BACKUP, BACKUP_INDEX, MAX_BACKUPS)
+from config.data.constant import (BACKUP, MAX_BACKUPS, LAYERS)
 from utils import time
+import copy
 
 class BackupModel:
 
     @staticmethod
-    def create_global_state(state):
-        # Schneide zukünftige States ab, wenn nicht am Ende
-        if GLOBAL_BACKUP["index"] < len(GLOBAL_BACKUP["history"]) - 1:
-            GLOBAL_BACKUP["history"] = GLOBAL_BACKUP["history"][:GLOBAL_BACKUP["index"] + 1]
+    def create(state, id, title):
+        backups_for_id = [b for b in BACKUP if b["id"] == id]
+        active_backup = next((b for b in backups_for_id if b["active"]), None)
+        max_global_index = max((b["index"] for b in BACKUP), default=-1)
 
-        # State hinzufügen (deepcopy für Sicherheit)
-        GLOBAL_BACKUP["history"].append(copy.deepcopy(state))
-        GLOBAL_BACKUP["index"] += 1
+        if active_backup is not None:
+            current_time = active_backup["time"]
+        else:
+            current_time = -1  # oder 0 je nach Zeitformat
 
-        return {"message": "Globaler Zustand gespeichert.", "index": GLOBAL_BACKUP["index"]}
+        # Lösche alle Backups, die nach active_backup zeitlich liegen
+        BACKUP[:] = [b for b in BACKUP if not (b["id"] == id and b["time"] > current_time)]
+
+        new_index = max_global_index + 1
+        now = time('unix_ms')
+        BACKUP.append({
+            "id": id,
+            "title": title,
+            "time": now,
+            "state": copy.deepcopy(state),
+            "active": True,
+            "index": new_index
+        })
+
+        # Deaktiviere andere Backups mit der ID
+        for b in BACKUP:
+            if b["id"] == id and b["index"] != new_index:
+                b["active"] = False
+
+        return {"message": f"Backup für {id} gespeichert.", "index": new_index}
 
     @staticmethod
-    def get_global_state():
-        if GLOBAL_BACKUP["index"] == -1:
-            return {"error": "Keine Zustände vorhanden."}, 404
-        return GLOBAL_BACKUP["history"][GLOBAL_BACKUP["index"]]
+    def _get_backups_for_id_sorted(id):
+        return sorted([b for b in BACKUP if b["id"] == id], key=lambda b: b["index"])
+
 
     @staticmethod
-    def undo():
-        if GLOBAL_BACKUP["index"] > 0:
-            GLOBAL_BACKUP["index"] -= 1
-            return {"message": "Zurückgesprungen.", "index": GLOBAL_BACKUP["index"]}
-        return {"error": "Kein früherer Zustand verfügbar."}, 400
+    def jump_to(target_index, id):
+        backups = BackupModel._get_backups_for_id_sorted(id)
+        if not backups:
+            return {"error": f"Kein Backup für ID '{id}' gefunden."}, 404
 
-    @staticmethod
-    def redo():
-        if GLOBAL_BACKUP["index"] < len(GLOBAL_BACKUP["history"]) - 1:
-            GLOBAL_BACKUP["index"] += 1
-            return {"message": "Vorgespult.", "index": GLOBAL_BACKUP["index"]}
-        return {"error": "Kein späterer Zustand verfügbar."}, 400
+        chosen_backup = next((b for b in backups if b["index"] == target_index), None)
+        if chosen_backup is None:
+            return {"error": "Ungültiger Index."}, 400
 
-    @staticmethod
-    def jump_to(index):
-        if 0 <= index < len(GLOBAL_BACKUP["history"]):
-            GLOBAL_BACKUP["index"] = index
-            return {"message": f"Gesprungen zu Index {index}", "index": index}
-        return {"error": "Ungültiger Index."}, 400
+        chosen_time = chosen_backup["time"]
+        chosen_state = chosen_backup["state"]
+
+        # 1. Lösche alle Backups, die zeitlich nach dem Ziel-Zeitpunkt liegen
+        BACKUP[:] = [b for b in BACKUP if b["time"] <= chosen_time]
+
+        # 2. Setze alle Backups auf inactive
+        for b in BACKUP:
+            b["active"] = False
+
+        # 3. Aktiviere das gewählte Backup
+        for b in BACKUP:
+            if b["id"] == id and b["index"] == target_index:
+                b["active"] = True
+
+        # 4. Layer mit gleicher ID in LAYERS ersetzen (wenn vorhanden), sonst hinzufügen
+        updated = False
+        for i, layer in enumerate(LAYERS):
+            if layer.get("id") == id:
+                LAYERS[i] = chosen_state
+                updated = True
+                break
+        if not updated:
+            LAYERS.append(chosen_state)
+
+        return {"message": f"Jump erfolgreich zu ID '{id}'"}
 
     @staticmethod
     def list_global():
-        return {
-            "history": [
-                {"index": i, "active": (i == GLOBAL_BACKUP["index"])}
-                for i in range(len(GLOBAL_BACKUP["history"]))
-            ],
-            "current": GLOBAL_BACKUP["index"]
-        }
-
-    @staticmethod
-    def create(id):
-        layer = next((l for l in LAYERS if l["id"] == id), None)
-        if not layer:
-            return {"error": f"Layer mit ID '{id}' nicht gefunden."}, 404
-
-        backup = {
-            "time": time('unix_ms'),
-            "matrix": layer["matrix"].copy(),
-            "width": layer.get("width"),
-            "height": layer.get("height"),
-            "type": layer.get("type"),
-        }
-
-        if layer["type"] == 0:
-            backup.update({
-                "url": layer.get("url"),
-                "opacity": layer.get("opacity"),
-                "blend_mode": layer.get("blend_mode"),
-                "color": layer.get("color"),
-                "name": layer.get("name"),
-                "mask": layer.get("mask"),
-            })
-        elif layer["type"] == 1:
-            backup.update({
-                "text": layer.get("text"),
-                "font": layer.get("font"),
-                "fontFamily": layer.get("fontFamily"),
-                "fontSize": layer.get("fontSize"),
-                "fontWeight": layer.get("fontWeight"),
-                "initFontSize": layer.get("initFontSize"),
-                "initHeight": layer.get("initHeight"),
-                "initWidth": layer.get("initWidth"),
-                "letterSpacing": layer.get("letterSpacing"),
-                "lineHeight": layer.get("lineHeight"),
-                "textAlign": layer.get("textAlign"),
-                "textDecoration": layer.get("textDecoration"),
-                "textTransform": layer.get("textTransform"),
-                "opacity": layer.get("opacity"),
-                "color": layer.get("color"),
-                "name": layer.get("name"),
-                "mask": layer.get("mask"),
-            })
-
-        if id not in LAYER_BACKUPS:
-            LAYER_BACKUPS[id] = deque(maxlen=MAX_BACKUPS)
-        LAYER_BACKUPS[id].append(backup)
-        BACKUP_INDEX[id] = len(LAYER_BACKUPS[id]) - 1
-
-        return {"message": f"Backup für Layer {id} gespeichert."}, 200
-
-    @staticmethod
-    def _apply_backup(id, backup):
-        layer = next((l for l in LAYERS if l["id"] == id), None)
-        if not layer:
-            return {"error": f"Layer mit ID '{id}' nicht gefunden."}, 404
-
-        layer.update({
-            "matrix": backup["matrix"],
-            "width": backup["width"],
-            "height": backup["height"],
-        })
-
-        if backup["type"] == 0:
-            layer.update({
-                "url": backup.get("url"),
-                "opacity": backup.get("opacity"),
-                "blend_mode": backup.get("blend_mode"),
-                "color": backup.get("color"),
-                "name": backup.get("name"),
-                "mask": backup.get("mask"),
-            })
-        elif backup["type"] == 1:
-            layer.update({
-                "text": backup.get("text"),
-                "font": backup.get("font"),
-                "fontFamily": backup.get("fontFamily"),
-                "fontSize": backup.get("fontSize"),
-                "fontWeight": backup.get("fontWeight"),
-                "initFontSize": backup.get("initFontSize"),
-                "initHeight": backup.get("initHeight"),
-                "initWidth": backup.get("initWidth"),
-                "letterSpacing": backup.get("letterSpacing"),
-                "lineHeight": backup.get("lineHeight"),
-                "textAlign": backup.get("textAlign"),
-                "textDecoration": backup.get("textDecoration"),
-                "textTransform": backup.get("textTransform"),
-                "opacity": backup.get("opacity"),
-                "color": backup.get("color"),
-                "name": backup.get("name"),
-                "mask": backup.get("mask"),
-            })
-
-        return {"message": f"Layer {id} erfolgreich wiederhergestellt."}, 200
-
-    @staticmethod
-    def restore(id):
-        if id not in LAYER_BACKUPS or not LAYER_BACKUPS[id]:
-            return {"error": "Kein Backup vorhanden."}, 404
-
-        BACKUP_INDEX[id] = len(LAYER_BACKUPS[id]) - 1
-        backup = LAYER_BACKUPS[id][BACKUP_INDEX[id]]
-        return BackupModel._apply_backup(id, backup)
-
-    @staticmethod
-    def previous(id):
-        if id not in BACKUP_INDEX or BACKUP_INDEX[id] <= 0:
-            return {"error": "Kein früheres Backup verfügbar."}, 400
-
-        BACKUP_INDEX[id] -= 1
-        backup = LAYER_BACKUPS[id][BACKUP_INDEX[id]]
-        return BackupModel._apply_backup(id, backup)
-
-    @staticmethod
-    def forward(id):
-        if id not in BACKUP_INDEX or BACKUP_INDEX[id] >= len(LAYER_BACKUPS[id]) - 1:
-            return {"error": "Kein späteres Backup verfügbar."}, 400
-
-        BACKUP_INDEX[id] += 1
-        backup = LAYER_BACKUPS[id][BACKUP_INDEX[id]]
-        return BackupModel._apply_backup(id, backup)
-
-    @staticmethod
-    def list_backups():
-        if id not in GLOBAL_BACKUP:
-            return {"backups": []}, 200
-        return {
-            "global_backups": list(GLOBAL_BACKUP),
-            "currentIndex": BACKUP_INDEX.get(id, -1)
-        }, 200
-
-    @staticmethod
-    def list_layer():
-        return {
-            "layer_backups": list(LAYER_BACKUPS),
-        }, 200
-
-    @staticmethod
-    def get_current(layer_id):
-        """
-        Gibt das aktuelle Backup für einen Layer zurück.
-        """
-        if layer_id not in LAYER_BACKUPS:
-            return {"error": "Keine Backups vorhanden."}, 404
-
-        current_index = BACKUP_INDEX.get(layer_id, -1)
-        if current_index == -1 or current_index >= len(LAYER_BACKUPS[layer_id]):
-            return {"error": "Ungültiger aktueller Index."}, 400
-
-        return {
-            "currentIndex": current_index,
-            "backup": LAYER_BACKUPS[layer_id][current_index]
-        }, 200
+        return [{
+            "id": b["id"],
+            "index": b["index"],
+            "title": b["title"],
+            "state": b["state"],
+            "time": b["time"]
+        } for b in BACKUP]

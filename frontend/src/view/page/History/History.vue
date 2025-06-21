@@ -22,58 +22,31 @@
       <template v-if="tabIndex === 0">
         <v-card-title class="headline d-flex align-center">
           Global Backups
-          <v-spacer />
-          <v-btn size="x-small"  icon :disabled="!canUndoGlobal" @click="emitEvent('backup:undo')">
-            <v-icon>mdi-undo</v-icon>
-          </v-btn>
-          <v-btn size="x-small" icon class="ml-2" :disabled="!canRedoGlobal" @click="emitEvent('backup:redo')">
-            <v-icon>mdi-redo</v-icon>
-          </v-btn>
         </v-card-title>
-        <v-card-text class="overflow-y-auto" style="max-height: 70vh;">
+        <div class="scrollFx">
+          <div class="scrollTop"></div>
+          <div class="scrollBottom"></div>
+        </div>
+
+        <v-card-text class="map-grid overflow-hidden overflow-y-auto py-8" style="height: 80vh; max-height: 80vh; max-width: 100%;">
           <v-list dense>
             <v-list-item
-                v-for="(item, idx) in backupStates.global.value"
-                :key="idx"
-                @click="emitEvent('backup:jump-to', idx)"
+                v-for="(entry) in backupStates.global.value"
+                :key="entry.id"
+                :active="entry.active"
+                class="cursor-pointer"
+                @click="emitEvent('backup:jump-to', { id: entry.id, index: entry.index })"
             >
               <v-list-item-title>
-                {{ idx + 1 }}. State {{ idx + 1 }}
-                <span v-if="item.active"> (aktuell)</span>
+                {{ entry.title }}
+                <span v-if="entry.active"> (aktuell)</span>
               </v-list-item-title>
             </v-list-item>
           </v-list>
         </v-card-text>
       </template>
 
-      <!-- TAB 1: LAYER BACKUPS FÜR ALLE AUSGEWÄHLTEN LAYER -->
-      <template v-else-if="tabIndex === 1">
-        <v-card-title class="headline d-flex align-center">
-          Layer Backups
-          <v-spacer />
-          <v-btn size="x-small"  icon :disabled="!canUndoLayer" @click="bulkLayerUndo">
-            <v-icon>mdi-undo</v-icon>
-          </v-btn>
-          <v-btn size="x-small"  icon class="ml-2" :disabled="!canRedoLayer" @click="bulkLayerRedo">
-            <v-icon>mdi-redo</v-icon>
-          </v-btn>
-        </v-card-title>
-        <v-card-text class="overflow-y-auto" style="max-height: 70vh;">
-          <v-list dense>
-            <v-list-item
-                v-for="(backup, idx) in backupStates.layer[backup.id] || []"
-                :key="idx"
-                @click="emitEvent('backup:jump-to-layer', { id: backup.id, index: idx })"
-            >
-              <v-list-item-title>
-                {{ idx + 1 }}. Backup {{ idx + 1 }}
-              </v-list-item-title>
-            </v-list-item>
-          </v-list>
-        </v-card-text>
-      </template>
-
-      <template v-if="tabIndex === 2">
+      <template v-if="tabIndex === 1">
         <v-card-title class="headline d-flex align-center mb-6">
           <div class="text-truncate" style="width: 100%;">Output</div>
           <v-select
@@ -187,8 +160,10 @@ export default defineComponent({
   name: "HistoryPage",
   props: historyProps,
   setup(props, { emit }) {
-    const { emitEvent, sortedBuilds, sortOptions, toggleCollapse, tabIndex, handleTabEmit, tabs, canUndoGlobal, canRedoGlobal, canUndoLayer, canRedoLayer, bulkLayerUndo, bulkLayerRedo } = historyModel(props, emit);
+    const { emitEvent, sortedBuilds, sortOptions, toggleCollapse, tabIndex, handleTabEmit, tabs } = historyModel(props, emit);
     return {
+      localData,
+      backupStates,
       sortedBuilds,
       sortOptions,
       emitEvent,
@@ -196,14 +171,6 @@ export default defineComponent({
       tabs,
       tabIndex,
       handleTabEmit,
-      canUndoGlobal,
-      canRedoGlobal,
-      backupStates,
-      localData,
-      canUndoLayer,
-      canRedoLayer,
-      bulkLayerUndo,
-      bulkLayerRedo
     };
   },
 });

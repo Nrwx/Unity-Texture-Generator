@@ -3,10 +3,7 @@ export {
     hideLayer, orderLayers, previewLayers, updateChannel, updateLayer, pasteLayer, maskedLayer
 } from "./layer";
 
-export {
-    createGlobalBackup, createLayerBackup, forwardLayerBackup, getCurrentGlobalBackup, jumpToGlobalBackup,
-    fetchGlobalBackup, fetchLayerBackup, previousLayerBackup, redoGlobalBackup, restoreLayerBackup, undoGlobalBackup, getCurrentLayerBackup
-} from "./backup"
+export { createBackup, fetchBackupList, jumpToBackup } from "./backup"
 
 export { fileUpload } from "./upload";
 

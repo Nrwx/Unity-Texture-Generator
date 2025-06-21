@@ -12,6 +12,7 @@ PARAMETERS = {
         "layer": {"type": str, "default": "Layer"},
     },
     "backup": {
+        "title": {"type": str},
         "state": {"type": str},
         "index": {"type": int},
         "id": {"type": str}

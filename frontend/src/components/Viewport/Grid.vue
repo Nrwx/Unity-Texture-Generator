@@ -48,8 +48,7 @@
                 :layers="layers"
                 :selected-layer="selectedLayer"
                 :fill-state="fillState"
-                @update:selected-layer="updateSelectedLayer"
-                @update:componentEvent="emitEvent"
+                @update:image-event="emitEvent"
                 @update:select-layer="toggleSelection"
             >
             </Image>
@@ -109,7 +108,7 @@
 <script>
 import {computed, defineComponent, nextTick, onMounted, onUnmounted, ref} from "vue";
 import Image from "@/components/Image/Image";
-import {transformStates, canvasStates, windowStates} from "@/dataLayer/state";
+import {transformStates, canvasStates, windowStates, backupStates} from "@/dataLayer/state";
 import Selection from "@/components/Selection/Selection.vue";
 import Text from "@/components/Text/Text.vue";
 
@@ -167,7 +166,6 @@ export default defineComponent({
 
     const emitEvent = (event, payload) => {
       emit("component-event", event, payload);
-      console.log(event, payload, 'GRID:VUE')
     };
 
     const cycleAlignMode = () => {
@@ -279,6 +277,7 @@ export default defineComponent({
 
 // Handle der Rotation
     const handleRotate = async (event) => {
+      backupStates.action.value = 'Bild Rotieren';
       event.preventDefault();
 
       const crosshair = document.querySelector(".center-crosshair");
@@ -316,6 +315,7 @@ export default defineComponent({
 
     // Handle Resize
     const handleResize = async (dx, dy) => {
+      backupStates.action.value = 'Bild Skalieren';
       selectedLayer.value.forEach(layer => {
         const originalWidth = layer.width;
         const originalHeight = layer.height;
@@ -368,10 +368,10 @@ export default defineComponent({
         selectedLayer.value.forEach(layer => {
           updateLayer(layer)
         })
+        stopTransform()
         transformStates.align.value = false
         alignModeStep.value = 0
         selectedLayer.value = []
-        stopTransform()
       }
     };
 
@@ -389,8 +389,7 @@ export default defineComponent({
 
     const storeOriginalMatrix = (layer) => {
       if (!layer.__originalMatrix) {
-        layer.__originalMatrix = { ...layer.matrix }; // flache Kopie reicht
-        emitEvent("backup:create-layer", layer.id);
+        layer.__originalMatrix = { ...layer.matrix };
       }
     };
 
@@ -415,6 +414,7 @@ export default defineComponent({
     const updateLayer = (layer) => {
         if(layer.type === 1) {
           if(hasLayerChanged(layer.__orginalStyle, layer))  {
+            emitEvent("backup:create-global", {id: layer.id, state: layer, title: backupStates.action.value});
             emitEvent('update-text-layer', {layer});
             console.log('Textebene aktualisiert');
           } else {
@@ -422,6 +422,7 @@ export default defineComponent({
           }
         }
         if (hasLayerChanged(layer.__originalMatrix, layer.matrix)) {
+          emitEvent("backup:create-global", {id: layer.id, state: layer, title: backupStates.action.value});
           emitEvent('update-layer', layer);
           console.log('Layer aktualisiert');
         } else {
@@ -460,11 +461,6 @@ export default defineComponent({
         }
         selectedLayer.value = [layer];
       }
-    };
-
-    const updateSelectedLayer = (payload) => {
-      selectedLayer.value = payload
-      console.log('THIS IS UODATE SELECT LAYER', payload)
     };
 
 
@@ -638,6 +634,7 @@ export default defineComponent({
       }
       if (event.key === 'g') {
         if (selectedLayer.value.length) {
+          backupStates.action.value = 'Bild Transformieren';
           transformStates.menu.value = true
           transformStates.transform.value = true;
         } else {
@@ -781,7 +778,6 @@ export default defineComponent({
       getGuideStyle,
       emitEvent,
       toggleSelection,
-      updateSelectedLayer,
       resetSelection,
       startRotate,
       startResize,

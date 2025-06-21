@@ -1,14 +1,11 @@
 import {localData} from "@/dataLayer/local";
 
 export function imageModel(props, emit) {
-    const emitUpdateLayer = (payload) => {
-        emit("update:layer", payload);
-    };
     const emitSelectLayer = (payload, event) => {
         emit("update:select-layer", payload, event);
     };
     const emitEvent = (event, payload) => {
-        emit("update:component-event", event, payload);
+        emit("update:image-event", event, payload);
     };
 
     const handleClick = async (event) => {
@@ -51,7 +48,6 @@ export function imageModel(props, emit) {
 
     return {
         handleClick,
-        emitUpdateLayer,
         emitSelectLayer,
         extractImageSize,
     };
