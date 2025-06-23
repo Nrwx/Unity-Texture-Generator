@@ -73,6 +73,15 @@ export const taskbarItemLeft = [
     {
         position: 'center',
         id: uuidv4(),
+        title: 'Brush Ebene',
+        icon: 'mdi-brush',
+        active: false,
+        tooltip: 'Brush Tool',
+        event: 'brush-state'
+    },
+    {
+        position: 'center',
+        id: uuidv4(),
         title: 'Textebene',
         icon: 'mdi-format-text',
         active: false,

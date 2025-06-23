@@ -7,6 +7,9 @@ export const localData = {
     file: ref(null),
     fonts: ref([]),
     loadedFonts: ref(new Set()),
+    brush: ref([]),
+    selectedBrush: ref(''),
+    brushPreset: ref([]),
     fullscreenData: reactive({
         mode: 0,
         title: '',

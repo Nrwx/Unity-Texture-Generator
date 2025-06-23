@@ -9,6 +9,7 @@ import {contextMenuEvent} from "@/dataLayer/event/contextMenu";
 import {fontsEvent} from "@/dataLayer/event/font";
 import {modifierEvent} from "@/dataLayer/event/modifier";
 import {aiEvent} from "@/dataLayer/event/ai";
+import {brushEvent} from "@/dataLayer/event/brush";
 
 /**
  * Kombiniert alle Events zu einem Handler-Objekt
@@ -19,6 +20,7 @@ const eventHandler = (route) => ({
     ...windowStateEvent(route),
     ...aiEvent(route),
     ...settingEvent(route),
+    ...brushEvent(route),
     ...viewportEvent(route),
     ...modifierEvent(route),
     ...fileEvent(route),

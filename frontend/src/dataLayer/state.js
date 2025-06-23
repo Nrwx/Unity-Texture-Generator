@@ -14,8 +14,10 @@ export const windowStates = {
     text: ref(false),
     typing: ref(false),
     cursor: ref(false),
+    brush: ref(false),
     context: ref(false),
-    color: ref(false)
+    color: ref(false),
+    drawing: ref(false)
 };
 
 export const modifierStates = {

@@ -26,13 +26,13 @@ class BrushModel:
                     items.append({
                         'id': item_id,
                         'name': os.path.splitext(f)[0],
-                        'path': f"/style/{group_id}/{f}"
+                        'path': f"/{group_id}/{f}"
                     })
             if items:
                 scanned.append({
                     'id': group_id,
                     'name': group_name,
-                    'path': f"/style/{group_id}",
+                    'path': f"/{group_id}",
                     'children': items
                 })
         BRUSHES.clear()
@@ -72,7 +72,7 @@ class BrushModel:
                     children.append({
                         'id': new_id,
                         'name': os.path.splitext(f)[0],
-                        'path': f"/style/{group_id}/{dst_name}"
+                        'path': f"/{group_id}/{dst_name}"
                     })
         if children:
             BRUSHES.append({ 'id': group_id, 'name': name, 'children': children })

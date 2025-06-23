@@ -19,7 +19,7 @@ class BrushController:
 
     @staticmethod
     def fetch():
-        return BrushesModel.get_brushes()
+        return BrushModel.get_brushes()
 
     @staticmethod
     def serve_style(folder, filename):

@@ -9,10 +9,11 @@ export { fileUpload } from "./upload";
 
 export { generateImage  } from "./ai";
 
-
 export { fetchOsSettings, saveOsSettings } from "./setting";
 
 export { generateTileLayout } from "./tile";
+
+export { fetchBrush } from "./brush";
 
 export { fetchFont } from "./font";
 

@@ -86,6 +86,8 @@
             <div v-if="!selectedLayer.length" class="center-crosshair"></div>
 
             <Text :state="text" @update:component-event="emitEvent" :layer="textLayer"/>
+
+            <Brush :viewport="viewport" :state="brush" :drawing="drawing" :selected-bush="selectedBrush" :data="brushLayer" @update:component-event="emitEvent"></Brush>
           </div>
         </div>
       </div>
@@ -111,10 +113,15 @@ import Image from "@/components/Image/Image";
 import {transformStates, canvasStates, windowStates, backupStates} from "@/dataLayer/state";
 import Selection from "@/components/Selection/Selection.vue";
 import Text from "@/components/Text/Text.vue";
+import Brush from "@/components/Brush/Brush";
 
 export default defineComponent({
   name: "GridComponent",
   props: {
+    viewport: {
+      type: Object,
+      required: true,
+    },
     settings: {
       type: Object,
       required: true,
@@ -143,8 +150,25 @@ export default defineComponent({
       type: Boolean,
       required: true,
     },
+    brush: {
+      type: Boolean,
+      required: true,
+    },
+    selectedBrush: {
+      type: String,
+      required: true,
+    },
+    brushLayer: {
+      type: Object,
+      required: true,
+    },
+    drawing: {
+      type: Boolean,
+      required: true,
+    },
   },
   components: {
+    Brush,
     Text,
     Image,
     Selection

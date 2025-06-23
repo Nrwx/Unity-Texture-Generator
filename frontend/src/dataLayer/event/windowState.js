@@ -6,6 +6,8 @@ export const windowStateEvent = (route) => ({
         await nextTick()
         await route.emit("select-state", payload);
         await route.emit("text-state", payload);
+        await route.emit("brush-state", payload);
+        await route.emit("drawing-state", payload);
     },
     "viewport-state": (payload) => {
         if (typeof payload === "boolean") {
@@ -42,6 +44,17 @@ export const windowStateEvent = (route) => ({
     "text-state": (payload) => {
         if (typeof payload === "boolean") {
             route.windowStates.text.value = payload;
+        }
+    },
+    "brush-state": (payload) => {
+        if (typeof payload === "boolean") {
+            route.windowStates.brush.value = payload;
+            console.log(payload, 'BRUSH STATE')
+        }
+    },
+    "drawing-state": (payload) => {
+        if (typeof payload === "boolean") {
+            route.windowStates.drawing.value = payload;
         }
     },
     "setting-state": async (payload) => {
