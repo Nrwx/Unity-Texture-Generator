@@ -15,6 +15,7 @@
         :visible="visible"
         :menuPos="menuPos"
         :settings="data"
+        :brushes="brushes"
         @update:menu-event="emitEvent"
         ref="menu"
     />

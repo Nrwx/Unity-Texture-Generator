@@ -87,7 +87,7 @@
 
             <Text :state="text" @update:component-event="emitEvent" :layer="textLayer"/>
 
-            <Brush :viewport="viewport" :state="brush" :drawing="drawing" :selected-bush="selectedBrush" :data="brushLayer" @update:component-event="emitEvent"></Brush>
+            <Brush :viewport="viewport" :brushes="brushes" :state="brush" :drawing="drawing" :data="brushLayer" @update:component-event="emitEvent"></Brush>
           </div>
         </div>
       </div>
@@ -154,8 +154,8 @@ export default defineComponent({
       type: Boolean,
       required: true,
     },
-    selectedBrush: {
-      type: String,
+    brushes: {
+      type: Array,
       required: true,
     },
     brushLayer: {
@@ -185,7 +185,7 @@ export default defineComponent({
     const guide = ref({});
     const resizeDirection = ref('');
     const rotationStartAngle = ref(0);
-    const fineSnapAngle = 360 / 64; // Das ergibt 5.625° pro Schritt
+    const fineSnapAngle = 360 / 64; // 5.625° pro Schritt
     const alignModeStep = ref(0);
 
     const emitEvent = (event, payload) => {
@@ -194,9 +194,9 @@ export default defineComponent({
 
     const cycleAlignMode = () => {
       if (transformStates.align.value) {
-        alignModeStep.value = (alignModeStep.value + 1) % 3; // 0 → 1 → 2 → 0 ...
+        alignModeStep.value = (alignModeStep.value + 1) % 3;
       } else {
-        alignModeStep.value = 0; // Zurücksetzen wenn align nicht aktiv
+        alignModeStep.value = 0;
       }
     };
 
@@ -647,7 +647,7 @@ export default defineComponent({
     };
 
     const handleKeyDown = (event) => {
-      if (windowStates.text.value || windowStates.typing.value) return;
+      if (windowStates.text.value || windowStates.typing.value || windowStates.brush.value) return;
 
       event.preventDefault();
       if (event.key.toLowerCase() === "r") {
@@ -673,7 +673,7 @@ export default defineComponent({
     };
 
     const handleKeyUp = (event) => {
-      if (windowStates.text.value || windowStates.typing.value) return;
+      if (windowStates.text.value || windowStates.typing.value || windowStates.brush.value) return;
 
       event.preventDefault();
       if (event.key === 'g') {

@@ -1,4 +1,4 @@
-import { ref, nextTick, onMounted, onUnmounted } from 'vue';
+import {ref, nextTick, onMounted, onUnmounted} from 'vue';
 
 export function brushModel(props, emit) {
     const canvas = ref(null);
@@ -31,34 +31,78 @@ export function brushModel(props, emit) {
     });
 
     const stampAt = e => {
-        if (!ctx.value || !props.selectedBrush) return;
-        const img = new Image(); img.src = props.selectedBrush;
-        if (!img.complete) return;
-        const rect = canvas.value.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        ctx.value.globalAlpha = props.data.opacity;
-        ctx.value.globalCompositeOperation = props.data.blendMode;
-        const jitterVal = props.data.jitter / 100 * props.data.size;
-        const size = props.data.size + (Math.random() - 0.5) * jitterVal;
-        ctx.value.drawImage(img, x - size/2, y - size/2, size, size);
+        if (!ctx.value || !props.data.url) return;
+
+        const img = new Image();
+        img.crossOrigin = "Anonymous"; // wichtig bei externen Quellen
+        img.src = props.data.url;
+
+        img.onload = () => {
+            const rect = canvas.value.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            const jitterVal = props.data.jitter / 100 * props.data.size;
+            const size = props.data.size + (Math.random() - 0.5) * jitterVal;
+
+            // Offscreen canvas vorbereiten
+            const offCanvas = document.createElement('canvas');
+            offCanvas.width = img.width;
+            offCanvas.height = img.height;
+            const offCtx = offCanvas.getContext('2d');
+            offCtx.drawImage(img, 0, 0);
+
+            const imageData = offCtx.getImageData(0, 0, img.width, img.height);
+            const data = imageData.data;
+
+            // Parse Wunschfarbe (z.B. "#ff00ff" oder "rgba(255,255,0,1)")
+            const color = parseCSSColor(props.data.color || '#ffffff');
+
+            // Wandle Graustufenbild in Alpha-Maske mit Wunschfarbe um
+            for (let i = 0; i < data.length; i += 4) {
+                const gray = data[i]; // assuming grayscale JPG
+                data[i + 0] = color.r;
+                data[i + 1] = color.g;
+                data[i + 2] = color.b;
+                data[i + 3] = gray * (color.a ?? 1); // alpha multiplikation
+            }
+
+            offCtx.putImageData(imageData, 0, 0);
+
+            ctx.value.globalAlpha = props.data.opacity;
+            ctx.value.globalCompositeOperation = props.data.blendMode;
+
+            ctx.value.drawImage(offCanvas, 0, 0, img.width, img.height, x - size / 2, y - size / 2, size, size);
+        };
     };
+
+    const parseCSSColor = (colorStr) => {
+        const ctx = document.createElement('canvas').getContext('2d');
+        ctx.fillStyle = colorStr;
+
+        ctx.fillRect(0, 0, 1, 1);
+        const data = ctx.getImageData(0, 0, 1, 1).data;
+        return { r: data[0], g: data[1], b: data[2], a: data[3] / 255 };
+    }
+
 
     const onMouseDown = e => {
         if (props.state) {
-            emitEvent('drawing-state', false);
+            emitEvent('drawing-state', true);
             stampAt(e);
         }
     };
 
     const onMouseMove = e => {
-        if (props.drawing.value) {
+        if (props.state && props.drawing) {
             stampAt(e);
         }
     };
 
     const onMouseUp = () => {
-        emitEvent('drawing-state', false);
+        if (props.drawing) {
+            emitEvent('drawing-state', false);
+        }
     };
 
     const openContextMenu = async e => {
@@ -112,6 +156,6 @@ export const brushProps = {
     state: { type: Boolean, required: true },
     drawing: { type: Boolean, required: true },
     viewport: { type: Object, required: true },
-    selectedBrush: { type: String, required: true },
-    data: { type: Object, required: true }
+    data: { type: Object, required: true },
+    brushes: { type: Array, required: true }
 };

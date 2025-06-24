@@ -8,7 +8,6 @@ export const localData = {
     fonts: ref([]),
     loadedFonts: ref(new Set()),
     brush: ref([]),
-    selectedBrush: ref(''),
     brushPreset: ref([]),
     fullscreenData: reactive({
         mode: 0,

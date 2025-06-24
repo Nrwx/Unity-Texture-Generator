@@ -1,6 +1,7 @@
 import { nextTick, ref} from "vue";
 import {localData} from "@/dataLayer/local";
 import {textLayer} from "@/models/text/config/model";
+import {brushSettings} from "@/models/brush/config/model";
 
 export function colorModel(props, emit) {
     const colors = ref(['#000000', '#808080', '#ffffff']);
@@ -22,6 +23,7 @@ export function colorModel(props, emit) {
         colors.value[selectedIndex.value] = newColor;
         localData.color.value = newColor
         textLayer.value.color = newColor
+        brushSettings.value.color = newColor
     };
 
     const close = () => {
