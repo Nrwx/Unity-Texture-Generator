@@ -24,18 +24,26 @@ export function brushMenuModel(props, emit) {
     });
 
     const config = reactive({
-        size: props.settings.size,
-        spacing: props.settings.spacing,
-        opacity: props.settings.opacity,
-        flow: props.settings.flow,
-        jitter: props.settings.jitter,
-        angle: props.settings.angle,
-        randomize: props.settings.randomize,
+        size:           props.settings.size,
+        spacing:        props.settings.spacing,
+        opacity:        props.settings.opacity,
+        flow:           props.settings.flow,
+        jitter:         props.settings.jitter,
+        angle:          props.settings.angle,
+        randomize:      props.settings.randomize,
+        sizeDynamics:   props.settings.sizeDynamics,
+        opacityDynamics:props.settings.opacityDynamics,
+        angleDynamics:  props.settings.angleDynamics,
+        rotationRandom: props.settings.rotationRandom,
+        scatter:        props.settings.scatter,
+        flipX:          props.settings.flipX,
+        flipY:          props.settings.flipY,
+        pressureFade:   props.settings.pressureFade,
+        blendMode:      props.settings.blendMode
     })
 
     const activeTab = ref('settings');
-    const blendModes = ['normal', 'multiply', 'screen', 'overlay'];
-    const layouts = ['Default', 'Scatter', 'Line', 'Grid'];
+    const blendModes = ['normal','multiply','screen','overlay','darken','lighten','color-dodge'];
 
     const emitEvent = (event, payload) => {
         emit("update:menu-event", event, payload);
@@ -68,7 +76,6 @@ export function brushMenuModel(props, emit) {
         tabs,
         activeTab,
         blendModes,
-        layouts,
         presetName,
         menuStyle,
         angleRad,

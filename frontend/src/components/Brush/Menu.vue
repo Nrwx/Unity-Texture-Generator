@@ -54,6 +54,11 @@
             <v-slider class="mr-6" :color="sliderColor" hide-details v-model="config.jitter" @click.stop="emitEvent('update:brush-settings', {key: 'jitter', data: config.jitter})" step="1" :min="0" :max="100" />
             <span>{{ config.jitter }}%</span>
           </div>
+          <div class="control">
+            <label>Scatter</label>
+            <v-slider class="mr-6" v-model="config.scatter" :color="sliderColor" hide-details :min="0" :max="100" step="1" @click.stop="emitEvent('update:brush-settings',{key:'scatter',data:config.scatter})" />
+            <span>{{ config.scatter }}px</span>
+          </div>
           <div class="control radial flex-wrap">
             <label style="width: 100%;">Orientierung</label>
             <div class="radial-control mr-2">
@@ -77,6 +82,43 @@
           <div class="control">
             <label class="mr-2">Random</label>
             <input type="checkbox" v-model="config.randomize" @change.stop="emitEvent('update:brush-settings', {key: 'randomize', data: config.randomize})" />
+          </div>
+          <!-- Dynamics & Toggles -->
+          <div class="control">
+            <label class="mr-2">Opacity Dynamics</label>
+            <input type="checkbox" v-model="config.opacityDynamics" @change.stop="emitEvent('update:brush-settings',{key:'opacityDynamics',data:config.opacityDynamics})" />
+          </div>
+          <div class="control">
+            <label class="mr-2">Size Dynamics</label>
+            <input type="checkbox" v-model="config.sizeDynamics" @change.stop="emitEvent('update:brush-settings',{key:'sizeDynamics',data:config.sizeDynamics})" />
+          </div>
+          <div class="control">
+            <label class="mr-2">Angle Dynamics</label>
+            <input type="checkbox" v-model="config.angleDynamics" @change.stop="emitEvent('update:brush-settings',{key:'angleDynamics',data:config.angleDynamics})" />
+          </div>
+          <div class="control">
+            <label class="mr-2"> Zufallsrotation</label>
+            <input type="checkbox" v-model="config.rotationRandom" @change.stop="emitEvent('update:brush-settings',{key:'rotationRandom',data:config.rotationRandom})" />
+          </div>
+          <div class="control">
+            <label class="mr-2">Flip X</label>
+            <input type="checkbox" v-model="config.flipX" @change.stop="emitEvent('update:brush-settings',{key:'flipX',data:config.flipX})" />
+          </div>
+          <div class="control">
+            <label class="mr-2">Flip Y</label>
+            <input type="checkbox" v-model="config.flipY"
+                   @change.stop="emitEvent('update:brush-settings',{key:'flipY',data:config.flipY})" />
+          </div>
+          <div class="control">
+            <label class="mr-2">Pressure Fade</label>
+            <input type="checkbox" v-model="config.pressureFade" @change.stop="emitEvent('update:brush-settings',{key:'pressureFade',data:config.pressureFade})" />
+          </div>
+          <div class="control">
+            <label>Blend Mode</label>
+            <select v-model="config.blendMode"
+                    @change.stop="emitEvent('update:brush-settings',{key:'blendMode',data:config.blendMode})">
+              <option v-for="m in blendModes" :key="m" :value="m">{{ m }}</option>
+            </select>
           </div>
         </div>
         <!-- Save Tab -->
@@ -107,7 +149,7 @@ export default defineComponent({
   name: 'BrushContextMenu',
   props: brushMenuProps,
   setup(props, { emit }) {
-    const {brushItems, config, sliderColor, tabs, activeTab, blendModes, layouts, presetName, menuStyle, angleRad, savePreset, uploadBrush, emitEvent} = brushMenuModel(props, emit);
+    const {brushItems, config, sliderColor, tabs, activeTab, blendModes, presetName, menuStyle, angleRad, savePreset, uploadBrush, emitEvent} = brushMenuModel(props, emit);
 
     return {
       brushItems,
@@ -116,7 +158,6 @@ export default defineComponent({
       tabs,
       activeTab,
       blendModes,
-      layouts,
       presetName,
       menuStyle,
       angleRad,

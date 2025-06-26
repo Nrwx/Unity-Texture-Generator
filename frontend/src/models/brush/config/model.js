@@ -7,7 +7,7 @@ export const brushSettings = ref({
     order: 0,
     hidden: false,
     size: 64,
-    spacing: 10,
+    spacing: 0,
     opacity: 1.0,
     flow: 0.8,
     jitter: 0,
@@ -18,6 +18,16 @@ export const brushSettings = ref({
     color: '#000000',
     angle: 0,
     randomize: false,
+    blendMode: 'normal',
+
+    angleDynamics: false,
+    sizeDynamics: true,
+    opacityDynamics: true,
+    scatter: 0,
+    pressureFade: false,
+    flipX: false,
+    flipY: false,
+    rotationRandom: false
 });
 
 export const editBrush = ref(null);

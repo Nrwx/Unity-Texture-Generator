@@ -35,6 +35,7 @@ export function colorModel(props, emit) {
         colors.value.unshift(last);
         localData.color.value = colors.value[0]
         textLayer.value.color = colors.value[0]
+        brushSettings.value.color = colors.value[0]
     };
 
     return {

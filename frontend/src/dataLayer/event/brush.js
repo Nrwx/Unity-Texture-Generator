@@ -15,24 +15,59 @@ export const brushEvent = (route) => ({
         route.brushSettings.value.url = payload.imageUrl
     },
     "update:brush-settings": async (payload) => {
-        if(payload.key === 'size') {
-            route.brushSettings.value.size = payload.data
-        } else if (payload.key === 'spacing') {
-            route.brushSettings.value.spacing = payload.data
-        } else if (payload.key === 'opacity') {
-            route.brushSettings.value.opacity = payload.data
-        } else if (payload.key === 'flow') {
-            route.brushSettings.value.flow = payload.data
-        } else if (payload.key === 'mode') {
-            route.brushSettings.value.blendMode = payload.data
-        } else if (payload.key === 'jitter') {
-            route.brushSettings.value.jitter = payload.data
-        } else if (payload.key === 'angle') {
-            route.brushSettings.value.angle = payload.data
-        } else if (payload.key === 'randomize') {
-            route.brushSettings.value.randomize = payload.data
-        } else if (payload.key === 'layout') {
-            route.brushSettings.value.layout = payload.data
+        const { key, data } = payload;
+        const bs = route.brushSettings.value;
+        switch (key) {
+            case 'size':
+                bs.size = data;
+                break;
+            case 'spacing':
+                bs.spacing = data;
+                break;
+            case 'opacity':
+                bs.opacity = data;
+                break;
+            case 'flow':
+                bs.flow = data;
+                break;
+            case 'blendMode':
+                bs.blendMode = data;
+                break;
+            case 'jitter':
+                bs.jitter = data;
+                break;
+            case 'angle':
+                bs.angle = data;
+                break;
+            case 'randomize':
+                bs.randomize = data;
+                break;
+            case 'sizeDynamics':
+                bs.sizeDynamics = data;
+                break;
+            case 'opacityDynamics':
+                bs.opacityDynamics = data;
+                break;
+            case 'angleDynamics':
+                bs.angleDynamics = data;
+                break;
+            case 'rotationRandom':
+                bs.rotationRandom = data;
+                break;
+            case 'scatter':
+                bs.scatter = data;
+                break;
+            case 'flipX':
+                bs.flipX = data;
+                break;
+            case 'flipY':
+                bs.flipY = data;
+                break;
+            case 'pressureFade':
+                bs.pressureFade = data;
+                break;
+            default:
+                console.warn(`Unknown brush-setting key: ${key}`);
         }
     }
 })
