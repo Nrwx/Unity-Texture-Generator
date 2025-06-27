@@ -23,32 +23,51 @@ export function brushMenuModel(props, emit) {
         );
     });
 
+    const settingsItems = [
+        { key: 'size', label: 'Größe', type: 'slider', min: 1, max: 500, step: 1, unit: 'px' },
+        { key: 'opacity', label: 'Deckkraft', type: 'slider', min: 0, max: 1, step: 0.01, unit: '%' },
+        { key: 'jitter', label: 'Jitter', type: 'slider', min: 0, max: 100, step: 1, unit: '%' },
+        { key: 'scatter', label: 'Scatter', type: 'slider', min: 0, max: 100, step: 1, unit: 'px' },
+        { key: 'angle', label: 'Orientierung', type: 'slider', min: 0, max: 360, step: 1, unit: '°' },
+        { key: 'opacityDynamics', label: 'Opacity Dynamics', type: 'toggle' },
+        { key: 'fadeDynamics', label: 'Fade Dynamics', type: 'toggle' },
+        { key: 'sizeDynamics', label: 'Size Dynamics', type: 'toggle' },
+        { key: 'angleDynamics', label: 'Angle Dynamics', type: 'toggle' },
+        { key: 'rotationRandom', label: 'Zufallsrotation', type: 'toggle' },
+        { key: 'flipX', label: 'Flip X', type: 'toggle' },
+        { key: 'flipY', label: 'Flip Y', type: 'toggle' },
+        { key: 'blendMode', label: 'Blend Mode', type: 'select', options: [
+                'normal','multiply','screen','overlay','darken','lighten','color-dodge',
+                'source-over', 'source-in', 'source-out', 'source-atop',
+                'destination-over', 'destination-in', 'destination-out', 'destination-atop',
+                'lighter', 'copy', 'xor',
+                'multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge',
+                'color-burn', 'hard-light', 'soft-light', 'difference', 'exclusion', 'hue',
+                'saturation', 'color', 'luminosity'
+            ] }
+    ];
+
+
     const config = reactive({
         size:           props.settings.size,
-        spacing:        props.settings.spacing,
         opacity:        props.settings.opacity,
-        flow:           props.settings.flow,
         jitter:         props.settings.jitter,
         angle:          props.settings.angle,
-        randomize:      props.settings.randomize,
         sizeDynamics:   props.settings.sizeDynamics,
+        fadeDynamics:   props.settings.fadeDynamics,
         opacityDynamics:props.settings.opacityDynamics,
         angleDynamics:  props.settings.angleDynamics,
         rotationRandom: props.settings.rotationRandom,
         scatter:        props.settings.scatter,
         flipX:          props.settings.flipX,
         flipY:          props.settings.flipY,
-        pressureFade:   props.settings.pressureFade,
         blendMode:      props.settings.blendMode
     })
 
     const activeTab = ref('settings');
-    const blendModes = ['normal','multiply','screen','overlay','darken','lighten','color-dodge'];
 
     const emitEvent = (event, payload) => {
         emit("update:menu-event", event, payload);
-        console.log(config)
-        console.log(props.settings)
     };
 
     const angleRad = computed(() => (props.settings.angle - 90) * (Math.PI / 180));
@@ -70,12 +89,12 @@ export function brushMenuModel(props, emit) {
     };
 
     return {
+        settingsItems,
         brushItems,
         config,
         sliderColor,
         tabs,
         activeTab,
-        blendModes,
         presetName,
         menuStyle,
         angleRad,

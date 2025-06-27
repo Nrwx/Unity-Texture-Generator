@@ -21,14 +21,8 @@ export const brushEvent = (route) => ({
             case 'size':
                 bs.size = data;
                 break;
-            case 'spacing':
-                bs.spacing = data;
-                break;
             case 'opacity':
                 bs.opacity = data;
-                break;
-            case 'flow':
-                bs.flow = data;
                 break;
             case 'blendMode':
                 bs.blendMode = data;
@@ -38,9 +32,6 @@ export const brushEvent = (route) => ({
                 break;
             case 'angle':
                 bs.angle = data;
-                break;
-            case 'randomize':
-                bs.randomize = data;
                 break;
             case 'sizeDynamics':
                 bs.sizeDynamics = data;
@@ -63,8 +54,8 @@ export const brushEvent = (route) => ({
             case 'flipY':
                 bs.flipY = data;
                 break;
-            case 'pressureFade':
-                bs.pressureFade = data;
+            case 'fadeDynamics':
+                bs.fadeDynamics = data;
                 break;
             default:
                 console.warn(`Unknown brush-setting key: ${key}`);
