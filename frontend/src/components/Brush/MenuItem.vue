@@ -32,7 +32,9 @@
         class="ml-auto mr-0"
         dense
         theme="dark"
-        max-width="100"
+        flat
+        variant="solo"
+        max-width="120"
         density="compact"
         hide-details
         outlined

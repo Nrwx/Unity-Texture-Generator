@@ -20,7 +20,7 @@ export const brushSettings = ref({
     angle: 0,
     blendMode: 'normal',
 
-    opacityDynamics: true,
+    opacityDynamics: false,
     fadeDynamics: false,
     angleDynamics: false,
     sizeDynamics: false,
