@@ -3,6 +3,8 @@ export {
     hideLayer, orderLayers, previewLayers, updateChannel, updateLayer, pasteLayer, maskedLayer
 } from "./layer";
 
+export { createCursor } from "./cursor"
+
 export { createBackup, fetchBackupList, jumpToBackup } from "./backup"
 
 export { fileUpload } from "./upload";

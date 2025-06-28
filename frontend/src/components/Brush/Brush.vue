@@ -16,6 +16,12 @@
         :brushes="brushes"
         @update:menu-event="emitEvent"
     />
+    <img
+        v-if="cursor !== ''"
+        :src="cursor"
+        class="custom-cursor"
+        :style="setCursor"
+    />
   </div>
 </template>
 
@@ -29,7 +35,7 @@ export default defineComponent({
   components: { Menu },
   props: brushProps,
   setup(props, { emit }) {
-    const { canvas, visible, menuPos, onPointerDown, onPointerMove, onPointerUp, openContextMenu, onSavePreset, onUploadBrush, emitEvent,} = brushModel(props, emit);
+    const { canvas, visible, menuPos, onPointerDown, onPointerMove, onPointerUp, openContextMenu, onSavePreset, onUploadBrush, emitEvent, setCursor} = brushModel(props, emit);
 
     return {
       canvas,
@@ -42,6 +48,7 @@ export default defineComponent({
       onSavePreset,
       onUploadBrush,
       emitEvent,
+      setCursor
     };
   }
 });

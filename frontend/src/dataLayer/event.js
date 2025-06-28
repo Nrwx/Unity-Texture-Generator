@@ -10,6 +10,7 @@ import {fontsEvent} from "@/dataLayer/event/font";
 import {modifierEvent} from "@/dataLayer/event/modifier";
 import {aiEvent} from "@/dataLayer/event/ai";
 import {brushEvent} from "@/dataLayer/event/brush";
+import {cursorEvent} from "@/dataLayer/event/cursor";
 
 /**
  * Kombiniert alle Events zu einem Handler-Objekt
@@ -17,6 +18,7 @@ import {brushEvent} from "@/dataLayer/event/brush";
 const eventHandler = (route) => ({
     ...fontsEvent(route),
     ...globalBackupEvent(route),
+    ...cursorEvent(route),
     ...windowStateEvent(route),
     ...aiEvent(route),
     ...settingEvent(route),

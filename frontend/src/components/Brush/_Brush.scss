@@ -9,7 +9,6 @@
 }
 .brush-canvas {
   position: relative;
-  cursor: crosshair;
 }
 .brush-context-menu {
   position: fixed;
@@ -65,4 +64,11 @@
   padding: 4px 0;
   display: block;
   min-width: 160px;
+}
+
+.custom-cursor {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  user-select: none;
 }

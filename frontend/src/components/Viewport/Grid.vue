@@ -87,7 +87,7 @@
 
             <Text :state="text" @update:component-event="emitEvent" :layer="textLayer"/>
 
-            <Brush :viewport="viewport" :brushes="brushes" :state="brush" :drawing="drawing" :data="brushLayer" @update:component-event="emitEvent"></Brush>
+            <Brush :selected="selectedLayer" :mouse="cursor" :cursor="brushCursor" :viewport="viewport" :brushes="brushes" :state="brush" :drawing="drawing" :data="brushLayer" @update:component-event="emitEvent"></Brush>
           </div>
         </div>
       </div>
@@ -165,6 +165,10 @@ export default defineComponent({
     drawing: {
       type: Boolean,
       required: true,
+    },
+    brushCursor: {
+      type: String,
+      required: false,
     },
   },
   components: {

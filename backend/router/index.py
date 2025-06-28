@@ -8,6 +8,7 @@ from view.modifier_view import router_modifier
 from view.backup_view import router_backup
 from view.ai_view import router_ai
 from view.brush_view import router_brush
+from view.cursor_view import router_cursor
 
 def register_router(app):
     app.register_blueprint(router_app, url_prefix='/')
@@ -20,3 +21,4 @@ def register_router(app):
     app.register_blueprint(router_backup, url_prefix="/backup")
     app.register_blueprint(router_ai, url_prefix="/ai/generateImage/")
     app.register_blueprint(router_brush, url_prefix="/brush")
+    app.register_blueprint(router_cursor, url_prefix="/cursor")

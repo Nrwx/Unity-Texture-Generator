@@ -4,6 +4,13 @@ PARAMETERS = {
         "prompt": {"type": str, "required": True},
         "model": {"type": str, "required": True},
     },
+    "cursor": {
+        "method": {"type": str, "required": True},
+        "id": {"type": str, "required": True},
+        "size": {"type": int, "required": True},
+        "rotation": {"type": float, "required": True},
+        "opacity": {"type": float, "required": True},
+    },
     "viewport": {
         "mode": {"type": int, "default": 1},
         "width": {"type": int, "default": 2048},

@@ -9,6 +9,7 @@ export const localData = {
     loadedFonts: ref(new Set()),
     brush: ref([]),
     brushPreset: ref([]),
+    cursor: ref(''),
     fullscreenData: reactive({
         mode: 0,
         title: '',

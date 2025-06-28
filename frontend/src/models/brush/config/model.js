@@ -16,7 +16,7 @@ export const brushSettings = ref({
     opacity: 1.0,
     flow: 0.2,
     jitter: 0,
-    pressure: 1,
+    pressure: 0.50,
     angle: 0,
     blendMode: 'normal',
 

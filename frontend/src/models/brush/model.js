@@ -1,4 +1,4 @@
-import { nextTick, onMounted, onUnmounted, ref } from 'vue';
+import {computed, nextTick, onMounted, onUnmounted, ref} from 'vue';
 
 const brushCache = new Map();
 
@@ -8,6 +8,10 @@ export function brushModel(props, emit) {
     const visible = ref(false);
     const menuPos = ref({ x: 0, y: 0 });
 
+    const currentSize = ref(props.data.size);
+    const currentAngle = ref( 0);
+    const currentOpacity = ref( 0);
+
     let lastPos = null;
     let lastTime = null;
     let drawing = false;
@@ -16,7 +20,52 @@ export function brushModel(props, emit) {
     let brushReady = false;
     let drawQueue = [];
     let animating = false;
-    let lastSmoothedPressure = props.data.pressure;
+
+    const setCursor = computed(() => {
+        if (!props.cursor && !props.state && !props.mouse && !props.data.id) return {};
+
+        // Basiswerte
+        let size = props.data.size;
+        let angle = 0;
+        let opacity = 1
+
+        if (props.data.opacityDynamics) {
+            opacity = currentOpacity.value;
+        }
+
+        if (props.data.fadeDynamics) {
+            opacity = currentOpacity.value;
+        }
+
+        if (props.data.sizeDynamics) {
+            size = currentSize.value;
+        }
+
+        if (props.data.angleDynamics) {
+            angle = currentAngle.value;
+        }
+
+        if (props.data.rotationRandom) {
+            angle = currentAngle.value;
+        }
+
+        const x = props.mouse.x - size / 2;
+        const y = props.mouse.y - size / 2;
+
+        return {
+            position: 'fixed',
+            opacity: opacity,
+            left: `${x}px`,
+            top: `${y}px`,
+            width: `${size}px`,
+            height: `${size}px`,
+            pointerEvents: 'none',
+            zIndex: 9999,
+            userSelect: 'none',
+            cursor: 'none',
+            transform: `rotate(${angle}deg)`
+        };
+    });
 
     const emitEvent = (evt, payload) => emit('update:component-event', evt, payload);
 
@@ -54,6 +103,14 @@ export function brushModel(props, emit) {
     const prepareBrush = async (data) => {
         const key = `${data.url}|${data.color}`;
         if (brushCache.has(key)) return brushCache.get(key);
+
+        emitEvent('generate:cursor', {
+            id: data.id,
+            size: data.size,
+            opacity: data.opacity ?? 1.0,
+            rotation: data.angle || 0
+        });
+
         const img = await new Promise((res, rej) => {
             const i = new Image();
             i.crossOrigin = 'Anonymous';
@@ -67,6 +124,7 @@ export function brushModel(props, emit) {
         octx.drawImage(img, 0, 0);
         const imgData = octx.getImageData(0, 0, img.width, img.height);
         const c = parseColor(data.color);
+
         for (let i = 0; i < imgData.data.length; i += 4) {
             const gray = imgData.data[i];
             imgData.data[i] = c.r;
@@ -121,7 +179,6 @@ export function brushModel(props, emit) {
         emitEvent('drawing-state', true);
         const rect = canvas.value.getBoundingClientRect();
         lastPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-        lastSmoothedPressure = props.data.pressure;
         lastTime = Date.now();
         moved = false;
         brushReady = false;
@@ -138,10 +195,10 @@ export function brushModel(props, emit) {
         const rect = canvas.value.getBoundingClientRect();
         const curr = { x: e.clientX - rect.left, y: e.clientY - rect.top };
 
-        // Pressure: vom Pointer, oder fallback (Maus 0.5, sonst props.data.pressure)
-        const rawPressure = e.pressure != null ? e.pressure : (e.pointerType === 'mouse' ? 0.5 : props.data.pressure);
-        const smoothingFactor = 0.2;
-        lastSmoothedPressure = lastSmoothedPressure * (1 - smoothingFactor) + rawPressure * smoothingFactor;
+        // === DRUCK / PRESSURE ===
+        const rawPressure = e.pressure != null ? e.pressure : props.data.pressure;
+
+        const finalPressure = Math.min(rawPressure * props.data.pressure);
 
         const dx = curr.x - lastPos.x;
         const dy = curr.y - lastPos.y;
@@ -156,38 +213,34 @@ export function brushModel(props, emit) {
             const y = lastPos.y + dy * (i / steps);
 
             // === DECKKRAFT / OPACITY ===
-            let alpha = props.data.opacity // Basis-Opacity * Flow (0..1)
+            let alpha = props.data.opacity;
 
             if (props.data.opacityDynamics) {
-                // Druck-basierte Opacity-Dynamik
-                alpha = alpha * props.data.flow;
-                alpha *= Math.pow(lastSmoothedPressure, 1.0);
+                alpha *= props.data.flow;
+                alpha *= finalPressure;
+                currentOpacity.value = alpha;
             }
 
             if (props.data.fadeDynamics) {
-                alpha = alpha * props.data.flow;
+                alpha *= props.data.flow;
 
-                // Distanz & Zeit normalisiert mit größerem Bereich (z.B. 150 für mehr Länge)
                 const distFactorRaw = Math.min(dist / 150, 1);
                 const timeFactorRaw = Math.min(dt / 150, 1);
-                const pressureFactor = Math.pow(lastSmoothedPressure, 1.0);
+                const pressureFactor = Math.pow(finalPressure, 1.0);
 
-                // Cubic Ease-In: langsamer Start, dann steiler Anstieg
                 const easeIn = t => t * t * t;
-
                 const distFactor = easeIn(distFactorRaw);
                 const timeFactor = easeIn(timeFactorRaw);
 
-                // Fade: umgekehrt, also von 1 (am Anfang) auf 0 (am Ende), hier länger und weicher
                 const fadeDist = 1 - distFactor * 0.7;
                 const fadeTime = 1 - timeFactor * 0.7;
 
                 const fade = fadeDist * fadeTime * pressureFactor;
-
                 alpha *= fade;
+
+                currentOpacity.value = alpha;
             }
 
-            // Clamp alpha auf [0,1]
             alpha = Math.min(Math.max(alpha, 0), 1);
 
             // === GRÖSSE / SIZE ===
@@ -196,24 +249,29 @@ export function brushModel(props, emit) {
             if (props.data.sizeDynamics) {
                 const distFactor = Math.min(dist / 50, 1);
                 const timeFactor = Math.min(dt / 50, 1);
-                const pressureFactor = Math.pow(lastSmoothedPressure, 1.0);
+                const pressureFactor = Math.pow(finalPressure, 1.0);
                 const combined = 0.5 + 0.5 * (1 - distFactor) * (1 - timeFactor) * pressureFactor;
 
                 size *= combined;
                 const minSize = props.data.size * 0.3;
                 const maxSize = props.data.size * 1.2;
                 size = Math.min(Math.max(size, minSize), maxSize);
+                currentSize.value = size;
             }
 
             // === ROTATION ===
-            let angle = (props.data.angle * Math.PI) / 180;
+            let angle = (props.data.angle || 0) * (Math.PI / 180);
 
             if (props.data.angleDynamics) {
-                angle += Math.atan2(dy, dx);
+                const dynamicAngle = Math.atan2(dy, dx);
+                angle += dynamicAngle;
+                currentAngle.value = dynamicAngle * (180 / Math.PI);
             }
 
             if (props.data.rotationRandom) {
-                angle += Math.random() * Math.PI * 2;
+                const randomAngle = Math.random() * Math.PI * 2;
+                angle += randomAngle;
+                currentAngle.value = randomAngle * (180 / Math.PI);
             }
 
             enqueue({
@@ -228,7 +286,16 @@ export function brushModel(props, emit) {
         }
 
         lastPos = curr;
+
+        console.log(
+            'Steps:', steps,
+            'Event:', e.pressure,
+            ', RawPressure:', rawPressure,
+            ', BrushPressureFactor:', props.data.pressure,
+            ', FinalPressure:', finalPressure
+        );
     };
+
 
 
 
@@ -285,6 +352,7 @@ export function brushModel(props, emit) {
         onSavePreset,
         onUploadBrush,
         emitEvent,
+        setCursor
     };
 }
 
@@ -294,4 +362,6 @@ export const brushProps = {
     viewport: { type: Object, required: true },
     data: { type: Object, required: true },
     brushes: { type: Array, required: true },
+    cursor: { type: String, required: false },
+    mouse: { type: Object, required: false },
 };

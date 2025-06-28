@@ -26,6 +26,7 @@ export function brushMenuModel(props, emit) {
     const settingsItems = [
         { key: 'size', label: 'Größe', type: 'slider', min: 1, max: 500, step: 1, unit: 'px' },
         { key: 'opacity', label: 'Deckkraft', type: 'slider', min: 0, max: 1, step: 0.01, unit: '%' },
+        { key: 'pressure', label: 'Druck', type: 'slider', min: 0.01, max: 2, step: 0.01, unit: '%' },
         { key: 'jitter', label: 'Jitter', type: 'slider', min: 0, max: 100, step: 1, unit: '%' },
         { key: 'scatter', label: 'Scatter', type: 'slider', min: 0, max: 100, step: 1, unit: 'px' },
         { key: 'angle', label: 'Orientierung', type: 'slider', min: 0, max: 360, step: 1, unit: '°' },
@@ -53,6 +54,7 @@ export function brushMenuModel(props, emit) {
         opacity:        props.settings.opacity,
         jitter:         props.settings.jitter,
         angle:          props.settings.angle,
+        pressure:       props.settings.pressure,
         sizeDynamics:   props.settings.sizeDynamics,
         fadeDynamics:   props.settings.fadeDynamics,
         opacityDynamics:props.settings.opacityDynamics,
