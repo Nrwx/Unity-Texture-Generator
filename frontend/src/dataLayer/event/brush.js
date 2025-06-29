@@ -55,9 +55,6 @@ export const brushEvent = (route) => ({
             case 'sizeDynamics':
                 route.brushSettings.value.sizeDynamics = data;
                 break;
-            case 'opacityDynamics':
-                route.brushSettings.value.opacityDynamics = data;
-                break;
             case 'angleDynamics':
                 route.brushSettings.value.angleDynamics = data;
                 break;

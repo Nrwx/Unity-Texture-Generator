@@ -29,10 +29,6 @@ export function brushModel(props, emit) {
         let angle = 0;
         let opacity = 1
 
-        if (props.data.opacityDynamics) {
-            opacity = currentOpacity.value;
-        }
-
         if (props.data.fadeDynamics) {
             opacity = currentOpacity.value;
         }
@@ -215,17 +211,11 @@ export function brushModel(props, emit) {
             // === DECKKRAFT / OPACITY ===
             let alpha = props.data.opacity;
 
-            if (props.data.opacityDynamics) {
-                alpha *= props.data.flow;
-                alpha *= finalPressure;
-                currentOpacity.value = alpha;
-            }
-
             if (props.data.fadeDynamics) {
                 alpha *= props.data.flow;
 
-                const distFactorRaw = Math.min(dist / 150, 1);
-                const timeFactorRaw = Math.min(dt / 150, 1);
+                const distFactorRaw = Math.min(dist / steps, 1);
+                const timeFactorRaw = Math.min(dt * steps, 1);
                 const pressureFactor = Math.pow(finalPressure, 1.0);
 
                 const easeIn = t => t * t * t;
@@ -247,15 +237,11 @@ export function brushModel(props, emit) {
             let size = props.data.size;
 
             if (props.data.sizeDynamics) {
-                const distFactor = Math.min(dist / 50, 1);
-                const timeFactor = Math.min(dt / 50, 1);
-                const pressureFactor = Math.pow(finalPressure, 1.0);
-                const combined = 0.5 + 0.5 * (1 - distFactor) * (1 - timeFactor) * pressureFactor;
-
-                size *= combined;
-                const minSize = props.data.size * 0.3;
-                const maxSize = props.data.size * 1.2;
-                size = Math.min(Math.max(size, minSize), maxSize);
+                // Größe nimmt im Verlauf der Linie zu
+                const progress = dt / steps;
+                size *= 1 + progress * finalPressure;
+                // Clamp: nicht größer als ursprüngliche Pinselgröße
+                size = Math.min(size - steps, props.data.size);
                 currentSize.value = size;
             }
 
