@@ -272,14 +272,6 @@ export function brushModel(props, emit) {
         }
 
         lastPos = curr;
-
-        console.log(
-            'Steps:', steps,
-            'Event:', e.pressure,
-            ', RawPressure:', rawPressure,
-            ', BrushPressureFactor:', props.data.pressure,
-            ', FinalPressure:', finalPressure
-        );
     };
 
 
