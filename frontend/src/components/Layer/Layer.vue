@@ -68,8 +68,8 @@
                     :disabled="windowStates.drag.value && dragId === layer.id"
                     :data-id="layer.id"
                     class="layer-item"
-                    :class="{selected: selectedLayer.includes(layer.id),dragging: windowStates.drag.value && dragId === layer.id,'not-dragging': windowStates.drag.value && dragId !== layer.id}"
-                    @click="toggleLayerSelection(layer.id, layer.opacity, layer.blend_mode)"
+                    :class="{selected: selectedLayer.find(x => x.id === layer.id),dragging: windowStates.drag.value && dragId === layer.id,'not-dragging': windowStates.drag.value && dragId !== layer.id}"
+                    @click="toggleLayerSelection(layer)"
                 >
                   <template v-slot:prepend>
                     <v-icon color="grey" size="x-small" @click.stop="emitEvent('hide-layer', layer)">
@@ -142,7 +142,7 @@
             color="#DCFDD4"
             size="x-small"
             :disabled="selectedLayer.length !== 2"
-            @click="emitEvent('mask-layer', {id: selectedLayer[0], id2: selectedLayer[1]})"
+            @click="emitEvent('mask-layer', {id: selectedLayer[0].id, id2: selectedLayer[1].id})"
         >
           <v-icon color="black">mdi-vector-intersection</v-icon>
         </v-btn>
@@ -160,7 +160,6 @@
             color="#FF516D"
             size="x-small"
             @click="emitEvent('delete-layer', selectedLayer)"
-            @click.stop="selectedLayer = []"
             :disabled="!selectedLayer.length"
         >
           <v-icon color="white">mdi-delete</v-icon>
@@ -187,11 +186,10 @@ export default defineComponent({
     Channel
   },
   setup(props, { emit }) {
-    const { emitEvent, validRule, selectedLayer, toggleLayerSelection, handleDrop, dragId, hiddenState, tabs, tabIndex, handleTabEmit, globalOpacity, updateOpacity, methods, config, updateBlend } = layerModel(props, emit);
+    const { emitEvent, validRule, toggleLayerSelection, handleDrop, dragId, hiddenState, tabs, tabIndex, handleTabEmit, globalOpacity, updateOpacity, methods, config, updateBlend } = layerModel(props, emit);
     return {
       emitEvent,
       validRule,
-      selectedLayer,
       toggleLayerSelection,
       handleDrop,
       dragId,

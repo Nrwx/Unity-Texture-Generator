@@ -138,9 +138,15 @@ export function brushModel(props, emit) {
         return Math.max(0.5, (spacing / 100) * size);
     };
 
-    const enqueue = ({ x, y, alpha, size, angle, flipX, flipY }) => {
-        drawQueue.push({ x, y, alpha, size, angle, flipX, flipY });
-        if (!animating) drawLoop();
+    const enqueue = async ({x, y, alpha, size, angle, flipX, flipY}) => {
+        drawQueue.push({x, y, alpha, size, angle, flipX, flipY});
+        if (!animating) {
+            if (props.selected?.[0]?.url) {
+                await drawToLayer();
+            } else {
+                drawLoop();
+            }
+        }
     };
 
     const drawLoop = () => {
@@ -183,13 +189,13 @@ export function brushModel(props, emit) {
         drawing = true;
     };
 
-    const onPointerMove = (e) => {
+    const onPointerMove = async (e) => {
         if (!drawing || !brushReady || !lastPos) return;
         moved = true;
 
         const now = Date.now();
         const rect = canvas.value.getBoundingClientRect();
-        const curr = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        const curr = {x: e.clientX - rect.left, y: e.clientY - rect.top};
 
         // === DRUCK / PRESSURE ===
         const rawPressure = e.pressure != null ? e.pressure : props.data.pressure;
@@ -260,7 +266,7 @@ export function brushModel(props, emit) {
                 currentAngle.value = randomAngle * (180 / Math.PI);
             }
 
-            enqueue({
+            await enqueue({
                 x,
                 y,
                 alpha,
@@ -273,6 +279,68 @@ export function brushModel(props, emit) {
 
         lastPos = curr;
     };
+
+    const drawToLayer = async () => {
+        const layer = props.selected?.[0];
+        if (!layer || !layer.url) {
+            emitEvent('warn', 'Kein Layer ausgewählt. Bitte wählen Sie ein Ziel-Layer aus.');
+            return;
+        }
+
+        const image = await new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = 'Anonymous';
+            img.src = layer.url;
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+        });
+
+        const offCanvas = document.createElement('canvas');
+        offCanvas.width = layer.width;
+        offCanvas.height = layer.height;
+        const offCtx = offCanvas.getContext('2d');
+
+        // Aktuelle Ebene zeichnen (ursprünglicher Zustand)
+        offCtx.drawImage(image, 0, 0);
+
+        // Transformation anwenden
+        const m = layer.matrix;
+        offCtx.setTransform(m.a, m.b, m.c, m.d, m.x, m.y);
+
+        if (m.rotate) {
+            const cx = layer.width / 2;
+            const cy = layer.height / 2;
+            offCtx.translate(cx, cy);
+            offCtx.rotate((m.rotate * Math.PI) / 180);
+            offCtx.translate(-cx, -cy);
+        }
+
+        // Brush-Routine
+        while (drawQueue.length && currentBrush) {
+            const { x, y, alpha, size, angle, flipX, flipY } = drawQueue.shift();
+            const sc = (props.data.scatter / 100) * size;
+            const sx = (Math.random() - 0.5) * sc;
+            const sy = (Math.random() - 0.5) * sc;
+            const jitter = (props.data.jitter / 100) * size;
+            const finalSize = Math.max(1, size + (Math.random() - 0.5) * jitter);
+
+            offCtx.save();
+            offCtx.globalAlpha = alpha;
+            offCtx.globalCompositeOperation = props.data.blendMode;
+
+            offCtx.translate(x + sx, y + sy);
+            offCtx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
+            offCtx.rotate(angle);
+            offCtx.drawImage(currentBrush, -finalSize / 2, -finalSize / 2, finalSize, finalSize);
+            offCtx.restore();
+        }
+
+        emitEvent('layer-update', {
+            ...layer,
+            url: offCanvas.toDataURL()
+        });
+    };
+
 
 
 
@@ -342,4 +410,5 @@ export const brushProps = {
     brushes: { type: Array, required: true },
     cursor: { type: String, required: false },
     mouse: { type: Object, required: false },
+    selected: { type: Array, required: false },
 };

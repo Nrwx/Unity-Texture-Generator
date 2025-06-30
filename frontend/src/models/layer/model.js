@@ -4,7 +4,6 @@ import {windowStates} from "@/dataLayer/state";
 import {dragData} from "@/models/drag/data/model";
 
 export function layerModel(props, emit) {
-    const selectedLayer = ref([]);
     const globalOpacity = ref(100);
     const dragId = computed(() => {
         return dragData.id.value !== null ? props.layers[dragData.id.value]?.id : null;
@@ -48,21 +47,52 @@ export function layerModel(props, emit) {
                 dense: 'compact',
                 active: true,
                 type: "select",
-                disabled: !selectedLayer.value.length,
-                options: localData.blend_mode.value,
+                disabled: !props.selectedLayer.length,
+                options: [
+                    { title: "Normal", value: 0 },
+                    { title: "Sprenkeln", value: 1 },
+                    { title: "Abdunkeln", value: 2 },
+                    { title: "Multiplizieren", value: 3 },
+                    { title: "Farbig nachdunkeln", value: 4 },
+                    { title: "Linear nachbelichten", value: 5 },
+                    { title: "Aufhellen", value: 6 },
+                    { title: "Negativ Multiplizieren", value: 7 },
+                    { title: "Farbig Abwedeln", value: 8 },
+                    { title: "Linear Abwedeln", value: 9 },
+                    { title: "Hellere Farbe", value: 10 },
+                    { title: "Überlagern", value: 11 },
+                    { title: "Weiches Licht", value: 12 },
+                    { title: "Hartes Licht", value: 13 },
+                    { title: "Strahlendes Licht", value: 14 },
+                    { title: "Lineares Licht", value: 15 },
+                    { title: "Lichtpunkt", value: 16 },
+                    { title: "Hart mischen", value: 17 },
+                    { title: "Differenz", value: 18 },
+                    { title: "Subtrahieren", value: 19 },
+                    { title: "Dividieren", value: 20 },
+                    { title: "Farbton", value: 21 },
+                    { title: "Sättigung", value: 22 },
+                    { title: "Farbe", value: 23 },
+                    { title: "Luminanz", value: 24 },
+                ],
                 event: 'layer-blend-mode'
             },
         },
     }))
 
-    const toggleLayerSelection = (id, opacity, blendMode) => {
-        const index = selectedLayer.value.indexOf(id);
-        globalOpacity.value = opacity * 100
-        localData.selectedBlendMode.value = blendMode
+    const toggleLayerSelection = (layer) => {
+        let data = props.selectedLayer || [];
+        const index = data.findIndex(l => l.id === layer.id);
+
+        globalOpacity.value = layer.opacity * 100;
+        localData.selectedBlendMode.value = layer.blendMode;
+
         if (index === -1) {
-            selectedLayer.value.push(id);
+            data.push(layer);
+            emitEvent('layer:select', data);
         } else {
-            selectedLayer.value.splice(index, 1);
+            data.splice(index, 1);
+            emitEvent('layer:select', data);
         }
     };
 
@@ -90,7 +120,7 @@ export function layerModel(props, emit) {
     const updateOpacity = () => {
         const newOpacity = globalOpacity.value / 100;
         props.layers.forEach(layer => {
-            if (selectedLayer.value.includes(layer.id)) {
+            if (props.selectedLayer.find(x => x.id === layer.id)) {
                 layer.opacity = newOpacity;
                 emitEvent('update-layer', layer);
             }
@@ -99,7 +129,7 @@ export function layerModel(props, emit) {
 
     const updateBlend = (event, payload) => {
         props.layers.forEach(layer => {
-            if (selectedLayer.value.includes(layer.id)) {
+            if (props.selectedLayer.find(x => x.id === layer.id)) {
                 localData.selectedBlendMode.value = payload
                 emitEvent(event, {id: layer.id, blend_mode: payload});
             }
@@ -110,7 +140,6 @@ export function layerModel(props, emit) {
         emitEvent,
         validRule,
         toggleLayerSelection,
-        selectedLayer,
         handleDrop,
         dragId,
         tabs,
@@ -133,6 +162,10 @@ export const layerProps = {
         type: Array,
         required: true,
         default: () => [],
+    },
+    selectedLayer: {
+        type: Array,
+        required: true
     },
     channel: {
         type: Array,

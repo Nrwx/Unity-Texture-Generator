@@ -117,11 +117,15 @@ export const deleteLayer = async (layers) => {
 
     try {
         const state = ref(false);
-        for (const id of layers) {
+        for (const layer of layers) {
             state.value = false;
             const formData = new FormData();
             formData.append("method", "delete");
-            formData.append("id", id);
+            if(layer.id) {
+                formData.append("id", layer.id);
+            } else {
+                formData.append("id", layer);
+            }
 
             const response = await api.post('/layer', formData, {
                 headers: {'Content-Type': 'multipart/form-data'},

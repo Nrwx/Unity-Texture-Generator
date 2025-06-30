@@ -24,12 +24,10 @@ export const layerEvent = (route) => ({
             await route.emit("fetch-layer");
         }
     },
-    "reset-selected-layer": () => {
-        route.localData.selectedLayers.value = null;
-    },
     "delete-layer": async (payload) => {
         const response = await route.api.deleteLayer(payload);
         if (response) {
+            await route.emit("layer:select", [])
             await route.emit("fetch-layer");
         }
     },
@@ -94,6 +92,13 @@ export const layerModifierEvent = (route) => ({
                 await route.emit("fetch-layer");
             }
         }
+    },
+});
+
+export const selectLayerEvent = (route) => ({
+    "layer:select": async (payload) => {
+        route.localData.selectedLayer.value = payload
+        console.log(payload)
     },
 });
 

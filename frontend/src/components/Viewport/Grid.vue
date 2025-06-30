@@ -166,6 +166,10 @@ export default defineComponent({
       type: Boolean,
       required: true,
     },
+    selectedLayer: {
+      type: Array,
+      required: true,
+    },
     brushCursor: {
       type: String,
       required: false,
@@ -179,8 +183,6 @@ export default defineComponent({
   },
   setup(props, { emit }) {
     const canvasContainer = ref(null);
-    const selectedLayer = ref([]);
-
     const zoomFaktor = ref(1);
     const offset = ref({x: 0, y: 0})
     const cursor = ref({ x: 0, y: 0 });
@@ -219,7 +221,7 @@ export default defineComponent({
 
       // Transformieren:
       if (transformStates.transform.value) {
-        selectedLayer.value.forEach(layer => {
+        props.selectedLayer.forEach(layer => {
           if (transformStates.align.value) {
             // Handle Align Modes
             if (alignModeStep.value === 1) {
@@ -279,7 +281,7 @@ export default defineComponent({
 
 // Berechnung der Rotation im Grad
     const calculateRotation = (mouseX, mouseY) => {
-      if (!selectedLayer.value.length) return 0;
+      if (!props.selectedLayer.length) return 0;
 
       const crosshair = document.querySelector(".center-crosshair");
       const crosshairRect = crosshair.getBoundingClientRect();
@@ -328,7 +330,7 @@ export default defineComponent({
 
       deltaAngle *= dampingFactor; // Hier erfolgt die Dämpfung
 
-      selectedLayer.value.forEach(layer => {
+      props.selectedLayer.forEach(layer => {
         let newRotation = (layer.matrix.rotate + deltaAngle + 360) % 360;
 
         if (transformStates.align.value) {
@@ -344,7 +346,7 @@ export default defineComponent({
     // Handle Resize
     const handleResize = async (dx, dy) => {
       backupStates.action.value = 'Bild Skalieren';
-      selectedLayer.value.forEach(layer => {
+      props.selectedLayer.forEach(layer => {
         const originalWidth = layer.width;
         const originalHeight = layer.height;
 
@@ -393,13 +395,13 @@ export default defineComponent({
           || !transformStates.menu.value && !transformStates.transform.value && !event.ctrlKey
           || !transformStates.menu.value && !transformStates.rotate.value && !event.ctrlKey
           || !transformStates.menu.value && !transformStates.size.value && !event.ctrlKey) {
-        selectedLayer.value.forEach(layer => {
+        props.selectedLayer.forEach(layer => {
           updateLayer(layer)
         })
         stopTransform()
         transformStates.align.value = false
         alignModeStep.value = 0
-        selectedLayer.value = []
+        //emitEvent('layer:select', [])
       }
     };
 
@@ -463,7 +465,8 @@ export default defineComponent({
       transformStates.transform.value = false
       transformStates.size.value = false
       transformStates.rotate.value = false
-      const index = selectedLayer.value.findIndex(l => l.id === layer.id);
+      let data = props.selectedLayer
+      const index = data.findIndex(l => l.id === layer.id);
       if (layer.type === 0) {
         storeOriginalMatrix(layer);
       } else if (layer.type === 1) {
@@ -477,9 +480,11 @@ export default defineComponent({
           } else if (layer.type === 1) {
             storedText(layer)
           }
-          selectedLayer.value.push(layer);
+          data.push(layer);
+          emitEvent('layer:select', data)
         } else {
-          selectedLayer.value.splice(index, 1);
+          data.splice(index, 1);
+          emitEvent('layer:select', data)
         }
       } else {
         if (layer.type === 0) {
@@ -487,7 +492,8 @@ export default defineComponent({
         } else if (layer.type === 1) {
           storedText(layer)
         }
-        selectedLayer.value = [layer];
+        data = [layer];
+        emitEvent('layer:select', data)
       }
     };
 
@@ -519,12 +525,14 @@ export default defineComponent({
 
     const handleMouseDown = (event) => {
       event.preventDefault();
+      /*
       const clickedInsideCanvas = event.target.closest('.canvas-container');
 
       if (!clickedInsideCanvas) {
         emitEvent('reset-selected-layer')
         return;
       }
+      */
 
       if (canvasStates.select.value) {
         return;
@@ -661,7 +669,7 @@ export default defineComponent({
         canvasStates.select.value = !canvasStates.select.value;
       }
       if (event.key === 'g') {
-        if (selectedLayer.value.length) {
+        if (props.selectedLayer.length) {
           backupStates.action.value = 'Bild Transformieren';
           transformStates.menu.value = true
           transformStates.transform.value = true;
@@ -695,7 +703,7 @@ export default defineComponent({
     };
 
     const frameBox = computed(() => {
-      const layers = selectedLayer.value;
+      const layers = props.selectedLayer;
       if (!layers.length) return { top: 0, left: 0, width: 0, height: 0 };
 
       const allPoints = layers.flatMap(layer => {
@@ -790,7 +798,6 @@ export default defineComponent({
     });
 
     return {
-      selectedLayer,
       canvasContainer,
       offset,
       cursor,

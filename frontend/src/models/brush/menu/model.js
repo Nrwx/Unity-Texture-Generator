@@ -38,12 +38,9 @@ export function brushMenuModel(props, emit) {
         { key: 'flipY', label: 'Flip Y', type: 'toggle' },
         { key: 'blendMode', label: 'Blend Mode', type: 'select', options: [
                 'normal','multiply','screen','overlay','darken','lighten','color-dodge',
-                'source-over', 'source-in', 'source-out', 'source-atop',
-                'destination-over', 'destination-in', 'destination-out', 'destination-atop',
-                'lighter', 'copy', 'xor',
-                'multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge',
-                'color-burn', 'hard-light', 'soft-light', 'difference', 'exclusion', 'hue',
-                'saturation', 'color', 'luminosity'
+                'lighter', 'copy', 'xor', 'multiply', 'screen', 'overlay', 'darken',
+                'lighten', 'color-dodge', 'color-burn', 'hard-light', 'soft-light', 'difference',
+                'exclusion', 'hue', 'saturation', 'color', 'luminosity'
             ] }
     ];
 
