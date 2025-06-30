@@ -18,7 +18,7 @@
       <!-- Center Section -->
       <div>
         <template v-for="(item, i) in centerItems" :key="'center-' + item.id">
-          <TaskbarItem :item="item" @click="emitEvent(item.id)" />
+          <TaskbarItem :item="item" @update:menu-event="emitEvent" @click="emitEvent(item.id)" />
           <v-divider v-if="centerItems.length > 1 && i < centerItems.length - 1"></v-divider>
         </template>
       </div>

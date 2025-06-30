@@ -11,7 +11,6 @@ export function selectionModel(props, emit) {
     const reverseDashOffset = ref(0);
     const shineOffset = ref(0);
     const reverseShineOffset = ref(0);
-    const activeShape = ref(props.shape);
 
     let animationFrameId;
 
@@ -58,34 +57,33 @@ export function selectionModel(props, emit) {
             key.shift.value = true;
             switch (props.shape) {
                 case "rectangle":
-                    activeShape.value = "square";
+                    emitEvent('select:mask-shape', "square")
                     break;
                 case "square":
-                    activeShape.value = "rectangle";
+                    emitEvent('select:mask-shape', "rectangle")
                     break;
                 case "ellipse":
-                    activeShape.value = "circle";
+                    emitEvent('select:mask-shape', "circle")
                     break;
                 case "circle":
-                    activeShape.value = "ellipse";
+                    emitEvent('select:mask-shape', "ellipse")
                     break;
             }
         }
     };
 
     const onKeyUp = (e) => {
-        if (e.key === "Shift") {
-            key.shift.value = false;
-            activeShape.value = props.shape;
-        }
+        e.preventDefault();
+        key.shift.value = false;
+        emitEvent('select:mask-shape', props.shape)
     };
 
     const isProportional = computed(() => {
-        return activeShape.value === "square" || activeShape.value === "circle";
+        return props.shape === "square" || props.shape === "circle";
     });
 
     const isCircleOrEllipse = computed(() => {
-        return activeShape.value === "ellipse" || activeShape.value === "circle";
+        return props.shape === "ellipse" || props.shape === "circle";
     });
 
     const onMouseDown = (e) => {
@@ -124,10 +122,6 @@ export function selectionModel(props, emit) {
         const height = Math.abs(start.value.y - end.value.y);
 
         selectionBox.value = { x, y, width, height };
-
-        emitEvent("select-state", {
-            x, y, width, height, shape: activeShape.value, state: true,
-        });
     };
 
     const activeBox = computed(() => {
@@ -159,10 +153,10 @@ export function selectionModel(props, emit) {
         const box = activeBox.value;
         if (!box) return {};
 
-        if (activeShape.value === "circle") {
+        if (props.shape === "circle") {
             const r = Math.min(box.width, box.height) / 2;
             return { cx: r, cy: r, rx: r, ry: r };
-        } else if (activeShape.value === "ellipse") {
+        } else if (props.shape === "ellipse") {
             return {
                 cx: box.width / 2,
                 cy: box.height / 2,
@@ -180,7 +174,7 @@ export function selectionModel(props, emit) {
     });
 
     const shapeTag = computed(() =>
-        activeShape.value === "circle" || activeShape.value === "ellipse" ? "ellipse" : "rect"
+        props.shape === "circle" || props.shape === "ellipse" ? "ellipse" : "rect"
     );
 
     return {
@@ -206,6 +200,6 @@ export const selectionProps = {
     state: Boolean,
     shape: {
         type: String,
-        default: "rectangle", // 'rectangle' | 'square' | 'ellipse' | 'circle'
+        required: true
     },
 };

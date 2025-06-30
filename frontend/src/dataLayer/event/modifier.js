@@ -1,4 +1,3 @@
-
 export const modifierEvent = (route) => ({
     "reset:modifiers": async (payload) => {
         await route.emit("fill-color-state", payload);
@@ -12,5 +11,9 @@ export const modifierEvent = (route) => ({
         if (response) {
             await route.emit("fetch-layer");
         }
+    },
+    "select:mask-shape": async (payload) => {
+        route.localData.selectedShape.value = payload
+        console.log(route.localData.selectedShape.value)
     },
 })

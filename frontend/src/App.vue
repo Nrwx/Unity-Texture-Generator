@@ -83,34 +83,50 @@ export default {
     });
 
     const taskbarEvent = async (side, itemId) => {
-      if (side === 'left') {
-        itemsLeft.value.forEach(item => item.active = false);
+      const list = side === 'left' ? itemsLeft.value : itemsRight.value;
+      const windowState = side === 'left' ? windowStates.drawerLeft : windowStates.drawerRight;
 
-        const activeItem = itemsLeft.value.find(item => item.id === itemId);
-        if (activeItem) activeItem.active = !activeItem.active;
+      // Prüfe zuerst, ob das itemId ein SubItem (menuItem) ist
+      const parentItem = list.find(item => item.menuItems?.some(mi => mi.id === itemId));
 
-        if (activeItem?.event) {
-          await componentEvent(activeItem.event, activeItem.active);
-          await nextTick()
-          windowStates.drawerLeft.value = !activeItem.active;
-        } else {
-          windowStates.drawerLeft.value = activeItem.active;
+      if (parentItem) {
+        // SubItem-Modus (menuItem)
+        parentItem.menuItems.forEach(mi => mi.active = false);
+
+        const activeMenuItem = parentItem.menuItems.find(mi => mi.id === itemId);
+        if (activeMenuItem) activeMenuItem.active = !activeMenuItem.active;
+
+
+        if (activeMenuItem.active && activeMenuItem.icon) {
+          parentItem.icon = activeMenuItem.icon;
         }
-      } else if (side === 'right') {
-        itemsRight.value.forEach(item => item.active = false);
 
-        const activeItem = itemsRight.value.find(item => item.id === itemId);
-        if (activeItem) activeItem.active = !activeItem.active;
-
-        if (activeItem?.event) {
-          await componentEvent(activeItem.event, activeItem.active);
-          await nextTick()
-          windowStates.drawerRight.value = !activeItem.active;
-        } else {
-          windowStates.drawerRight.value = activeItem.active;
+        if (!parentItem.menuItems.some(mi => mi.active)) {
+          parentItem.icon = parentItem.menuItems[0].icon || null;
         }
+
+        if (activeMenuItem?.event) {
+          await componentEvent(activeMenuItem.event, activeMenuItem.val);
+        }
+
+        return;
+      }
+
+      // Standard Taskbar-Item
+      list.forEach(item => item.active = false);
+
+      const activeItem = list.find(item => item.id === itemId);
+      if (activeItem) activeItem.active = !activeItem.active;
+
+      if (activeItem?.event) {
+        await componentEvent(activeItem.event, activeItem.active);
+        await nextTick();
+        windowState.value = !activeItem.active;
+      } else {
+        windowState.value = activeItem.active;
       }
     };
+
 
     const init = async () => {
       if(!localData.layers.value.length) {

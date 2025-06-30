@@ -25,13 +25,12 @@ export const windowStateEvent = (route) => ({
             route.windowStates.layer.value = payload;
         }
     },
-    "select-state": (payload) => {
+    "select-state": async (payload) => {
         if (typeof payload === "boolean") {
             route.windowStates.select.value = payload;
         } else {
             route.windowStates.select.value = payload.state;
-            route.localData.selectedShape.value = payload.shape;
-            console.log('Auswahl abgeschlossen:', payload)
+            await route.emit("select:mask-shape", payload.shape);
         }
     },
     "cursor-state": async (payload) => {

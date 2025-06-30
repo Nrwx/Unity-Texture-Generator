@@ -87,6 +87,7 @@ export const updateLayer = async (layer) => {
         formData.append("width", layer.width);
         formData.append("height", layer.height);
         formData.append("id", layer.id);
+        formData.append("url", layer.url);
         formData.append("a", layer.matrix.a);
         formData.append("b", layer.matrix.b);
         formData.append("c", layer.matrix.c);

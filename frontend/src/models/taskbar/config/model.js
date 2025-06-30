@@ -68,7 +68,25 @@ export const taskbarItemLeft = [
         icon: 'mdi-select',
         active: false,
         tooltip: 'Frei-Maskierung',
-        event: 'select-state'
+        event: 'select-state',
+        menuItems: [
+            {
+                id: uuidv4(),
+                title: 'Rechteckmaske',
+                icon: 'mdi-select',
+                active: false,
+                event: 'select:mask-shape',
+                val: 'rectangle'
+            },
+            {
+                id: uuidv4(),
+                title: 'Kreismaske',
+                icon: 'mdi-selection-ellipse',
+                active: false,
+                event: 'select:mask-shape',
+                val: 'ellipse'
+            }
+        ]
     },
     {
         position: 'center',

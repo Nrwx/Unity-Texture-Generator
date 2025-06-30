@@ -38,6 +38,6 @@ export const localData = {
     sort: ref("newest"),
     animation: ref([]),
     tile: ref({x: 1, y: 1}),
-    selectedShape: ref('rectangle'), // oder 'rectangle' | 'square' | 'circle'
+    selectedShape: ref('rectangle'),
     selectedBlendMode: ref(0),
 }

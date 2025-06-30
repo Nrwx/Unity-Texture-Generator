@@ -13,8 +13,31 @@
             :color="item.active ? 'yellow-lighten-4' : ''"
             @click="emitEvent"
         >
+          <!-- Optional: Speed Dial -->
+          <template v-if="hasMenu">
+            <v-speed-dial
+                v-model="menu"
+                :location="'right center'"
+                activator="parent"
+                transition="slide-y-reverse-transition"
+            >
+              <v-btn
+                  v-for="menuItem in item.menuItems"
+                  :key="menuItem.id"
+                  :color="menuItem.active ? 'yellow-lighten-4' : ''"
+                  icon
+                  flat
+                  rounded="0"
+                  @click="emitMenuEvent(menuItem)"
+              >
+                <v-icon :size="20">{{ menuItem.icon }}</v-icon>
+              </v-btn>
+            </v-speed-dial>
+          </template>
+
           <v-icon>{{ item.icon }}</v-icon>
         </v-btn>
+
         <v-btn
             v-else
             v-bind="props"
@@ -44,9 +67,12 @@ export default defineComponent({
   name: "TaskbarItem",
   props: taskbarItemProps,
   setup(props, { emit }) {
-    const { emitEvent } = taskbarItemModel(emit);
+    const { menu, hasMenu, emitMenuEvent, emitEvent } = taskbarItemModel(props, emit);
     return {
-      emitEvent
+      hasMenu,
+      emitMenuEvent,
+      menu,
+      emitEvent,
     };
   },
 });

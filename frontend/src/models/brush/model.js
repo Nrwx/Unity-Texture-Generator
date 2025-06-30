@@ -335,7 +335,7 @@ export function brushModel(props, emit) {
             offCtx.restore();
         }
 
-        emitEvent('layer-update', {
+        emitEvent('update-layer', {
             ...layer,
             url: offCanvas.toDataURL()
         });
