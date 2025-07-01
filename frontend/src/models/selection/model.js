@@ -65,7 +65,7 @@ export function selectionModel(props, emit) {
                     console.warn(`Target element not found`);
                     return;
                 }
-                emitEvent(id, {
+                emitEvent('event:listener', {
                     add: true,
                     id: id,
                     target: target,
@@ -77,14 +77,14 @@ export function selectionModel(props, emit) {
                 break;
 
             case 'removeAll':
-                emitEvent(id, {
+                emitEvent('event:listener', {
                     removeAll: true,
                     id,
                 });
                 break;
 
             case 'pause':
-                emitEvent(id, {
+                emitEvent('event:listener', {
                     pause: true,
                     id
                 });

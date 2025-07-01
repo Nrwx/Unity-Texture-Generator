@@ -1,10 +1,12 @@
-import {computed, nextTick, onUnmounted, ref} from "vue";
+import {computed, nextTick, onBeforeUnmount, onMounted, ref} from "vue";
 
 export function textModel(props, emit) {
     const overlay = ref(null);
+    const textarea = ref(null);
+    const container = ref(null);
+
     const drawing = ref(false);
     const drawn = ref(false);
-    const textarea = ref(null);
 
     const startX = ref(0);
     const startY = ref(0);
@@ -14,21 +16,73 @@ export function textModel(props, emit) {
     const initialWidth = ref(0);
     const initialHeight = ref(0);
 
-    const focusTextarea = () => {
-        nextTick(() => {
+    const emitEvent = (event, payload) => {
+        emit("update:component-event", event, payload);
+    };
+
+    const register = (mode, target, type = null, handler = null) => {
+        const id = 'listener:text-create';
+
+        switch (mode) {
+            case 'add':
+                if (!target || typeof target.addEventListener !== 'function') {
+                    console.warn(`Invalid target for event listener:`, target);
+                    return;
+                }
+                emitEvent('event:listener', {
+                    add: true,
+                    id: id,
+                    target: target,
+                    type: type,
+                    handler: handler,
+                    options: false,
+                    active: true,
+                });
+                break;
+
+            case 'remove':
+                emitEvent('event:listener', {
+                    removeAll: true,
+                    id: id,
+                    type: type,
+                    handler: handler
+                });
+                break;
+
+            case 'removeAll':
+                emitEvent('event:listener', {
+                    removeAll: true,
+                    id,
+                });
+                break;
+
+            case 'pause':
+                emitEvent('event:listener', {
+                    pause: true,
+                    id
+                });
+                break;
+
+            default:
+                console.warn(`Unknown mode '${mode}' passed to register()`);
+        }
+    };
+
+    const focusTextarea = async () => {
+        await nextTick(() => {
             textarea.value?.focus();
         });
     };
 
     const confirmText = () => {
-        textarea.value?.blur(); // Fokus entfernen
+        textarea.value?.blur();
         finishEditing();
-        drawn.value = false;
         drawn.value = false
         drawing.value = false
-        props.layer.text = ''
+        resetLayer()
         overlay.value = null
         textarea.value = null
+        container.value = null
         startX.value = 0
         startY.value = 0
         initialMouseX.value = 0
@@ -39,24 +93,21 @@ export function textModel(props, emit) {
     };
 
     const cancelText = () => {
-        props.layer.text = '';
+        resetLayer()
+        drawing.value = false
         drawn.value = false;
     };
 
     // Nur Zeichnen starten, wenn kein Textfeld bereits sichtbar ist
     const handleOverlayClick = (e) => {
         if (!drawn.value) {
-            startDraw(e);
+            return startDraw(e);
         }
     };
 
-    const editAgain = () => {
+    const editAgain = async () => {
         // Bei Doppelklick das Textfeld erneut fokussieren
-        focusTextarea();
-    };
-
-    const emitEvent = (event, payload) => {
-        emit("update:component-event", event, payload);
+        await focusTextarea();
     };
 
     const selectionSvgStyle = computed(() => ({
@@ -91,8 +142,8 @@ export function textModel(props, emit) {
         props.layer.initHeight = 1;
         props.layer.initFontSize = 0.40;
 
-        window.addEventListener("mousemove", handleDraw);
-        window.addEventListener("mouseup", stopDraw);
+        register('add', window, 'mousemove', handleDraw);
+        register('add', window, 'mouseup', stopDraw);
     };
 
 
@@ -109,10 +160,10 @@ export function textModel(props, emit) {
         props.layer.height = Math.abs(currentY - startY.value);
     };
 
-    const stopDraw = () => {
+    const stopDraw = async () => {
         drawing.value = false;
-        window.removeEventListener("mousemove", handleDraw);
-        window.removeEventListener("mouseup", stopDraw);
+        register('add', window, 'mousemove', handleDraw);
+        register('add', window, 'mouseup', stopDraw);
 
         if (props.layer.width > 10 && props.layer.height > 10) {
             props.layer.initWidth = props.layer.width;
@@ -120,7 +171,7 @@ export function textModel(props, emit) {
             props.layer.fontSize = Math.round(Math.min(props.layer.width, props.layer.height) / 2.5);
             props.layer.initFontSize = props.layer.fontSize; // neue Property für spätere Referenz
             drawn.value = true;
-            nextTick(() => {
+            await nextTick(() => {
                 textarea.value?.focus();
             });
         }
@@ -161,8 +212,8 @@ export function textModel(props, emit) {
         initialWidth.value = props.layer.width;
         initialHeight.value = props.layer.height;
 
-        window.addEventListener("mousemove", handleResize);
-        window.addEventListener("mouseup", stopResize);
+        register('add', window, 'mousemove', handleResize);
+        register('add', window, 'mouseup', stopResize);
     };
 
     const handleResize = (e) => {
@@ -201,10 +252,22 @@ export function textModel(props, emit) {
         }
     };
 
+    const resetLayer = () => {
+        props.layer.x = 0;
+        props.layer.y = 0;
+        props.layer.width = 0;
+        props.layer.height = 0;
+        props.layer.initWidth = 1;
+        props.layer.initHeight = 1;
+        props.layer.fontSize = 16;
+        props.layer.initFontSize = 16;
+        props.layer.text = '';
+    };
+
 
     const stopResize = () => {
-        window.removeEventListener("mousemove", handleResize);
-        window.removeEventListener("mouseup", stopResize);
+        register('remove', window, 'mousemove', handleResize);
+        register('remove', window, 'mouseup', stopResize);
     };
 
     const adjustHeight = () => {
@@ -220,9 +283,13 @@ export function textModel(props, emit) {
     });
 
 
-    onUnmounted(() => {
-        window.removeEventListener("mousemove", handleDraw);
-        window.removeEventListener("mouseup", stopDraw);
+    onMounted( async () => {
+        register('add', overlay.value, 'mousedown', handleOverlayClick);
+        register('pause')
+    });
+
+    onBeforeUnmount(() => {
+        register('removeAll');
     });
 
     return {

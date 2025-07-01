@@ -1,5 +1,5 @@
-export const modifierListener = (route) => ({
-    "listener:select-mask": async (payload) => {
+export const listenerEvent = (route) => ({
+    "event:listener": async (payload) => {
         if (payload.add) {
             route.listener.add(payload.id, payload.target, payload.type, payload.handler, payload.options, payload.active);
         }

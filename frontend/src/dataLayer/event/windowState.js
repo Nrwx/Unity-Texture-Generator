@@ -3,8 +3,9 @@ export const windowStateEvent = (route) => ({
         console.log(payload);
         await route.emit("reset:modifiers", payload);
         await route.emit("select-state", payload);
-        await route.emit("listener:select-mask", {pause: true, id: 'listener:select-mask'})
+        await route.emit("event:listener", {pause: true, id: 'listener:select-mask'})
         await route.emit("text-state", payload);
+        await route.emit("event:listener", {pause: true, id: 'listener:text-create'})
         await route.emit("brush-state", payload);
         await route.emit("drawing-state", payload);
     },
@@ -28,7 +29,7 @@ export const windowStateEvent = (route) => ({
         if (typeof payload === "boolean") {
             route.windowStates.select.value = payload;
             if(!route.listener.isActive('listener:select-mask')) {
-                await route.emit("listener:select-mask", {resume: true, id: 'listener:select-mask'})
+                await route.emit("event:listener", {resume: true, id: 'listener:select-mask'})
             }
         } else {
             route.windowStates.select.value = payload.state;
@@ -41,9 +42,12 @@ export const windowStateEvent = (route) => ({
             await route.emit("reset:window-states", false);
         }
     },
-    "text-state": (payload) => {
+    "text-state": async (payload) => {
         if (typeof payload === "boolean") {
             route.windowStates.text.value = payload;
+            if (!route.listener.isActive('listener:text-create')) {
+                await route.emit("event:listener", {resume: true, id: 'listener:text-create'})
+            }
         }
     },
     "brush-state": (payload) => {

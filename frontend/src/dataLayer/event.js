@@ -1,4 +1,6 @@
 //event.js
+import createListenerManager from "@/dataLayer/listener";
+import {listenerEvent} from "@/dataLayer/event/listener";
 import {viewportEvent} from "@/dataLayer/event/viewport";
 import {
     layerEvent,
@@ -18,14 +20,13 @@ import {modifierEvent} from "@/dataLayer/event/modifier";
 import {aiEvent} from "@/dataLayer/event/ai";
 import {brushEvent} from "@/dataLayer/event/brush";
 import {cursorEvent} from "@/dataLayer/event/cursor";
-import createListenerManager from "@/dataLayer/listener";
 
-import {modifierListener} from "@/dataLayer/listener/modifier";
 
 /**
  * Kombiniert alle Events zu einem Handler-Objekt
  */
 const eventHandler = (route) => ({
+    ...listenerEvent(route),
     ...fontsEvent(route),
     ...globalBackupEvent(route),
     ...cursorEvent(route),
@@ -44,10 +45,6 @@ const eventHandler = (route) => ({
     ...textModifierEvent(route),
     ...channelEvent(route),
     ...contextMenuEvent(route)
-});
-
-const listenerHandler = (route) => ({
-    ...modifierListener(route)
 });
 
 
@@ -82,12 +79,7 @@ export const createEventSystem = (deps) => {
 
     route.listener = createListenerManager();
 
-    const handler = {
-        ...eventHandler(route),
-        ...listenerHandler(route)
-    };
-
-    const emit = eventManager(handler);
+    const emit = eventManager(eventHandler(route));
     route.emit = emit;
     return emit;
 };

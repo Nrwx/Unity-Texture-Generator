@@ -1,10 +1,9 @@
 <template>
   <!-- Zeichenfläche (Overlay), aktiv bei `state === true` -->
   <div
-      v-if="state"
+      v-show="state"
       class="drawing-overlay absolute"
       ref="overlay"
-      @mousedown="handleOverlayClick"
   >
     <!-- Auswahlrahmen als SVG -->
     <svg
@@ -34,34 +33,35 @@
       </text>
     </svg>
     <!-- Textebene nach erfolgreichem Zeichnen -->
-    <div
-        v-if="drawn"
-        class="text-layer d-flex flex-column absolute"
-        :style="wrapperStyle"
-        @dblclick="editAgain"
-    >
-      <textarea
-          :id="layer.id"
-          v-model="layer.text"
-          class="custom-textarea"
-          ref="textarea"
-          :style="textareaStyle"
-          @mousedown.stop
-          @input="adjustHeight"
-      />
-      <div class="action-buttons d-flex justify-center align-center">
-        <v-btn icon size="20" elevation="0" color="#87ff8c80" title="Bestätigen" @click="confirmText">
-          <v-icon size="14" color="white" icon="mdi-check"/>
-        </v-btn>
-        <v-btn icon size="20" elevation="0" color="#e5222880" title="Abbrechen" @click="cancelText">
-          <v-icon size="14" color="white" icon="mdi-close"/>
+    <div v-show="drawn" ref="container">
+      <div
+          class="text-layer d-flex flex-column absolute"
+          :style="wrapperStyle"
+          @dblclick="editAgain"
+      >
+          <textarea
+              :id="layer.id"
+              v-model="layer.text"
+              class="custom-textarea"
+              ref="textarea"
+              :style="textareaStyle"
+              @mousedown.stop
+              @input="adjustHeight"
+          />
+        <div class="action-buttons d-flex justify-center align-center">
+          <v-btn ref="confirm" icon size="20" elevation="0" color="#87ff8c80" title="Bestätigen" @click="confirmText">
+            <v-icon size="14" color="white" icon="mdi-check"/>
+          </v-btn>
+          <v-btn ref="cancel" icon size="20" elevation="0" color="#e5222880" title="Abbrechen" @click="cancelText">
+            <v-icon size="14" color="white" icon="mdi-close"/>
+          </v-btn>
+        </div>
+
+        <!-- Resize Handle (bottom right) -->
+        <v-btn ref="resize" class="resize-handle" rounded="0" icon size="24" elevation="0" color="transparent" title="Rahmen neu anordnen" @mousedown="startResize">
+          <v-icon size="24" color="white" icon="mdi-resize-bottom-right"/>
         </v-btn>
       </div>
-
-      <!-- Resize Handle (bottom right) -->
-      <v-btn class="resize-handle" rounded="0" icon size="24" elevation="0" color="transparent" title="Rahmen neu anordnen" @mousedown="startResize">
-        <v-icon size="24" color="white" icon="mdi-resize-bottom-right"/>
-      </v-btn>
     </div>
   </div>
 </template>
@@ -74,9 +74,10 @@ export default defineComponent({
   name: "TextComponent",
   props: textProps,
   setup(props, { emit }) {
-    const {drawing, finishEditing, wrapperStyle, textareaStyle, startDraw, drawn, overlay, textarea, editAgain, handleOverlayClick, confirmText, cancelText,autoGrow, startResize, adjustHeight, selectionSvgStyle, predictedFontSize } = textModel(props, emit);
+    const { drawing, container, finishEditing, wrapperStyle, textareaStyle, startDraw, drawn, overlay, textarea, editAgain, handleOverlayClick, confirmText, cancelText,autoGrow, startResize, adjustHeight, selectionSvgStyle, predictedFontSize } = textModel(props, emit);
     return {
       drawing,
+      container,
       drawn,
       startDraw,
       finishEditing,
