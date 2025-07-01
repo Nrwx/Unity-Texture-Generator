@@ -46,7 +46,7 @@ import ViewportGrid from "@/components/Viewport/Grid";
 import {settings} from "@/dataLayer/parameter";
 import Context from "@/components/Context/Context.vue";
 import {textLayer} from "@/models/text/config/model";
-import {createEventSystem} from "@/dataLayer/event";
+import { createEventSystem } from '@/dataLayer/event';
 import {contextConfig} from "@/models/context/config/model";
 import {brushSettings} from "@/models/brush/config/model";
 

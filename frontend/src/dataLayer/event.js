@@ -1,3 +1,4 @@
+//event.js
 import {viewportEvent} from "@/dataLayer/event/viewport";
 import {
     layerEvent,
@@ -17,6 +18,9 @@ import {modifierEvent} from "@/dataLayer/event/modifier";
 import {aiEvent} from "@/dataLayer/event/ai";
 import {brushEvent} from "@/dataLayer/event/brush";
 import {cursorEvent} from "@/dataLayer/event/cursor";
+import createListenerManager from "@/dataLayer/listener";
+
+import {modifierListener} from "@/dataLayer/listener/modifier";
 
 /**
  * Kombiniert alle Events zu einem Handler-Objekt
@@ -42,11 +46,16 @@ const eventHandler = (route) => ({
     ...contextMenuEvent(route)
 });
 
+const listenerHandler = (route) => ({
+    ...modifierListener(route)
+});
+
+
 /**
  * Event Manager – nimmt alle Events entgegen und ruft den passenden Handler auf
  */
 const eventManager = (handlers) => {
-    return async (event, payload) => {
+    return async (event, payload=undefined) => {
         const handler = handlers[event];
         if (handler) {
             try {
@@ -60,6 +69,7 @@ const eventManager = (handlers) => {
     };
 };
 
+
 /**
  * Exportierte Initialisierungsfunktion
  * @param {Object} deps - Alle externen Abhängigkeiten
@@ -67,11 +77,17 @@ const eventManager = (handlers) => {
 export const createEventSystem = (deps) => {
     const route = {
         ...deps,
-        emit: null
+        emit: null,
     };
 
-    const emit = eventManager(eventHandler(route));
-    route.emit = emit;
+    route.listener = createListenerManager();
 
+    const handler = {
+        ...eventHandler(route),
+        ...listenerHandler(route)
+    };
+
+    const emit = eventManager(handler);
+    route.emit = emit;
     return emit;
 };

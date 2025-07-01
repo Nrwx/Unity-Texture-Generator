@@ -1,7 +1,8 @@
-import { computed, ref, onMounted, onBeforeUnmount } from "vue";
+import {computed, ref, onMounted, onBeforeUnmount} from "vue";
 import { key } from "@/dataLayer/key";
 
 export function selectionModel(props, emit) {
+    const panel = ref(null);
     const selecting = ref(false);
     const start = ref({ x: 0, y: 0 });
     const end = ref({ x: 0, y: 0 });
@@ -36,21 +37,64 @@ export function selectionModel(props, emit) {
         };
     };
 
-    onMounted(() => {
+    onMounted(async () => {
         startAnimation();
-        window.addEventListener("keydown", onKeyDown);
-        window.addEventListener("keyup", onKeyUp);
+        register('add', panel.value, 'mousedown', onMouseDown);
+        register('add', panel.value, 'mouseup', onMouseUp);
+        register('add', panel.value, 'mousemove', onMouseMove);
+        register('add', document, 'keydown', onKeyDown);
+        register('add', document, 'keyup', onKeyUp);
+        register('pause')
     });
 
     onBeforeUnmount(() => {
         stopAnimation();
-        window.removeEventListener("keydown", onKeyDown);
-        window.removeEventListener("keyup", onKeyUp);
+        register('removeAll');
     });
 
     const emitEvent = (event, payload) => {
         emit("update:component-event", event, payload);
     };
+
+    const register = (mode, target, type = null, handler = null) => {
+        const id = 'listener:select-mask';
+
+        switch (mode) {
+            case 'add':
+                if (!target) {
+                    console.warn(`Target element not found`);
+                    return;
+                }
+                emitEvent(id, {
+                    add: true,
+                    id: id,
+                    target: target,
+                    type: type,
+                    handler: handler,
+                    options: false,
+                    active: true,
+                });
+                break;
+
+            case 'removeAll':
+                emitEvent(id, {
+                    removeAll: true,
+                    id,
+                });
+                break;
+
+            case 'pause':
+                emitEvent(id, {
+                    pause: true,
+                    id
+                });
+                break;
+
+            default:
+                console.warn(`Unknown mode '${mode}' passed to register()`);
+        }
+    };
+
 
     const onKeyDown = (e) => {
         if (e.key === "Shift" && !key.shift.value) {
@@ -178,6 +222,7 @@ export function selectionModel(props, emit) {
     );
 
     return {
+        panel,
         selecting,
         isCircleOrEllipse,
         onKeyDown,
@@ -191,13 +236,15 @@ export function selectionModel(props, emit) {
         dashOffset,
         shineOffset,
         reverseDashOffset,
-        reverseShineOffset,
-        emitEvent,
+        reverseShineOffset
     };
 }
 
 export const selectionProps = {
-    state: Boolean,
+    state: {
+        type: Boolean,
+        required: true
+    },
     shape: {
         type: String,
         required: true

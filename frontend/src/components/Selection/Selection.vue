@@ -1,12 +1,8 @@
 <template>
   <div
+      v-show="state"
       class="absolute w-h"
-      v-if="state"
-      @mousedown="onMouseDown"
-      @mousemove="onMouseMove"
-      @mouseup="onMouseUp"
-      @keydown="onKeyDown"
-      @keyup="onKeyUp"
+      ref="panel"
       tabindex="0"
   >
     <!-- Auswahlrahmen via SVG -->
@@ -110,9 +106,9 @@ export default defineComponent({
   name: "SelectionComponent",
   props: selectionProps,
   setup(props, { emit }) {
-    const { emitEvent, isCircleOrEllipse, boxStyle, selecting, onMouseDown, onMouseMove, onMouseUp, onKeyDown, onKeyUp, svgStyle, shapeTag, shapeAttrs, shineOffset, dashOffset,reverseDashOffset, reverseShineOffset} = selectionModel(props, emit);
+    const {panel, isCircleOrEllipse, boxStyle, selecting, onMouseDown, onMouseMove, onMouseUp, onKeyDown, onKeyUp, svgStyle, shapeTag, shapeAttrs, shineOffset, dashOffset,reverseDashOffset, reverseShineOffset} = selectionModel(props, emit);
     return {
-      emitEvent,
+      panel,
       isCircleOrEllipse,
       boxStyle,
       selecting,

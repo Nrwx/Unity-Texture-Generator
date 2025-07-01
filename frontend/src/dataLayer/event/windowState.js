@@ -1,10 +1,9 @@
-import {nextTick} from "vue";
-
 export const windowStateEvent = (route) => ({
     "reset:window-states": async (payload) => {
+        console.log(payload);
         await route.emit("reset:modifiers", payload);
-        await nextTick()
         await route.emit("select-state", payload);
+        await route.emit("listener:select-mask", {pause: true, id: 'listener:select-mask'})
         await route.emit("text-state", payload);
         await route.emit("brush-state", payload);
         await route.emit("drawing-state", payload);
@@ -28,6 +27,9 @@ export const windowStateEvent = (route) => ({
     "select-state": async (payload) => {
         if (typeof payload === "boolean") {
             route.windowStates.select.value = payload;
+            if(!route.listener.isActive('listener:select-mask')) {
+                await route.emit("listener:select-mask", {resume: true, id: 'listener:select-mask'})
+            }
         } else {
             route.windowStates.select.value = payload.state;
             await route.emit("select:mask-shape", payload.shape);
@@ -35,9 +37,8 @@ export const windowStateEvent = (route) => ({
     },
     "cursor-state": async (payload) => {
         if (typeof payload === "boolean") {
-            await route.emit("reset:window-states", false);
-            await nextTick()
             route.windowStates.cursor.value = payload;
+            await route.emit("reset:window-states", false);
         }
     },
     "text-state": (payload) => {
