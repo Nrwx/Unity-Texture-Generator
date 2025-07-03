@@ -1,4 +1,5 @@
-import {computed, nextTick, onMounted, onUnmounted, ref} from 'vue';
+import {computed, nextTick, onBeforeUnmount, onMounted, ref} from 'vue';
+import {eventRegister} from "@/dataLayer/event";
 
 const brushCache = new Map();
 
@@ -63,7 +64,9 @@ export function brushModel(props, emit) {
         };
     });
 
-    const emitEvent = (evt, payload) => emit('update:component-event', evt, payload);
+    const emitEvent = (event, payload) => emit('update:component-event', event, payload);
+
+    const { register } = eventRegister('listener:brush', emitEvent);
 
     const initCanvas = () => {
         const el = canvas.value;
@@ -73,15 +76,6 @@ export function brushModel(props, emit) {
         ctx.value = el.getContext('2d');
         Object.assign(ctx.value, { lineCap: 'round', lineJoin: 'round' });
     };
-
-    onMounted(() => {
-        initCanvas();
-        window.addEventListener('resize', initCanvas);
-    });
-
-    onUnmounted(() => {
-        window.removeEventListener('resize', initCanvas);
-    });
 
     const parseColor = (() => {
         const cache = {};
@@ -341,13 +335,9 @@ export function brushModel(props, emit) {
         });
     };
 
-
-
-
-
-    const onPointerUp = (e) => {
+    const onPointerUp = async (e) => {
         if (!drawing) return;
-        if (!moved) onPointerMove(e);
+        if (!moved) await onPointerMove(e);
         emitEvent('drawing-state', false);
         drawing = false;
         lastPos = null;
@@ -366,14 +356,14 @@ export function brushModel(props, emit) {
         };
         visible.value = true;
         await nextTick();
-        document.addEventListener('click', closeContextMenu);
+        register('add', document, 'click', closeContextMenu);
     };
 
     const closeContextMenu = (e) => {
         const menu = document.querySelector('.brush-context-menu');
         if (menu && !menu.contains(e.target)) {
             visible.value = false;
-            document.removeEventListener('click', closeContextMenu);
+            register('remove', document, 'click', closeContextMenu);
         }
     };
 
@@ -386,6 +376,16 @@ export function brushModel(props, emit) {
         emitEvent('upload-brush', file);
         visible.value = false;
     };
+
+    onMounted(() => {
+        initCanvas();
+        register('add', document, 'resize', initCanvas);
+        register('pause');
+    });
+
+    onBeforeUnmount(() => {
+        register('remove', document, 'resize', initCanvas);
+    });
 
     return {
         canvas,

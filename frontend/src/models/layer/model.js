@@ -110,7 +110,7 @@ export function layerModel(props, emit) {
     const handleTabEmit =  (index) => {
         tabIndex.value = index
         if(index === 0) {
-            emitEvent('fetch-layer')
+            emitEvent('layer:select', [])
         }
         if(index === 1) {
             emitEvent('update-channel')

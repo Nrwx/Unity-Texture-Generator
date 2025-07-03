@@ -21,16 +21,13 @@ export function drawerModel(props, emit) {
 }
 
 export const drawerProps = {
-    // Ob der Drawer ein Taskbar-Menü ist
     item: {
         type: Object,
-        required: true,
-        default: () => {},
+        required: true
     },
     taskbarMenu: {
         type: Boolean,
-        required: true,
-        default: false,
+        required: true
     },
     time: {
         type: Number,

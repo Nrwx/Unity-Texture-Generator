@@ -49,7 +49,7 @@
               @input="adjustHeight"
           />
         <div class="action-buttons d-flex justify-center align-center">
-          <v-btn ref="confirm" icon size="20" elevation="0" color="#87ff8c80" title="Bestätigen" @click="confirmText">
+          <v-btn id="text-layer-confirm" icon size="20" elevation="0" color="#87ff8c80" title="Bestätigen" @click="confirmText">
             <v-icon size="14" color="white" icon="mdi-check"/>
           </v-btn>
           <v-btn ref="cancel" icon size="20" elevation="0" color="#e5222880" title="Abbrechen" @click="cancelText">
@@ -74,8 +74,9 @@ export default defineComponent({
   name: "TextComponent",
   props: textProps,
   setup(props, { emit }) {
-    const { drawing, container, finishEditing, wrapperStyle, textareaStyle, startDraw, drawn, overlay, textarea, editAgain, handleOverlayClick, confirmText, cancelText,autoGrow, startResize, adjustHeight, selectionSvgStyle, predictedFontSize } = textModel(props, emit);
+    const { confirmText, drawing, container, finishEditing, wrapperStyle, textareaStyle, startDraw, drawn, overlay, textarea, editAgain, cancelText, startResize, adjustHeight, selectionSvgStyle, predictedFontSize } = textModel(props, emit);
     return {
+      confirmText,
       drawing,
       container,
       drawn,
@@ -86,10 +87,7 @@ export default defineComponent({
       overlay,
       textarea,
       editAgain,
-      handleOverlayClick,
-      confirmText,
       cancelText,
-      autoGrow,
       startResize,
       adjustHeight,
       selectionSvgStyle,

@@ -22,8 +22,8 @@ export function listModel(props, emit) {
         hovered.value = null;
     };
 
-    onMounted(() => {
-        nextTick(() => {
+    onMounted(async () => {
+        await nextTick(() => {
             const rect = menu.value?.getBoundingClientRect();
             if (!rect) return;
 

@@ -98,7 +98,6 @@ export const layerModifierEvent = (route) => ({
 export const selectLayerEvent = (route) => ({
     "layer:select": async (payload) => {
         route.localData.selectedLayer.value = payload
-        console.log(payload)
     },
 });
 

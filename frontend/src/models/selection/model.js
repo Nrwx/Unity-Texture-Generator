@@ -1,5 +1,6 @@
 import {computed, ref, onMounted, onBeforeUnmount} from "vue";
 import { key } from "@/dataLayer/key";
+import {eventRegister} from "@/dataLayer/event";
 
 export function selectionModel(props, emit) {
     const panel = ref(null);
@@ -14,6 +15,12 @@ export function selectionModel(props, emit) {
     const reverseShineOffset = ref(0);
 
     let animationFrameId;
+
+    const emitEvent = (event, payload) => {
+        emit("update:component-event", event, payload);
+    };
+
+    const { register } = eventRegister('listener:select-mask', emitEvent);
 
     const startAnimation = () => {
         const animate = () => {
@@ -36,65 +43,6 @@ export function selectionModel(props, emit) {
             y: e.clientY - rect.top,
         };
     };
-
-    onMounted(async () => {
-        startAnimation();
-        register('add', panel.value, 'mousedown', onMouseDown);
-        register('add', panel.value, 'mouseup', onMouseUp);
-        register('add', panel.value, 'mousemove', onMouseMove);
-        register('add', document, 'keydown', onKeyDown);
-        register('add', document, 'keyup', onKeyUp);
-        register('pause')
-    });
-
-    onBeforeUnmount(() => {
-        stopAnimation();
-        register('removeAll');
-    });
-
-    const emitEvent = (event, payload) => {
-        emit("update:component-event", event, payload);
-    };
-
-    const register = (mode, target, type = null, handler = null) => {
-        const id = 'listener:select-mask';
-
-        switch (mode) {
-            case 'add':
-                if (!target) {
-                    console.warn(`Target element not found`);
-                    return;
-                }
-                emitEvent('event:listener', {
-                    add: true,
-                    id: id,
-                    target: target,
-                    type: type,
-                    handler: handler,
-                    options: false,
-                    active: true,
-                });
-                break;
-
-            case 'removeAll':
-                emitEvent('event:listener', {
-                    removeAll: true,
-                    id,
-                });
-                break;
-
-            case 'pause':
-                emitEvent('event:listener', {
-                    pause: true,
-                    id
-                });
-                break;
-
-            default:
-                console.warn(`Unknown mode '${mode}' passed to register()`);
-        }
-    };
-
 
     const onKeyDown = (e) => {
         if (e.key === "Shift" && !key.shift.value) {
@@ -156,25 +104,23 @@ export function selectionModel(props, emit) {
         };
     };
 
+    const calculateBox = (start, end) => {
+        const x = Math.min(start.x, end.x);
+        const y = Math.min(start.y, end.y);
+        const width = Math.abs(start.x - end.x);
+        const height = Math.abs(start.y - end.y);
+        return { x, y, width, height };
+    };
+
     const onMouseUp = () => {
         if (!props.state || !selecting.value) return;
         selecting.value = false;
-
-        const x = Math.min(start.value.x, end.value.x);
-        const y = Math.min(start.value.y, end.value.y);
-        const width = Math.abs(start.value.x - end.value.x);
-        const height = Math.abs(start.value.y - end.value.y);
-
-        selectionBox.value = { x, y, width, height };
+        selectionBox.value = calculateBox(start.value, end.value);
     };
 
     const activeBox = computed(() => {
         if (selecting.value) {
-            const x = Math.min(start.value.x, end.value.x);
-            const y = Math.min(start.value.y, end.value.y);
-            const width = Math.abs(start.value.x - end.value.x);
-            const height = Math.abs(start.value.y - end.value.y);
-            return { x, y, width, height };
+            return calculateBox(start.value, end.value);
         } else if (selectionBox.value) {
             return selectionBox.value;
         } else {
@@ -220,6 +166,21 @@ export function selectionModel(props, emit) {
     const shapeTag = computed(() =>
         props.shape === "circle" || props.shape === "ellipse" ? "ellipse" : "rect"
     );
+
+    onMounted(async () => {
+        startAnimation();
+        register('add', panel.value, 'mousedown', onMouseDown);
+        register('add', panel.value, 'mouseup', onMouseUp);
+        register('add', panel.value, 'mousemove', onMouseMove);
+        register('add', document, 'keydown', onKeyDown);
+        register('add', document, 'keyup', onKeyUp);
+        register('pause')
+    });
+
+    onBeforeUnmount(() => {
+        stopAnimation();
+        register('removeAll');
+    });
 
     return {
         panel,

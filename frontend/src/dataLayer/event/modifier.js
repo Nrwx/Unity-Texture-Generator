@@ -1,9 +1,13 @@
 export const modifierEvent = (route) => ({
     "reset:modifiers": async (payload) => {
         await route.emit("fill-color-state", payload);
+        await route.emit("event:listener", {pause: true, id: 'listener:image'})
     },
     "fill-color-state": async (payload) => {
         route.modifierStates.fill.value = payload
+        if (!route.listener.isActive('listener:text-create')) {
+            await route.emit("event:listener", {resume: true, id: 'listener:image'})
+        }
     },
     "fill-color-modifier": async (payload) => {
         const data = {id: payload.id, x: payload.x, y: payload.y, color: payload.color}

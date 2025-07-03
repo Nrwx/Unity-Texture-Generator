@@ -7,13 +7,31 @@ const createListenerManager = () => {
             list = [];
             listeners.set(id, list);
         } else {
-            const exists = list.find(l => l.target === target && l.type === type && l.handler === handler && l.options === options);
+            const exists = list.find(l =>
+                l.target === target &&
+                l.type === type &&
+                l.originalHandler === handler &&
+                JSON.stringify(l.options) === JSON.stringify(options)
+            );
             if (exists) return;
         }
 
-        const listener = { target, type, handler, options, active: true };
+        const wrappedHandler = (e) => {
+            if (options?.prevent) e.preventDefault();
+            handler(e);
+        };
+
+        const listener = {
+            target,
+            type,
+            handler: wrappedHandler,
+            originalHandler: handler,
+            options,
+            active: true
+        };
+
         list.push(listener);
-        target.addEventListener(type, handler, options);
+        target.addEventListener(type, wrappedHandler, options);
     };
 
     const remove = (id, type, handler) => {

@@ -17,7 +17,6 @@
   </Dialog>
 </template>
 
-
 <script>
 import { defineComponent } from "vue";
 import {settingModel, settingProps} from "@/models/setting/model";

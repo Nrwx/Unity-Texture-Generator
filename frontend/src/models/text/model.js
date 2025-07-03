@@ -1,4 +1,5 @@
 import {computed, nextTick, onBeforeUnmount, onMounted, ref} from "vue";
+import {eventRegister} from "@/dataLayer/event";
 
 export function textModel(props, emit) {
     const overlay = ref(null);
@@ -20,53 +21,7 @@ export function textModel(props, emit) {
         emit("update:component-event", event, payload);
     };
 
-    const register = (mode, target, type = null, handler = null) => {
-        const id = 'listener:text-create';
-
-        switch (mode) {
-            case 'add':
-                if (!target || typeof target.addEventListener !== 'function') {
-                    console.warn(`Invalid target for event listener:`, target);
-                    return;
-                }
-                emitEvent('event:listener', {
-                    add: true,
-                    id: id,
-                    target: target,
-                    type: type,
-                    handler: handler,
-                    options: false,
-                    active: true,
-                });
-                break;
-
-            case 'remove':
-                emitEvent('event:listener', {
-                    removeAll: true,
-                    id: id,
-                    type: type,
-                    handler: handler
-                });
-                break;
-
-            case 'removeAll':
-                emitEvent('event:listener', {
-                    removeAll: true,
-                    id,
-                });
-                break;
-
-            case 'pause':
-                emitEvent('event:listener', {
-                    pause: true,
-                    id
-                });
-                break;
-
-            default:
-                console.warn(`Unknown mode '${mode}' passed to register()`);
-        }
-    };
+    const { register } = eventRegister('listener:text-create', emitEvent);
 
     const focusTextarea = async () => {
         await nextTick(() => {
@@ -162,8 +117,8 @@ export function textModel(props, emit) {
 
     const stopDraw = async () => {
         drawing.value = false;
-        register('add', window, 'mousemove', handleDraw);
-        register('add', window, 'mouseup', stopDraw);
+        register('remove', window, 'mousemove', handleDraw);
+        register('remove', window, 'mouseup', stopDraw);
 
         if (props.layer.width > 10 && props.layer.height > 10) {
             props.layer.initWidth = props.layer.width;
@@ -301,7 +256,6 @@ export function textModel(props, emit) {
         wrapperStyle,
         textareaStyle,
         textarea,
-        handleOverlayClick,
         editAgain,
         focusTextarea,
         confirmText,

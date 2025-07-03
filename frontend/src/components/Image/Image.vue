@@ -1,5 +1,5 @@
 <template>
-  <v-col cols="auto" class="pa-0" style="position:relative; height: 100%; width: 100%;" @click="handleClick($event)">
+  <v-col ref="containerRef" id="containerRef" cols="auto" class="pa-0" style="position:relative; height: 100%; width: 100%;">
     <template v-for="(layer, index) in layers">
       <!-- 📷 Bild-Layer -->
       <v-img
@@ -14,7 +14,6 @@
           :width="layer.width"
           :height="layer.height"
           @click="emitSelectLayer(layer, $event)"
-          @load="extractImageSize(layer, $event)"
           :class="{ 'absolute': index > 0, 'selected': selectedLayer.includes(layer) }"
           :data-context-id="layer.id"
           alt="Layer Image"
@@ -74,11 +73,10 @@
     Frame
   },
   setup(props, { emit }) {
-    const { emitSelectLayer, extractImageSize, handleClick} = imageModel(props, emit);
+    const { emitSelectLayer, handleClick} = imageModel(props, emit);
     return {
       handleClick,
       emitSelectLayer,
-      extractImageSize,
     };
   },
 });

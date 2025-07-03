@@ -1,12 +1,12 @@
 export const windowStateEvent = (route) => ({
     "reset:window-states": async (payload) => {
-        console.log(payload);
         await route.emit("reset:modifiers", payload);
         await route.emit("select-state", payload);
         await route.emit("event:listener", {pause: true, id: 'listener:select-mask'})
         await route.emit("text-state", payload);
         await route.emit("event:listener", {pause: true, id: 'listener:text-create'})
         await route.emit("brush-state", payload);
+        await route.emit("event:listener", {pause: true, id: 'listener:brush'})
         await route.emit("drawing-state", payload);
     },
     "viewport-state": (payload) => {
@@ -21,8 +21,15 @@ export const windowStateEvent = (route) => ({
     },
     "layer-state": async (payload) => {
         if (typeof payload === "boolean") {
-            await route.emit("fetch-layer");
             route.windowStates.layer.value = payload;
+            await route.emit("layer:select", []);
+            if(payload) {
+                if(!route.listener.isActive('listener:drag')) {
+                    await route.emit("event:listener", {resume: true, id: 'listener:drag'})
+                }
+            } else {
+                await route.emit("event:listener", {pause: true, id: 'listener:drag'})
+            }
         }
     },
     "select-state": async (payload) => {
@@ -50,10 +57,12 @@ export const windowStateEvent = (route) => ({
             }
         }
     },
-    "brush-state": (payload) => {
+    "brush-state": async (payload) => {
         if (typeof payload === "boolean") {
             route.windowStates.brush.value = payload;
-            console.log(payload, 'BRUSH STATE')
+            if (!route.listener.isActive('listener:brush')) {
+                await route.emit("event:listener", {resume: true, id: 'listener:brush'})
+            }
         }
     },
     "drawing-state": (payload) => {

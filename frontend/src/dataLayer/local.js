@@ -10,6 +10,7 @@ export const localData = {
     brush: ref([]),
     brushPreset: ref([]),
     cursor: ref(''),
+    guides: ref([]),
     fullscreenData: reactive({
         mode: 0,
         title: '',

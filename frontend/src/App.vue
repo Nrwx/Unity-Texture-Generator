@@ -1,7 +1,7 @@
 <template>
   <v-app>
     <template v-if="windowStates.viewport.value">
-      <!-- Viewport Dialog -->
+      <!-- Grid Dialog -->
       <viewport @component-event="componentEvent" :state="windowStates.viewport.value" :settings="localData.viewport.value"></viewport>
     </template>
     <template v-else>
@@ -17,7 +17,7 @@
       <Context :state="windowStates.context.value" :copy="contextStates.copy.value" :ref-id="contextConfig.contextRefId.value" :data="contextConfig.contextData.value" v-model:disabled="contextConfig.disabledData.value" @update:component-event="componentEvent"/>
       <!-- Main Content -->
       <v-main>
-        <viewport-grid @component-event="componentEvent" v-model:layers="localData.layers.value" v-model:selected-layer="localData.selectedLayer.value" v-model:text-layer="textLayer" v-model:brush-cursor="localData.cursor.value" v-model:settings="localData.viewport.value" v-model:fill-state="modifierStates.fill.value" v-model:select="windowStates.select.value" v-model:select-mode="localData.selectedShape.value" v-model:text="windowStates.text.value" v-model:brushes="localData.brush.value" v-model:brush-layer="brushSettings" v-model:brush="windowStates.brush.value" v-model:drawing="windowStates.drawing.value" :viewport="{width: localData.viewport.value.width, height: localData.viewport.value.height}" style="position: relative;"/>
+        <viewport-grid @component-event="componentEvent" v-model:layers="localData.layers.value" v-model:selected-layer="localData.selectedLayer.value" v-model:text-layer="textLayer" v-model:brush-cursor="localData.cursor.value" v-model:color="localData.color.value" v-model:settings="localData.viewport.value" v-model:guides="localData.guides.value" v-model:fill-state="modifierStates.fill.value" v-model:select="windowStates.select.value" v-model:select-mode="localData.selectedShape.value" v-model:text="windowStates.text.value" v-model:brushes="localData.brush.value" v-model:brush-layer="brushSettings" v-model:brush="windowStates.brush.value" v-model:drawing="windowStates.drawing.value" :viewport="{width: localData.viewport.value.width, height: localData.viewport.value.height}" style="position: relative;"/>
       </v-main>
       <Layer style="position: absolute; top: 40px; right: 70px;" :state="windowStates.layer.value" v-model:layers="localData.layers.value" v-model:selected-layer="localData.selectedLayer.value" v-model:channel="localData.channel.value" @component-event="componentEvent"/>
       <!-- Rechte Taskbar -->
@@ -42,7 +42,7 @@ import {osSettings} from "@/dataLayer/setting";
 import Fullscreen from "@/components/Fullscreen/Fullscreen";
 import {contextStates} from "@/dataLayer/state";
 import Viewport from "@/view/page/Viewport/Viewport";
-import ViewportGrid from "@/components/Viewport/Grid";
+import ViewportGrid from "@/components/Grid/Grid";
 import {settings} from "@/dataLayer/parameter";
 import Context from "@/components/Context/Context.vue";
 import {textLayer} from "@/models/text/config/model";

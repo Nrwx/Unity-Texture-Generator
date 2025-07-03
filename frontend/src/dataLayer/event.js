@@ -20,6 +20,7 @@ import {modifierEvent} from "@/dataLayer/event/modifier";
 import {aiEvent} from "@/dataLayer/event/ai";
 import {brushEvent} from "@/dataLayer/event/brush";
 import {cursorEvent} from "@/dataLayer/event/cursor";
+import {appEvent} from "@/dataLayer/event/app";
 
 
 /**
@@ -27,6 +28,7 @@ import {cursorEvent} from "@/dataLayer/event/cursor";
  */
 const eventHandler = (route) => ({
     ...listenerEvent(route),
+    ...appEvent(route),
     ...fontsEvent(route),
     ...globalBackupEvent(route),
     ...cursorEvent(route),
@@ -83,3 +85,58 @@ export const createEventSystem = (deps) => {
     route.emit = emit;
     return emit;
 };
+
+export const eventRegister = (id='', emitEvent=null) => {
+    if (!id || id === '' || typeof id !== 'string') {
+        console.warn(`[eventRegister] ⚠️ id ist nicht definiert oder kein String!`);
+    }
+    if (!emitEvent || typeof emitEvent !== 'function') {
+        console.warn(`[eventRegister] ⚠️ emitEvent ist nicht definiert oder keine Funktion!`);
+    }
+    const register = (mode, target, type = null, handler = null, options = false) => {
+
+        switch (mode) {
+            case 'add':
+                if (!target || typeof target.addEventListener !== 'function') {
+                    console.warn(`Ungültiges Target für EventListener:`, target);
+                    return;
+                }
+                emitEvent('event:listener', {
+                    add: true,
+                    id,
+                    target,
+                    type,
+                    handler,
+                    options,
+                    active: true,
+                });
+                break;
+
+            case 'pause':
+                emitEvent('event:listener', {
+                    pause: true,
+                    id,
+                });
+                break;
+
+            case 'remove':
+                emitEvent('event:listener', {
+                    remove: true,
+                    id: id,
+                    type: type,
+                    handler: handler
+                });
+                break;
+
+            case 'removeAll':
+                emitEvent('event:listener', {
+                    removeAll: true,
+                    id,
+                });
+                break;
+        }
+    };
+
+    return { register };
+};
+

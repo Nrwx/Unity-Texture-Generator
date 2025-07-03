@@ -1,10 +1,16 @@
 import { windowStates } from "@/dataLayer/state";
 import { dragData } from "@/models/drag/data/model";
+import {eventRegister} from "@/dataLayer/event";
+import {onBeforeUnmount, onMounted, ref} from "vue";
 
 export function dragModel(props, emit) {
+    const dragRef = ref(null);
+
     const emitEvent = (event, payload) => {
-        emit("update:drag-event", payload);
+        emit("update:drag-event",event, payload);
     };
+
+    const { register } = eventRegister("listener:drag", emitEvent);
 
     const getEventPosition = (event) => {
         return {
@@ -23,7 +29,7 @@ export function dragModel(props, emit) {
 
         windowStates.drag.value = true;
         dragData.transform.value = getEventPosition(event);
-        window.addEventListener("mousemove", moveDrag);
+        register('add', document, 'mousemove', moveDrag);
     };
 
     const  startDrag = (event) => {
@@ -38,15 +44,15 @@ export function dragModel(props, emit) {
 
         const cancelHold = () => {
             clearTimeout(holdTimeout);
-            window.removeEventListener("mouseup", cancelHold);
-            window.removeEventListener("touchend", cancelHold);
-            window.removeEventListener("mouseleave", cancelHold);
+            register('remove', document, 'mouseup', cancelHold);
+            register('remove', document, 'touchend', cancelHold);
+            register('remove', document, 'mouseleave', cancelHold);
         };
 
         // Abbrechen, wenn vorher losgelassen
-        window.addEventListener("mouseup", cancelHold);
-        window.addEventListener("touchend", cancelHold);
-        window.addEventListener("mouseleave", cancelHold);
+        register('add', document, 'mouseup', cancelHold);
+        register('add', document, 'touchend', cancelHold);
+        register('add', document, 'mouseleave', cancelHold);
     };
 
     const moveDrag = (event) => {
@@ -67,18 +73,28 @@ export function dragModel(props, emit) {
             }
         }
 
-        window.removeEventListener("mousemove", moveDrag);
+        register('remove', document, 'mousemove', moveDrag);
         windowStates.drag.value = false;
         dragData.ghost.value = null;
         dragData.id.value = null;
         dragData.transform.value = { x: 0, y: 0 };
     };
 
+    onMounted(async () => {
+        register('add', dragRef.value, 'touchstart', startDrag, {passive: true});
+        register('add', dragRef.value, 'mousedown', startDrag, {prevent: true});
+        register('add', dragRef.value, 'touchend', endDrag);
+        register('add', dragRef.value, 'mouseup', endDrag);
+        register('pause')
+    });
+
+    onBeforeUnmount(() => {
+        register('removeAll')
+    });
+
     return {
-        emitEvent,
-        startDrag,
-        moveDrag,
-        endDrag,
+        dragRef,
+        emitEvent
     };
 }
 

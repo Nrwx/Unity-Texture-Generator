@@ -59,8 +59,8 @@
       >
         <div v-for="(tab, index) in tabs" :key="tab.name" v-show="tabIndex === index">
           <!-- Layer-Liste -->
-          <v-list density="comfortable" two-line class="layer-list overflow-hidden" v-if="tabIndex === 0 && layers.length > 0" bg-color="transparent">
-            <Drag :items="layers" :on-drop="handleDrop">
+          <v-list density="comfortable" two-line class="layer-list overflow-hidden" v-show="tabIndex === 0 && layers.length > 0" bg-color="transparent">
+            <Drag :items="layers" :on-drop="handleDrop" @update:drag-event="emitEvent">
               <template #default>
                 <v-list-item
                     v-for="(layer) in layers"
@@ -124,7 +124,7 @@
               </template>
             </Drag>
           </v-list>
-          <Channel v-if="tabIndex === 1 && channel.length > 0" :data="channel"/>
+          <Channel v-show="tabIndex === 1 && channel.length > 0" :data="channel"/>
         </div>
       </v-card>
       <!-- Navigation -->

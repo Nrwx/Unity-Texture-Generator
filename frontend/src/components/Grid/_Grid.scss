@@ -10,14 +10,6 @@
   user-select: none;
 }
 
-.guide {
-  position: absolute;
-  z-index: +1;
-  background: blue;
-  opacity: 0.7;
-  pointer-events: all;
-}
-
 .main-layer {
   position: relative;
   width: 100%;
@@ -27,33 +19,6 @@
   align-items: center;
   background-color: #1c1c1c;
   overflow: hidden;
-}
-
-/* Lineale */
-.ruler {
-  position: absolute;
-  background-color: #333;
-  color: white;
-  font-size: 12px;
-  z-index: 1;
-}
-
-.x-axis {
-  top: 0;
-  height: 20px;
-  width: 100%;
-}
-
-.y-axis {
-  left: 0;
-  width: 20px;
-  height: 100%;
-}
-
-.ruler-mark {
-  position: relative;
-  font-size: 10px;
-  color: #ddd;
 }
 
 /* Canvas Container */
