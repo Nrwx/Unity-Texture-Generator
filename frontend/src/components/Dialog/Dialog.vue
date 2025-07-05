@@ -6,6 +6,7 @@
       :max-width="data.maxWidth"
       :max-height="data.maxHeight"
       :fullscreen="data.fullscreen"
+      :theme="theme"
   >
       <v-card :class="data.class">
         <LoadingComponent v-if="loading"/>

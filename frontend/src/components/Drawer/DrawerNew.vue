@@ -2,6 +2,7 @@
   <v-navigation-drawer
       v-model="taskbarMenu"
       :width="width"
+      :theme="theme"
       :location="align"
   >
     <v-card flat>

@@ -1,7 +1,26 @@
 import {reactive, ref} from "vue";
 import {v4 as uuidv4} from "uuid";
 
+export const appData = {
+    theme: ref('dark')
+}
+
 export const localData = {
+    queue: ref({
+        title: '',
+        subTitle: '',
+        percent: 0,
+        indeterminate: true,
+        complete: false,
+    }),
+    queueMethod: ref(''),
+    queuePending: ref(null),
+    queueWait: ref(false),
+    lastPercent : ref(0),
+    historyIndex: ref(0),
+    maxHistoryLength: ref(0),
+    queueCompleteTimer: ref(null),
+    queuePollTimer: ref(null),
     loading: ref(false),
     viewport: ref({id: uuidv4(), width: 1024, height: 1024, mode: 1, title: 'Unbekannt', layer: 'Ebene'}),
     file: ref(null),

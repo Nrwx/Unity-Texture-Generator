@@ -1,5 +1,6 @@
 import {nextTick, onBeforeUnmount, onMounted, ref} from "vue";
 import {v4 as uuidv4} from "uuid";
+import {eventRegister} from "@/dataLayer/event";
 
 export function contextModel(props, emit) {
     const wrapper = ref(null);
@@ -11,6 +12,8 @@ export function contextModel(props, emit) {
     const emitEvent = (event, payload) => {
         emit("update:component-event", event, payload);
     };
+
+    const { register } = eventRegister("listener:layer-context", emitEvent);
 
     const getEventPosition = (event) => {
         return {
@@ -67,14 +70,14 @@ export function contextModel(props, emit) {
 
         position.value = { x: Math.round(posX), y: Math.round(posY) };
 
-        document.addEventListener("click", handleClickOutside);
+        register('add', document, 'click', handleClickOutside);
     };
 
     const handleClickOutside = (e) => {
         if (!wrapper.value?.contains(e.target)) {
             emitEvent('context-menu-state', false);
             contextId.value = null;
-            document.removeEventListener("click", handleClickOutside);
+            register('remove', document, 'click', handleClickOutside);
         }
     };
 
@@ -87,7 +90,7 @@ export function contextModel(props, emit) {
         if (e.detail?.except !== uniqueId) {
             emitEvent('context-menu-state', false);
             contextId.value = null;
-            document.removeEventListener("click", handleClickOutside);
+            register('remove', document, 'click', handleClickOutside);
         }
     };
 
@@ -123,14 +126,13 @@ export function contextModel(props, emit) {
     };
 
     onMounted(() => {
-        document.addEventListener("contextmenu", openMenu);
-        document.addEventListener("close-all-context-menus", handleCloseAll);
+        register('add', document, 'contextmenu', openMenu);
+        register('add', document, 'close-all-context-menus', handleCloseAll);
+        register('pause')
     });
 
     onBeforeUnmount(() => {
-        document.removeEventListener("contextmenu", openMenu);
-        document.removeEventListener("click", handleClickOutside);
-        document.removeEventListener("close-all-context-menus", handleCloseAll);
+        register('removeAll');
     });
 
     return {

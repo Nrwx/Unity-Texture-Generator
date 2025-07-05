@@ -50,7 +50,6 @@ export const contextMenuEvent = (route) => ({
             inactive: ['']
         }
         route.emit('update-context-menu', data)
-        console.log('@EVENT: context-menu-copy')
     },
     "update-context-menu": (payload) => {
         if(payload.data && payload.data !== route.contextConfig.contextData.value) {

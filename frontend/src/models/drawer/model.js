@@ -67,4 +67,8 @@ export const drawerProps = {
         required: false,
         default: () => ["mdi-menu", "mdi-close"],
     },
+    theme: {
+        type: String,
+        required: false,
+    },
 };

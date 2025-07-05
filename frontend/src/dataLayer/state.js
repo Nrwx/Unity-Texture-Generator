@@ -17,7 +17,8 @@ export const windowStates = {
     brush: ref(false),
     context: ref(false),
     color: ref(false),
-    drawing: ref(false)
+    drawing: ref(false),
+    queue: ref(false)
 };
 
 export const modifierStates = {

@@ -1,6 +1,6 @@
 <!-- Vollbildansicht -->
 <template>
-  <Dialog @update:component-event="emitEvent" :state="state" :data="config" :loading="loading">
+  <Dialog @update:component-event="emitEvent" :state="state" :data="config" :loading="loading" :theme="theme">
     <template #absolute>
       <v-btn icon class="close-btn absolute" style="top: 32px; right: 96px;" @click="data.zoom = !data.zoom">
         <v-icon>{{ data.zoom ? 'mdi-magnify-remove-outline' : 'mdi-magnify-scan'}}</v-icon>

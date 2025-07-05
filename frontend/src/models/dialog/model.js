@@ -22,4 +22,8 @@ export const dialogProps = {
         required: true,
         default: () => {},
     },
+    theme: {
+        type: String,
+        required: true,
+    },
 };

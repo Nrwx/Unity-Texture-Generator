@@ -9,9 +9,11 @@ from view.backup_view import router_backup
 from view.ai_view import router_ai
 from view.brush_view import router_brush
 from view.cursor_view import router_cursor
+from view.queue_view import router_queue
 
 def register_router(app):
     app.register_blueprint(router_app, url_prefix='/')
+    app.register_blueprint(router_queue, url_prefix="/queue")
     app.register_blueprint(router_viewport, url_prefix='/viewport')
     app.register_blueprint(router_fonts, url_prefix='/fonts')
     app.register_blueprint(router_settings, url_prefix='/settings')

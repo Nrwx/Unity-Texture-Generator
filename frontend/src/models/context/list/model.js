@@ -1,4 +1,5 @@
-import { nextTick, onMounted, onUnmounted, ref } from "vue";
+import {nextTick, onBeforeUnmount, onMounted, ref} from "vue";
+import {eventRegister} from "@/dataLayer/event";
 
 export function listModel(props, emit) {
     const hovered = ref(null);
@@ -9,6 +10,8 @@ export function listModel(props, emit) {
     const emitEvent = (event, payload) => {
         emit("update:component-event", event, payload);
     };
+
+    const { register } = eventRegister("listener:layer-context", emitEvent);
 
     const handleClick = (item) => {
         if (!item.children) {
@@ -41,11 +44,12 @@ export function listModel(props, emit) {
             };
         });
 
-        document.addEventListener("close-all-context-menus", handleGlobalClose);
+        register('add', document, 'close-all-context-menus', handleGlobalClose);
+        register('pause')
     });
 
-    onUnmounted(() => {
-        document.removeEventListener("close-all-context-menus", handleGlobalClose);
+    onBeforeUnmount(() => {
+        register('remove', document, 'close-all-context-menus', handleGlobalClose);
     });
 
     return {

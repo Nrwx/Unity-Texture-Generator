@@ -72,4 +72,8 @@ export const fullscreenProps = {
         required: true,
         default: () => {},
     },
+    theme: {
+        type: String,
+        required: true,
+    },
 };

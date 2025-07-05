@@ -441,6 +441,7 @@ export function gridModel(props, emit) {
         register('add', document, 'keydown', handleKeyDown);
         register('add', document, 'keyup', handleKeyUp);
         register('add', document, 'mousedown', startPan);
+        emitEvent('fetch-layer')
     });
 
     onBeforeUnmount(() => {

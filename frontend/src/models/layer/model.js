@@ -171,5 +171,9 @@ export const layerProps = {
         type: Array,
         required: true,
         default: () => [],
-    }
+    },
+    theme: {
+        type: String,
+        required: true,
+    },
 };

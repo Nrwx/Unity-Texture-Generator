@@ -9,6 +9,24 @@ export const windowStateEvent = (route) => ({
         await route.emit("event:listener", {pause: true, id: 'listener:brush'})
         await route.emit("drawing-state", payload);
     },
+    "reset:grid-states": (payload) => {
+        if (typeof payload === "boolean") {
+            route.transformStates.menu.value = payload;
+            route.transformStates.rotate.value = payload;
+            route.transformStates.transform.value = payload;
+            route.transformStates.size.value = payload;
+            route.transformStates.align.value = payload;
+        }
+    },
+    "reset:canvas-states": (payload) => {
+        if (typeof payload === "boolean") {
+            route.canvasStates.zoom.value = payload;
+            route.canvasStates.rotate.value = payload;
+            route.canvasStates.transform.value = payload;
+            route.canvasStates.size.value = payload;
+            route.canvasStates.select.value = payload;
+        }
+    },
     "viewport-state": (payload) => {
         if (typeof payload === "boolean") {
             route.windowStates.viewport.value = payload;
@@ -124,7 +142,7 @@ export const windowStateEvent = (route) => ({
     "tools-state": (payload) => {
         route.emit('fullscreen-state', payload);
     },
-    "context-menu-state": (payload) => {
+    "context-menu-state": async (payload) => {
         if (typeof payload === "boolean") {
             route.windowStates.context.value = payload;
         }

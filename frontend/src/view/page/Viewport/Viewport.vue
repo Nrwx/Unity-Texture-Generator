@@ -1,70 +1,84 @@
 <template>
-  <v-dialog v-model="state" fullscreen persistent>
-    <v-card>
-      <v-app-bar color="primary" dark>
-        <v-toolbar-title>Create New Viewport</v-toolbar-title>
-        <v-spacer></v-spacer>
+  <v-dialog v-model="state" fullscreen persistent :theme="theme">
+    <v-card class="fill-height d-flex flex-column" :theme="theme">
+
+      <!-- Custom Header -->
+      <div class="d-flex align-center justify-space-between px-6 py-4 border-bottom">
+        <h2 class="text-h6 ma-0">Create New Viewport</h2>
         <v-btn icon @click="emitEvent('viewport-state', false)">
           <v-icon>mdi-close</v-icon>
         </v-btn>
-      </v-app-bar>
+      </div>
 
-      <v-card-text class="d-flex align-center justify-center">
-        <v-container fluid>
-          <v-row>
-            <!-- Category Card -->
-            <v-col cols="4">
-              <v-card class="pa-4" outlined>
-                <v-card-title class="text-h6">Design Modes</v-card-title>
-                <v-divider class="my-2"></v-divider>
-                <v-list dense>
-                  <v-list-item
-                      v-for="preset in presets"
-                      :key="preset.title"
-                      @click="selectPreset(preset)"
-                      :class="{ 'selected-preset': preset.mode === settings.mode }"
-                  >
+      <!-- Main Content -->
+      <div class="flex-grow-1 pa-6" :class="theme.includes('dark') ? 'bg-dark' : 'bg-light'">
+        <v-row dense>
+
+          <!-- Presets (left) -->
+          <v-col cols="4">
+            <div class="pa-4 border rounded">
+              <h3 class="text-subtitle-1 mb-2">Design Modes</h3>
+              <v-divider class="mb-2" />
+              <v-list density="compact" nav>
+                <v-list-item
+                    v-for="preset in presets"
+                    :key="preset.title"
+                    @click="selectPreset(preset)"
+                    :class="{ 'selected-preset': preset.mode === settings.mode }"
+                    class="rounded-lg"
+                >
+                  <v-list-item-icon>
                     <v-icon color="primary">mdi-monitor-cellphone</v-icon>
+                  </v-list-item-icon>
+                  <v-list-item-content>
                     <v-list-item-title>{{ preset.title }}</v-list-item-title>
-                  </v-list-item>
-                </v-list>
-              </v-card>
-            </v-col>
+                  </v-list-item-content>
+                </v-list-item>
+              </v-list>
+            </div>
+          </v-col>
 
-            <!-- Form Card -->
-            <v-col cols="8">
-              <v-card class="pa-4" outlined>
-                <v-form :id="settings.id" @submit.prevent="emitEvent('viewport-setup', settings)">
+          <!-- Form (right) -->
+          <v-col cols="8">
+            <div class="pa-4 border rounded">
+              <v-form :id="settings.id" @submit.prevent="emitEvent('viewport-setup', settings)">
+                <div class="mb-4">
                   <v-text-field
                       v-model="settings.title"
                       label="Project Name (Optional)"
-                      class="mb-4"
+                      density="compact"
                   />
+                </div>
 
+                <div class="mb-4">
                   <v-text-field
                       v-model.number="settings.width"
                       label="Width"
                       type="number"
-                      class="mb-4"
+                      density="compact"
                   />
+                </div>
 
+                <div class="mb-4">
                   <v-text-field
                       v-model.number="settings.height"
                       label="Height"
                       type="number"
-                      class="mb-4"
+                      density="compact"
                   />
+                </div>
 
-                  <v-btn type="submit" color="primary" block>Create Viewport</v-btn>
-                </v-form>
-              </v-card>
-            </v-col>
-          </v-row>
-        </v-container>
-      </v-card-text>
+                <v-btn type="submit" block>Create Viewport</v-btn>
+              </v-form>
+            </div>
+          </v-col>
+
+        </v-row>
+      </div>
     </v-card>
   </v-dialog>
 </template>
+
 
 <script>
 import { defineComponent } from "vue";
@@ -85,18 +99,22 @@ export default defineComponent({
 </script>
 
 <style scoped>
-.v-container {
-  background-color: #f9fafb;
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+.bg-dark {
+  background-color: #1c1c1c;
 }
+.bg-light {
+  background-color: #f5f5f5;
+}
+
+.border {
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
 .selected-preset {
-  background-color: #e3f2fd;
-  border-radius: 8px;
+  background-color: var(--v-theme-primary-lighten5);
   transition: background-color 0.3s ease;
 }
 .selected-preset:hover {
-  background-color: #bbdefb;
+  background-color: var(--v-theme-primary-lighten4);
 }
 </style>

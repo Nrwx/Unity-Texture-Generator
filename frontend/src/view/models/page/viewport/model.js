@@ -42,5 +42,9 @@ export const viewportProps = {
         type: Object,
         required: true,
         default: () => ({})
-    }
+    },
+    theme: {
+        type: String,
+        default: false
+    },
 };

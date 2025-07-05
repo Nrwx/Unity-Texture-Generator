@@ -3,6 +3,7 @@
       v-model="taskbar"
       :width="width"
       :location="align"
+      :theme="theme"
       permanent
       :rail="true"
   >

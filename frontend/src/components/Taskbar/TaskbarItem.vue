@@ -30,7 +30,7 @@
                   rounded="0"
                   @click="emitMenuEvent(menuItem)"
               >
-                <v-icon :size="20">{{ menuItem.icon }}</v-icon>
+                <v-icon :color="menuItem.active ? '' : '#fff'" :size="20">{{ menuItem.icon }}</v-icon>
               </v-btn>
             </v-speed-dial>
           </template>

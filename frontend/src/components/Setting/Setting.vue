@@ -1,7 +1,7 @@
 <template>
-  <Dialog @update:component-event="emitEvent" :state="state" :data="config" :loading="loading">
+  <Dialog @update:component-event="emitEvent" :state="state" :data="config" :loading="loading" :theme="theme">
     <template #content>
-      <v-form ref="form">
+      <v-form ref="form" >
         <v-switch v-model="settings.use_gpu" label="Use GPU"></v-switch>
         <v-text-field v-model="settings.cpu_threads" label="CPU Threads" type="number"></v-text-field>
         <v-select

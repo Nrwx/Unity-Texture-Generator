@@ -9,6 +9,7 @@ import io
 import math
 import cv2
 import uuid
+import time
 from werkzeug.utils import secure_filename
 # PATH Initialising
 from config.setup.generate_paths import init_paths
@@ -23,6 +24,8 @@ from router.index import register_router
 from model.fonts_model import FontsModel
 from model.brush_model import BrushModel
 from model.layer_model import LayerModel
+from model.queue_model import QueueModel
+from controller.queue_controller import QueueController, set_queue
 from utils import ( apply_rgb_rgba, apply_alpha, parse_parameters )
 from components import (
     generate_diffuse_map, generate_normal_map, generate_specular_map, generate_bump_map, generate_light_map, generate_alpha_map, generate_stone_map, generate_grass_map,
@@ -39,9 +42,64 @@ load_dotenv()
 
 register_router(app)
 
-
 FontsModel.initialize()
 BrushModel.initialize()
+
+# Queue initialisieren
+queue_instance = QueueModel(app)
+set_queue(queue_instance)
+
+@app.before_request
+def queue_all_requests():
+    if request.method not in ["POST", "GET", "PUT", "DELETE"]:
+        return None
+
+    if request.path in ["/queue"]:
+        return None
+
+    try:
+        adapter = app.url_map.bind_to_environ(request.environ)
+        endpoint, values = adapter.match()
+        view_func = app.view_functions.get(endpoint)
+        if not view_func:
+            return None
+
+        kwargs = {}
+
+        # JSON-Daten übernehmen
+        json_data = request.get_json(silent=True)
+        if isinstance(json_data, dict):
+            kwargs.update(json_data)
+
+        # Formulardaten
+        kwargs.update(request.form.to_dict())
+
+        # Query-Parameter
+        kwargs.update(request.args.to_dict())
+
+        # Dateien
+        for file_key in request.files:
+            kwargs[file_key] = request.files[file_key]
+
+        # Queue-Aufruf mit Blockierung auf Ergebnis
+        return QueueController.enqueue_request(
+            func=view_func,
+            args=(),
+            kwargs=kwargs,
+            info={
+                "endpoint": endpoint,
+                "path": request.path,
+                "method": request.method,
+                "content_type": request.content_type or "",
+                "has_files": bool(request.files),
+            }
+        )
+
+    except Exception as e:
+        print(f"[Queue Intercept Error] {e}")
+        return None
+
+
 
 @app.route('/upload', methods=['POST'])
 def upload_file():

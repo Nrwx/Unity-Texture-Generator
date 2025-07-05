@@ -2,29 +2,30 @@
   <v-app>
     <template v-if="windowStates.viewport.value">
       <!-- Grid Dialog -->
-      <viewport @component-event="componentEvent" :state="windowStates.viewport.value" :settings="localData.viewport.value"></viewport>
+      <Viewport @component-event="componentEvent" :state="windowStates.viewport.value" :settings="localData.viewport.value"  v-model:theme="appData.theme.value"/>
     </template>
     <template v-else>
       <!-- Settings Dialog -->
-      <Setting @component-event="componentEvent" v-model:state="windowStates.setting.value" v-model:settings="osSettings" :loading="localData.loading.value"/>
+      <Setting @component-event="componentEvent" v-model:state="windowStates.setting.value" v-model:settings="osSettings" :loading="localData.loading.value" v-model:theme="appData.theme.value"/>
       <!-- Fullscreen Dialog -->
-      <Fullscreen @component-event="componentEvent" v-model:state="windowStates.fullscreen.value" v-model:data="localData.fullscreenData" :loading="localData.loading.value"/>
+      <Fullscreen @component-event="componentEvent" v-model:state="windowStates.fullscreen.value" v-model:data="localData.fullscreenData" :loading="localData.loading.value" v-model:theme="appData.theme.value"/>
       <!-- Linke Taskbar -->
-      <Taskbar @taskbar-event="taskbarEvent('left', $event)" align="left" v-model:items="itemsLeft" />
+      <Taskbar @taskbar-event="taskbarEvent('left', $event)" align="left" v-model:items="itemsLeft" v-model:theme="appData.theme.value" />
       <!-- Linker Drawer -->
-      <DrawerNew v-model:taskbar-menu="windowStates.drawerLeft.value" v-model:item="activeItemLeft" align="left" @component-event="componentEvent"/>
+      <DrawerNew v-model:taskbar-menu="windowStates.drawerLeft.value" v-model:item="activeItemLeft" align="left" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
       <!-- Context Menu -->
       <Context :state="windowStates.context.value" :copy="contextStates.copy.value" :ref-id="contextConfig.contextRefId.value" :data="contextConfig.contextData.value" v-model:disabled="contextConfig.disabledData.value" @update:component-event="componentEvent"/>
       <!-- Main Content -->
       <v-main>
-        <viewport-grid @component-event="componentEvent" v-model:layers="localData.layers.value" v-model:selected-layer="localData.selectedLayer.value" v-model:text-layer="textLayer" v-model:brush-cursor="localData.cursor.value" v-model:color="localData.color.value" v-model:settings="localData.viewport.value" v-model:guides="localData.guides.value" v-model:fill-state="modifierStates.fill.value" v-model:select="windowStates.select.value" v-model:select-mode="localData.selectedShape.value" v-model:text="windowStates.text.value" v-model:brushes="localData.brush.value" v-model:brush-layer="brushSettings" v-model:brush="windowStates.brush.value" v-model:drawing="windowStates.drawing.value" :viewport="{width: localData.viewport.value.width, height: localData.viewport.value.height}" style="position: relative;"/>
+        <Grid @component-event="componentEvent" v-model:layers="localData.layers.value" v-model:selected-layer="localData.selectedLayer.value" v-model:text-layer="textLayer" v-model:brush-cursor="localData.cursor.value" v-model:color="localData.color.value" v-model:settings="localData.viewport.value" v-model:guides="localData.guides.value" v-model:fill-state="modifierStates.fill.value" v-model:select="windowStates.select.value" v-model:select-mode="localData.selectedShape.value" v-model:text="windowStates.text.value" v-model:brushes="localData.brush.value" v-model:brush-layer="brushSettings" v-model:brush="windowStates.brush.value" v-model:drawing="windowStates.drawing.value" :viewport="{width: localData.viewport.value.width, height: localData.viewport.value.height}" style="position: relative;"/>
       </v-main>
-      <Layer style="position: absolute; top: 40px; right: 70px;" :state="windowStates.layer.value" v-model:layers="localData.layers.value" v-model:selected-layer="localData.selectedLayer.value" v-model:channel="localData.channel.value" @component-event="componentEvent"/>
+      <Layer style="position: absolute; top: 40px; right: 70px;" :state="windowStates.layer.value" v-model:layers="localData.layers.value" v-model:selected-layer="localData.selectedLayer.value" v-model:channel="localData.channel.value" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
       <!-- Rechte Taskbar -->
-      <Taskbar @taskbar-event="taskbarEvent('right', $event)" align="right" v-model:items="itemsRight" />
+      <Taskbar @taskbar-event="taskbarEvent('right', $event)" align="right" v-model:items="itemsRight" v-model:theme="appData.theme.value" />
       <!-- Rechter Drawer -->
-      <DrawerNew v-model:taskbar-menu="windowStates.drawerRight.value" v-model:item="activeItemRight" align="right" @component-event="componentEvent"/>
+      <DrawerNew v-model:taskbar-menu="windowStates.drawerRight.value" v-model:item="activeItemRight" align="right" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
     </template>
+    <Queue @component-event="componentEvent" v-model:queue="localData.queue.value" v-model:wait="localData.queueWait.value" v-model:theme="appData.theme.value" v-model:state="windowStates.queue.value"/>
   </v-app>
 </template>
 
@@ -33,27 +34,29 @@ import {computed, nextTick, onMounted, ref} from "vue";
 import * as api from "@/dataLayer/route/route"
 import Taskbar from './components/Taskbar/Taskbar.vue';
 import {taskbarItemLeft, taskbarItemRight} from "@/models/taskbar/config/model";
-import {localData} from "@/dataLayer/local";
+import {appData, localData} from "@/dataLayer/local";
 import DrawerNew from "@/components/Drawer/DrawerNew";
 import Layer from "@/components/Layer/Layer";
-import {backupStates, modifierStates, windowStates} from "@/dataLayer/state";
+import {backupStates, canvasStates, modifierStates, transformStates, windowStates} from "@/dataLayer/state";
 import Setting from "@/components/Setting/Setting";
 import {osSettings} from "@/dataLayer/setting";
 import Fullscreen from "@/components/Fullscreen/Fullscreen";
 import {contextStates} from "@/dataLayer/state";
 import Viewport from "@/view/page/Viewport/Viewport";
-import ViewportGrid from "@/components/Grid/Grid";
+import Grid from "@/components/Grid/Grid";
 import {settings} from "@/dataLayer/parameter";
 import Context from "@/components/Context/Context.vue";
 import {textLayer} from "@/models/text/config/model";
 import { createEventSystem } from '@/dataLayer/event';
 import {contextConfig} from "@/models/context/config/model";
 import {brushSettings} from "@/models/brush/config/model";
+import Queue from "@/components/Queue/Queue";
 
 export default {
   name: 'App',
   components: {
-    ViewportGrid,
+    Queue,
+    Grid,
     Viewport,
     Taskbar,
     DrawerNew,
@@ -70,13 +73,16 @@ export default {
 
     const componentEvent = createEventSystem({
       api,
+      appData,
+      localData,
       windowStates,
+      transformStates,
+      canvasStates,
       backupStates,
       brushSettings,
       modifierStates,
       contextStates,
       contextConfig,
-      localData,
       textLayer,
       settings,
       osSettings
@@ -129,9 +135,6 @@ export default {
 
 
     const init = async () => {
-      if(!localData.layers.value.length) {
-        await componentEvent('fetch-layer');
-      }
       if(!localData.fonts.value.length) {
         await componentEvent('fetch-fonts');
       }
@@ -154,6 +157,7 @@ export default {
       activeItemRight,
       componentEvent,
       taskbarEvent,
+      appData,
       localData,
       windowStates,
       modifierStates,

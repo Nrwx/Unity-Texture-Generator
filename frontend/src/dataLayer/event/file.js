@@ -5,9 +5,36 @@ export const fileEvent = (route) => ({
     "upload-file": async () => {
         const response = await route.api.fileUpload(route.localData.file.value);
         if (response) {
-            const build = route.emit("generate-upload-build", response)
-            if(build) await route.emit("fetch-layer");
-            if(build) await route.emit("backup:fetch-list");
+            route.localData.queueCompleteTimer.value = setTimeout(async () => {
+                const finish = {
+                    title: 'Fertig',
+                    subTitle: 'alle cron-jobs erledigt.',
+                    percent: 100,
+                    indeterminate: false,
+                    method: 'FINISH',
+                    path: '/finish',
+                    complete: true,
+                };
+                await route.emit('app:update-queue', finish);
+            }, 150);
+            route.localData.queuePollTimer.value = setTimeout(async () => {
+                const reset = {
+                    title: '',
+                    subTitle: '',
+                    percent: 0,
+                    time: '',
+                    indeterminate: false,
+                    complete: false
+                };
+                await route.emit('app:update-queue', reset);
+                const payload = {state: false};
+                route.windowStates.queue.value = payload.state;
+                route.localData.queueCompleteTimer.value = null;
+                route.localData.queuePending.value = null;
+            }, 300);
+            route.emit("generate-upload-build", response)
+            await route.emit("fetch-layer");
+            await route.emit("backup:fetch-list");
         }
     },
     "download-file": (payload) => {

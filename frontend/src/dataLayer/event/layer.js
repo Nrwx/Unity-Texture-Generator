@@ -3,6 +3,16 @@ export const layerEvent = (route) => ({
         const response = await route.api.fetchLayers()
         if (response) {
             route.localData.layers.value = response;
+            if(route.localData.layers.value?.length) {
+                if (!route.listener.isActive('listener:layer-context')) {
+                    await route.emit("event:listener", {resume: true, id: 'listener:layer-context'})
+                }
+            }
+             else {
+                 if(route.listener.isActive('listener:layer-context')) {
+                     await route.emit("event:listener", {pause: true, id: 'listener:layer-context'})
+                 }
+            }
         }
     },
     "add-layer": async () => {

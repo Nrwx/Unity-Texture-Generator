@@ -3,6 +3,7 @@
       v-if="state"
       class="layer-system"
       width="340"
+      :theme="theme"
   >
     <v-container class="layer-wrapper">
       <!-- Schließen-Button -->

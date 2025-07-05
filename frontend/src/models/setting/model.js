@@ -28,5 +28,9 @@ export const settingProps = {
         type: Object,
         required: true,
         default: () => {},
-    }
+    },
+    theme: {
+        type: String,
+        required: true
+    },
 };

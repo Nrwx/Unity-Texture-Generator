@@ -36,4 +36,9 @@ export const taskbarProps = {
         required: true,
         default: "left",
     },
+    theme: {
+        type: String,
+        required: true,
+        default: "left",
+    },
 };

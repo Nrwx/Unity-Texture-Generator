@@ -1,4 +1,5 @@
 import axios from 'axios';
+import {windowStates} from "@/dataLayer/state";
 
 const client = axios.create({
     baseURL: 'http://127.0.0.1:5000', // Basis-URL
@@ -7,6 +8,7 @@ const client = axios.create({
 
 const api = {
     async get(route, params = {}) {
+        if(windowStates.queue.value === false) windowStates.queue.value = true;
         try {
             const response = await client.get(route, { params });
             return response.data;
@@ -17,6 +19,7 @@ const api = {
     },
 
     async post(route, data = {}, config = {}) {
+        if(windowStates.queue.value === false) windowStates.queue.value = true;
         try {
             const response = await client.post(route, data, config);
             return response.data;
@@ -27,6 +30,7 @@ const api = {
     },
 
     async put(route, data = {}) {
+        if(windowStates.queue.value === false) windowStates.queue.value = true;
         try {
             const response = await client.put(route, data);
             return response.data;
@@ -37,6 +41,7 @@ const api = {
     },
 
     async delete(route, data = {}) {
+        if(windowStates.queue.value === false) windowStates.queue.value = true;
         try {
             const response = await client.delete(route, { data });
             return response.data;
