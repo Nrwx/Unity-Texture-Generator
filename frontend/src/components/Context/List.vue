@@ -3,6 +3,7 @@
       ref="menu"
       class="overflow-hidden"
       elevation="10"
+      :theme="theme"
       min-width="200"
   >
     <v-list density="compact">

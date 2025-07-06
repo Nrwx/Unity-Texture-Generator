@@ -172,4 +172,8 @@ export const contextProps = {
         type: String,
         default: "[data-context-id]",
     },
+    theme: {
+        type: String,
+        required: true
+    },
 };

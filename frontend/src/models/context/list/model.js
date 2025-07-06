@@ -66,4 +66,5 @@ export const listProps = {
     data: Array,
     parentCoords: Object,
     copy: Boolean,
+    theme: String
 };

@@ -35,6 +35,7 @@
             <Text :state="text" @update:component-event="emitEvent" :layer="textLayer"/>
 
             <Brush :selected="selectedLayer" :mouse="cursor" :cursor="brushCursor" :viewport="viewport" :brushes="brushes" :state="brush" :drawing="drawing" :data="brushLayer" @update:component-event="emitEvent"></Brush>
+            <Pen :mouse="cursor" :viewport="viewport" :state="pen" @update:component-event="emitEvent"/>
           </div>
           <SelectVector
               v-if="selectedLayer.length"
@@ -62,18 +63,20 @@
 
 <script>
 import { defineComponent } from "vue";
+import {gridModel, gridProps} from "@/models/grid/model";
 import SelectVector from "@/components/Layer/Select";
 import Guide from "@/components/Guide/Guide";
 import Brush from "@/components/Brush/Brush";
 import Text from "@/components/Text/Text";
 import Image from "@/components/Image/Image";
 import Selection from "@/components/Selection/Selection";
-import {gridModel, gridProps} from "@/models/grid/model";
+import Pen from "@/components/Pen/Pen";
 
 export default defineComponent({
   name: "GridComponent",
   props: gridProps,
   components: {
+    Pen,
     SelectVector,
     Guide,
     Brush,

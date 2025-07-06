@@ -13,7 +13,6 @@ export const localData = {
         indeterminate: true,
         complete: false,
     }),
-    queueMethod: ref(''),
     queuePending: ref(null),
     queueWait: ref(false),
     lastPercent : ref(0),

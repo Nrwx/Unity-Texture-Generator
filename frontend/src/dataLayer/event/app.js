@@ -7,46 +7,34 @@ export const appEvent = (route) => ({
     },
     "app:queue-status": async (payload) => {
         const response = await route.api.queueStatus();
-
-        console.log(response)
         if (response?.history && response.history.length > 0) {
             clearTimeout(route.localData.queuePending.value);
             clearTimeout(route.localData.queueCompleteTimer.value);
             clearTimeout(route.localData.queuePollTimer.value);
             route.localData.queuePollTimer.value = null;
-
             route.windowStates.queue.value = payload.state;
-
             const history = response.history;
-
             if (!route.localData.maxHistoryLength) {
                 route.localData.maxHistoryLength = { value: 0 };
             }
-
             if (history.length > route.localData.maxHistoryLength.value) {
                 route.localData.maxHistoryLength.value = history.length;
             }
-
             if (route.localData.historyIndex.value >= history.length - 1) {
                 route.localData.historyIndex.value = 0;
             } else {
                 route.localData.historyIndex.value++;
             }
-
             const index = route.localData.historyIndex.value;
             const step = 3;
             const currentEntry = history[index];
             const processingInfo = currentEntry.processing?.info || response.processing?.info;
-
             const maxHistory = route.localData.maxHistoryLength.value || 1;
             const rawPercent = Math.round((index / maxHistory) * 100);
-
             const newPercent = rawPercent > route.localData.lastPercent.value
                 ? Math.min(route.localData.lastPercent.value + step, rawPercent)
                 : route.localData.lastPercent.value;
-
             route.localData.lastPercent.value = newPercent;
-
             const data = {
                 title: processingInfo.method && processingInfo.path
                     ? `${processingInfo.method} ${processingInfo.path}`
@@ -58,19 +46,15 @@ export const appEvent = (route) => ({
                 path: processingInfo.path,
                 method: processingInfo.method
             };
-
             await route.emit('app:update-queue', data);
-
             if (route.localData.selectedLayer.value.length) {
                 await route.emit('layer:select', []);
                 await route.emit('reset:grid-states', false);
                 await route.emit('reset:canvas-states', false);
             }
-
             route.localData.queuePollTimer.value = setTimeout(() => {
                 route.emit('app:queue-status', { state: true });
             }, 100);
-
         } else {
             if (response?.pending === true) {
                 route.localData.queuePending.value = setTimeout(async () => {
@@ -93,7 +77,6 @@ export const appEvent = (route) => ({
                 }
                 route.localData.queue.value.complete = true;
                 route.localData.lastPercent.value = 0;
-
                 route.localData.queueCompleteTimer.value = setTimeout(async () => {
                     const finish = {
                         title: 'Fertig',
@@ -106,10 +89,8 @@ export const appEvent = (route) => ({
                     };
                     await route.emit('app:update-queue', finish);
                 }, 150);
-
                 clearTimeout(route.localData.queuePollTimer.value);
                 route.localData.queuePollTimer.value = null;
-
                 route.localData.queuePollTimer.value = setTimeout(async () => {
                     const reset = {
                         title: '',

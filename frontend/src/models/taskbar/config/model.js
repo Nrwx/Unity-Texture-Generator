@@ -91,7 +91,7 @@ export const taskbarItemLeft = [
     {
         position: 'center',
         id: uuidv4(),
-        title: 'Brush Ebene',
+        title: 'Pinsel-Werkzeug',
         icon: 'mdi-brush',
         active: false,
         tooltip: 'Brush Tool',
@@ -126,6 +126,15 @@ export const taskbarItemLeft = [
             path: Color,
             props: {}
         },
+    },
+    {
+        position: 'center',
+        id: uuidv4(),
+        title: 'Zeichenwerkzeug',
+        icon: 'mdi-fountain-pen-tip',
+        active: false,
+        tooltip: 'Zeichenwerkzeug',
+        event: 'pen-state'
     },
 ];
 

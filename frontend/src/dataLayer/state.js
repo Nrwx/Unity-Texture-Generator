@@ -15,6 +15,7 @@ export const windowStates = {
     typing: ref(false),
     cursor: ref(false),
     brush: ref(false),
+    pen: ref(false),
     context: ref(false),
     color: ref(false),
     drawing: ref(false),

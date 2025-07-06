@@ -531,5 +531,9 @@ export const gridProps = {
     color: {
         type: String,
         required: false,
-    }
+    },
+    pen: {
+        type: Boolean,
+        required: true,
+    },
 };

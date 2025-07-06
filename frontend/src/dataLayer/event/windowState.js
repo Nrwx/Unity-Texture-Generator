@@ -7,6 +7,8 @@ export const windowStateEvent = (route) => ({
         await route.emit("event:listener", {pause: true, id: 'listener:text-create'})
         await route.emit("brush-state", payload);
         await route.emit("event:listener", {pause: true, id: 'listener:brush'})
+        await route.emit("pen-state", payload);
+        await route.emit("event:listener", {pause: true, id: 'listener:pen'})
         await route.emit("drawing-state", payload);
     },
     "reset:grid-states": (payload) => {
@@ -63,8 +65,16 @@ export const windowStateEvent = (route) => ({
     },
     "cursor-state": async (payload) => {
         if (typeof payload === "boolean") {
-            route.windowStates.cursor.value = payload;
             await route.emit("reset:window-states", false);
+            route.windowStates.cursor.value = payload;
+        }
+    },
+    "pen-state": async (payload) => {
+        if (typeof payload === "boolean") {
+            route.windowStates.pen.value = payload;
+            if(!route.listener.isActive('listener:pen')) {
+                await route.emit("event:listener", {resume: true, id: 'listener:pen'})
+            }
         }
     },
     "text-state": async (payload) => {

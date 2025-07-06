@@ -6,6 +6,7 @@
   >
     <List
         :data="data"
+        :theme="theme"
         @select="handleSelect"
         :parent-coords="position"
     />
