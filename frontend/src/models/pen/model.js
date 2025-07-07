@@ -110,6 +110,9 @@ export function penModel(props, emit) {
     const selectPoint = (idx) => {
         points.forEach((p, i) => p.selected = i === idx);
         loadAnchorMenuFromSelection();
+        const p = points[idx];
+        p.selected = true;
+        p.pulseAt = Date.now();
         draw();
     };
 
@@ -185,17 +188,15 @@ export function penModel(props, emit) {
         const w = canvas.value.width;
         const h = canvas.value.height;
 
-        // Canvas leeren
         c.clearRect(0, 0, w, h);
 
-        // 1) Verbindungen (Linien oder Bezier-Kurven)
+        // === 1) Pfade ===
         connections.forEach(([a, b]) => {
             const pA = points[a];
             const pB = points[b];
             if (!pA || !pB) return;
 
             if (pA.bezier && pB.bezier) {
-                // Bezier
                 c.beginPath();
                 c.moveTo(pA.x, pA.y);
                 c.bezierCurveTo(
@@ -203,40 +204,77 @@ export function penModel(props, emit) {
                     pB.bezier.cp1.x, pB.bezier.cp1.y,
                     pB.x, pB.y
                 );
-                c.strokeStyle = '#333';
-                c.lineWidth = 2;
+                c.strokeStyle = '#6cf';
+                c.lineWidth = 1.5;
                 c.stroke();
             } else {
-                // Linie
                 c.beginPath();
                 c.moveTo(pA.x, pA.y);
                 c.lineTo(pB.x, pB.y);
-                c.strokeStyle = '#888';
+                c.strokeStyle = '#aaf';
                 c.lineWidth = 1;
                 c.stroke();
             }
         });
 
-        // 2) Punkte
+        // === 2) Punkte ===
         points.forEach((p, i) => {
             const isStart = i === 0;
             const isEnd = i === points.length - 1;
-            c.beginPath();
-            c.arc(p.x, p.y, 6, 0, Math.PI * 2);
-            if (isStart) {
-                c.fillStyle = '#00c853';
-            } else if (isEnd) {
-                c.fillStyle = '#00c853';
-            } else {
-                c.fillStyle = p.selected || anchorMenu.midPoint &&
-                    (anchorMenu.points[0].selected || anchorMenu.points[1].selected) ? '#007bff' : '#555';
+            const isSelected = p.selected;
+            const size = 6;
+
+            if (p.pulseAt) {
+                const elapsed = Date.now() - p.pulseAt;
+                const duration = 300; // ms
+                if (elapsed < duration) {
+                    const progress = elapsed / duration;
+                    const pulseRadius = 10 + progress * 10;
+                    const alpha = 1 - progress;
+
+                    c.beginPath();
+                    c.arc(p.x, p.y, pulseRadius, 0, Math.PI * 2);
+                    c.strokeStyle = `rgba(0, 255, 255, ${alpha})`; // Cyan transparent
+                    c.lineWidth = 2;
+                    c.stroke();
+
+                    requestAnimationFrame(draw); // Weiterzeichnen während der Animation
+                } else {
+                    p.pulseAt = null; // Animation beenden
+                }
             }
-            c.fill();
-            c.strokeStyle = '#222';
-            c.stroke();
+
+            if (isStart || isEnd) {
+                // Quadrat für Start-/Endpunkte
+                c.beginPath();
+                c.fillStyle = '#0ff';
+                c.strokeStyle = '#06c';
+                c.lineWidth = 1.5;
+                c.rect(p.x - size / 2, p.y - size / 2, size, size);
+                c.fill();
+                c.stroke();
+            } else {
+                // Runde Punkte
+                c.beginPath();
+                const radius = isSelected ? 5 : 3;
+                c.arc(p.x, p.y, radius, 0, Math.PI * 2);
+                if (isSelected) {
+                    c.fillStyle = '#0ff';
+                    c.fill();
+                    c.strokeStyle = '#06c';
+                    c.lineWidth = 1.5;
+                    c.stroke();
+                } else {
+                    c.fillStyle = '#fff';
+                    c.fill();
+                    c.strokeStyle = '#6cf';
+                    c.lineWidth = 1;
+                    c.stroke();
+                }
+            }
         });
 
-        // 3) Anker-Menü: Hauptanker und Linien nur wenn sichtbar UND ein Hauptpunkt selektiert
+        // === 3) Midpoint & Kontrollpunkte ===
         if (
             anchorMenu.visible &&
             anchorMenu.points.length === 2 &&
@@ -246,14 +284,18 @@ export function penModel(props, emit) {
             const [pA, pB] = anchorMenu.points;
             const mid = anchorMenu.midPoint;
 
-            // Mittelpunktsanker
-            c.fillStyle = '#0a0';
+            // Midpoint – Quadrat & Magenta
+            const size = 7;
             c.beginPath();
-            c.arc(mid.x, mid.y, 8, 0, Math.PI * 2);
+            c.fillStyle = '#f0f';
+            c.strokeStyle = '#a0a';
+            c.lineWidth = 1.2;
+            c.rect(mid.x - size / 2, mid.y - size / 2, size, size);
             c.fill();
+            c.stroke();
 
-            // Linien zu Mid
-            c.strokeStyle = '#0a0';
+            // Linien zu Midpoint – dezent
+            c.strokeStyle = '#ccc';
             c.lineWidth = 1;
             c.beginPath();
             c.moveTo(pA.x, pA.y);
@@ -261,10 +303,9 @@ export function penModel(props, emit) {
             c.lineTo(pB.x, pB.y);
             c.stroke();
 
-            // 4) Hilfskontrollpunkte nur anzeigen, wenn beide Bezier-Kontrollen existieren
+            // Kontrollpunkte und Linien
             if (pA.bezier?.cp2 && pB.bezier?.cp1) {
-                // Kontrolllinien
-                c.strokeStyle = '#aaa';
+                c.strokeStyle = '#ccc';
                 c.lineWidth = 1;
                 c.beginPath();
                 c.moveTo(pA.x, pA.y);
@@ -273,17 +314,18 @@ export function penModel(props, emit) {
                 c.lineTo(pB.bezier.cp1.x, pB.bezier.cp1.y);
                 c.stroke();
 
-                // Kontrollpunkte
-                c.fillStyle = '#f0a';
+                c.fillStyle = '#f0f';
                 c.beginPath();
-                c.arc(pA.bezier.cp2.x, pA.bezier.cp2.y, 5, 0, Math.PI * 2);
+                c.arc(pA.bezier.cp2.x, pA.bezier.cp2.y, 3.5, 0, Math.PI * 2);
                 c.fill();
                 c.beginPath();
-                c.arc(pB.bezier.cp1.x, pB.bezier.cp1.y, 5, 0, Math.PI * 2);
+                c.arc(pB.bezier.cp1.x, pB.bezier.cp1.y, 3.5, 0, Math.PI * 2);
                 c.fill();
             }
         }
     };
+
+
 
     // Event-Handler für Pointer (Maus/Touch)
     const onPointerDown = (e) => {
@@ -337,7 +379,7 @@ export function penModel(props, emit) {
 
         if (isFirstPoint || isStartSel || isEndSel) {
             const newPoint = {
-                x: pos.x, y: pos.y, selected: true, bezier: null,
+                x: pos.x, y: pos.y, selected: true, bezier: null, pulseAt: 0 | null,
                 anchor: { start: { x: pos.x, y: pos.y }, end: { x: pos.x, y: pos.y }, neighbors: {} }
             };
             points.forEach(p => p.selected = false);
