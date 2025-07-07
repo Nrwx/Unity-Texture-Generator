@@ -35,9 +35,56 @@ export function penModel(props, emit) {
 
     const isCtrlPressed = (e) => e.ctrlKey || e.metaKey;
 
+    const loadAnchorMenuFromSelection = () => {
+        const selectedIdx = points.findIndex(p => p.selected);
+        if (selectedIdx === -1) {
+            anchorMenu.visible = false;
+            return;
+        }
+
+        const connected = connections.find(([a, b]) =>
+            a === selectedIdx || b === selectedIdx
+        );
+
+        if (!connected) {
+            anchorMenu.visible = false;
+            return;
+        }
+
+        const [a, b] = connected;
+        const pA = points[a];
+        const pB = points[b];
+
+        // 🆕 Ankerstruktur initialisieren, falls nicht vorhanden
+        [pA, pB].forEach(p => {
+            if (!p.anchor) {
+                p.anchor = {
+                    start: { x: p.x, y: p.y },
+                    end: { x: p.x, y: p.y },
+                    mid: { x: p.x, y: p.y }
+                };
+            }
+        });
+
+        anchorMenu.visible = true;
+        anchorMenu.points = [pA, pB];
+        anchorMenu.midPoint = pA.anchor?.mid || calcMidAnchorPoint(pA, pB);
+        anchorMenu.selectedAnchor = null;
+
+        if (pA.bezier?.cp2 && pB.bezier?.cp1) {
+            anchorMenu.anchorArms.cp1 = pA.bezier.cp2;
+            anchorMenu.anchorArms.cp2 = pB.bezier.cp1;
+        } else {
+            updateBezierControls();  // Bezier erzeugen
+        }
+    };
+
+
     // Punkt-Auswahl und Suche
     const selectPoint = (idx) => {
         points.forEach((p, i) => p.selected = i === idx);
+        loadAnchorMenuFromSelection();
+        draw();
     };
 
     const findPointAtPos = (pos, radius = 8) => {
@@ -141,7 +188,12 @@ export function penModel(props, emit) {
         });
 
         // Anker-Menü (falls sichtbar)
-        if (anchorMenu.visible && anchorMenu.points.length === 2 && anchorMenu.midPoint) {
+        if (
+            anchorMenu.visible &&
+            anchorMenu.points.length === 2 &&
+            anchorMenu.midPoint &&
+            anchorMenu.points[0].selected || anchorMenu.points[1].selected
+        ) {
             const [pA, pB] = anchorMenu.points;
             const mid = anchorMenu.midPoint;
 
@@ -170,20 +222,28 @@ export function penModel(props, emit) {
     };
 
     // Update der Bezier-Kontrollpunkte
-    const updateBezierControls = () => {
-        if (!anchorMenu.visible || anchorMenu.points.length !== 2 || !anchorMenu.midPoint) return;
+    const updateBezierControls = (force = false) => {
+        if (
+            !anchorMenu.visible ||
+            anchorMenu.points.length !== 2 ||
+            !anchorMenu.midPoint
+        ) return;
 
         const [pA, pB] = anchorMenu.points;
         const mid = anchorMenu.midPoint;
+
+        const shouldUpdate = force || !(pA.bezier?.cp2 && pB.bezier?.cp1);
+        if (!shouldUpdate) return;
 
         const cp1 = { x: (pA.x + mid.x) / 2, y: (pA.y + mid.y) / 2 };
         const cp2 = { x: (pB.x + mid.x) / 2, y: (pB.y + mid.y) / 2 };
 
         pA.bezier = pA.bezier || {};
         pB.bezier = pB.bezier || {};
-
         pA.bezier.cp2 = cp1;
         pB.bezier.cp1 = cp2;
+        pA.anchor.mid = calcMidAnchorPoint(pA, pB);
+        pB.anchor.mid = calcMidAnchorPoint(pA, pB);
 
         anchorMenu.anchorArms.cp1 = cp1;
         anchorMenu.anchorArms.cp2 = cp2;
@@ -198,20 +258,16 @@ export function penModel(props, emit) {
         if (ctrl) {
             // STRG-Modus: Kontrollpunkte oder Ankerpunkte verschieben
 
-            // Kontrollpunkte verschieben, wenn angeklickt
-            const controlHit = findControlPointAtPos(pos);
-            if (controlHit) {
-                draggedControlPoint = controlHit;
-                return;
-            }
-
             // Ankerpunkte (Start, End, Mid) verschieben
             if (anchorMenu.visible) {
-                if (isOnAnchorPoint(pos, anchorMenu.points[0])) {
+                const pA = anchorMenu.points[0];
+                const pB = anchorMenu.points[1];
+
+                if (isOnAnchorPoint(pos, pA.anchor.start)) {
                     draggedAnchor = 'start';
                     return;
                 }
-                if (isOnAnchorPoint(pos, anchorMenu.points[1])) {
+                if (isOnAnchorPoint(pos, pB.anchor.end)) {
                     draggedAnchor = 'end';
                     return;
                 }
@@ -221,28 +277,41 @@ export function penModel(props, emit) {
                 }
             }
 
+            const controlHit = findControlPointAtPos(pos);
+            if (controlHit) {
+                draggedControlPoint = controlHit;
+                return;
+            }
+
             // Punkte auswählen und ggf. Ankermenü anzeigen
             const pointIdx = findPointAtPos(pos);
             if (pointIdx !== -1) {
                 selectPoint(pointIdx);
-                draggedPointIdx = pointIdx;  // Drag starten nur mit STRG
+                draggedPointIdx = pointIdx;
 
-                const selectedIdx = points.findIndex(p => p.selected);
-                const connected = connections.find(([a, b]) =>
-                    (a === selectedIdx && b === pointIdx) || (b === selectedIdx && a === pointIdx)
-                );
+                loadAnchorMenuFromSelection();
+                const selectedIdx = points.findIndex(p => p?.selected === true);
 
-                if (connected) {
-                    const pA = points[selectedIdx];
-                    const pB = points[pointIdx];
-                    anchorMenu.visible = true;
-                    anchorMenu.points = [pA, pB];
-                    anchorMenu.midPoint = calcMidAnchorPoint(pA, pB);
-                    anchorMenu.selectedAnchor = null;
-                    updateBezierControls();
+                if (selectedIdx !== -1) {
+                    const connected = connections.find(([a, b]) =>
+                        (a === selectedIdx && b === pointIdx) || (b === selectedIdx && a === pointIdx)
+                    );
+
+                    if (connected) {
+                        const pA = points[selectedIdx];
+                        const pB = points[pointIdx];
+                        anchorMenu.visible = true;
+                        anchorMenu.points = [pA, pB];
+                        anchorMenu.midPoint = calcMidAnchorPoint(pA, pB);
+                        anchorMenu.selectedAnchor = null;
+                        updateBezierControls();
+                    } else {
+                        anchorMenu.visible = false;
+                    }
                 } else {
                     anchorMenu.visible = false;
                 }
+
                 draw();
                 return;
             }
@@ -260,7 +329,17 @@ export function penModel(props, emit) {
         const isEndSelected = isOnlyOneSelected && points[points.length - 1]?.selected;
 
         if (isFirstPoint || isStartSelected || isEndSelected) {
-            const newPoint = { x: pos.x, y: pos.y, selected: true, bezier: null };
+            const newPoint = {
+                x: pos.x,
+                y: pos.y,
+                selected: true,
+                bezier: null,
+                anchor: {
+                    start: { x: pos.x, y: pos.y },
+                    end: { x: pos.x, y: pos.y },
+                    mid: { x: pos.x, y: pos.y }
+                }
+            };
             points.forEach(p => p.selected = false);
 
             if (isFirstPoint || isEndSelected) {
@@ -308,7 +387,7 @@ export function penModel(props, emit) {
 
         if (draggingNewPoint) {
             anchorMenu.midPoint = calcMidAnchorPoint(anchorMenu.points[0], pos);
-            updateBezierControls();
+            updateBezierControls(true);
             draw();
             return;
         }
@@ -338,18 +417,23 @@ export function penModel(props, emit) {
 
         if (!anchorMenu.visible || !draggedAnchor) return;
 
-        const [pA, pB] = anchorMenu.points;
-
         if (draggedAnchor === 'mid') {
-            anchorMenu.midPoint = pos;
+            const pA = anchorMenu.points[0];
+            anchorMenu.midPoint = { ...pos };
+            pA.anchor.mid = { ...pos };
+            updateBezierControls(true);
         } else if (draggedAnchor === 'start') {
+            const pA = anchorMenu.points[0];
+            pA.anchor.start = { ...pos };
             pA.x = pos.x;
             pA.y = pos.y;
-            anchorMenu.midPoint = calcMidAnchorPoint(pA, pB);
+            pA.anchor.mid = calcMidAnchorPoint(pA, anchorMenu.points[1]);
         } else if (draggedAnchor === 'end') {
+            const pB = anchorMenu.points[1];
+            pB.anchor.end = { ...pos };
             pB.x = pos.x;
             pB.y = pos.y;
-            anchorMenu.midPoint = calcMidAnchorPoint(pA, pB);
+            anchorMenu.points[0].anchor.mid = calcMidAnchorPoint(anchorMenu.points[0], pB);
         }
 
         updateBezierControls();
@@ -362,6 +446,7 @@ export function penModel(props, emit) {
         draggingNewPoint = false;
         draggedPointIdx = null;
         draggedControlPoint = null;
+        draw();
     };
 
     // Wrapper-Click für Deselect
@@ -388,6 +473,7 @@ export function penModel(props, emit) {
     // Lifecycle-Hooks
     onMounted(() => {
         initCanvas();
+        loadAnchorMenuFromSelection();
         register('add', document, 'resize', initCanvas);
         register('pause');
     });
