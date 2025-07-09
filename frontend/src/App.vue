@@ -17,7 +17,7 @@
       <Context :state="windowStates.context.value" :copy="contextStates.copy.value" :ref-id="contextConfig.contextRefId.value" :data="contextConfig.contextData.value" v-model:disabled="contextConfig.disabledData.value"  v-model:theme="appData.theme.value" @update:component-event="componentEvent"/>
       <!-- Main Content -->
       <v-main>
-        <Grid @component-event="componentEvent" v-model:layers="localData.layers.value" v-model:selected-layer="localData.selectedLayer.value" v-model:text-layer="textLayer" v-model:brush-cursor="localData.cursor.value" v-model:color="localData.color.value" v-model:settings="localData.viewport.value" v-model:guides="localData.guides.value" v-model:fill-state="modifierStates.fill.value" v-model:select="windowStates.select.value" v-model:select-mode="localData.selectedShape.value" v-model:text="windowStates.text.value" v-model:brushes="localData.brush.value" v-model:brush-layer="brushSettings" v-model:brush="windowStates.brush.value" v-model:drawing="windowStates.drawing.value" v-model:pen="windowStates.pen.value" :viewport="{width: localData.viewport.value.width, height: localData.viewport.value.height}" style="position: relative;"/>
+        <Grid @component-event="componentEvent" v-model:layers="localData.layers.value" v-model:selected-layer="localData.selectedLayer.value" v-model:text-layer="textLayer" v-model:brush-cursor="localData.cursor.value" v-model:color="localData.color.value" v-model:settings="localData.viewport.value" v-model:guides="localData.guides.value" v-model:fill-state="modifierStates.fill.value" v-model:select="windowStates.select.value" v-model:select-mode="localData.selectedShape.value" v-model:text="windowStates.text.value" v-model:brushes="localData.brush.value" v-model:brush-layer="brushSettings" v-model:brush="windowStates.brush.value" v-model:drawing="windowStates.drawing.value" v-model:pen="windowStates.pen.value" v-model:path-layer="pathLayer" :viewport="{width: localData.viewport.value.width, height: localData.viewport.value.height}" style="position: relative;"/>
       </v-main>
       <Layer style="position: absolute; top: 40px; right: 70px;" :state="windowStates.layer.value" v-model:layers="localData.layers.value" v-model:selected-layer="localData.selectedLayer.value" v-model:channel="localData.channel.value" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
       <!-- Rechte Taskbar -->
@@ -51,6 +51,7 @@ import { createEventSystem } from '@/dataLayer/event';
 import {contextConfig} from "@/models/context/config/model";
 import {brushSettings} from "@/models/brush/config/model";
 import Queue from "@/components/Queue/Queue";
+import {pathLayer} from "@/models/pen/config/model";
 
 export default {
   name: 'App',
@@ -84,6 +85,7 @@ export default {
       contextStates,
       contextConfig,
       textLayer,
+      pathLayer,
       settings,
       osSettings
     });
@@ -165,7 +167,8 @@ export default {
       brushSettings,
       contextConfig,
       osSettings,
-      textLayer
+      textLayer,
+      pathLayer
     };
   },
 };

@@ -536,4 +536,8 @@ export const gridProps = {
         type: Boolean,
         required: true,
     },
+    pathLayer: {
+        type: Object,
+        required: true,
+    },
 };
