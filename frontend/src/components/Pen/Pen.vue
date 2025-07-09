@@ -1,12 +1,11 @@
 <template>
-  <div v-show="state" class="pen-canvas-wrapper" @click="onWrapperClick">
+  <div v-show="state" ref="wrapper" class="pen-canvas-wrapper">
     <canvas
         ref="canvas"
         @pointerdown="onPointerDown"
         @pointermove="onPointerMove"
         @pointerup="onPointerUp"
         @click="onCanvasClick"
-        class="border border-gray-400 rounded-lg"
     ></canvas>
   </div>
 </template>
@@ -20,17 +19,17 @@ export default defineComponent({
   props: penProps,
   setup(props, { emit }) {
     const {
+      wrapper,
       canvas,
       onPointerDown,
       onPointerMove,
       onPointerUp,
       onCanvasClick,
-      onWrapperClick,
     } = penModel(props, emit);
 
     return {
+      wrapper,
       canvas,
-      onWrapperClick,
       onPointerDown,
       onPointerMove,
       onPointerUp,

@@ -2,6 +2,7 @@ import { ref, reactive, onMounted, onBeforeUnmount } from 'vue';
 import { eventRegister } from "@/dataLayer/event";
 
 export function penModel(props, emit) {
+    const wrapper = ref(null);
     const canvas = ref(null);
     const ctx = ref(null);
 
@@ -52,7 +53,7 @@ export function penModel(props, emit) {
         const hitIdx = findPointAtPos(pos);
 
         // Nur schließen, wenn mehr als 2 Punkte existieren und auf Punkt 0 geklickt wurde
-        if (points.length > 2 && hitIdx === 0) {
+        if (points.length >= 2 && hitIdx === 0) {
             const first = points[0];
             const last  = points[points.length - 1];
 
@@ -269,7 +270,7 @@ export function penModel(props, emit) {
         });
     };
 
-    const isOnAnchorPoint = (pos, anchorPos, radius = 8) => {
+    const isOnAnchorPoint = (pos, anchorPos, radius = 6) => {
         const dx = pos.x - anchorPos.x;
         const dy = pos.y - anchorPos.y;
         return Math.sqrt(dx * dx + dy * dy) <= radius;
@@ -279,14 +280,17 @@ export function penModel(props, emit) {
         const [pA, pB] = anchorMenu.points;
         if (!pA?.bezier || !pB?.bezier) return null;
 
-        if (isOnAnchorPoint(pos, pA.bezier.cp2, radius)) {
+        // Nur prüfen, wenn cp2 wirklich da ist
+        if (pA.bezier.cp2 && isOnAnchorPoint(pos, pA.bezier.cp2, radius)) {
             anchorMenu.selectedAnchor = 'cp2';
             return { point: pA, control: 'cp2' };
         }
-        if (isOnAnchorPoint(pos, pB.bezier.cp1, radius)) {
+        // Dasselbe für cp1
+        if (pB.bezier.cp1 && isOnAnchorPoint(pos, pB.bezier.cp1, radius)) {
             anchorMenu.selectedAnchor = 'cp1';
             return { point: pB, control: 'cp1' };
         }
+
         return null;
     };
 
@@ -298,7 +302,7 @@ export function penModel(props, emit) {
 
     // Update der Bezier-Kontrollpunkte
     const updateBezierControls = (force = false) => {
-        if (!anchorMenu.visible || anchorMenu.points.length !== 2 || !anchorMenu.midPoint) return;
+        if (!anchorMenu.visible || !anchorMenu.midPoint) return;
 
         const [pA, pB] = anchorMenu.points;
         const idxA = points.indexOf(pA);
@@ -325,7 +329,7 @@ export function penModel(props, emit) {
             const dy = mid.y - pA.y;
             pB.bezier.cp1 = { x: mid.x + dx * 0.5, y: mid.y + dy * 0.5 };
             pA.bezier.cp2 = null;
-            anchorMenu.anchorArms.cp1 = null;
+            delete anchorMenu.anchorArms.cp1;
             anchorMenu.anchorArms.cp2 = pB.bezier.cp1;
         }
 
@@ -336,7 +340,7 @@ export function penModel(props, emit) {
             pA.bezier.cp2 = { x: mid.x + dx * 0.5, y: mid.y + dy * 0.5 };
             pB.bezier.cp1 = null;
             anchorMenu.anchorArms.cp1 = pA.bezier.cp2;
-            anchorMenu.anchorArms.cp2 = null;
+            delete anchorMenu.anchorArms.cp2;
         }
 
         // Beide sind bezier
@@ -521,25 +525,16 @@ export function penModel(props, emit) {
 
 
 
-    // Event-Handler für Pointer (Maus/Touch)
     const onPointerDown = (e) => {
         if (!props.state) return;
 
         const pos = getMousePos(e);
         const ctrl = isCtrlPressed(e);
 
-        // Komplett gesperrt: Pfad ist geschlossen und nicht editierbar
-        if (props.pathLayer.pathClosed && !props.pathLayer.pathEdit) {
-            return;
-        }
+        if (props.pathLayer.pathClosed && !props.pathLayer.pathEdit) return;
 
         // Pointer-Zustände zurücksetzen
-        draggedAnchor = null;
-        draggedControlPoint = null;
-        draggedPointIdx = null;
-        anchorMenu.selectedAnchor = null;
-        previousMid = null;
-        cpOffsets = null;
+        reset(false, true);
 
         // Alt+Linksklick: Spezialaktion
         if (e.altKey && e.button === 0) {
@@ -553,20 +548,19 @@ export function penModel(props, emit) {
             return;
         }
 
-        // Strg gedrückt: Anker-/Kontrollpunkt-Modus
+        // Strg gedrückt → Anker-/Kontrollpunkt-Modus
         if (ctrl) {
             if (anchorMenu.visible && anchorMenu.points?.length >= 2) {
                 const [pA, pB] = anchorMenu.points;
-
-                if (isOnAnchorPoint(pos, pA.anchor.start)) {
+                if (pA?.anchor && isOnAnchorPoint(pos, pA.anchor.start)) {
                     draggedAnchor = 'start';
                     return;
                 }
-                if (isOnAnchorPoint(pos, pB.anchor.end)) {
+                if (pB?.anchor && isOnAnchorPoint(pos, pB.anchor.end)) {
                     draggedAnchor = 'end';
                     return;
                 }
-                if (isOnAnchorPoint(pos, anchorMenu.midPoint)) {
+                if (anchorMenu.midPoint && isOnAnchorPoint(pos, anchorMenu.midPoint)) {
                     draggedAnchor = 'mid';
                     return;
                 }
@@ -590,12 +584,12 @@ export function penModel(props, emit) {
             return;
         }
 
-        // Punkt hinzufügen: Entweder erster Punkt oder Anfang/Ende ist ausgewählt
+        // Punkt hinzufügen: erster oder selektierter Randpunkt
         const isFirstPoint = points.length === 0;
         const selectedPts = points.filter(p => p.selected);
         const isOnlyOneSel = selectedPts.length === 1;
-        const isStartSel = isOnlyOneSel && points[0].selected;
-        const isEndSel = isOnlyOneSel && points[points.length - 1].selected;
+        const isStartSel = isOnlyOneSel && points[0]?.selected;
+        const isEndSel = isOnlyOneSel && points[points.length - 1]?.selected;
 
         if (isFirstPoint || isStartSel || isEndSel) {
             const newPoint = {
@@ -611,7 +605,6 @@ export function penModel(props, emit) {
                 }
             };
 
-            // Vorherige Auswahl aufheben
             points.forEach(p => p.selected = false);
 
             if (isFirstPoint || isEndSel) {
@@ -628,19 +621,15 @@ export function penModel(props, emit) {
                 connections.unshift([0, 1]);
             }
 
-            // Verbindung herstellen und Mid-Anchor berechnen
+            // Mid-Anchor berechnen
             if (points.length > 1) {
                 const pA = isStartSel ? points[0] : points[points.length - 2];
                 const pB = isStartSel ? points[1] : points[points.length - 1];
-
-                if (!pA || !pB || !pA.anchor || !pB.anchor) return;
-
-                anchorMenu.visible = true;
-                anchorMenu.points = [pA, pB];
-                anchorMenu.selectedAnchor = null;
+                if (!pA?.anchor || !pB?.anchor) return;
 
                 const idxA = points.indexOf(pA);
                 const idxB = points.indexOf(pB);
+                if (idxA === -1 || idxB === -1) return;
 
                 if (!pA.anchor.neighbors[idxB]) {
                     pA.anchor.neighbors[idxB] = { mid: calcMidAnchorPoint(pA, pB) };
@@ -649,9 +638,13 @@ export function penModel(props, emit) {
                     pB.anchor.neighbors[idxA] = { mid: calcMidAnchorPoint(pA, pB) };
                 }
 
-                const mA = pA.anchor.neighbors[idxB].mid;
-                const mB = pB.anchor.neighbors[idxA].mid;
+                const mA = pA.anchor.neighbors[idxB]?.mid;
+                const mB = pB.anchor.neighbors[idxA]?.mid;
+                if (!mA || !mB) return;
 
+                anchorMenu.visible = true;
+                anchorMenu.points = [pA, pB];
+                anchorMenu.selectedAnchor = null;
                 anchorMenu.midPoint = {
                     x: (mA.x + mB.x) / 2,
                     y: (mA.y + mB.y) / 2
@@ -663,18 +656,16 @@ export function penModel(props, emit) {
                 anchorMenu.visible = false;
                 draggingNewPoint = false;
             }
-
-            register('add', document, 'pointerup', onPointerUp)
             draw();
             return;
         }
 
-        // Nichts ausgewählt: Auswahl aufheben und Anker-Menü verbergen
+        // Kein gültiger Zustand → Auswahl aufheben
         points.forEach(p => p.selected = false);
         anchorMenu.visible = false;
         draw();
-        register('add', document, 'pointerup', onPointerUp)
     };
+
 
 
     const onPointerMove = (e) => {
@@ -699,7 +690,7 @@ export function penModel(props, emit) {
             updateBezierControls(true);
             draw();
             if (!ctrl &&
-                points.length > 2 && closePath(pos)) {
+                points.length >= 2 && closePath(pos)) {
                 draw();
             }
         }
@@ -762,9 +753,9 @@ export function penModel(props, emit) {
 
         // 3) Kontrollpunkt verschieben
         if (draggedControlPoint) {
-            if (!anchorMenu.points || anchorMenu.points.length < 2) return;
+            if (!anchorMenu.points) return;
             const [pA, pB] = anchorMenu.points;
-            if (pA?.linear || pB?.linear) {
+            if (pA?.linear && pB?.linear) {
                 anchorMenu.visible = false;
                 return;
             }
@@ -809,7 +800,7 @@ export function penModel(props, emit) {
         // 4) Anker verschieben
         if (!anchorMenu.visible || !draggedAnchor || !anchorMenu.points || anchorMenu.points.length < 2) return;
         const [pA, pB] = anchorMenu.points;
-        if (!pA || !pB || pA.linear || pB.linear) {
+        if (!pA || !pB || pA.linear && pB.linear) {
             anchorMenu.visible = false;
             return;
         }
@@ -907,21 +898,11 @@ export function penModel(props, emit) {
 
     const onPointerUp = (e) => {
         const pos = getMousePos(e);
-
         const ctrl = isCtrlPressed(e);
-
-        if (!ctrl && closePath(pos) && points.length > 2) {
+        if (!ctrl && closePath(pos) && points.length >= 2) {
             draw();
         }
-
-        draggedAnchor = null;
-        draggingNewPoint = false;
-        draggedPointIdx = null;
-        draggedControlPoint = null;
-        anchorMenu.selectedAnchor = null;
-        previousMid = null;
-        cpOffsets = null;
-
+        reset(false, true, {drag: true})
         updateBezierControls();
         draw();
     };
@@ -929,21 +910,14 @@ export function penModel(props, emit) {
     // Wrapper-Click für Deselect
     const onWrapperClick = (e) => {
         if (canvas.value && canvas.value.contains(e.target)) return;
-        anchorMenu.visible = false;
-        draggedAnchor = null;
-        anchorMenu.selectedAnchor = null;
-        draggingNewPoint = false;
-        draggedPointIdx = null;
-        draggedControlPoint = null;
-        previousMid = null;
-        cpOffsets = null;
+        reset(true)
         updateBezierControls();
         draw();
     };
 
     // Canvas initialisieren (Größe setzen, Kontext holen)
     const initCanvas = () => {
-        if (!canvas.value) return;
+        if (!canvas.value || !wrapper.value) return;
         const el = canvas.value;
         const { width, height } = props.viewport;
         Object.assign(el, { width, height });
@@ -952,11 +926,28 @@ export function penModel(props, emit) {
         draw();
     };
 
+    // Canvas initialisieren (Größe setzen, Kontext holen)
+    const reset = (force = false, pointer = false, state = {}) => {
+        if(force || state.anchor) anchorMenu.visible = false;
+        if(force || state.drag) draggingNewPoint = false;
+        if(force || pointer) {
+            anchorMenu.selectedAnchor = null;
+            draggedAnchor = null;
+            draggedPointIdx = null;
+            draggedControlPoint = null;
+            previousMid = null;
+            cpOffsets = null;
+            return true
+        }
+        return false
+    };
+
     // Lifecycle-Hooks
     onMounted(() => {
         initCanvas();
         loadAnchorMenuFromSelection();
         register('add', document, 'resize', initCanvas);
+        register('add', wrapper.value, 'click', reset(true));
         register('pause');
     });
 
@@ -965,6 +956,7 @@ export function penModel(props, emit) {
     });
 
     return {
+        wrapper,
         canvas,
         points,
         connections,
