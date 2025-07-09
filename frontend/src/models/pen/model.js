@@ -52,7 +52,7 @@ export function penModel(props, emit) {
         const hitIdx = findPointAtPos(pos);
 
         // Nur schließen, wenn mehr als 2 Punkte existieren und auf Punkt 0 geklickt wurde
-        if (points.length > 1 && hitIdx === 0) {
+        if (points.length > 2 && hitIdx === 0) {
             const first = points[0];
             const last  = points[points.length - 1];
 
@@ -245,11 +245,6 @@ export function penModel(props, emit) {
             updateBezierControls();
         }
     };
-
-
-
-
-
 
     // Punkt-Auswahl und Suche
     const selectPoint = (idx) => {
@@ -703,7 +698,8 @@ export function penModel(props, emit) {
 
             updateBezierControls(true);
             draw();
-            if (closePath(pos)) {
+            if (!ctrl &&
+                points.length > 2 && closePath(pos)) {
                 draw();
             }
         }
@@ -912,9 +908,10 @@ export function penModel(props, emit) {
     const onPointerUp = (e) => {
         const pos = getMousePos(e);
 
-        if (closePath(pos)) {
+        const ctrl = isCtrlPressed(e);
+
+        if (!ctrl && closePath(pos) && points.length > 2) {
             draw();
-            console.log('CLOSED')
         }
 
         draggedAnchor = null;
