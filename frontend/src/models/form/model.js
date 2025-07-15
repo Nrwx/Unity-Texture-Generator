@@ -1,3 +1,5 @@
+import {ref} from "vue";
+
 export function formModel(props, emit) {
     const emitEvent = (event, payload) => {
         emit("component-event", event, payload);
@@ -9,7 +11,20 @@ export function formModel(props, emit) {
             emitEvent(config.event, payload?.value || payload); // val ist value oder fallback
         }
     };
+
+    const showIconMenu = ref(false);
+
+    const openIconMenu = () => {
+        showIconMenu.value = true;
+    };
+
+    const closeIconMenu = () => {
+        showIconMenu.value = false;
+    };
     return {
+        showIconMenu,
+        openIconMenu,
+        closeIconMenu,
         emitEvent,
         selectUpdate
     };

@@ -1,10 +1,15 @@
 // Zustände für Windows
 import {ref} from "vue";
 
+export const ruleStates = {
+    form: ref(false),
+};
+
 export const windowStates = {
     viewport: ref(true),
     drawerLeft: ref(false),
     drawerRight: ref(false),
+    drawerCenter: ref(false),
     layer: ref(false),
     setting: ref(false),
     dialog: ref(false),
@@ -12,10 +17,12 @@ export const windowStates = {
     drag: ref(false),
     select: ref(false),
     text: ref(false),
+    notify: ref(false),
     typing: ref(false),
     cursor: ref(false),
     brush: ref(false),
     pen: ref(false),
+    path: ref(false),
     context: ref(false),
     color: ref(false),
     drawing: ref(false),

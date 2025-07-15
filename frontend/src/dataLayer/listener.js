@@ -16,18 +16,21 @@ const createListenerManager = () => {
             if (exists) return;
         }
 
+        /**
+         * @param {Event} e
+         */
         const wrappedHandler = (e) => {
             if (options?.prevent) e.preventDefault();
-            handler(e);
+            return handler(e);
         };
 
         const listener = {
             target,
             type,
             handler: wrappedHandler,
-            originalHandler: handler,
             options,
-            active: true
+            active: true,
+            originalHandler: handler
         };
 
         list.push(listener);

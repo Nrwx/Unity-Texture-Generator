@@ -13,9 +13,17 @@
         {{ prop.subtitle }}
       </div>
     </div>
+    <!-- Textfeld für Text -->
+    <v-text-field
+        v-if="prop.type === 'text' && prop.active"
+        v-model="item[key]"
+        :label="prop.label"
+        outlined
+        @update:modelValue="emitEvent(prop.event, item[key])"
+    />
     <!-- Textfeld für Zahlen -->
     <v-text-field
-        v-if="prop.type === 'number' && prop.active"
+        v-else-if="prop.type === 'number' && prop.active"
         v-model.number="item[key]"
         :label="prop.label"
         :type="prop.inputType || 'number'"
@@ -48,6 +56,24 @@
         :label="prop.label"
         @update:modelValue="emitEvent(prop.event, item[key])"
     ></v-switch>
+
+    <!-- MDI Icon Picker -->
+    <icon-list
+        v-else-if="prop.type === 'icon' && prop.active"
+        v-model="item[key]"
+        :label="prop.label"
+        :prepend-icon="item[key]"
+        @open="openIconMenu"
+        @close="closeIconMenu"
+        @update:modelValue="emitEvent(prop.event, item[key])"
+    />
+
+    <!-- Dimmer Overlay -->
+    <div
+        v-if="showIconMenu"
+        class="dimmer"
+        @click="closeIconMenu"
+    ></div>
 
     <!-- Dropdown -->
     <v-select
@@ -84,14 +110,19 @@
 <script>
 import { defineComponent } from "vue";
 import {formModel, formProps} from "@/models/form/model";
+import IconList from "@/components/Icon/List";
 
 export default defineComponent({
   name: "FormComponent",
   props: formProps,
+  components: {IconList},
   setup(props, { emit }) {
-    const { selectUpdate, emitEvent } = formModel(props, emit);
+    const { selectUpdate, emitEvent, showIconMenu, openIconMenu, closeIconMenu, } = formModel(props, emit);
     return {
       selectUpdate,
+      showIconMenu,
+      openIconMenu,
+      closeIconMenu,
       emitEvent
     };
   },
@@ -99,4 +130,5 @@ export default defineComponent({
 </script>
 
 <style scoped lang="scss">
+@import "./Form";
 </style>

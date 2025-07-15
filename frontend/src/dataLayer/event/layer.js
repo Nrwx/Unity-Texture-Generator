@@ -150,3 +150,10 @@ export const textModifierEvent = (route) => ({
         route.textLayer.value.color = payload;
     },
 });
+
+export const pathLayerEvent = (route) => ({
+    "update:path-layer": async (payload) => {
+        route.pathLayer.value = payload;
+        console.log(route.pathLayer)
+    },
+});

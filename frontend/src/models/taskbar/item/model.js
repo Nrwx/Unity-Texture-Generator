@@ -35,4 +35,10 @@ export const taskbarItemProps = {
         required: true,
         default: () => {},
     },
+    align: {
+        type: String
+    },
+    centerMenu: {
+        type: Boolean
+    }
 };

@@ -97,8 +97,8 @@ export function textModel(props, emit) {
         props.layer.initHeight = 1;
         props.layer.initFontSize = 0.40;
 
-        register('add', window, 'mousemove', handleDraw);
-        register('add', window, 'mouseup', stopDraw);
+        register('add', document, 'mousemove', handleDraw);
+        register('add', document, 'mouseup', stopDraw);
     };
 
 
@@ -117,8 +117,8 @@ export function textModel(props, emit) {
 
     const stopDraw = async () => {
         drawing.value = false;
-        register('remove', window, 'mousemove', handleDraw);
-        register('remove', window, 'mouseup', stopDraw);
+        register('remove', document, 'mousemove', handleDraw);
+        register('remove', document, 'mouseup', stopDraw);
 
         if (props.layer.width > 10 && props.layer.height > 10) {
             props.layer.initWidth = props.layer.width;
@@ -126,9 +126,6 @@ export function textModel(props, emit) {
             props.layer.fontSize = Math.round(Math.min(props.layer.width, props.layer.height) / 2.5);
             props.layer.initFontSize = props.layer.fontSize; // neue Property für spätere Referenz
             drawn.value = true;
-            await nextTick(() => {
-                textarea.value?.focus();
-            });
         }
     };
 
@@ -167,8 +164,8 @@ export function textModel(props, emit) {
         initialWidth.value = props.layer.width;
         initialHeight.value = props.layer.height;
 
-        register('add', window, 'mousemove', handleResize);
-        register('add', window, 'mouseup', stopResize);
+        register('add', document, 'mousemove', handleResize);
+        register('add', document, 'mouseup', stopResize);
     };
 
     const handleResize = (e) => {
@@ -221,8 +218,8 @@ export function textModel(props, emit) {
 
 
     const stopResize = () => {
-        register('remove', window, 'mousemove', handleResize);
-        register('remove', window, 'mouseup', stopResize);
+        register('remove', document, 'mousemove', handleResize);
+        register('remove', document, 'mouseup', stopResize);
     };
 
     const adjustHeight = () => {

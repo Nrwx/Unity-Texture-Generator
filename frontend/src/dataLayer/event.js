@@ -4,7 +4,7 @@ import {listenerEvent} from "@/dataLayer/event/listener";
 import {viewportEvent} from "@/dataLayer/event/viewport";
 import {
     layerEvent,
-    layerModifierEvent,
+    layerModifierEvent, pathLayerEvent,
     selectLayerEvent,
     textLayerEvent,
     textModifierEvent
@@ -21,6 +21,7 @@ import {aiEvent} from "@/dataLayer/event/ai";
 import {brushEvent} from "@/dataLayer/event/brush";
 import {cursorEvent} from "@/dataLayer/event/cursor";
 import {appEvent} from "@/dataLayer/event/app";
+import {notifyEvent} from "@/dataLayer/event/notify";
 
 
 /**
@@ -32,6 +33,7 @@ const eventHandler = (route) => ({
     ...fontsEvent(route),
     ...globalBackupEvent(route),
     ...cursorEvent(route),
+    ...notifyEvent(route),
     ...windowStateEvent(route),
     ...selectLayerEvent(route),
     ...aiEvent(route),
@@ -45,6 +47,7 @@ const eventHandler = (route) => ({
     ...layerModifierEvent(route),
     ...textLayerEvent(route),
     ...textModifierEvent(route),
+    ...pathLayerEvent(route),
     ...channelEvent(route),
     ...contextMenuEvent(route)
 });
@@ -86,6 +89,10 @@ export const createEventSystem = (deps) => {
     return emit;
 };
 
+/**
+ * @param id
+ * @param emitEvent
+ */
 export const eventRegister = (id='', emitEvent=null) => {
     if (!id || id === '' || typeof id !== 'string') {
         console.warn(`[eventRegister] ⚠️ id ist nicht definiert oder kein String!`);
@@ -93,7 +100,14 @@ export const eventRegister = (id='', emitEvent=null) => {
     if (!emitEvent || typeof emitEvent !== 'function') {
         console.warn(`[eventRegister] ⚠️ emitEvent ist nicht definiert oder keine Funktion!`);
     }
-    const register = (mode, target, type = null, handler = null, options = false) => {
+    /**
+     * @param mode
+     * @param target
+     * @param type
+     * @param handler
+     * @param options
+     */
+    const register = (mode, target, type, handler, options = false) => {
 
         switch (mode) {
             case 'add':
@@ -103,12 +117,12 @@ export const eventRegister = (id='', emitEvent=null) => {
                 }
                 emitEvent('event:listener', {
                     add: true,
-                    id,
-                    target,
-                    type,
-                    handler,
-                    options,
-                    active: true,
+                    id: id,
+                    target: target,
+                    type: type,
+                    handler: handler,
+                    options: options,
+                    active: true
                 });
                 break;
 

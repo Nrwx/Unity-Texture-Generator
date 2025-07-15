@@ -35,7 +35,7 @@
             <Text :state="text" @update:component-event="emitEvent" :layer="textLayer"/>
 
             <Brush :selected="selectedLayer" :mouse="cursor" :cursor="brushCursor" :viewport="viewport" :brushes="brushes" :state="brush" :drawing="drawing" :data="brushLayer" @update:component-event="emitEvent"></Brush>
-            <Pen :mouse="cursor" :viewport="viewport" :state="pen" :path-layer="pathLayer" @update:component-event="emitEvent"/>
+            <Pen :mouse="cursor" :viewport="viewport" :state="pen" :path-layer="pathLayer" :loading="loading" :path-state="penPathState" :theme="theme" @update:component-event="emitEvent"/>
           </div>
           <SelectVector
               v-if="selectedLayer.length"
@@ -58,6 +58,8 @@
           @update:component-event="emitEvent"
       />
     </div>
+
+    <slot style="width: 100%;"/>
   </div>
 </template>
 

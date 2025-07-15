@@ -1,5 +1,5 @@
-import { ref, reactive, onMounted, onBeforeUnmount } from 'vue';
-import { eventRegister } from "@/dataLayer/event";
+import {computed, onBeforeUnmount, onMounted, reactive, ref} from 'vue';
+import {eventRegister} from "@/dataLayer/event";
 
 export function penModel(props, emit) {
     const wrapper = ref(null);
@@ -10,7 +10,20 @@ export function penModel(props, emit) {
     const points = reactive([]);
     const connections = reactive([]);
 
-    // Menü für Ankerpunkte (Bezier-Kontrollpunkte)
+    const draggedAnchor = ref(null);
+    const draggingNewPoint = ref(false);
+    const draggedPointIdx = ref(null);
+    const draggedControlPoint = ref(null);
+    const previousMid = ref(null);
+    const cpOffsets = ref(null);
+
+    const config = ref({
+        maxWidth: 500,
+        class: 'dialog-dimm',
+        emit: 'pen:path-state',
+        hideClose: true
+    });
+
     const anchorMenu = reactive({
         visible: false,
         points: [],
@@ -19,124 +32,78 @@ export function penModel(props, emit) {
         anchorArms: { cp1: null, cp2: null },
     });
 
-    // Variablen für Dragging-Zustände
-    let draggedAnchor = null;
-    let draggingNewPoint = false;
-    let draggedPointIdx = null;
-    let draggedControlPoint = null;
-    let previousMid = null;
-    let cpOffsets = null;
+    const pointsLength = computed(() => points.length);
 
     const emitEvent = (event, payload) => emit('update:component-event', event, payload);
     const { register } = eventRegister('listener:pen', emitEvent);
 
-    // Helfer: Mausposition relativ zum Canvas
-    const getMousePos = (e) => {
-        const rect = canvas.value.getBoundingClientRect();
-        return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    };
-
     const isCtrlPressed = (e) => e.ctrlKey || e.metaKey;
 
     const updatePathLayer = () => {
-        // props.pathLayer ist das reactive-Object von außen
         const layer = props.pathLayer;
         layer.points     = JSON.parse(JSON.stringify(points));
         layer.connections= JSON.parse(JSON.stringify(connections));
-        layer.closed     = !!layer.pathClosed;
-        layer.edit       = !!layer.pathEdit;
-        // gib die aktualisierten Daten nach außen
-        emit('layer:path', layer);
+        emitEvent('update:path-layer', layer);
     };
 
-    const closePath = (pos) => {
+    const handleClosePath = (pos) => {
         const hitIdx = findPointAtPos(pos);
 
-        // Nur schließen, wenn mehr als 2 Punkte existieren und auf Punkt 0 geklickt wurde
-        if (points.length >= 2 && hitIdx === 0) {
-            const first = points[0];
-            const last  = points[points.length - 1];
-
-            // 1. Letzten Punkt auf Position von erstem setzen
-            last.x = first.x;
-            last.y = first.y;
-
-            // 2. Anker synchronisieren (Position & Struktur)
-            if (last.anchor && first.anchor) {
-                last.anchor.start = { ...first.anchor.start };
-                last.anchor.end   = { ...first.anchor.end };
-
-                // Erstellt gegenseitige Nachbarschaft, falls sie fehlt
-                const firstIdx = 0;
-                const lastIdx  = points.length - 1;
-
-                if (!first.anchor.neighbors[lastIdx]) {
-                    first.anchor.neighbors[lastIdx] = { mid: { x: first.x, y: first.y } };
-                }
-
-                if (!last.anchor.neighbors[firstIdx]) {
-                    last.anchor.neighbors[firstIdx] = { mid: { x: last.x, y: last.y } };
-                }
-            }
-
-            // 3. Bezier-Kontrollpunkte kopieren (optional)
-            if (last.bezier && first.bezier) {
-                last.bezier.cp1 = { ...first.bezier.cp1 };
-                last.bezier.cp2 = { ...first.bezier.cp2 };
-            }
-
-            // 4. Status aktualisieren
-            props.pathLayer.pathClosed = true;
-            props.pathLayer.pathEdit   = false;
-
-            updatePathLayer();
-            return true;
+        if (points.length >= 3 && hitIdx === 0 && !props.pathLayer.closed) {
+            const last = points[points.length - 1];
+            return findPointAtPos(last) === 0;
         }
 
         return false;
     };
 
-
-
-    // Shortcut: Alt + Linksklick auf Hauptpunkt → Linie statt Bezier
-    const handleAltClick = (e) => {
-        const pos = getMousePos(e);
-        const idx = findPointAtPos(pos);
+    const handleAltClick = () => {
+        const idx = findPointAtPos({ x: props.mouse.x, y: props.mouse.y });
         if (idx === -1) return;
+
         const p = points[idx];
+        const prev = points[idx - 1];
+        const next = points[idx + 1];
 
         p.linear = !p.linear;
 
         if (p.linear) {
-            // Bezier-Daten löschen
+            // Zurück zu linear → Bezier-Daten löschen
             p.bezier = null;
             anchorMenu.visible = false;
         } else {
-            // Wenn nicht linear → Menü öffnen (falls Nachbarn vorhanden)
-            const selected = points.find(p => p.selected);
-            if (selected) {
-                const idxSelected = points.indexOf(selected);
-                const idxP = idx;
-                const neighbor = idxSelected !== idxP ? selected : points[idxP + 1] || points[idxP - 1];
+            // Initialisiere Bezier-Daten
+            const cpDistance = 40;
+            p.bezier = {
+                cp1: { x: p.x - cpDistance, y: p.y },
+                cp2: { x: p.x + cpDistance, y: p.y }
+            };
 
-                if (neighbor) {
-                    anchorMenu.visible = true;
-                    anchorMenu.points = [p, neighbor];
-                    anchorMenu.midPoint = calcMidAnchorPoint(p, neighbor);
-                    updateBezierControls(true);
-                }
+            // Logik: cp1 oder cp2 linear, je nach Vorgänger
+            if (prev?.linear) {
+                // Vorgänger ist linear → cp1 linear, cp2 bezier
+                p.bezier.cp1 = { x: p.x, y: p.y };
+            } else {
+                // Vorgänger ist bezier → cp1 bezier, cp2 linear
+                p.bezier.cp2 = { x: p.x, y: p.y };
+            }
+
+            // Menü vorbereiten, falls sinnvoll
+            const neighbor = prev || next;
+            if (neighbor) {
+                anchorMenu.visible = true;
+                anchorMenu.points = [p, neighbor];
+                anchorMenu.midPoint = calcMidAnchorPoint(p, neighbor);
+                updateBezierControls(true);
             }
         }
 
-        draw(); // Aktualisiere die Darstellung
+        draw();
     };
 
 
-
-    // Shortcut: Strg + Rechtsklick auf Hauptpunkt → Punkt löschen
-    const handleCtrlRightClick = (e) => {
-        const pos = getMousePos(e);
-        const idx = findPointAtPos(pos);
+    const handleCtrlRightClick = () => {
+        const idx = findPointAtPos({ x: props.mouse.x, y: props.mouse.y });
         if (idx !== -1) {
             if (anchorMenu.visible) {
                 const affected = anchorMenu.points.some(p => points.indexOf(p) === idx);
@@ -149,17 +116,27 @@ export function penModel(props, emit) {
                 }
             }
 
-            // Verbindungen löschen, die den Punkt enthalten
+            if (idx > 0 && idx < points.length - 1) {
+                const prevIdx = idx - 1;
+                const nextIdx = idx + 1;
+
+                const exists = connections.some(([a, b]) =>
+                    (a === prevIdx && b === nextIdx) || (a === nextIdx && b === prevIdx)
+                );
+
+                if (!exists) {
+                    connections.push([prevIdx, nextIdx]);
+                }
+            }
+
             for (let i = connections.length - 1; i >= 0; i--) {
                 if (connections[i][0] === idx || connections[i][1] === idx) {
                     connections.splice(i, 1);
                 }
             }
 
-            // Punkt löschen
             points.splice(idx, 1);
 
-            // Verbindungen anpassen (Indexshift)
             for (let i = 0; i < connections.length; i++) {
                 connections[i][0] = connections[i][0] > idx ? connections[i][0] - 1 : connections[i][0];
                 connections[i][1] = connections[i][1] > idx ? connections[i][1] - 1 : connections[i][1];
@@ -182,7 +159,7 @@ export function penModel(props, emit) {
     };
 
 
-    // Anchor-Menus für die aktuell selektierte Verbindung
+
     const loadAnchorMenuFromSelection = () => {
         const sel = points.findIndex(p => p.selected);
         if (sel === -1) { anchorMenu.visible = false; return; }
@@ -194,7 +171,6 @@ export function penModel(props, emit) {
         const pA = points[iA];
         const pB = points[iB];
 
-        // Sicherheitsprüfung: könnten durch Punkt-Löschen undefiniert sein
         if (!pA || !pB) {
             anchorMenu.visible = false;
             return;
@@ -247,7 +223,6 @@ export function penModel(props, emit) {
         }
     };
 
-    // Punkt-Auswahl und Suche
     const selectPoint = (idx) => {
         points.forEach((p, i) => p.selected = i === idx);
         loadAnchorMenuFromSelection();
@@ -255,10 +230,9 @@ export function penModel(props, emit) {
         p.selected = true;
         p.pulseAt = Date.now();
 
-        // 🔧 Direkt aktivieren, damit Bewegung sofort möglich ist
-        draggedPointIdx = idx;
-        draggedControlPoint = null;
-        draggedAnchor = null;
+        draggedPointIdx.value = idx;
+        draggedControlPoint.value = null;
+        draggedAnchor.value = null;
         draw();
     };
 
@@ -456,19 +430,7 @@ export function penModel(props, emit) {
         });
 
         // === 3) Midpoint & Kontrollpunkte ===
-        if (
-            anchorMenu.visible &&
-            anchorMenu.points.length === 2 &&
-            anchorMenu.midPoint &&
-            anchorMenu.points[0] && anchorMenu.points[1] &&
-            typeof anchorMenu.points[0].x === 'number' &&
-            typeof anchorMenu.points[0].y === 'number' &&
-            typeof anchorMenu.points[1].x === 'number' &&
-            typeof anchorMenu.points[1].y === 'number' &&
-            typeof anchorMenu.midPoint.x === 'number' &&
-            typeof anchorMenu.midPoint.y === 'number' &&
-            (anchorMenu.points[0].selected || anchorMenu.points[1].selected)
-        ) {
+        if (isValidAnchorMenu()) {
             const [pA, pB] = anchorMenu.points;
             const mid = anchorMenu.midPoint;
 
@@ -524,17 +486,30 @@ export function penModel(props, emit) {
     };
 
 
+    const isValidAnchorMenu = () => {
+        const [pA, pB] = anchorMenu.points;
+        const mid = anchorMenu.midPoint;
+        return (
+            anchorMenu.visible &&
+            pA && pB && mid &&
+            [pA.x, pA.y, pB.x, pB.y, mid.x, mid.y].every(v => typeof v === 'number') &&
+            (pA.selected || pB.selected)
+        );
+    };
 
     const onPointerDown = (e) => {
         if (!props.state) return;
 
-        const pos = getMousePos(e);
+        const pos = {x: props.mouse.x, y: props.mouse.y};
         const ctrl = isCtrlPressed(e);
 
-        if (props.pathLayer.pathClosed && !props.pathLayer.pathEdit) return;
+        if (props.pathLayer.closed && !props.pathLayer.edit) return;
 
         // Pointer-Zustände zurücksetzen
         reset(false, true);
+
+        register('add', canvas.value, 'pointermove', onPointerMove);
+        register('add', canvas.value, 'pointerup', onPointerUp);
 
         // Alt+Linksklick: Spezialaktion
         if (e.altKey && e.button === 0) {
@@ -553,29 +528,29 @@ export function penModel(props, emit) {
             if (anchorMenu.visible && anchorMenu.points?.length >= 2) {
                 const [pA, pB] = anchorMenu.points;
                 if (pA?.anchor && isOnAnchorPoint(pos, pA.anchor.start)) {
-                    draggedAnchor = 'start';
+                    draggedAnchor.value = 'start';
                     return;
                 }
                 if (pB?.anchor && isOnAnchorPoint(pos, pB.anchor.end)) {
-                    draggedAnchor = 'end';
+                    draggedAnchor.value = 'end';
                     return;
                 }
                 if (anchorMenu.midPoint && isOnAnchorPoint(pos, anchorMenu.midPoint)) {
-                    draggedAnchor = 'mid';
+                    draggedAnchor.value = 'mid';
                     return;
                 }
             }
 
             const controlHit = findControlPointAtPos(pos);
             if (controlHit) {
-                draggedControlPoint = controlHit;
+                draggedControlPoint.value = controlHit;
                 return;
             }
 
             const pointIdx = findPointAtPos(pos);
             if (pointIdx !== -1) {
                 selectPoint(pointIdx);
-                draggedPointIdx = pointIdx;
+                draggedPointIdx.value = pointIdx;
                 loadAnchorMenuFromSelection();
                 draw();
                 return;
@@ -650,31 +625,29 @@ export function penModel(props, emit) {
                     y: (mA.y + mB.y) / 2
                 };
 
-                draggingNewPoint = true;
+                draggingNewPoint.value = true;
                 updateBezierControls();
             } else {
                 anchorMenu.visible = false;
-                draggingNewPoint = false;
+                draggingNewPoint.value = false;
             }
             draw();
             return;
         }
 
-        // Kein gültiger Zustand → Auswahl aufheben
         points.forEach(p => p.selected = false);
         anchorMenu.visible = false;
         draw();
     };
 
-
-
     const onPointerMove = (e) => {
         if (!props.state) return;
-        const pos = getMousePos(e);
+
+        const pos = {x: props.mouse.x, y: props.mouse.y};
         const ctrl = isCtrlPressed(e);
 
         // 1) Neuer Punkt Drag
-        if (draggingNewPoint) {
+        if (draggingNewPoint.value) {
             if (!anchorMenu.points || anchorMenu.points.length < 2) return;
             const [pA, pB] = anchorMenu.points;
             const idxA = points.indexOf(pA);
@@ -682,22 +655,17 @@ export function penModel(props, emit) {
             if (idxA === -1 || idxB === -1) return;
 
             const mid = calcMidAnchorPoint(pA, pos);
-
             anchorMenu.midPoint = mid;
             pA.anchor.neighbors[idxB].mid = { ...mid };
             pB.anchor.neighbors[idxA].mid = { ...mid };
 
             updateBezierControls(true);
             draw();
-            if (!ctrl &&
-                points.length >= 2 && closePath(pos)) {
-                draw();
-            }
         }
 
         // 2) Punkt verschieben
-        if (ctrl && draggedPointIdx !== null && !draggedControlPoint && !draggedAnchor) {
-            const p = points[draggedPointIdx];
+        else if (ctrl && draggedPointIdx.value !== null && !draggedControlPoint.value && !draggedAnchor.value) {
+            const p = points[draggedPointIdx.value];
             if (!p) return;
 
             anchorMenu.visible = !p?.linear;
@@ -725,9 +693,9 @@ export function penModel(props, emit) {
                 data.mid.y += dy;
 
                 const nb = points[Number(nbrIdx)];
-                if (nb?.anchor?.neighbors?.[draggedPointIdx]) {
-                    nb.anchor.neighbors[draggedPointIdx].mid.x += dx;
-                    nb.anchor.neighbors[draggedPointIdx].mid.y += dy;
+                if (nb?.anchor?.neighbors?.[draggedPointIdx.value]) {
+                    nb.anchor.neighbors[draggedPointIdx.value].mid.x += dx;
+                    nb.anchor.neighbors[draggedPointIdx.value].mid.y += dy;
                 }
             });
 
@@ -748,11 +716,10 @@ export function penModel(props, emit) {
             }
 
             draw();
-            return;
         }
 
         // 3) Kontrollpunkt verschieben
-        if (draggedControlPoint) {
+        else if (draggedControlPoint.value) {
             if (!anchorMenu.points) return;
             const [pA, pB] = anchorMenu.points;
             if (pA?.linear && pB?.linear) {
@@ -762,7 +729,7 @@ export function penModel(props, emit) {
 
             anchorMenu.visible = true;
 
-            const { point, control } = draggedControlPoint;
+            const { point, control } = draggedControlPoint.value;
             const bez = point.bezier?.[control];
             if (!bez) return;
 
@@ -794,125 +761,126 @@ export function penModel(props, emit) {
 
             updateBezierControls();
             draw();
-            return;
         }
 
         // 4) Anker verschieben
-        if (!anchorMenu.visible || !draggedAnchor || !anchorMenu.points || anchorMenu.points.length < 2) return;
-        const [pA, pB] = anchorMenu.points;
-        if (!pA || !pB || pA.linear && pB.linear) {
-            anchorMenu.visible = false;
-            return;
-        }
+        else if (anchorMenu.visible && draggedAnchor.value && anchorMenu.points?.length >= 2) {
+            const [pA, pB] = anchorMenu.points;
+            if (!pA || !pB || (pA.linear && pB.linear)) {
+                anchorMenu.visible = false;
+                return;
+            }
 
-        const idxA = points.indexOf(pA);
-        const idxB = points.indexOf(pB);
+            const idxA = points.indexOf(pA);
+            const idxB = points.indexOf(pB);
 
-        if (draggedAnchor === 'mid') {
-            if (!anchorMenu.midPoint) return;
+            if (draggedAnchor.value === 'mid') {
+                if (!anchorMenu.midPoint) return;
 
-            if (!previousMid) {
-                previousMid = { ...anchorMenu.midPoint };
-                cpOffsets = {
-                    offsetA: {
-                        x: (pA?.bezier?.cp2?.x ?? 0) - previousMid.x,
-                        y: (pA?.bezier?.cp2?.y ?? 0) - previousMid.y
-                    },
-                    offsetB: {
-                        x: (pB?.bezier?.cp1?.x ?? 0) - previousMid.x,
-                        y: (pB?.bezier?.cp1?.y ?? 0) - previousMid.y
+                if (!previousMid.value) {
+                    previousMid.value = { ...anchorMenu.midPoint };
+                    cpOffsets.value = {
+                        offsetA: {
+                            x: (pA?.bezier?.cp2?.x ?? 0) - previousMid.value.x,
+                            y: (pA?.bezier?.cp2?.y ?? 0) - previousMid.value.y
+                        },
+                        offsetB: {
+                            x: (pB?.bezier?.cp1?.x ?? 0) - previousMid.value.x,
+                            y: (pB?.bezier?.cp1?.y ?? 0) - previousMid.value.y
+                        }
+                    };
+                }
+
+                if (!cpOffsets.value) return;
+
+                const newMid = { x: pos.x, y: pos.y };
+                anchorMenu.midPoint = newMid;
+
+                if (pA.anchor?.neighbors?.[idxB]) pA.anchor.neighbors[idxB].mid = { ...newMid };
+                if (pB.anchor?.neighbors?.[idxA]) pB.anchor.neighbors[idxA].mid = { ...newMid };
+
+                const aIsLinear = pA.linear === true;
+                const bIsLinear = pB.linear === true;
+
+                if (pA?.bezier && cpOffsets.value.offsetA) {
+                    let offsetAx = cpOffsets.value.offsetA.x;
+                    let offsetAy = cpOffsets.value.offsetA.y;
+                    if (aIsLinear) {
+                        offsetAx = 0;
+                        offsetAy = 0;
+                    } else if (bIsLinear) {
+                        offsetAx *= 0.5;
+                        offsetAy *= 0.5;
                     }
-                };
-            }
 
-            if (!cpOffsets) return;
-
-            const newMid = { x: pos.x, y: pos.y };
-            anchorMenu.midPoint = newMid;
-
-            if (pA.anchor?.neighbors?.[idxB]) pA.anchor.neighbors[idxB].mid = { ...newMid };
-            if (pB.anchor?.neighbors?.[idxA]) pB.anchor.neighbors[idxA].mid = { ...newMid };
-
-            const aIsLinear = pA.linear === true;
-            const bIsLinear = pB.linear === true;
-
-            if (pA?.bezier && cpOffsets.offsetA) {
-                let offsetAx = cpOffsets.offsetA.x;
-                let offsetAy = cpOffsets.offsetA.y;
-                if (aIsLinear) {
-                    offsetAx = 0;
-                    offsetAy = 0;
-                } else if (bIsLinear) {
-                    offsetAx *= 0.5;
-                    offsetAy *= 0.5;
+                    pA.bezier.cp2 = {
+                        x: newMid.x + offsetAx,
+                        y: newMid.y + offsetAy
+                    };
+                    anchorMenu.anchorArms.cp1 = pA.bezier.cp2;
                 }
 
-                pA.bezier.cp2 = {
-                    x: newMid.x + offsetAx,
-                    y: newMid.y + offsetAy
-                };
-                anchorMenu.anchorArms.cp1 = pA.bezier.cp2;
-            }
+                if (pB?.bezier && cpOffsets.value.offsetB) {
+                    let offsetBx = cpOffsets.value.offsetB.x;
+                    let offsetBy = cpOffsets.value.offsetB.y;
+                    if (bIsLinear) {
+                        offsetBx = 0;
+                        offsetBy = 0;
+                    } else if (aIsLinear) {
+                        offsetBx *= 0.5;
+                        offsetBy *= 0.5;
+                    }
 
-            if (pB?.bezier && cpOffsets.offsetB) {
-                let offsetBx = cpOffsets.offsetB.x;
-                let offsetBy = cpOffsets.offsetB.y;
-                if (bIsLinear) {
-                    offsetBx = 0;
-                    offsetBy = 0;
-                } else if (aIsLinear) {
-                    offsetBx *= 0.5;
-                    offsetBy *= 0.5;
+                    pB.bezier.cp1 = {
+                        x: newMid.x + offsetBx,
+                        y: newMid.y + offsetBy
+                    };
+                    anchorMenu.anchorArms.cp2 = pB.bezier.cp1;
                 }
 
-                pB.bezier.cp1 = {
-                    x: newMid.x + offsetBx,
-                    y: newMid.y + offsetBy
-                };
-                anchorMenu.anchorArms.cp2 = pB.bezier.cp1;
+                draw();
             }
 
-            draw();
-            return;
-        }
+            else if (draggedAnchor.value === 'start') {
+                pA.anchor.start = { ...pos };
+                pA.x = pos.x;
+                pA.y = pos.y;
+                updateBezierControls();
+                draw();
+            }
 
-        if (draggedAnchor === 'start') {
-            pA.anchor.start = { ...pos };
-            pA.x = pos.x;
-            pA.y = pos.y;
-            updateBezierControls();
-            draw();
-            return;
-        }
-
-        if (draggedAnchor === 'end') {
-            pB.anchor.end = { ...pos };
-            pB.x = pos.x;
-            pB.y = pos.y;
-            updateBezierControls();
-            draw();
-            return;
+            else if (draggedAnchor.value === 'end') {
+                pB.anchor.end = { ...pos };
+                pB.x = pos.x;
+                pB.y = pos.y;
+                updateBezierControls();
+                draw();
+            }
         }
     };
 
 
+
     const onPointerUp = (e) => {
-        const pos = getMousePos(e);
-        const ctrl = isCtrlPressed(e);
-        if (!ctrl && closePath(pos) && points.length >= 2) {
-            draw();
+        if (!isCtrlPressed(e) && !draggingNewPoint.value && handleClosePath({ x: props.mouse.x, y: props.mouse.y }) && points.length >= 3) {
+            emitEvent('pen:path-state', true);
         }
         reset(false, true, {drag: true})
         updateBezierControls();
         draw();
+        register('remove', canvas.value, 'pointerup', onPointerUp);
+        register('remove', canvas.value, 'pointermove', onPointerMove);
     };
 
     // Wrapper-Click für Deselect
     const onWrapperClick = (e) => {
-        if (canvas.value && canvas.value.contains(e.target)) return;
-        reset(true)
-        updateBezierControls();
-        draw();
+        if (canvas.value && wrapper.value && wrapper.value?.contains(e.target) && e.target !== canvas.value){
+            reset(true)
+            updateBezierControls(true);
+            draw();
+            register('remove', canvas.value, 'pointerup', onPointerUp);
+            register('remove', canvas.value, 'pointermove', onPointerMove);
+        }
     };
 
     // Canvas initialisieren (Größe setzen, Kontext holen)
@@ -929,25 +897,79 @@ export function penModel(props, emit) {
     // Canvas initialisieren (Größe setzen, Kontext holen)
     const reset = (force = false, pointer = false, state = {}) => {
         if(force || state.anchor) anchorMenu.visible = false;
-        if(force || state.drag) draggingNewPoint = false;
+        if(force || state.drag) draggingNewPoint.value = false;
         if(force || pointer) {
             anchorMenu.selectedAnchor = null;
-            draggedAnchor = null;
-            draggedPointIdx = null;
-            draggedControlPoint = null;
-            previousMid = null;
-            cpOffsets = null;
-            return true
+            draggedAnchor.value = null;
+            draggedPointIdx.value = null;
+            draggedControlPoint.value = null;
+            previousMid.value = null;
+            cpOffsets.value = null;
         }
-        return false
     };
 
-    // Lifecycle-Hooks
+    const handlePath = (payload) => {
+        if (payload.edit) {
+            props.pathLayer.closed = false;
+            props.pathLayer.edit = true;
+        } else {
+            props.pathLayer.closed = true;
+            props.pathLayer.edit = false;
+
+            if (points.length >= 3) {
+                const first = points[0];
+                const newPoint = JSON.parse(JSON.stringify(first));
+
+                newPoint.selected = false;
+                newPoint.pulseAt = Date.now();
+
+                points.push(newPoint);
+                connections.push([points.length - 2, points.length - 1]);
+
+                const idxFirst = 0;
+                const idxLast = points.length - 1;
+
+                if (!first.anchor) {
+                    first.anchor = {
+                        start: { x: first.x, y: first.y },
+                        end: { x: first.x, y: first.y },
+                        neighbors: {}
+                    };
+                }
+                if (!newPoint.anchor) {
+                    newPoint.anchor = {
+                        start: { x: newPoint.x, y: newPoint.y },
+                        end: { x: newPoint.x, y: newPoint.y },
+                        neighbors: {}
+                    };
+                }
+
+                first.anchor.neighbors[idxLast] = { mid: calcMidAnchorPoint(first, newPoint) };
+                newPoint.anchor.neighbors[idxFirst] = { mid: calcMidAnchorPoint(newPoint, first) };
+
+                if (first.bezier) {
+                    newPoint.bezier = {
+                        cp1: { ...first.bezier.cp1 },
+                        cp2: { ...first.bezier.cp2 }
+                    };
+                }
+
+                updatePathLayer();
+                reset(true)
+                draw();
+            }
+        }
+        emitEvent('pen:path-state', false)
+    };
+
+
     onMounted(() => {
+        wrapper.value = document.querySelector('.viewport-wrapper')
         initCanvas();
         loadAnchorMenuFromSelection();
         register('add', document, 'resize', initCanvas);
-        register('add', wrapper.value, 'click', reset(true));
+        register('add', wrapper.value, 'click', onWrapperClick);
+        register('add', canvas.value, 'pointerdown', onPointerDown);
         register('pause');
     });
 
@@ -956,22 +978,22 @@ export function penModel(props, emit) {
     });
 
     return {
-        wrapper,
         canvas,
-        points,
+        config,
+        pointsLength,
         connections,
         anchorMenu,
-        onPointerDown,
-        onPointerMove,
-        onPointerUp,
-        onWrapperClick,
-        emitEvent,
+        handlePath,
+        emitEvent
     };
 }
 
 export const penProps = {
     state: { type: Boolean, required: true },
-    drawing: { type: Boolean, required: true },
+    pathState: { type: Boolean, required: true },
     viewport: { type: Object, required: true },
     pathLayer: { type: Object, required: true },
+    loading: { type: Boolean, required: true },
+    theme: { type: String, required: true },
+    mouse: { type: Object, required: true },
 };

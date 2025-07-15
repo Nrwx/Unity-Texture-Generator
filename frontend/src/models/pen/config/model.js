@@ -6,7 +6,8 @@ export const pathLayer = ref({
     type: 2,             // 1 = Text, 2 = Pfad
     order: 0,            // Z-Index/Reihenfolge
     hidden: 0,           // 0 = sichtbar, 1 = ausgeblendet
-    closed: false,       // true, wenn der Pfad geschlossen wurde
+    closed: false,
+    edit: true,          // true, wenn der Pfad bearbeitet wurde
 
     // Koordinaten-Daten
     points: [],          // [{ x: number, y: number, linear: boolean, bezier?: { cp1?, cp2? } }, ...]

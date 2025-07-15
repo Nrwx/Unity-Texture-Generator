@@ -1,7 +1,7 @@
 export const listenerEvent = (route) => ({
     "event:listener": async (payload) => {
         if (payload.add) {
-            route.listener.add(payload.id, payload.target, payload.type, payload.handler, payload.options, payload.active);
+            route.listener.add(payload.id, payload.target, payload.type, payload.handler, payload.options);
         }
         else if (payload.remove) {
             route.listener.remove(payload.id, payload.type, payload.handler);

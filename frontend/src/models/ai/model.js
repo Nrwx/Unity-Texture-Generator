@@ -1,5 +1,4 @@
 import { ref } from "vue";
-import {windowStates} from "@/dataLayer/state";
 
 export const aiProps = {};
 
@@ -35,11 +34,11 @@ export function aiModel(emit) {
     };
 
     const onFocus = () => {
-        windowStates.typing.value = true;
+        emitEvent('rule:allow-form', true)
     };
 
     const onBlur = () => {
-        windowStates.typing.value = false;
+        emitEvent('rule:allow-form', false)
     };
 
     return {

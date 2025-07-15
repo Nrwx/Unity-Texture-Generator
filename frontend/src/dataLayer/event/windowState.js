@@ -29,9 +29,25 @@ export const windowStateEvent = (route) => ({
             route.canvasStates.select.value = payload;
         }
     },
+    "rule:allow-form": (payload) => {
+        if (typeof payload === "boolean") {
+            route.ruleStates.form.value = payload;
+        }
+    },
+    "notify-state": (payload) => {
+        if (typeof payload === "boolean") {
+            route.windowStates.notify.value = payload;
+            console.log(payload)
+        }
+    },
     "viewport-state": (payload) => {
         if (typeof payload === "boolean") {
             route.windowStates.viewport.value = payload;
+        }
+    },
+    "drawer-center-state": (payload) => {
+        if (typeof payload === "boolean") {
+            route.windowStates.drawerCenter.value = payload;
         }
     },
     "dialog-state": (payload) => {
@@ -77,8 +93,14 @@ export const windowStateEvent = (route) => ({
             }
         }
     },
+    "pen:path-state": async (payload) => {
+        if (typeof payload === "boolean") {
+            route.windowStates.path.value = payload;
+        }
+    },
     "text-state": async (payload) => {
         if (typeof payload === "boolean") {
+            await route.emit("rule:allow-form", payload);
             route.windowStates.text.value = payload;
             if (!route.listener.isActive('listener:text-create')) {
                 await route.emit("event:listener", {resume: true, id: 'listener:text-create'})
@@ -87,6 +109,7 @@ export const windowStateEvent = (route) => ({
     },
     "brush-state": async (payload) => {
         if (typeof payload === "boolean") {
+            await route.emit("rule:allow-form", payload);
             route.windowStates.brush.value = payload;
             if (!route.listener.isActive('listener:brush')) {
                 await route.emit("event:listener", {resume: true, id: 'listener:brush'})

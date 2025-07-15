@@ -25,8 +25,8 @@
             <slot name="content"/>
           </v-card-text>
           <v-card-actions v-if="$slots.action || !data.fullscreen">
-            <v-spacer />
-            <v-btn @click="emitEvent(data.emit, false)">Schließen</v-btn>
+            <v-btn v-if="!data.hideClose" @click="emitEvent(data.emit, false)">Schließen</v-btn>
+            <v-spacer v-if="!data.hideClose" />
             <slot name="action"/>
           </v-card-actions>
         </template>

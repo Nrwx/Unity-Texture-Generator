@@ -19,6 +19,7 @@
     <img
         v-if="cursor !== ''"
         :src="cursor"
+        alt="Maskierter Pinsel"
         class="custom-cursor"
         :style="setCursor"
     />

@@ -1,4 +1,9 @@
+import dayjs from "dayjs";
+
 export const appEvent = (route) => ({
+    "app:viewport-ref": async (payload) => {
+        route.localData.viewportRef.value = payload;
+    },
     "app:update-guide": async (payload) => {
         route.localData.guides.value = payload;
     },
@@ -107,5 +112,161 @@ export const appEvent = (route) => ({
                 }, 200);
             }
         }
-    }
+    },
+    "app:update-messages": async (payload) => {
+        route.localData.messages.value = payload;
+
+        route.localData.messages.value.forEach(newMsg => {
+
+            const existingIndex = route.localData.messages.value.findIndex(m => m.id === newMsg.id);
+
+            if (existingIndex !== -1) {
+                // Vorhandene Nachricht aktualisieren
+                route.localData.messages.value[existingIndex] = newMsg;
+            } else {
+                // Neue Nachricht hinzufügen
+                route.localData.messages.value.push(newMsg);
+            }
+        });
+    },
+    "app:clear-message-timer": async (payload) => {
+        const timers = route.localData.messageTimers.value.get(payload);
+        if (timers) {
+            if (timers?.timeoutId) clearTimeout(timers.timeoutId);
+            if (timers?.autoCloseId) clearTimeout(timers.autoCloseId);
+            if (timers?.remindTimeoutId) clearTimeout(timers.remindTimeoutId);
+            route.localData.messageTimers.value.delete(payload);
+        }
+    },
+    "app:set-message": async (payload) => {
+        // Timer löschen
+        route.emit('app:clear-message-timer', payload.id);
+
+        const current = route.localData.messages.value.find(m => m.id === payload.id);
+        if (!current) return;
+
+        // Wenn bereits abgeschlossen, nichts mehr tun
+        if (current.complete) return;
+
+        // Wenn stummgeschaltet → sofort schließen + nichts weiter
+        if (current.mute) {
+            current.active = false;
+            return;
+        }
+
+        const timers = {};
+
+        const showAndAutoClose = () => {
+            const msg = route.localData.messages.value.find(m => m.id === payload.id);
+            if (!msg || msg.mute) return;
+
+            if (payload.remind && !msg.initialShown) {
+                msg.initialShown = true;
+            }
+
+            msg.active = true;
+
+            const autoCloseId = setTimeout(() => {
+                const again = route.localData.messages.value.find(m => m.id === payload.id);
+                if (again) again.active = false;
+
+                // Reminder erneut anzeigen (wenn aktiv)
+                if (payload.remind && payload.rTime > 0 && !payload.mute) {
+                    const now = dayjs();
+                    if (payload.initialShown && payload.remind && payload.rTime) {
+                        payload.nextRemindAt = now.add(payload.rTime, 'millisecond');
+                    }
+                    const remindTimeoutId = setTimeout(() => {
+                        showAndAutoClose();
+                    }, payload.rTime);
+
+                    const t = route.localData.messageTimers.value.get(payload.id) || {};
+                    t.remindTimeoutId = remindTimeoutId;
+                    route.localData.messageTimers.value.set(payload.id, t);
+                } else {
+                    // Bei einmaliger Nachricht als abgeschlossen markieren
+                    if (!payload.remind) {
+                        if (again) again.complete = true;
+                    }
+                }
+
+            }, 7000);
+
+            const t = route.localData.messageTimers.value.get(payload.id) || {};
+            t.autoCloseId = autoCloseId;
+            route.localData.messageTimers.value.set(payload.id, t);
+        };
+
+        // Reminder-Logik
+        if (payload.remind === true) {
+            // Erste Anzeige nach .time
+            const now = dayjs();
+            if (!payload.initialShown && payload.time) {
+                payload.startAt = now.add(payload.time, 'millisecond');
+            }
+
+            if (payload.time > 0) {
+                timers.timeoutId = setTimeout(() => {
+                    showAndAutoClose();
+                }, payload.time);
+            } else {
+                showAndAutoClose();
+            }
+
+            // Einmalige Nachricht → nach .time (oder sofort), dann schließen + complete setzen
+        } else if (payload.remind === false) {
+            if (payload.time > 0) {
+                const now = dayjs();
+                if (payload.time) {
+                    payload.startAt = now.add(payload.time, 'millisecond');
+                }
+
+                timers.timeoutId = setTimeout(() => {
+                    const msg = route.localData.messages.value.find(m => m.id === payload.id);
+                    if (!msg || msg.mute) return;
+
+                    msg.active = true;
+
+                    const autoCloseId = setTimeout(() => {
+                        msg.active = false;
+                        msg.complete = true; // nur hier wird complete gesetzt
+                    }, 7000);
+
+                    const t = route.localData.messageTimers.value.get(payload.id) || {};
+                    t.autoCloseId = autoCloseId;
+                    route.localData.messageTimers.value.set(payload.id, t);
+
+                }, payload.time);
+            } else {
+                const msg = route.localData.messages.value.find(m => m.id === payload.id);
+                if (!msg || msg.mute) return;
+
+                msg.active = true;
+
+                const autoCloseId = setTimeout(() => {
+                    msg.active = false;
+                    msg.complete = true;
+                }, 7000);
+
+                const t = route.localData.messageTimers.value.get(payload.id) || {};
+                t.autoCloseId = autoCloseId;
+                route.localData.messageTimers.value.set(payload.id, t);
+            }
+        }
+
+        route.localData.messageTimers.value.set(payload.id, timers);
+    },
+    "app:close-message": async (payload) => {
+        const current = route.localData.messages.value.find(m => m.id === payload.id);
+        if (current) current.active = false;
+    },
+    "app:delete-message": async (payload) => {
+        const id = payload.id;
+        await route.emit('app:clear-message-timer', id);
+        // Nachricht entfernen
+        const index = route.localData.messages.value.findIndex(m => m.id === id);
+        if (index !== -1) {
+            route.localData.messages.value.splice(index, 1);
+        }
+    },
 });

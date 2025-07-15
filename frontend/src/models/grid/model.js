@@ -1,5 +1,5 @@
 import {computed, ref, onMounted, nextTick, onBeforeUnmount} from "vue";
-import {backupStates, canvasStates, transformStates, windowStates} from "@/dataLayer/state";
+import {backupStates, canvasStates, transformStates} from "@/dataLayer/state";
 import {eventRegister} from "@/dataLayer/event";
 
 export function gridModel(props, emit) {
@@ -213,6 +213,10 @@ export function gridModel(props, emit) {
             transformStates.align.value = false
             alignModeStep.value = 0
             emitEvent('layer:select', [])
+            register('remove', document, 'contextmenu', (event) => event.preventDefault());
+            register('remove', document, 'keydown', handleKeyDown);
+            register('remove', document, 'keyup', handleKeyUp);
+            register('remove', document, 'mousedown', startPan);
         }
     };
 
@@ -323,7 +327,7 @@ export function gridModel(props, emit) {
     };
 
     const handleKeyDown = (event) => {
-        if (windowStates.text.value || windowStates.typing.value || windowStates.brush.value) return;
+        if (props.formRule) return;
 
         event.preventDefault();
         if (event.key.toLowerCase() === "r") {
@@ -349,7 +353,7 @@ export function gridModel(props, emit) {
     };
 
     const handleKeyUp = (event) => {
-        if (windowStates.text.value || windowStates.typing.value || windowStates.brush.value) return;
+        if (props.formRule) return;
 
         event.preventDefault();
         if (event.key === 'g') {
@@ -468,6 +472,10 @@ export function gridModel(props, emit) {
 
 
 export const gridProps = {
+    formRule: {
+        type: Boolean,
+        required: true,
+    },
     viewport: {
         type: Object,
         required: true,
@@ -538,6 +546,18 @@ export const gridProps = {
     },
     pathLayer: {
         type: Object,
+        required: true,
+    },
+    theme: {
+        type: String,
+        required: false,
+    },
+    penPathState: {
+        type: Boolean,
+        required: true,
+    },
+    loading: {
+        type: Boolean,
         required: true,
     },
 };

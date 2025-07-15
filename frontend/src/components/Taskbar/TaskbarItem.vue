@@ -1,6 +1,6 @@
 <template>
-  <div style="width: 100%; height: 40px;" class="text-center">
-    <v-tooltip location="bottom">
+  <div :style="align === 'center' ? 'width: 40px; height: 100%;' : 'width: 100%; height: 40px;'" class="text-center">
+    <v-tooltip location="bottom" :close-on-content-click="false">
       <template v-slot:activator="{ props }">
         <v-btn
             v-if="!item.subComponent"
@@ -9,6 +9,7 @@
             width="100%"
             size="small"
             class="rounded-0"
+            v-show="!item.hidden"
             elevation="0"
             :color="item.active ? 'yellow-lighten-4' : ''"
             @click="emitEvent"
@@ -25,23 +26,43 @@
                   v-for="menuItem in item.menuItems"
                   :key="menuItem.id"
                   :color="menuItem.active ? 'yellow-lighten-4' : ''"
+                  v-show="!menuItem.hidden"
                   icon
                   flat
                   rounded="0"
                   @click="emitMenuEvent(menuItem)"
               >
-                <v-icon :color="menuItem.active ? '' : '#fff'" :size="20">{{ menuItem.icon }}</v-icon>
+                <v-badge
+                    v-if="item.badge && item.badge.content !== 0"
+                    :content="item.badge.content"
+                    :dot="item.badge.dot && !centerMenu"
+                    :icon="item.badge.icon"
+                    :color="item.badge.color || 'red'"
+                >
+                  <v-icon :color="menuItem.active ? '' : '#fff'" :size="20">{{ menuItem.icon }}</v-icon>
+                </v-badge>
+                <v-icon v-else :color="menuItem.active ? '' : '#fff'" :size="20">{{ menuItem.icon }}</v-icon>
               </v-btn>
             </v-speed-dial>
           </template>
 
-          <v-icon>{{ item.icon }}</v-icon>
+          <v-badge
+              v-if="item.badge && item.badge.content !== 0"
+              :content="item.badge.content"
+              :dot="!centerMenu"
+              :icon="item.badge.icon"
+              :color="item.badge.color || 'red'"
+          >
+            <v-icon>{{ item.icon }}</v-icon>
+          </v-badge>
+          <v-icon v-else>{{ item.icon }}</v-icon>
         </v-btn>
 
         <v-btn
             v-else
             v-bind="props"
             icon
+            v-show="!item.hidden"
             width="100%"
             size="small"
             class="rounded-0"

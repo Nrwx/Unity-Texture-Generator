@@ -17,7 +17,11 @@
       <Context :state="windowStates.context.value" :copy="contextStates.copy.value" :ref-id="contextConfig.contextRefId.value" :data="contextConfig.contextData.value" v-model:disabled="contextConfig.disabledData.value"  v-model:theme="appData.theme.value" @update:component-event="componentEvent"/>
       <!-- Main Content -->
       <v-main>
-        <Grid @component-event="componentEvent" v-model:layers="localData.layers.value" v-model:selected-layer="localData.selectedLayer.value" v-model:text-layer="textLayer" v-model:brush-cursor="localData.cursor.value" v-model:color="localData.color.value" v-model:settings="localData.viewport.value" v-model:guides="localData.guides.value" v-model:fill-state="modifierStates.fill.value" v-model:select="windowStates.select.value" v-model:select-mode="localData.selectedShape.value" v-model:text="windowStates.text.value" v-model:brushes="localData.brush.value" v-model:brush-layer="brushSettings" v-model:brush="windowStates.brush.value" v-model:drawing="windowStates.drawing.value" v-model:pen="windowStates.pen.value" v-model:path-layer="pathLayer" :viewport="{width: localData.viewport.value.width, height: localData.viewport.value.height}" style="position: relative;"/>
+        <!-- Grid -->
+        <Grid v-model:form-rule="ruleStates.form.value" @component-event="componentEvent" v-model:layers="localData.layers.value" v-model:selected-layer="localData.selectedLayer.value" v-model:text-layer="textLayer" v-model:brush-cursor="localData.cursor.value" v-model:color="localData.color.value" v-model:settings="localData.viewport.value" v-model:guides="localData.guides.value" v-model:fill-state="modifierStates.fill.value" v-model:select="windowStates.select.value" v-model:select-mode="localData.selectedShape.value" v-model:text="windowStates.text.value" v-model:brushes="localData.brush.value" v-model:brush-layer="brushSettings" v-model:brush="windowStates.brush.value" v-model:drawing="windowStates.drawing.value" v-model:pen="windowStates.pen.value" v-model:path-layer="pathLayer" :viewport="{width: localData.viewport.value.width, height: localData.viewport.value.height}" :theme="appData.theme.value" :loading="localData.loading.value" :pen-path-state="windowStates.path.value" style="position: relative;">
+          <!-- Mittige Taskbar -->
+          <TaskbarCenter v-model:items="itemsCenter" v-model:expanded="windowStates.drawerCenter.value" :active="activeItemCenter" @component-event="componentEvent" @taskbar-event="taskbarEvent('center', $event)" v-model:theme="appData.theme.value"/>
+        </Grid>
       </v-main>
       <Layer style="position: absolute; top: 40px; right: 70px;" :state="windowStates.layer.value" v-model:layers="localData.layers.value" v-model:selected-layer="localData.selectedLayer.value" v-model:channel="localData.channel.value" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
       <!-- Rechte Taskbar -->
@@ -25,6 +29,7 @@
       <!-- Rechter Drawer -->
       <DrawerNew v-model:taskbar-menu="windowStates.drawerRight.value" v-model:item="activeItemRight" align="right" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
     </template>
+    <Notify v-model:data="localData.messages.value" v-model:state="windowStates.notify.value" @component-event="componentEvent" v-model:theme="appData.theme.value" v-model:wait="windowStates.queue.value" />
     <Queue @component-event="componentEvent" v-model:queue="localData.queue.value" v-model:wait="localData.queueWait.value" v-model:theme="appData.theme.value" v-model:state="windowStates.queue.value"/>
   </v-app>
 </template>
@@ -33,11 +38,11 @@
 import {computed, nextTick, onMounted, ref} from "vue";
 import * as api from "@/dataLayer/route/route"
 import Taskbar from './components/Taskbar/Taskbar.vue';
-import {taskbarItemLeft, taskbarItemRight} from "@/models/taskbar/config/model";
+import {taskbarItemCenter, taskbarItemLeft, taskbarItemRight} from "@/models/taskbar/config/model";
 import {appData, localData} from "@/dataLayer/local";
 import DrawerNew from "@/components/Drawer/DrawerNew";
 import Layer from "@/components/Layer/Layer";
-import {backupStates, canvasStates, modifierStates, transformStates, windowStates} from "@/dataLayer/state";
+import {backupStates, canvasStates, modifierStates, ruleStates, transformStates, windowStates} from "@/dataLayer/state";
 import Setting from "@/components/Setting/Setting";
 import {osSettings} from "@/dataLayer/setting";
 import Fullscreen from "@/components/Fullscreen/Fullscreen";
@@ -52,10 +57,15 @@ import {contextConfig} from "@/models/context/config/model";
 import {brushSettings} from "@/models/brush/config/model";
 import Queue from "@/components/Queue/Queue";
 import {pathLayer} from "@/models/pen/config/model";
+import TaskbarCenter from "@/components/Taskbar/TaskbarCenter";
+import Notify from "@/components/Notify/Notify";
+import {notifyMessage} from "@/models/notify/config/model";
 
 export default {
   name: 'App',
   components: {
+    Notify,
+    TaskbarCenter,
     Queue,
     Grid,
     Viewport,
@@ -69,7 +79,9 @@ export default {
   setup() {
     const itemsLeft = ref(taskbarItemLeft);
     const itemsRight = ref(taskbarItemRight);
+    const itemsCenter = ref(taskbarItemCenter);
     const activeItemLeft = computed(() => itemsLeft.value.find(item => item.active));
+    const activeItemCenter = computed(() => itemsCenter.value.find(item => item.active));
     const activeItemRight = computed(() => itemsRight.value.find(item => item.active));
 
     const componentEvent = createEventSystem({
@@ -77,6 +89,7 @@ export default {
       appData,
       localData,
       windowStates,
+      ruleStates,
       transformStates,
       canvasStates,
       backupStates,
@@ -86,13 +99,33 @@ export default {
       contextConfig,
       textLayer,
       pathLayer,
+      notifyMessage,
       settings,
       osSettings
     });
 
     const taskbarEvent = async (side, itemId) => {
-      const list = side === 'left' ? itemsLeft.value : itemsRight.value;
-      const windowState = side === 'left' ? windowStates.drawerLeft : windowStates.drawerRight;
+      const list = side === 'left'
+          ? itemsLeft.value
+          : side === 'right'
+              ? itemsRight.value
+              : side === 'center'
+                  ? itemsCenter.value
+                  : [];
+
+      const windowState = side === 'left'
+          ? windowStates.drawerLeft
+          : side === 'right'
+              ? windowStates.drawerRight
+              : side === 'center'
+                  ? windowStates.drawerCenter
+                  : null;
+
+      // Fallback bei unbekanntem Side-Wert
+      if (!list.length || !windowState) {
+        console.warn(`Unbekannter side-Parameter: ${side}`);
+        return;
+      }
 
       // Prüfe zuerst, ob das itemId ein SubItem (menuItem) ist
       const parentItem = list.find(item => item.menuItems?.some(mi => mi.id === itemId));
@@ -104,13 +137,12 @@ export default {
         const activeMenuItem = parentItem.menuItems.find(mi => mi.id === itemId);
         if (activeMenuItem) activeMenuItem.active = !activeMenuItem.active;
 
-
-        if (activeMenuItem.active && activeMenuItem.icon) {
+        if (activeMenuItem?.active && activeMenuItem.icon) {
           parentItem.icon = activeMenuItem.icon;
         }
 
         if (!parentItem.menuItems.some(mi => mi.active)) {
-          parentItem.icon = parentItem.menuItems[0].icon || null;
+          parentItem.icon = parentItem.menuItems[0]?.icon || null;
         }
 
         if (activeMenuItem?.event) {
@@ -131,9 +163,10 @@ export default {
         await nextTick();
         windowState.value = !activeItem.active;
       } else {
-        windowState.value = activeItem.active;
+        windowState.value = !!activeItem?.active;
       }
     };
+
 
 
     const init = async () => {
@@ -154,12 +187,15 @@ export default {
 
     return {
       itemsLeft,
+      itemsCenter,
       itemsRight,
       activeItemLeft,
+      activeItemCenter,
       activeItemRight,
       componentEvent,
       taskbarEvent,
       appData,
+      ruleStates,
       localData,
       windowStates,
       modifierStates,
