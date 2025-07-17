@@ -560,4 +560,8 @@ export const gridProps = {
         type: Boolean,
         required: true,
     },
+    bezier: {
+        type: String,
+        required: false,
+    },
 };

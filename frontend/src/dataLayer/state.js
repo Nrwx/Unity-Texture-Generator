@@ -23,6 +23,8 @@ export const windowStates = {
     brush: ref(false),
     pen: ref(false),
     path: ref(false),
+    pathEdit: ref(false),
+    pathClose: ref(false),
     context: ref(false),
     color: ref(false),
     drawing: ref(false),

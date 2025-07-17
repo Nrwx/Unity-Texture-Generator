@@ -177,6 +177,19 @@ PARAMETERS = {
         "textAlign": {"type": str, "default": "left"},
         "textDecoration": {"type": str, "default": "none"},
         "textTransform": {"type": str, "default": "none"},
+
+        # PathLayer spezifisch
+        "stroke": {"type": str, "default": "#000000"},
+        "strokeWidth": {"type": float, "default": 1.5},
+        "strokeDash": {"type": float, "default": 0},
+        "strokeDashType": {"type": str, "default": ""},
+        "strokeDashArray": {"type": list, "default": []},
+        "fill": {"type": str, "default": "#ffffff"},
+        "fillOpacity": {"type": float, "default": 1.0},
+        "points": {"type": list, "default": []},
+        "connections": {"type": list, "default": []},
+        "gradient": {"type": dict, "default": {}},
+        "closed": {"type": bool, "default": False},
     },
     "modifier": {
             "method": {"type": str, "required": True},

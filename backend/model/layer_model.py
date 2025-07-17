@@ -10,7 +10,7 @@ from generated.paths import ( PUBLIC_BACKUP_FOLDER, PUBLIC_LAYER_FOLDER, PUBLIC_
 from config.data.constant import ( VIEWPORT_CONFIG, LAYERS, CHANNELS, FONTS )
 from model.fonts_model import FontsModel
 from model.backup_model import BackupModel
-from components import ( generate_channels, apply_color, apply_mask, apply_blend_layer)
+from components import ( generate_channels, apply_color, apply_mask, apply_blend_layer, get_svg_box, generate_svg_map)
 from utils import get_path, apply_rgb_rgba, apply_alpha, time, layer_transform
 
 class LayerModel:
@@ -254,6 +254,72 @@ class LayerModel:
         LAYERS.append(layer)
         print(LAYERS)
         return layer, 200
+
+    @staticmethod
+    def addPath(points, connections, stroke, strokeWidth, strokeDashArray, strokeDash,
+                strokeDashType, fill, fillOpacity, gradient, closed, name):
+
+        viewport_width = VIEWPORT_CONFIG[0]["width"]
+        viewport_height = VIEWPORT_CONFIG[0]["height"]
+
+        id = str(uuid.uuid4())
+
+        # Berechne Bounding Box (x_min, y_min, width, height)
+        min_x, min_y, width, height = get_svg_box(points)
+
+        # Position setzen: Entweder zentriert oder exakt an min_x, min_y im Viewport
+        matrix = {
+            "a": 1,
+            "b": 0,
+            "c": 0,
+            "d": 1,
+            "x": int(min_x),
+            "y": int(min_y),
+            "rotate": 0,
+        }
+
+        layer = {
+            "time": time('unix_ms'),
+            "type": 2,
+            "id": id,
+            "name": name,
+            "width": width,
+            "height": height,
+            "matrix": matrix,
+            "order": len(LAYERS),
+            "color": fill,
+            "hidden": 0,
+            "opacity": 1,
+            "mask": '',
+        }
+
+        svg_string = generate_svg_map({
+            "points": points,
+            "connections": connections,
+            "closed": closed,
+            "gradient": gradient,
+            "fill": fill,
+            "fillOpacity": fillOpacity,
+            "stroke": stroke,
+            "strokeWidth": strokeWidth,
+            "strokeDashType": strokeDashType,
+            "strokeDash": strokeDash,
+            "strokeDashArray": strokeDashArray
+        })
+
+        # Datei speichern
+        svg_id = str(uuid.uuid4())
+        filename = f"{svg_id}.svg"
+        file_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER, filename)
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(svg_string)
+
+        # URL im Layer speichern
+        layer["svg"] = f"/download/{filename}"
+
+        LAYERS.append(layer)
+        return layer, 200
+
 
     @staticmethod
     def order(id, order):

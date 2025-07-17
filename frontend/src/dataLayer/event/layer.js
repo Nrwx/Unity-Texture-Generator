@@ -152,8 +152,57 @@ export const textModifierEvent = (route) => ({
 });
 
 export const pathLayerEvent = (route) => ({
+    "add-path-layer": async (payload) => {
+        const response = await route.api.addPathLayer(payload);
+        if (response) {
+            await route.emit("fetch-layer");
+        }
+    },
     "update:path-layer": async (payload) => {
         route.pathLayer.value = payload;
         console.log(route.pathLayer)
     },
+    "path:edit": async (payload) => {
+        route.windowStates.pathEdit.value = payload;
+    },
+    "path:close": async (payload) => {
+        route.windowStates.pathClose.value = payload;
+    },
+});
+
+export const pathModifierEvent = (route) => ({
+    "apply-path-name": (payload) => {
+        route.pathLayer.value.name = payload;
+    },
+    "apply-path-stroke": (payload) => {
+        route.pathLayer.value.stroke = payload;
+    },
+    "apply-path-fill": (payload) => {
+        route.pathLayer.value.fill = payload;
+    },
+    "apply-path-gradient": (payload) => {
+        route.pathLayer.value.gradient = payload;
+        console.log(payload)
+    },
+    "apply-path-stroke-width": (payload) => {
+        route.pathLayer.value.strokeWidth = payload;
+    },
+    "apply-path-border-type": (payload) => {
+        route.pathLayer.value.strokeDashType = payload;
+    },
+    "apply-path-dash": (payload) => {
+        route.pathLayer.value.strokeDashArray = payload;
+    },
+    "apply-path-dash-array": (payload) => {
+        route.pathLayer.value.strokeDashArray = payload;
+    },
+    "apply-path-opacity": (payload) => {
+        route.pathLayer.value.opacity = payload;
+    },
+    "apply-path-closed": (payload) => {
+        route.pathLayer.value.closed = payload;
+    },
+    "apply-path-edit": (payload) => {
+        route.pathLayer.value.edit = payload;
+    }
 });

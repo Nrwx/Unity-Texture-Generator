@@ -13,6 +13,10 @@ class LayerController:
             'keys': {"type", "order", "name", "hidden", "opacity", "color", "font", "fontFamily", "fontSize", "fontWeight", "initFontSize", "initHeight", "initWidth", "letterSpacing", "lineHeight", "text", "textAlign", "textDecoration", "textTransform", "width", "height", "x", "y", "mask"},
             'function': LayerModel.addText
         },
+        "addPath": {
+            'keys': {"name", "closed", "points", "connections", "gradient", "stroke", "strokeWidth", "strokeDash", "strokeDashArray", "strokeDashType", "fill", "fillOpacity"},
+            'function': LayerModel.addPath
+        },
         "delete": {
             "keys": {"id"},
             "function": LayerModel.delete

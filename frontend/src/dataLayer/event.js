@@ -4,7 +4,7 @@ import {listenerEvent} from "@/dataLayer/event/listener";
 import {viewportEvent} from "@/dataLayer/event/viewport";
 import {
     layerEvent,
-    layerModifierEvent, pathLayerEvent,
+    layerModifierEvent, pathLayerEvent, pathModifierEvent,
     selectLayerEvent,
     textLayerEvent,
     textModifierEvent
@@ -48,6 +48,7 @@ const eventHandler = (route) => ({
     ...textLayerEvent(route),
     ...textModifierEvent(route),
     ...pathLayerEvent(route),
+    ...pathModifierEvent(route),
     ...channelEvent(route),
     ...contextMenuEvent(route)
 });

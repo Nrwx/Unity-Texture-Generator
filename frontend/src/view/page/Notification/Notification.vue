@@ -90,16 +90,16 @@
             <!-- Menu Overlay -->
             <template v-else>
               <v-card>
-                <v-toolbar dense>
+                <v-card-title>
                   <v-btn icon @click="toggleMenu(menu)"><v-icon>mdi-close</v-icon></v-btn>
-                  <v-toolbar-title>Erinnerung erstellen</v-toolbar-title>
-                </v-toolbar>
-
-                <v-container>
+                  Erinnerung erstellen
+                </v-card-title>
+                <v-card-text>
                   <Form @component-event="emitEvent" v-model:operation="operation" v-model:item="config" />
-
-                  <v-btn flat class="mt-4" @click="saveAndClose">Speichern</v-btn>
-                </v-container>
+                </v-card-text>
+                <v-card-actions>
+                  <v-btn flat block class="mt-4" @click="saveAndClose">Speichern</v-btn>
+                </v-card-actions>
               </v-card>
             </template>
           </v-card>

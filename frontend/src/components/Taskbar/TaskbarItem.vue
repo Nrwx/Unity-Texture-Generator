@@ -9,7 +9,6 @@
             width="100%"
             size="small"
             class="rounded-0"
-            v-show="!item.hidden"
             elevation="0"
             :color="item.active ? 'yellow-lighten-4' : ''"
             @click="emitEvent"
@@ -22,27 +21,28 @@
                 activator="parent"
                 transition="slide-y-reverse-transition"
             >
-              <v-btn
-                  v-for="menuItem in item.menuItems"
-                  :key="menuItem.id"
-                  :color="menuItem.active ? 'yellow-lighten-4' : ''"
-                  v-show="!menuItem.hidden"
-                  icon
-                  flat
-                  rounded="0"
-                  @click="emitMenuEvent(menuItem)"
-              >
-                <v-badge
-                    v-if="item.badge && item.badge.content !== 0"
-                    :content="item.badge.content"
-                    :dot="item.badge.dot && !centerMenu"
-                    :icon="item.badge.icon"
-                    :color="item.badge.color || 'red'"
+              <template v-for="menuItem in item.menuItems">
+                <v-btn
+                    v-if="!menuItem.hidden"
+                    :key="menuItem.id"
+                    :color="menuItem.active ? 'yellow-lighten-4' : ''"
+                    icon
+                    flat
+                    rounded="0"
+                    @click="emitMenuEvent(menuItem)"
                 >
-                  <v-icon :color="menuItem.active ? '' : '#fff'" :size="20">{{ menuItem.icon }}</v-icon>
-                </v-badge>
-                <v-icon v-else :color="menuItem.active ? '' : '#fff'" :size="20">{{ menuItem.icon }}</v-icon>
-              </v-btn>
+                  <v-badge
+                      v-if="menuItem.badge && menuItem.badge.content !== 0"
+                      :content="menuItem.badge.content"
+                      :dot="menuItem.badge.dot && !centerMenu"
+                      :icon="menuItem.badge.icon"
+                      :color="menuItem.badge.color || 'red'"
+                  >
+                    <v-icon :color="menuItem.active ? '' : '#fff'" :size="20">{{ menuItem.icon }}</v-icon>
+                  </v-badge>
+                  <v-icon v-else :color="menuItem.active ? '' : '#fff'" :size="20">{{ menuItem.icon }}</v-icon>
+                </v-btn>
+              </template>
             </v-speed-dial>
           </template>
 
@@ -62,7 +62,6 @@
             v-else
             v-bind="props"
             icon
-            v-show="!item.hidden"
             width="100%"
             size="small"
             class="rounded-0"

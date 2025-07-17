@@ -1,7 +1,7 @@
 export { queueStatus } from "./app"
 
 export {
-    addLayer, addTextLayer, blendLayer, deleteLayer, fetchLayers, maskLayer,
+    addLayer, addTextLayer, addPathLayer, blendLayer, deleteLayer, fetchLayers, maskLayer,
     hideLayer, orderLayers, previewLayers, updateChannel, updateLayer, pasteLayer, maskedLayer
 } from "./layer";
 

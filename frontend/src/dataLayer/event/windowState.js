@@ -88,6 +88,7 @@ export const windowStateEvent = (route) => ({
     "pen-state": async (payload) => {
         if (typeof payload === "boolean") {
             route.windowStates.pen.value = payload;
+            await route.emit("rule:allow-form", payload);
             if(!route.listener.isActive('listener:pen')) {
                 await route.emit("event:listener", {resume: true, id: 'listener:pen'})
             }

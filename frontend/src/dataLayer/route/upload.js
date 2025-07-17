@@ -12,7 +12,7 @@ export const fileUpload = async (file) => {
     const formData = new FormData();
     formData.append('file', file);
     Object.keys(settings).forEach(key => formData.append(key, settings[key]));
-    formData.append("selectedMaps", localData.selectedMaps.value.join(","));
+    formData.append("selectedMaps", JSON.stringify(localData.selectedMaps.value));
     try {
         const response = await api.post('/upload', formData, {
             headers: {'Content-Type': 'multipart/form-data'},

@@ -1,13 +1,12 @@
 import { ref } from 'vue';
 
 export const pathLayer = ref({
-    id: '',              // Eindeutige Kennung, z.B. layer_<timestamp>
     name: 'Form',        // Anzeigename
-    type: 2,             // 1 = Text, 2 = Pfad
-    order: 0,            // Z-Index/Reihenfolge
-    hidden: 0,           // 0 = sichtbar, 1 = ausgeblendet
     closed: false,
     edit: true,          // true, wenn der Pfad bearbeitet wurde
+
+    width: 0,            // Path Points[connections], Breite
+    height: 0,           // Path Points[connections], Höhe
 
     // Koordinaten-Daten
     points: [],          // [{ x: number, y: number, linear: boolean, bezier?: { cp1?, cp2? } }, ...]
@@ -15,13 +14,15 @@ export const pathLayer = ref({
 
     // Style-Attribute für Stroke/Fill
     stroke: '#000000',   // Pfad-Kontur-Farbe
-    strokeWidth: 1.5,    // Stärke der Kontur
+    strokeWidth: 1,    // Stärke der Kontur
+    strokeDash: 0,     // Kontur Abstände
+    strokeDashArray: [], // Kontur Abstände Array
+    strokeDashType: '',  // Kontur Type
     fill: '#ffffff',     // Füllfarbe (wenn geschlossen)
     fillOpacity: 1,      // Füll-Transparenz
-
-    opacity: 1,          // Gesamte Transparenz
-    mask: null,          // ggf. Masken-Referenz
-
-    // Interne Initialwerte (falls du sie brauchst)
-    initPoints: [],      // Kopie des ursprünglichen Punkt-Arrays
+    gradient: {
+        type: 'linear',
+        angle: 90,
+        stops: [],
+    },
 });

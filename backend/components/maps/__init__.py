@@ -1,3 +1,5 @@
+from .generate_svg_map import get_svg_box
+from .generate_svg_map import generate_svg_map
 from .generate_channels import generate_channels
 from .generate_diffuse_map import generate_diffuse_map
 from .generate_normal_map import generate_normal_map

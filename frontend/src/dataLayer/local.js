@@ -27,6 +27,7 @@ export const localData = {
     viewportRef: ref(null),
     file: ref(null),
     fonts: ref([]),
+    bezier: ref('linear'),
     loadedFonts: ref(new Set()),
     brush: ref([]),
     brushPreset: ref([]),

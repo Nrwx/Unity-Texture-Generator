@@ -1,7 +1,10 @@
 import {ref} from "vue";
 
 export function formModel(props, emit) {
+    const dimmer = ref(false);
+
     const emitEvent = (event, payload) => {
+        console.log(event, payload)
         emit("component-event", event, payload);
     };
     const selectUpdate = (config, payload) => {
@@ -12,21 +15,40 @@ export function formModel(props, emit) {
         }
     };
 
-    const showIconMenu = ref(false);
-
-    const openIconMenu = () => {
-        showIconMenu.value = true;
+    const showDimmer = () => {
+        dimmer.value = true;
     };
 
-    const closeIconMenu = () => {
-        showIconMenu.value = false;
+    const hideDimmer = () => {
+        dimmer.value = false;
     };
+
+    const parseTextArrayNumber = (val) => {
+        const cleaned = val
+            .replace(/\s+/g, ",")       // Leerzeichen → Komma
+            .replace(/,+/g, ",")        // Mehrere Kommas → eins
+            .replace(/^,|,$/g, "");     // Start-/Endkomma entfernen
+
+        return cleaned
+            .split(",")
+            .map(v => parseFloat(v.trim()))
+            .filter(v => !isNaN(v));
+    };
+
+    const updateTextArrayNumber = (val, prop, item, key) => {
+        const parsed = parseTextArrayNumber(val);
+        item[key] = parsed;
+        emitEvent(prop.event, parsed);
+    };
+
+
     return {
-        showIconMenu,
-        openIconMenu,
-        closeIconMenu,
+        dimmer,
+        showDimmer,
+        hideDimmer,
         emitEvent,
-        selectUpdate
+        selectUpdate,
+        updateTextArrayNumber
     };
 }
 

@@ -14,7 +14,7 @@
           :width="layer.width"
           :height="layer.height"
           @click="emitSelectLayer(layer, $event)"
-          :class="{ 'absolute': index > 0, 'selected': selectedLayer.includes(layer) }"
+          :class="{ 'absolute': index >= 0, 'selected': selectedLayer.includes(layer) }"
           :data-context-id="layer.id"
           alt="Layer Image"
           :cover="false"
@@ -31,7 +31,7 @@
           :hidden="layer.hidden"
           style="top: 0; left: 0;"
           @click="emitSelectLayer(layer, $event)"
-          :class="{ 'absolute': index > 0, 'selected': selectedLayer.includes(layer) }"
+          :class="{ 'absolute': index >= 0, 'selected': selectedLayer.includes(layer) }"
           :data-context-id="layer.id"
           :key="layer.id"
           :style="{
@@ -54,6 +54,24 @@
       >
         {{ layer.text }}
       </div>
+      <!-- 🧭 Path/Vector-Layer -->
+      <v-img
+          v-else-if="layer.type === 2"
+          :src="layer.svg"
+          :hidden="layer.hidden"
+          :key="layer.id"
+          @click="emitSelectLayer(layer, $event)"
+          :class="{ 'absolute': index >= 0, 'selected': selectedLayer.includes(layer) }"
+          :data-context-id="layer.id"
+          :style="{
+          width: `${layer.width}px`,
+          height: `${layer.height}px`,
+          opacity: layer.opacity,
+          zIndex: index,
+          transform: `matrix(${layer.matrix.a}, ${layer.matrix.b}, ${layer.matrix.c}, ${layer.matrix.d}, ${layer.matrix.x}, ${layer.matrix.y}) rotate(${layer.matrix.rotate}deg)`,
+          pointerEvents: 'auto'
+          }"
+      />
     </template>
   </v-col>
 

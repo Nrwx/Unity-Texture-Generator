@@ -111,6 +111,14 @@
                               <template v-if="layer?.type === 1">
                                 <v-icon>mdi-format-text</v-icon>
                               </template>
+                              <template v-else-if="layer?.type === 2">
+                                <v-img
+                                    :src="layer.svg"
+                                    :alt="layer.name"
+                                    style="width: 100%; height: 100%; object-fit: contain;"
+                                    cover
+                                />
+                              </template>
                               <template v-else>
                                 <v-img :src="layer?.url" :alt="layer.name" />
                               </template>

@@ -21,6 +21,15 @@
         outlined
         @update:modelValue="emitEvent(prop.event, item[key])"
     />
+    <!-- Textfeld für Array-Numbers -->
+    <v-text-field
+        v-else-if="prop.type === 'text-array-number' && prop.active"
+        :label="prop.label"
+        type="text"
+        :model-value="(item[key] || []).join(', ')"
+        outlined
+        @update:modelValue="val => updateTextArrayNumber(val, prop, item, key)"
+    />
     <!-- Textfeld für Zahlen -->
     <v-text-field
         v-else-if="prop.type === 'number' && prop.active"
@@ -63,16 +72,37 @@
         v-model="item[key]"
         :label="prop.label"
         :prepend-icon="item[key]"
-        @open="openIconMenu"
-        @close="closeIconMenu"
+        @open="showDimmer"
+        @close="hideDimmer"
+        @update:modelValue="emitEvent(prop.event, item[key])"
+    />
+
+    <!-- Color Palette -->
+    <color-palette
+        v-else-if="prop.type === 'color-palette' && prop.active"
+        v-model="item[key]"
+        :label="prop.label"
+        :prepend-icon="item[key]"
+        @open="showDimmer"
+        @close="hideDimmer"
+        @update:modelValue="emitEvent(prop.event, item[key])"
+    />
+
+    <!-- Gradient Editor -->
+    <gradient-editor
+        v-else-if="prop.type === 'gradient-editor' && prop.active"
+        v-model="item[key]"
+        :label="prop.label"
+        @open="showDimmer"
+        @close="hideDimmer"
         @update:modelValue="emitEvent(prop.event, item[key])"
     />
 
     <!-- Dimmer Overlay -->
     <div
-        v-if="showIconMenu"
+        v-if="dimmer"
         class="dimmer"
-        @click="closeIconMenu"
+        @click="hideDimmer"
     ></div>
 
     <!-- Dropdown -->
@@ -111,19 +141,22 @@
 import { defineComponent } from "vue";
 import {formModel, formProps} from "@/models/form/model";
 import IconList from "@/components/Icon/List";
+import ColorPalette from "@/components/Color/Palette";
+import GradientEditor from "@/components/Color/Gradient";
 
 export default defineComponent({
   name: "FormComponent",
   props: formProps,
-  components: {IconList},
+  components: {IconList, ColorPalette, GradientEditor},
   setup(props, { emit }) {
-    const { selectUpdate, emitEvent, showIconMenu, openIconMenu, closeIconMenu, } = formModel(props, emit);
+    const { selectUpdate, emitEvent, dimmer, showDimmer, hideDimmer, updateTextArrayNumber } = formModel(props, emit);
     return {
       selectUpdate,
-      showIconMenu,
-      openIconMenu,
-      closeIconMenu,
-      emitEvent
+      dimmer,
+      showDimmer,
+      hideDimmer,
+      emitEvent,
+      updateTextArrayNumber
     };
   },
 });

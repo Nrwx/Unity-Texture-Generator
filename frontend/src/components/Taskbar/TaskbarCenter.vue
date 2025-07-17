@@ -12,6 +12,7 @@
             elevation="4"
             color="surface"
             max-width="585"
+            width="100%"
             :theme="theme"
             class="px-4 py-3 mb-4 rounded-xl"
         >
@@ -55,24 +56,24 @@
         <!-- Left -->
         <div class="d-flex align-center">
           <template v-for="(item, i) in leftItems" :key="'left-' + item.id">
-            <TaskbarItem align="center" :item="item" @click="emitEvent(item.id)" :center-menu="expanded" />
-            <v-divider v-if="leftItems.length > 1 && i < leftItems.length - 1" vertical />
+            <TaskbarItem v-if="!item.hidden" align="center" :item="item" @click="emitEvent(item.id)" :center-menu="expanded" />
+            <v-divider v-if="leftItems.length > 1 && i < leftItems.length - 1 && !item.hidden" vertical />
           </template>
         </div>
 
         <!-- Center -->
         <div class="d-flex align-center">
           <template v-for="(item, i) in centerItems" :key="'center-' + item.id">
-            <TaskbarItem align="center" :item="item" @click="emitEvent(item.id)" :center-menu="expanded"/>
-            <v-divider v-if="centerItems.length > 1 && i < centerItems.length - 1" vertical />
+            <TaskbarItem v-if="!item.hidden" align="center" :item="item" @click="emitEvent(item.id)" :center-menu="expanded"/>
+            <v-divider v-if="centerItems.length > 1 && i < centerItems.length - 1  && !item.hidden" vertical />
           </template>
         </div>
 
         <!-- Right -->
         <div class="d-flex align-center">
           <template v-for="(item, i) in rightItems" :key="'right-' + item.id">
-            <TaskbarItem align="center" :item="item" @click="emitEvent(item.id)" :center-menu="expanded" />
-            <v-divider v-if="rightItems.length > 1 && i < rightItems.length - 1" vertical />
+            <TaskbarItem v-if="!item.hidden" align="center" :item="item" @click="emitEvent(item.id)" :center-menu="expanded" />
+            <v-divider v-if="rightItems.length > 1 && i < rightItems.length - 1  && !item.hidden" vertical />
           </template>
         </div>
       </div>

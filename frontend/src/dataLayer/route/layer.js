@@ -67,6 +67,37 @@ export const addTextLayer = async (layer) => {
     }
 };
 
+export const addPathLayer = async (layer) => {
+    try {
+        const formData = new FormData();
+        formData.append("method", "addPath");
+        formData.append("name", layer.name || "");
+        formData.append("closed", layer.closed);
+        // Komplexe Daten als JSON-Strings
+        formData.append("points", JSON.stringify(layer.points));
+        formData.append("connections", JSON.stringify(layer.connections));
+        formData.append("gradient", JSON.stringify(layer.gradient));
+        formData.append("strokeDashArray", JSON.stringify(layer.strokeDashArray));
+
+        formData.append("stroke", layer.stroke);
+        formData.append("strokeWidth", layer.strokeWidth);
+        formData.append("strokeDash", layer.strokeDash);
+        formData.append("strokeDashType", layer.strokeDashType);
+        formData.append("fill", layer.fill);
+        formData.append("fillOpacity", layer.fillOpacity);
+
+        const response = await api.post('/layer', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        if (response) {
+            return true;
+        }
+    } catch (error) {
+        console.error("Error adding path layer:", error.response?.data || error.message);
+    }
+};
+
 export const fetchLayers = async () => {
     try {
         const data = await api.get('/layer');

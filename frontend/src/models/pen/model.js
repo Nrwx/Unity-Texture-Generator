@@ -158,6 +158,36 @@ export function penModel(props, emit) {
         }
     };
 
+    /**
+     * Beschränkt cp auf maximal `maxRatio` der Länge von A nach B.
+     */
+    const clampControlPoint = (A, B, cp, maxRatio = 0.5) => {
+        const dx = cp.x - A.x;
+        const dy = cp.y - A.y;
+        const segDx = B.x - A.x;
+        const segDy = B.y - A.y;
+        const segLen = Math.hypot(segDx, segDy);
+        if (segLen === 0) return cp;
+
+        // Projektion der Kontrolle auf das Segment
+        const t = (dx * segDx + dy * segDy) / (segLen * segLen);
+        // Abstandskomponente orthogonal zum Segment
+        const perpX = dx - t * segDx;
+        const perpY = dy - t * segDy;
+        const perpDist = Math.hypot(perpX, perpY);
+
+        // Maximal erlaubter orthogonaler Versatz
+        const maxPerp = segLen * maxRatio;
+        if (perpDist > maxPerp) {
+            // Normalisiere und clampe
+            const scale = maxPerp / perpDist;
+            return {
+                x: A.x + t * segDx + perpX * scale,
+                y: A.y + t * segDy + perpY * scale
+            };
+        }
+        return cp;
+    };
 
 
     const loadAnchorMenuFromSelection = () => {
@@ -349,28 +379,58 @@ export function penModel(props, emit) {
             const pB = points[b];
             if (!pA || !pB) return;
 
-            if (pA.linear || pB.linear || !(pA.bezier?.cp2 && pB.bezier?.cp1)) {
-                // Linie zeichnen
-                c.beginPath();
-                c.moveTo(pA.x, pA.y);
-                c.lineTo(pB.x, pB.y);
-                c.strokeStyle = '#aaf';
-                c.lineWidth = 1;
-                c.stroke();
-            } else {
-                // Bezier zeichnen
-                c.beginPath();
-                c.moveTo(pA.x, pA.y);
+            const linearA = !!pA.linear;
+            const linearB = !!pB.linear;
+            const bezA    = pA.bezier || {};
+            const bezB    = pB.bezier || {};
+
+            const hasCP2 = !!bezA.cp2;
+            const hasCP1 = !!bezB.cp1;
+            const isCubic = !linearA && !linearB && hasCP2 && hasCP1;
+            const isQuadA = !linearA && hasCP2 && !isCubic;
+            const isQuadB = !linearB && hasCP1 && !isCubic;
+
+            c.beginPath();
+            c.moveTo(pA.x, pA.y);
+
+            if (isCubic) {
+                // Volle Cubic Bézier
                 c.bezierCurveTo(
-                    pA.bezier.cp2.x, pA.bezier.cp2.y,
-                    pB.bezier.cp1.x, pB.bezier.cp1.y,
-                    pB.x, pB.y
+                    bezA.cp2.x, bezA.cp2.y,
+                    bezB.cp1.x, bezB.cp1.y,
+                    pB.x,       pB.y
                 );
                 c.strokeStyle = '#6cf';
-                c.lineWidth = 1.5;
-                c.stroke();
+                c.lineWidth   = 1.5;
             }
+            else if (isQuadA) {
+                // Quadratic von pA zu pB mit cp2
+                c.quadraticCurveTo(
+                    bezA.cp2.x, bezA.cp2.y,
+                    pB.x,       pB.y
+                );
+                c.strokeStyle = '#6cf';
+                c.lineWidth   = 1.5;
+            }
+            else if (isQuadB) {
+                // Quadratic von pA zu pB mit cp1
+                c.quadraticCurveTo(
+                    bezB.cp1.x, bezB.cp1.y,
+                    pB.x,       pB.y
+                );
+                c.strokeStyle = '#6cf';
+                c.lineWidth   = 1.5;
+            }
+            else {
+                // Linie
+                c.lineTo(pB.x, pB.y);
+                c.strokeStyle = '#aaf';
+                c.lineWidth   = 1;
+            }
+
+            c.stroke();
         });
+
 
         // === 2) Punkte ===
         points.forEach((p, i) => {
@@ -571,8 +631,12 @@ export function penModel(props, emit) {
                 x: pos.x,
                 y: pos.y,
                 selected: true,
-                bezier: null,
-                pulseAt: 0 | null,
+                linear: props.bezier === 'linear',
+                bezier: props.bezier === 'linear' ? null : {
+                    cp1: { x: pos.x, y: pos.y },
+                    cp2: { x: pos.x, y: pos.y },
+                },
+                pulseAt: null,
                 anchor: {
                     start: { x: pos.x, y: pos.y },
                     end: { x: pos.x, y: pos.y },
@@ -597,7 +661,7 @@ export function penModel(props, emit) {
             }
 
             // Mid-Anchor berechnen
-            if (points.length > 1) {
+            if (!newPoint.linear && points.length > 1) {
                 const pA = isStartSel ? points[0] : points[points.length - 2];
                 const pB = isStartSel ? points[1] : points[points.length - 1];
                 if (!pA?.anchor || !pB?.anchor) return;
@@ -746,6 +810,8 @@ export function penModel(props, emit) {
 
             bez.x = pos.x;
             bez.y = pos.y;
+
+            point.bezier[control] = clampControlPoint(point, neighbor, point.bezier[control], 0.5);
 
             point.anchor.neighbors[idxN].mid.x += dx / 2;
             point.anchor.neighbors[idxN].mid.y += dy / 2;
@@ -912,6 +978,8 @@ export function penModel(props, emit) {
         if (payload.edit) {
             props.pathLayer.closed = false;
             props.pathLayer.edit = true;
+            emitEvent('path:edit', true)
+            emitEvent('path:close', false)
         } else {
             props.pathLayer.closed = true;
             props.pathLayer.edit = false;
@@ -957,6 +1025,9 @@ export function penModel(props, emit) {
                 updatePathLayer();
                 reset(true)
                 draw();
+
+                emitEvent('path:edit', false)
+                emitEvent('path:close', true)
             }
         }
         emitEvent('pen:path-state', false)
@@ -996,4 +1067,5 @@ export const penProps = {
     loading: { type: Boolean, required: true },
     theme: { type: String, required: true },
     mouse: { type: Object, required: true },
+    bezier: { type: String, required: true },
 };

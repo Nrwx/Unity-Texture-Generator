@@ -40,7 +40,7 @@ export function notificationModel(props, emit) {
             time: { type: 'number', label: 'Ausführen in (Minuten)', min: 0, max: 60, step: 1, event: 'notify:apply-time', active: true },
             remind: { type: 'switch', label: 'Erinnerung aktivieren', event: 'notify:apply-remind', active: true },
             rTime: { type: 'number', label: 'Erinnern in (Minuten)', min: 0, max: 120, step: 1, event: 'notify:apply-rTime', active: true },
-            color: { type: 'color', label: 'Farbe', event: 'notify:apply-color', active: true },
+            color: { type: 'color-palette', label: 'Farbe', event: 'notify:apply-color', active: true },
             icon: { type: 'icon', label: 'Icon (z.B. mdi-bell)', event: 'notify:apply-icon', active: true },
             event: { type: 'text', label: 'Event-Key', event: 'notify:apply-event', active: true },
         }

@@ -8,7 +8,8 @@ import Ai from "@/view/page/Ai/Ai";
 import Notification from "@/view/page/Notification/Notification";
 import {localData} from "@/dataLayer/local";
 import {computed} from "vue";
-
+import {windowStates} from "@/dataLayer/state";
+import Path from "@/view/page/Path/Path";
 export const taskbarItemLeft = [
     {
         position: 'top',
@@ -150,7 +151,27 @@ export const taskbarItemLeft = [
         active: false,
         hidden: false,
         tooltip: 'Zeichenwerkzeug',
-        event: 'pen-state'
+        event: 'pen-state',
+        menuItems: [
+            {
+                id: uuidv4(),
+                title: 'Bezier',
+                icon: 'mdi-vector-curve',
+                active: false,
+                hidden: false,
+                event: 'pen:bezier-mode',
+                val: 'bezier'
+            },
+            {
+                id: uuidv4(),
+                title: 'Linear',
+                icon: 'mdi-vector-line',
+                active: false,
+                hidden: false,
+                event: 'pen:bezier-mode',
+                val: 'linear'
+            }
+        ]
     },
 ];
 
@@ -161,7 +182,13 @@ export const taskbarItemCenter = [
         icon: 'mdi-drawing',
         tooltip: 'Form-Einstellungen',
         active: false,
-        hidden: true,
+        hidden: computed(() => {
+            return !windowStates.pathClose.value;
+        }),
+        component: {
+            path: Path,
+            props: {}
+        },
     },
     {
         position: 'left',
