@@ -4,6 +4,7 @@
       v-show="state"
       class="drawing-overlay absolute"
       ref="overlay"
+      :id="overlayId"
   >
     <!-- Auswahlrahmen als SVG -->
     <svg
@@ -33,32 +34,29 @@
       </text>
     </svg>
     <!-- Textebene nach erfolgreichem Zeichnen -->
-    <div v-show="drawn" ref="container">
+    <div v-show="drawn" ref="container" :id="containerId">
       <div
           class="text-layer d-flex flex-column absolute"
           :style="wrapperStyle"
-          @dblclick="editAgain"
       >
           <textarea
-              :id="layer.id"
+              :id="textareaId"
               v-model="layer.text"
               class="custom-textarea"
               ref="textarea"
               :style="textareaStyle"
-              @mousedown.stop
-              @input="adjustHeight"
           />
         <div class="action-buttons d-flex justify-center align-center">
-          <v-btn id="text-layer-confirm" icon size="20" elevation="0" color="#87ff8c80" title="Bestätigen" @click="confirmText">
+          <v-btn ref="confirm" :id="confirmId" icon size="20" elevation="0" color="#87ff8c80" title="Bestätigen">
             <v-icon size="14" color="white" icon="mdi-check"/>
           </v-btn>
-          <v-btn ref="cancel" icon size="20" elevation="0" color="#e5222880" title="Abbrechen" @click="cancelText">
+          <v-btn ref="cancel" :id="cancelId" icon size="20" elevation="0" color="#e5222880" title="Abbrechen">
             <v-icon size="14" color="white" icon="mdi-close"/>
           </v-btn>
         </div>
 
         <!-- Resize Handle (bottom right) -->
-        <v-btn ref="resize" class="resize-handle" rounded="0" icon size="24" elevation="0" color="transparent" title="Rahmen neu anordnen" @mousedown="startResize">
+        <v-btn ref="resize" :id="resizeId" class="resize-handle" rounded="0" icon size="24" elevation="0" color="transparent" title="Rahmen neu anordnen">
           <v-icon size="24" color="white" icon="mdi-resize-bottom-right"/>
         </v-btn>
       </div>
@@ -74,22 +72,24 @@ export default defineComponent({
   name: "TextComponent",
   props: textProps,
   setup(props, { emit }) {
-    const { confirmText, drawing, container, finishEditing, wrapperStyle, textareaStyle, startDraw, drawn, overlay, textarea, editAgain, cancelText, startResize, adjustHeight, selectionSvgStyle, predictedFontSize } = textModel(props, emit);
+    const {drawing, container, containerId, wrapperStyle, textareaStyle, drawn, overlay, overlayId, textarea, textareaId, cancel, cancelId, confirm, confirmId, resize, resizeId, selectionSvgStyle, predictedFontSize } = textModel(props, emit);
     return {
-      confirmText,
       drawing,
       container,
+      containerId,
       drawn,
-      startDraw,
-      finishEditing,
       wrapperStyle,
       textareaStyle,
       overlay,
+      overlayId,
       textarea,
-      editAgain,
-      cancelText,
-      startResize,
-      adjustHeight,
+      textareaId,
+      confirm,
+      cancel,
+      cancelId,
+      confirmId,
+      resize,
+      resizeId,
       selectionSvgStyle,
       predictedFontSize
     };

@@ -43,7 +43,7 @@ const createListenerManager = () => {
 
         const filter = {};
         if (type) filter.type = type;
-        if (handler) filter.handler = handler;
+        if (handler) filter.originalHandler = handler;
 
         if (!type && !handler) {
             for (const l of list) {
@@ -77,7 +77,7 @@ const createListenerManager = () => {
 
         const filter = {};
         if (type) filter.type = type;
-        if (handler) filter.handler = handler;
+        if (handler) filter.originalHandler = handler;
 
         for (const l of list) {
             let match = true;
@@ -101,7 +101,7 @@ const createListenerManager = () => {
 
         const filter = {};
         if (type) filter.type = type;
-        if (handler) filter.handler = handler;
+        if (handler) filter.originalHandler = handler;
 
         for (const l of list) {
             let match = true;

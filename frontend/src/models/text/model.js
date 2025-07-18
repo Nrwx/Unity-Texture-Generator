@@ -1,10 +1,21 @@
 import {computed, nextTick, onBeforeUnmount, onMounted, ref} from "vue";
 import {eventRegister} from "@/dataLayer/event";
+import {uuid} from "@/utils/uuid";
 
 export function textModel(props, emit) {
     const overlay = ref(null);
-    const textarea = ref(null);
+    const overlayId = ref(uuid());
     const container = ref(null);
+    const containerId = ref(uuid());
+    const textarea = ref(null);
+    const textareaId = ref(uuid());
+    const resize = ref(null);
+    const resizeId = ref(uuid());
+    const confirm = ref(null);
+    const confirmId = ref(uuid());
+    const cancel = ref(null);
+    const cancelId = ref(uuid());
+
 
     const drawing = ref(false);
     const drawn = ref(false);
@@ -97,8 +108,8 @@ export function textModel(props, emit) {
         props.layer.initHeight = 1;
         props.layer.initFontSize = 0.40;
 
-        register('add', document, 'mousemove', handleDraw);
-        register('add', document, 'mouseup', stopDraw);
+        register('add', overlay.value, 'mousemove', handleDraw);
+        register('add', overlay.value, 'mouseup', stopDraw);
     };
 
 
@@ -117,8 +128,8 @@ export function textModel(props, emit) {
 
     const stopDraw = async () => {
         drawing.value = false;
-        register('remove', document, 'mousemove', handleDraw);
-        register('remove', document, 'mouseup', stopDraw);
+        register('remove', overlay.value, 'mousemove', handleDraw);
+        register('remove', overlay.value, 'mouseup', stopDraw);
 
         if (props.layer.width > 10 && props.layer.height > 10) {
             props.layer.initWidth = props.layer.width;
@@ -157,18 +168,17 @@ export function textModel(props, emit) {
         };
     });
 
-    const startResize = (e) => {
+    const startTextResize = async (e) => {
         e.preventDefault();
         initialMouseX.value = e.clientX;
         initialMouseY.value = e.clientY;
         initialWidth.value = props.layer.width;
         initialHeight.value = props.layer.height;
-
-        register('add', document, 'mousemove', handleResize);
-        register('add', document, 'mouseup', stopResize);
+        register('add', overlay.value, 'mousemove', handleTextResize);
+        register('add', overlay.value, 'mouseup', stopTextResize);
     };
 
-    const handleResize = (e) => {
+    const handleTextResize = (e) => {
         const dx = e.clientX - initialMouseX.value;
         const dy = e.clientY - initialMouseY.value;
 
@@ -217,9 +227,10 @@ export function textModel(props, emit) {
     };
 
 
-    const stopResize = () => {
-        register('remove', document, 'mousemove', handleResize);
-        register('remove', document, 'mouseup', stopResize);
+    const stopTextResize = () => {
+        register('remove', overlay.value, 'mousemove', handleTextResize);
+        register('remove', overlay.value, 'mouseup', stopTextResize);
+        console.log('STOPPED')
     };
 
     const adjustHeight = () => {
@@ -229,15 +240,55 @@ export function textModel(props, emit) {
         el.style.height = el.scrollHeight + "px";
     };
 
+    const stopPropagation = (e) => {
+        e.stopPropagation();
+    };
+
     const predictedFontSize = computed(() => {
         const ratio = Math.min(props.layer.width / props.layer.initWidth || 1, props.layer.height / props.layer.initHeight || 1);
         return Math.max(12, props.layer.initFontSize * ratio);
     });
 
+    const init = async () => {
+        try {
+            overlay.value = document.getElementById(overlayId.value);
+            container.value = document.getElementById(containerId.value);
+            textarea.value = document.getElementById(textareaId.value);
+            resize.value = document.getElementById(resizeId.value);
+            confirm.value = document.getElementById(confirmId.value);
+            cancel.value = document.getElementById(cancelId.value);
+
+            if (overlay.value) {
+                register('add', overlay.value, 'mousedown', handleOverlayClick);
+            }
+            if (container.value) {
+                register('add', container.value, 'dblclick', editAgain);
+            }
+            if (textarea.value) {
+                register('add', textarea.value, 'input', adjustHeight);
+                register('add', textarea.value, 'mousedown', stopPropagation);
+            }
+            if (resize.value) {
+                register('add', resize.value, 'mousedown', startTextResize);
+            }
+            if (confirm.value) {
+                register('add', confirm.value, 'click', confirmText);
+            }
+            if (cancel.value) {
+                register('add', cancel.value, 'click', cancelText);
+            }
+            register('pause');
+
+            return console.log('Text-Component successfully initialized');
+        } catch (error) {
+            console.error('[init] Initialization failed:', error);
+            throw new Error('Text-Component initialization failed');
+        }
+    };
+
 
     onMounted( async () => {
-        register('add', overlay.value, 'mousedown', handleOverlayClick);
-        register('pause')
+        await init()
     });
 
     onBeforeUnmount(() => {
@@ -247,20 +298,22 @@ export function textModel(props, emit) {
     return {
         drawing,
         overlay,
+        overlayId,
         drawn,
-        startDraw,
-        finishEditing,
+        textarea,
+        textareaId,
+        container,
+        containerId,
+        confirm,
+        confirmId,
+        cancel,
+        cancelId,
+        resize,
+        resizeId,
         wrapperStyle,
         textareaStyle,
-        textarea,
-        editAgain,
-        focusTextarea,
-        confirmText,
-        cancelText,
-        startResize,
-        adjustHeight,
         selectionSvgStyle,
-        predictedFontSize,
+        predictedFontSize
     };
 }
 
