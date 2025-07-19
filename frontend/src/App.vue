@@ -21,6 +21,8 @@
         <Grid v-model:form-rule="ruleStates.form.value" @component-event="componentEvent" v-model:bezier="localData.bezier.value" v-model:layers="localData.layers.value" v-model:selected-layer="localData.selectedLayer.value" v-model:text-layer="textLayer" v-model:brush-cursor="localData.cursor.value" v-model:color="localData.color.value" v-model:settings="localData.viewport.value" v-model:guides="localData.guides.value" v-model:fill-state="modifierStates.fill.value" v-model:select="windowStates.select.value" v-model:select-mode="localData.selectedShape.value" v-model:text="windowStates.text.value" v-model:brushes="localData.brush.value" v-model:brush-layer="brushSettings" v-model:brush="windowStates.brush.value" v-model:drawing="windowStates.drawing.value" v-model:pen="windowStates.pen.value" v-model:path-layer="pathLayer" :viewport="{width: localData.viewport.value.width, height: localData.viewport.value.height}" :theme="appData.theme.value" :loading="localData.loading.value" :pen-path-state="windowStates.path.value" style="position: relative;">
           <!-- Mittige Taskbar -->
           <TaskbarCenter v-model:items="itemsCenter" v-model:expanded="windowStates.drawerCenter.value" :active="activeItemCenter" @component-event="componentEvent" @taskbar-event="taskbarEvent('center', $event)" v-model:theme="appData.theme.value"/>
+          <!-- Key-Event Log System -->
+          <Key @component-event="componentEvent"/>
         </Grid>
       </v-main>
       <Layer style="position: absolute; top: 40px; right: 70px;" :state="windowStates.layer.value" v-model:layers="localData.layers.value" v-model:selected-layer="localData.selectedLayer.value" v-model:channel="localData.channel.value" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
@@ -29,7 +31,9 @@
       <!-- Rechter Drawer -->
       <DrawerNew v-model:taskbar-menu="windowStates.drawerRight.value" v-model:item="activeItemRight" align="right" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
     </template>
+    <!-- Message System -->
     <Notify v-model:data="localData.messages.value" v-model:state="windowStates.notify.value" @component-event="componentEvent" v-model:theme="appData.theme.value" v-model:wait="windowStates.queue.value" />
+    <!-- Response Message System -->
     <Queue @component-event="componentEvent" v-model:queue="localData.queue.value" v-model:wait="localData.queueWait.value" v-model:theme="appData.theme.value" v-model:state="windowStates.queue.value"/>
   </v-app>
 </template>
@@ -60,6 +64,7 @@ import {pathLayer} from "@/models/pen/config/model";
 import TaskbarCenter from "@/components/Taskbar/TaskbarCenter";
 import Notify from "@/components/Notify/Notify";
 import {notifyMessage} from "@/models/notify/config/model";
+import Key from "@/components/Key/Key";
 
 export default {
   name: 'App',
@@ -74,7 +79,8 @@ export default {
     Layer,
     Setting,
     Fullscreen,
-    Context
+    Context,
+    Key
   },
   setup() {
     const itemsLeft = ref(taskbarItemLeft);

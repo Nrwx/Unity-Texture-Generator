@@ -14,11 +14,10 @@
       <!-- Canvas Container -->
       <div class="canvas-row" style="position: relative;">
         <div
-            ref="canvasContainer"
+            ref="canvas"
             class="canvas-container d-flex align-center justify-center"
-            :style="canvasContainerStyle"
-            @mousedown="handleMouseDown"
-            @mousemove="handleMouseMove"
+            :style="canvasStyle"
+            :id="canvasId"
         >
           <!-- Zentrale Inhalte im Canvas -->
           <div class="canvas-content overflow-hidden">
@@ -87,14 +86,13 @@ export default defineComponent({
     Selection
   },
   setup(props, { emit }) {
-    const { canvasContainer, offset, cursor, canvasContainerStyle, handleMouseDown, handleMouseMove, zoomFaktor, emitEvent, toggleSelection, resetSelection, startRotate, startResize, updateLayer, frameBox} = gridModel(props, emit);
+    const { canvas, canvasId, offset, cursor, canvasStyle, zoomFaktor, emitEvent, toggleSelection, resetSelection, startRotate, startResize, updateLayer, frameBox} = gridModel(props, emit);
     return {
-      canvasContainer,
+      canvas,
+      canvasId,
       offset,
       cursor,
-      canvasContainerStyle,
-      handleMouseDown,
-      handleMouseMove,
+      canvasStyle,
       zoomFaktor,
       emitEvent,
       toggleSelection,

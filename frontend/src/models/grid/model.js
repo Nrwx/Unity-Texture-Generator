@@ -1,9 +1,12 @@
 import {computed, ref, onMounted, nextTick, onBeforeUnmount} from "vue";
 import {backupStates, canvasStates, transformStates} from "@/dataLayer/state";
 import {eventRegister} from "@/dataLayer/event";
+import {uuid} from "@/utils/uuid";
 
 export function gridModel(props, emit) {
-    const canvasContainer = ref(null);
+    const canvas = ref(null);
+    const canvasId = ref(uuid());
+
     const zoomFaktor = ref(1);
     const offset = ref({x: 0, y: 0})
     const cursor = ref({ x: 0, y: 0 });
@@ -29,7 +32,7 @@ export function gridModel(props, emit) {
 
     const handleMouseMove = async (event) => {
         event.preventDefault();
-        const rect = canvasContainer.value.getBoundingClientRect();
+        const rect = canvas.value.getBoundingClientRect();
         const scaledX = (event.clientX - rect.left);
         const scaledY = (event.clientY - rect.top);
 
@@ -202,7 +205,7 @@ export function gridModel(props, emit) {
 
     const resetSelection = async (event) => {
         event.preventDefault();
-        if (!canvasContainer.value.contains(event.target) && !event.ctrlKey
+        if (!canvas.value.contains(event.target) && !event.ctrlKey
             || !transformStates.menu.value && !transformStates.transform.value && !event.ctrlKey
             || !transformStates.menu.value && !transformStates.rotate.value && !event.ctrlKey
             || !transformStates.menu.value && !transformStates.size.value && !event.ctrlKey) {
@@ -279,7 +282,7 @@ export function gridModel(props, emit) {
         }
     };
 
-    const canvasContainerStyle = computed(() => ({
+    const canvasStyle = computed(() => ({
         width: `${props.settings.width}px`,
         height: `${props.settings.height}px`,
         transform: `translate(${offset.value.x}px, ${offset.value.y}px) scale(${zoomFaktor.value})`,
@@ -440,7 +443,24 @@ export function gridModel(props, emit) {
         };
     });
 
-    onMounted(() => {
+    const init = async () => {
+        try {
+            canvas.value = document.getElementById(canvasId.value);
+
+            if (canvas.value) {
+                register('add', canvas.value, 'mousedown', handleMouseDown);
+                register('add', canvas.value, 'mousemove', handleMouseMove);
+            }
+
+            return console.log('Grid-Component successfully initialized');
+        } catch (error) {
+            console.error('[init] Initialization failed:', error);
+            throw new Error('Grid-Component initialization failed');
+        }
+    };
+
+    onMounted(async () => {
+        await init()
         register('add', document, 'contextmenu', (event) => event.preventDefault());
         register('add', document, 'keydown', handleKeyDown);
         register('add', document, 'keyup', handleKeyUp);
@@ -449,16 +469,16 @@ export function gridModel(props, emit) {
     });
 
     onBeforeUnmount(() => {
+        console.log('DESTROYED')
         register('removeAll');
     });
 
     return {
-        canvasContainer,
+        canvas,
+        canvasId,
         offset,
         cursor,
-        canvasContainerStyle,
-        handleMouseDown,
-        handleMouseMove,
+        canvasStyle,
         zoomFaktor,
         emitEvent,
         toggleSelection,

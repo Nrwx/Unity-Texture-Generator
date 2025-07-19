@@ -99,22 +99,4 @@ export default defineComponent({
 </script>
 
 <style scoped>
-.bg-dark {
-  background-color: #1c1c1c;
-}
-.bg-light {
-  background-color: #f5f5f5;
-}
-
-.border {
-  border: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-.selected-preset {
-  background-color: var(--v-theme-primary-lighten5);
-  transition: background-color 0.3s ease;
-}
-.selected-preset:hover {
-  background-color: var(--v-theme-primary-lighten4);
-}
 </style>

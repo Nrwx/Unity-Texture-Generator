@@ -1,0 +1,18 @@
+@import './../_Var';
+
+:root {
+  --app-primary-bg: #{$app_primary_bg};
+}
+
+.scrollbar-hidden {
+  /* Für WebKit (Chrome, Safari) */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE 10+ */
+
+  /* Optional, falls du overflow brauchst */
+  overflow: auto;
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none; /* Chrome, Safari */
+}

@@ -18,7 +18,7 @@
       <div class="angle-picker" @click="handleClick" :style="style">
         <svg viewBox="0 0 100 100" class="pie">
           <!-- Hintergrundkreis -->
-          <circle cx="50" cy="50" r="48" fill="#1c1c1c" stroke="#1c1c1c" stroke-width="1" />
+          <circle cx="50" cy="50" r="48" fill="var(--app-primary-bg)" stroke="var(--app-primary-bg)" stroke-width="1" />
 
           <!-- Hilfsstriche (länger) -->
           <g stroke="#888" stroke-width="1">
@@ -68,9 +68,6 @@ export default defineComponent({
 });
 </script>
 
-<style scoped>
-.pie {
-  width: 100%;
-  height: 100%;
-}
+<style scoped lang="scss">
+@import './_Radial';
 </style>

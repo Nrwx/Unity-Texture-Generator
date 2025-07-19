@@ -1,0 +1,86 @@
+.key-logger {
+  position: absolute;
+  bottom: 20px;
+  left: 40px;
+  width: 100px;
+  background: linear-gradient(1turn, #212121, transparent);
+  height: 400px;
+  color: #0fc;
+  font-family: monospace;
+  padding: 10px;
+  border-radius: 10px;
+  transition: height .3s ease;
+}
+
+.key-logger.minimal {
+  width: 150px;
+  height: 80px;
+  padding: 4px;
+}
+
+.log-window {
+  gap: 4px;
+  flex: 1;
+}
+
+.logFade{
+  position: absolute;
+  width: 100%;
+  background: linear-gradient(180deg, var(--app-primary-bg), transparent 80%);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.key-entry {
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  text-align: center;
+  line-height: 40px;
+  font-size: 10px;
+  position: relative;
+  transition: background 0.2s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.key-entry.wide {
+  min-width: 60px;
+  padding: 0 6px;
+}
+
+.key-entry.extra-wide {
+  min-width: 80px;
+  padding: 0 8px;
+  font-size: 9px;
+}
+
+.key-entry.held {
+  background-color: rgba(0, 123, 255, 0.6);
+  box-shadow: 0 0 5px rgba(0, 123, 255, 0.7);
+}
+
+.badge {
+  top: -6px;
+  right: -6px;
+  background: blue;
+  color: white;
+  font-size: 9px;
+  border-radius: 50%;
+  padding: 2px 5px;
+  position: absolute;
+  z-index: 1;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+}
+
+.minimal-view {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex: 1;
+}
