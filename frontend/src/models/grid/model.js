@@ -378,6 +378,8 @@ export function gridModel(props, emit) {
     });
 
     const keyDown = (e) => {
+        if (props.rule) return;
+        e.preventDefault();
         const key = e.key === 'Shift' ? 'Shift' : e.key.toLowerCase();
         if (key === "g") {
             if (props.selectedLayer.length) {
@@ -407,6 +409,8 @@ export function gridModel(props, emit) {
     };
 
     const keyUp = (e) => {
+        if (props.rule) return;
+        e.preventDefault();
         const key = e.key === 'Shift' ? 'Shift' : e.key.toLowerCase();
         if (key === "g") {
             emitEvent('canvas:transform-state', false);
@@ -446,8 +450,8 @@ export function gridModel(props, emit) {
             if (canvas.value) {
                 register('add', canvas.value, 'mousedown',  mouseDown);
                 register('add', document, 'mousemove',  mouseMove);
-                register('add', document, 'keydown', keyDown, { prevent: true });
-                register('add', document, 'keyup', keyUp, { prevent: true });
+                register('add', document, 'keydown', keyDown);
+                register('add', document, 'keyup', keyUp);
             }
 
             emitEvent('fetch-layer');
@@ -464,7 +468,6 @@ export function gridModel(props, emit) {
     });
 
     onBeforeUnmount(() => {
-        console.log('DESTROYED')
         register('removeAll');
     });
 
@@ -488,7 +491,7 @@ export function gridModel(props, emit) {
 
 
 export const gridProps = {
-    formRule: {
+    rule: {
         type: Boolean,
         required: true,
     },

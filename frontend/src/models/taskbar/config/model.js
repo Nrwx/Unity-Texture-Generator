@@ -239,6 +239,7 @@ export const taskbarItemCenter = [
         tooltip: 'Screenshot',
         active: false,
         hidden: false,
+        event: 'app:screenshot',
     }
 ];
 

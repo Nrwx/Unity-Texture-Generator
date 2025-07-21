@@ -1,4 +1,5 @@
 import dayjs from "dayjs";
+import {screenshot} from "@/utils/screenshot";
 
 export const appEvent = (route) => ({
     "app:viewport-ref": async (payload) => {
@@ -267,6 +268,22 @@ export const appEvent = (route) => ({
         const index = route.localData.messages.value.findIndex(m => m.id === id);
         if (index !== -1) {
             route.localData.messages.value.splice(index, 1);
+        }
+    },
+    "app:screenshot": async () => {
+        const el = document.getElementById(route.tempData.appId.value);
+        try {
+            const dataUrl = await screenshot(el);
+            // Bild anzeigen oder speichern
+            const img = new Image();
+            img.src = dataUrl;
+
+            const link = document.createElement('a');
+            link.href = dataUrl;
+            link.download = 'screenshot.png';
+            link.click();
+        } catch (err) {
+            console.error('Screenshot fehlgeschlagen:', err);
         }
     },
 });

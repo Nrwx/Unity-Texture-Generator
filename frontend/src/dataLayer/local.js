@@ -1,5 +1,6 @@
 import {reactive, ref} from "vue";
 import {v4 as uuidv4} from "uuid";
+import {uuid} from "@/utils/uuid";
 
 export const appData = {
     theme: ref('dark')
@@ -66,6 +67,8 @@ export const localData = {
 }
 
 export const tempData = {
+    app: ref(null),
+    appId: ref(uuid()),
     keys: ref([]),
     heldKeys: ref(new Map())
 }
