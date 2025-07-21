@@ -21,4 +21,8 @@ export const globalBackupEvent = (route) => ({
             route.backupStates.global.value = response
         }
     },
+
+    "backup:action": async (payload) => {
+        route.backupStates.action.value = payload;
+    },
 });

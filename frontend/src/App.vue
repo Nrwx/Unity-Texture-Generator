@@ -18,11 +18,11 @@
       <!-- Main Content -->
       <v-main>
         <!-- Grid -->
-        <Grid v-model:form-rule="ruleStates.form.value" @component-event="componentEvent" v-model:bezier="localData.bezier.value" v-model:layers="localData.layers.value" v-model:selected-layer="localData.selectedLayer.value" v-model:text-layer="textLayer" v-model:brush-cursor="localData.cursor.value" v-model:color="localData.color.value" v-model:settings="localData.viewport.value" v-model:guides="localData.guides.value" v-model:fill-state="modifierStates.fill.value" v-model:select="windowStates.select.value" v-model:select-mode="localData.selectedShape.value" v-model:text="windowStates.text.value" v-model:brushes="localData.brush.value" v-model:brush-layer="brushSettings" v-model:brush="windowStates.brush.value" v-model:drawing="windowStates.drawing.value" v-model:pen="windowStates.pen.value" v-model:path-layer="pathLayer" :viewport="{width: localData.viewport.value.width, height: localData.viewport.value.height}" :theme="appData.theme.value" :loading="localData.loading.value" :pen-path-state="windowStates.path.value" style="position: relative;">
+        <Grid v-model:canvas-zoom="canvasStates.zoom.value" v-model:canvas-transform="canvasStates.transform.value" v-model:transform="transformStates.transform.value" v-model:canvas-select="canvasStates.select.value" v-model:rotate="transformStates.rotate.value" v-model:size="transformStates.size.value" v-model:menu="transformStates.menu.value" v-model:align="transformStates.align.value" v-model:backup="backupStates.action.value" v-model:form-rule="ruleStates.form.value" @component-event="componentEvent" v-model:bezier="localData.bezier.value" v-model:layers="localData.layers.value" v-model:selected-layer="localData.selectedLayer.value" v-model:text-layer="textLayer" v-model:brush-cursor="localData.cursor.value" v-model:color="localData.color.value" v-model:settings="localData.viewport.value" v-model:guides="localData.guides.value" v-model:fill-state="modifierStates.fill.value" v-model:select="windowStates.select.value" v-model:select-mode="localData.selectedShape.value" v-model:text="windowStates.text.value" v-model:brushes="localData.brush.value" v-model:brush-layer="brushSettings" v-model:brush="windowStates.brush.value" v-model:drawing="windowStates.drawing.value" v-model:pen="windowStates.pen.value" v-model:path-layer="pathLayer" :viewport="{width: localData.viewport.value.width, height: localData.viewport.value.height}" :theme="appData.theme.value" :loading="localData.loading.value" :pen-path-state="windowStates.path.value" style="position: relative;">
           <!-- Mittige Taskbar -->
           <TaskbarCenter v-model:items="itemsCenter" v-model:expanded="windowStates.drawerCenter.value" :active="activeItemCenter" @component-event="componentEvent" @taskbar-event="taskbarEvent('center', $event)" v-model:theme="appData.theme.value"/>
           <!-- Key-Event Log System -->
-          <Key @component-event="componentEvent"/>
+          <Key v-model:keys="tempData.keys.value" v-model:held-keys="tempData.heldKeys.value"/>
         </Grid>
       </v-main>
       <Layer style="position: absolute; top: 40px; right: 70px;" :state="windowStates.layer.value" v-model:layers="localData.layers.value" v-model:selected-layer="localData.selectedLayer.value" v-model:channel="localData.channel.value" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
@@ -43,7 +43,7 @@ import {computed, nextTick, onMounted, ref} from "vue";
 import * as api from "@/dataLayer/route/route"
 import Taskbar from './components/Taskbar/Taskbar.vue';
 import {taskbarItemCenter, taskbarItemLeft, taskbarItemRight} from "@/models/taskbar/config/model";
-import {appData, localData} from "@/dataLayer/local";
+import {appData, localData, tempData} from "@/dataLayer/local";
 import DrawerNew from "@/components/Drawer/DrawerNew";
 import Layer from "@/components/Layer/Layer";
 import {backupStates, canvasStates, modifierStates, ruleStates, transformStates, windowStates} from "@/dataLayer/state";
@@ -107,7 +107,8 @@ export default {
       pathLayer,
       notifyMessage,
       settings,
-      osSettings
+      osSettings,
+      tempData
     });
 
     const taskbarEvent = async (side, itemId) => {
@@ -205,12 +206,16 @@ export default {
       localData,
       windowStates,
       modifierStates,
+      canvasStates,
       contextStates,
       brushSettings,
       contextConfig,
       osSettings,
       textLayer,
-      pathLayer
+      pathLayer,
+      tempData,
+      transformStates,
+      backupStates
     };
   },
 };

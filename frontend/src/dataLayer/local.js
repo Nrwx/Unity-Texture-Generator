@@ -64,3 +64,8 @@ export const localData = {
     selectedShape: ref('rectangle'),
     selectedBlendMode: ref(0),
 }
+
+export const tempData = {
+    keys: ref([]),
+    heldKeys: ref(new Map())
+}

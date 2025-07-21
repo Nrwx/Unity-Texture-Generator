@@ -29,6 +29,46 @@ export const windowStateEvent = (route) => ({
             route.canvasStates.select.value = payload;
         }
     },
+    "canvas:zoom-state": (payload) => {
+        if (typeof payload === "boolean") {
+            route.canvasStates.zoom.value = payload;
+        }
+    },
+    "canvas:transform-state": (payload) => {
+        if (typeof payload === "boolean") {
+            route.canvasStates.transform.value = payload;
+        }
+    },
+    "canvas:select-state": (payload) => {
+        if (typeof payload === "boolean") {
+            route.canvasStates.select.value = payload;
+        }
+    },
+    "layer:transform-rotate": (payload) => {
+        if (typeof payload === "boolean") {
+            route.transformStates.rotate.value = payload;
+        }
+    },
+    "layer:transform-size": (payload) => {
+        if (typeof payload === "boolean") {
+            route.transformStates.size.value = payload;
+        }
+    },
+    "layer:transform-state": (payload) => {
+        if (typeof payload === "boolean") {
+            route.transformStates.transform.value = payload;
+        }
+    },
+    "layer:transform-menu": (payload) => {
+        if (typeof payload === "boolean") {
+            route.transformStates.menu.value = payload;
+        }
+    },
+    "layer:transform-align": (payload) => {
+        if (typeof payload === "boolean") {
+            route.transformStates.align.value = payload;
+        }
+    },
     "rule:allow-form": (payload) => {
         if (typeof payload === "boolean") {
             route.ruleStates.form.value = payload;

@@ -1,5 +1,5 @@
 <template>
-  <div class="viewport-wrapper" @mousedown="resetSelection">
+  <div ref="wrapper" :id="wrapperId" class="viewport-wrapper">
     <!-- Hauptcontainer: Zentriert das Canvas -->
     <div class="main-layer">
       <!-- Lineale -->
@@ -86,8 +86,10 @@ export default defineComponent({
     Selection
   },
   setup(props, { emit }) {
-    const { canvas, canvasId, offset, cursor, canvasStyle, zoomFaktor, emitEvent, toggleSelection, resetSelection, startRotate, startResize, updateLayer, frameBox} = gridModel(props, emit);
+    const { wrapper, wrapperId, canvas, canvasId, offset, cursor, canvasStyle, zoomFaktor, emitEvent, toggleSelection, startRotate, startResize, updateLayer, frameBox} = gridModel(props, emit);
     return {
+      wrapper,
+      wrapperId,
       canvas,
       canvasId,
       offset,
@@ -96,7 +98,6 @@ export default defineComponent({
       zoomFaktor,
       emitEvent,
       toggleSelection,
-      resetSelection,
       startRotate,
       startResize,
       updateLayer,

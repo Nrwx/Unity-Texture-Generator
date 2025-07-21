@@ -12,12 +12,15 @@
           :class="[{ held: key.held }, getKeySizeClass(key.name)]"
       >
         {{ key.name }}
-        <span v-if="key.held" class="badge">⏳</span>
+        <v-icon color="white" v-if="key.held" class="badge" size="10">
+          mdi-arrow-down-bold
+        </v-icon>
       </div>
       <div v-if="keys.length >= 2" :style="{ height: collapsedHeight }" class="logFade"></div>
     </div>
   </div>
 </template>
+
 
 
 <script>
@@ -27,16 +30,14 @@ import {keyModel, keyProps} from "@/models/key/model";
 export default defineComponent({
   name: "KeyComponent",
   props: keyProps,
-  setup(props, { emit }) {
-    const { keys, isCollapsed, logWindowRef, collapsedHeight, getKeySizeClass, toggleCollapse, emitEvent } = keyModel(props, emit);
+  setup(props) {
+    const { isCollapsed, toggleCollapse, collapsedHeight, logWindowRef, getKeySizeClass } = keyModel(props);
     return {
-      keys,
       isCollapsed,
-      getKeySizeClass,
+      toggleCollapse,
       collapsedHeight,
       logWindowRef,
-      toggleCollapse,
-      emitEvent
+      getKeySizeClass
     };
   },
 });

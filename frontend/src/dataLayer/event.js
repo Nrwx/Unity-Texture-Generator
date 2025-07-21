@@ -22,6 +22,7 @@ import {brushEvent} from "@/dataLayer/event/brush";
 import {cursorEvent} from "@/dataLayer/event/cursor";
 import {appEvent} from "@/dataLayer/event/app";
 import {notifyEvent} from "@/dataLayer/event/notify";
+import {keyEvent} from "@/dataLayer/event/key";
 
 
 /**
@@ -29,6 +30,7 @@ import {notifyEvent} from "@/dataLayer/event/notify";
  */
 const eventHandler = (route) => ({
     ...listenerEvent(route),
+    ...keyEvent(route),
     ...appEvent(route),
     ...fontsEvent(route),
     ...globalBackupEvent(route),

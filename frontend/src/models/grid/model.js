@@ -1,9 +1,10 @@
-import {computed, ref, onMounted, nextTick, onBeforeUnmount} from "vue";
-import {backupStates, canvasStates, transformStates} from "@/dataLayer/state";
-import {eventRegister} from "@/dataLayer/event";
+import {computed, ref, onMounted, onBeforeUnmount} from "vue";
 import {uuid} from "@/utils/uuid";
+import {eventRegister} from "@/dataLayer/event";
 
 export function gridModel(props, emit) {
+    const wrapper = ref(null);
+    const wrapperId = ref(uuid());
     const canvas = ref(null);
     const canvasId = ref(uuid());
 
@@ -22,16 +23,17 @@ export function gridModel(props, emit) {
 
     const { register } = eventRegister('listener:grid', emitEvent);
 
-    const cycleAlignMode = () => {
-        if (transformStates.align.value) {
+    const cycleAlignMode = (e) => {
+        if (props.align) {
             alignModeStep.value = (alignModeStep.value + 1) % 3;
+            emitEvent('apply-key-down', e)
+            emitEvent('apply-key-up', e)
         } else {
             alignModeStep.value = 0;
         }
     };
 
-    const handleMouseMove = async (event) => {
-        event.preventDefault();
+    const mouseMove = async (event) => {
         const rect = canvas.value.getBoundingClientRect();
         const scaledX = (event.clientX - rect.left);
         const scaledY = (event.clientY - rect.top);
@@ -43,9 +45,9 @@ export function gridModel(props, emit) {
         const dy = (event.clientY - lastMouse.value.y);
 
         // Transformieren:
-        if (transformStates.transform.value) {
+        if (props.transform) {
             props.selectedLayer.forEach(layer => {
-                if (transformStates.align.value) {
+                if (props.align) {
                     // Handle Align Modes
                     if (alignModeStep.value === 1) {
                         layer.matrix.x += dx;
@@ -61,17 +63,17 @@ export function gridModel(props, emit) {
                     layer.matrix.y += dy;
                 }
             });
-        } else if (canvasStates.transform.value) {
+        } else if (props.canvasTransform) {
             offset.value.x += dx;
             offset.value.y += dy;
         }
         // Resizing (Skalierung)
-        else if (transformStates.size.value) {
-            await handleResize(dx, dy);
+        else if (props.size) {
+            await resize(dx, dy);
         }
         // Rotation
-        else if (transformStates.rotate.value) {
-            await handleRotate(event);
+        else if (props.rotate) {
+            await rotate(event);
         }
 
         lastMouse.value.x = event.clientX;
@@ -79,10 +81,8 @@ export function gridModel(props, emit) {
     };
 
     const startResize = async (corner, event) => {
-        emitEvent('reset:window-states', false)
-        await nextTick()
-        transformStates.menu.value = true
-        transformStates.size.value = true;
+        emitEvent('layer:transform-menu', true)
+        emitEvent('layer:transform-size', true)
         resizeDirection.value = corner;
         lastMouse.value.x = event.clientX;
         lastMouse.value.y = event.clientY;
@@ -90,10 +90,8 @@ export function gridModel(props, emit) {
     };
 
     const startRotate = async (direction, event) => {
-        emitEvent('reset:window-states', false)
-        await nextTick()
-        transformStates.menu.value = true
-        transformStates.rotate.value = true;
+        emitEvent('layer:transform-menu', true)
+        emitEvent('layer:transform-rotate', true)
         rotationStartAngle.value = calculateRotation(event.clientX, event.clientY);
         lastMouse.value.x = event.clientX;
         lastMouse.value.y = event.clientY;
@@ -121,8 +119,8 @@ export function gridModel(props, emit) {
         }
     };
 
-    const handleRotate = async (event) => {
-        backupStates.action.value = 'Bild Rotieren';
+    const rotate = async (event) => {
+        emitEvent('backup:action', 'Bild Rotieren')
         event.preventDefault();
 
         const crosshair = document.querySelector(".center-crosshair");
@@ -147,7 +145,7 @@ export function gridModel(props, emit) {
         props.selectedLayer.forEach(layer => {
             let newRotation = (layer.matrix.rotate + deltaAngle + 360) % 360;
 
-            if (transformStates.align.value) {
+            if (props.align) {
                 newRotation = getSnappedAngle(newRotation);
             }
 
@@ -158,13 +156,13 @@ export function gridModel(props, emit) {
     };
 
     // Handle Resize
-    const handleResize = async (dx, dy) => {
-        backupStates.action.value = 'Bild Skalieren';
+    const resize = async (dx, dy) => {
+        emitEvent('backup:action', 'Bild Skalieren')
         props.selectedLayer.forEach(layer => {
             const originalWidth = layer.width;
             const originalHeight = layer.height;
 
-            if (transformStates.align.value) {
+            if (props.align) {
                 // Wenn Shift gedrückt ist, gleichmäßige Skalierung (synchron auf X und Y)
                 const scale = Math.max(dx / originalWidth, dy / originalHeight);
                 layer.matrix.a += scale;
@@ -206,20 +204,17 @@ export function gridModel(props, emit) {
     const resetSelection = async (event) => {
         event.preventDefault();
         if (!canvas.value.contains(event.target) && !event.ctrlKey
-            || !transformStates.menu.value && !transformStates.transform.value && !event.ctrlKey
-            || !transformStates.menu.value && !transformStates.rotate.value && !event.ctrlKey
-            || !transformStates.menu.value && !transformStates.size.value && !event.ctrlKey) {
+            || !props.menu && !props.transform && !event.ctrlKey
+            || !props.menu && !props.rotate && !event.ctrlKey
+            || !props.menu && !props.size.value && !event.ctrlKey) {
             stopTransform()
             props.selectedLayer.forEach(layer => {
                 updateLayer(layer)
             })
-            transformStates.align.value = false
+            emitEvent('layer:transform-align', false);
             alignModeStep.value = 0
             emitEvent('layer:select', [])
             register('remove', document, 'contextmenu', (event) => event.preventDefault());
-            register('remove', document, 'keydown', handleKeyDown);
-            register('remove', document, 'keyup', handleKeyUp);
-            register('remove', document, 'mousedown', startPan);
         }
     };
 
@@ -249,7 +244,7 @@ export function gridModel(props, emit) {
 
     const updateLayer = (layer) => {
         if (layerChanged(layer.__originalMatrix, layer.matrix || layerChanged(layer.__originalBase, layer))) {
-            emitEvent("backup:create-global", {id: layer.id, state: layer, title: backupStates.action.value});
+            emitEvent("backup:create-global", {id: layer.id, state: layer, title: props.backup});
             emitEvent('update-layer', layer);
             console.log('Layer aktualisiert');
         } else {
@@ -259,9 +254,9 @@ export function gridModel(props, emit) {
 
     const toggleSelection = (layer, event) => {
         event.preventDefault();
-        transformStates.transform.value = false;
-        transformStates.size.value = false;
-        transformStates.rotate.value = false;
+        emitEvent('layer:transform-state', false)
+        emitEvent('layer:transform-size', false)
+        emitEvent('layer:transform-rotate', false)
         let data = props.selectedLayer;
         const index = data.findIndex(l => l.id === layer.id);
         storeLayer(layer);
@@ -289,12 +284,12 @@ export function gridModel(props, emit) {
         transformOrigin: "center center",
     }));
 
-    const handleMouseDown = (event) => {
+    const mouseDown = (event) => {
         event.preventDefault();
-        if (canvasStates.select.value) {
+        if (props.select) {
             return;
         }
-        if (canvasStates.zoom.value) {
+        if (props.canvasZoom) {
             if (event.button === 0) {
                 zoomFaktor.value = Math.min(zoomFaktor.value + 0.1, 2);
             } else if (event.button === 2) {
@@ -305,72 +300,11 @@ export function gridModel(props, emit) {
     };
 
     const stopTransform = () => {
-        transformStates.menu.value = false;
-        transformStates.transform.value = false;
-        transformStates.size.value = false;
-        transformStates.rotate.value = false;
+        emitEvent('layer:transform-menu', false)
+        emitEvent('layer:transform-state', false)
+        emitEvent('layer:transform-size', false)
+        emitEvent('layer:transform-rotate', false)
         register('remove', document, 'mouseup', stopTransform);
-    };
-
-
-    const startPan = async (event) => {
-        await nextTick();
-        event.preventDefault();
-        if (!canvasStates.transform.value) return;
-        lastMouse.value.x = event.clientX;
-        lastMouse.value.y = event.clientY;
-        register('add', document, 'mousemove', handleMouseMove);
-        register('add', document, 'mouseup', stopPan);
-    };
-
-    const stopPan = () => {
-        canvasStates.transform.value = false;
-        register('remove', document, 'mousemove', handleMouseMove);
-        register('remove', document, 'mouseup', stopPan);
-    };
-
-    const handleKeyDown = (event) => {
-        if (props.formRule) return;
-
-        event.preventDefault();
-        if (event.key.toLowerCase() === "r") {
-            console.log('R-KEY-HAS-NO-EVENT');
-        }
-        if (event.key === "w") {
-            canvasStates.select.value = !canvasStates.select.value;
-        }
-        if (event.key === 'g') {
-            if (props.selectedLayer.length) {
-                backupStates.action.value = 'Bild Transformieren';
-                transformStates.menu.value = true;
-                transformStates.transform.value = true;
-            } else {
-                canvasStates.transform.value = true;
-            }
-        }
-        if (event.key === 'z') canvasStates.zoom.value = !canvasStates.zoom.value;
-
-        if (event.key === "Shift") {
-            transformStates.align.value = true;
-        }
-    };
-
-    const handleKeyUp = (event) => {
-        if (props.formRule) return;
-
-        event.preventDefault();
-        if (event.key === 'g') {
-            canvasStates.transform.value = false;
-            transformStates.transform.value = false;
-            transformStates.menu.value = false
-        }
-        if (event.key === "Shift") {
-            if (transformStates.transform.value) {
-                cycleAlignMode();
-            } else {
-                transformStates.align.value = false;
-            }
-        }
     };
 
     const frameBox = computed(() => {
@@ -443,14 +377,80 @@ export function gridModel(props, emit) {
         };
     });
 
+    const keyDown = (e) => {
+        const key = e.key === 'Shift' ? 'Shift' : e.key.toLowerCase();
+        if (key === "g") {
+            if (props.selectedLayer.length) {
+                emitEvent('backup:action', 'Bild Transformieren')
+                emitEvent('layer:transform-menu', true)
+                emitEvent('layer:transform-state', true)
+            } else {
+                emitEvent('canvas:transform-state', true)
+            }
+            emitEvent('apply-key-down', e)
+        }
+        if (key === "w") {
+            emitEvent('canvas:select-state', !props.canvasSelect)
+            emitEvent('apply-key-down', e)
+        }
+        if (key === "z") {
+            emitEvent('canvas:zoom-state', !props.canvasZoom)
+            emitEvent('apply-key-down', e)
+        }
+        if (key === "r") {
+            emitEvent('apply-key-down', e)
+        }
+        if (key === "Shift") {
+            emitEvent('layer:transform-align', true)
+            emitEvent('apply-key-down', e)
+        }
+    };
+
+    const keyUp = (e) => {
+        const key = e.key === 'Shift' ? 'Shift' : e.key.toLowerCase();
+        if (key === "g") {
+            emitEvent('canvas:transform-state', false);
+            emitEvent('layer:transform-state', false);
+            emitEvent('layer:transform-menu', false);
+            emitEvent('apply-key-up', e)
+        }
+        if (key === "z") {
+            emitEvent('apply-key-up', e)
+        }
+        if (key === "r") {
+            emitEvent('apply-key-up', e)
+        }
+        if (key === "w") {
+            emitEvent('apply-key-up', e)
+        }
+        if (key === "Shift") {
+            if (props.transform) {
+                cycleAlignMode(e);
+            } else {
+                emitEvent('layer:transform-align', false);
+                emitEvent('apply-key-up', e)
+            }
+        }
+    };
+
     const init = async () => {
         try {
+
+            wrapper.value = document.getElementById(wrapperId.value);
             canvas.value = document.getElementById(canvasId.value);
 
-            if (canvas.value) {
-                register('add', canvas.value, 'mousedown', handleMouseDown);
-                register('add', canvas.value, 'mousemove', handleMouseMove);
+            if (wrapper.value) {
+                register('add', wrapper.value, 'mousedown',  resetSelection);
             }
+
+            if (canvas.value) {
+                register('add', canvas.value, 'mousedown',  mouseDown);
+                register('add', document, 'mousemove',  mouseMove);
+                register('add', document, 'keydown', keyDown, { prevent: true });
+                register('add', document, 'keyup', keyUp, { prevent: true });
+            }
+
+            emitEvent('fetch-layer');
 
             return console.log('Grid-Component successfully initialized');
         } catch (error) {
@@ -460,12 +460,7 @@ export function gridModel(props, emit) {
     };
 
     onMounted(async () => {
-        await init()
-        register('add', document, 'contextmenu', (event) => event.preventDefault());
-        register('add', document, 'keydown', handleKeyDown);
-        register('add', document, 'keyup', handleKeyUp);
-        register('add', document, 'mousedown', startPan);
-        emitEvent('fetch-layer')
+        await init();
     });
 
     onBeforeUnmount(() => {
@@ -474,6 +469,8 @@ export function gridModel(props, emit) {
     });
 
     return {
+        wrapper,
+        wrapperId,
         canvas,
         canvasId,
         offset,
@@ -482,7 +479,6 @@ export function gridModel(props, emit) {
         zoomFaktor,
         emitEvent,
         toggleSelection,
-        resetSelection,
         startRotate,
         startResize,
         updateLayer,
@@ -493,6 +489,38 @@ export function gridModel(props, emit) {
 
 export const gridProps = {
     formRule: {
+        type: Boolean,
+        required: true,
+    },
+    canvasZoom: {
+        type: Boolean,
+        required: true,
+    },
+    canvasSelect: {
+        type: Boolean,
+        required: true,
+    },
+    canvasTransform: {
+        type: Boolean,
+        required: true,
+    },
+    transform: {
+        type: Boolean,
+        required: true,
+    },
+    rotate: {
+        type: Boolean,
+        required: true,
+    },
+    size: {
+        type: Boolean,
+        required: true,
+    },
+    menu: {
+        type: Boolean,
+        required: true,
+    },
+    align: {
         type: Boolean,
         required: true,
     },
@@ -525,6 +553,10 @@ export const gridProps = {
         required: true,
     },
     selectMode: {
+        type: String,
+        required: true,
+    },
+    backup: {
         type: String,
         required: true,
     },
