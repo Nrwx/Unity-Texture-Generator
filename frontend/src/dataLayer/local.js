@@ -69,6 +69,16 @@ export const localData = {
 export const tempData = {
     app: ref(null),
     appId: ref(uuid()),
+    canvasId: ref(uuid()),
     keys: ref([]),
-    heldKeys: ref(new Map())
+    heldKeys: ref(new Map()),
+}
+
+export const screenshotData = {
+    title: ref(''),
+    prefix: ref(''),
+    mode: ref('full'),
+    quality: ref('low'),
+    history: ref([]),
+    url: ref(null)
 }

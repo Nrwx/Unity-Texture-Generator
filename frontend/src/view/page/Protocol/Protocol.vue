@@ -54,5 +54,5 @@ export default defineComponent({
 </script>
 
 <style scoped lang="scss">
-@import 'Protocol';
+@import '_Protocol';
 </style>

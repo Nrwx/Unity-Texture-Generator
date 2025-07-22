@@ -1,5 +1,5 @@
 <template>
-  <div class="key-logger d-flex flex-column" :class="{ collapsed: isCollapsed }" :style="{ height: collapsedHeight }" >
+  <div v-if="keys.length" class="key-logger d-flex flex-column" :class="{ collapsed: isCollapsed }" :style="{ height: collapsedHeight }" >
     <div class="d-flex justify-center mb-2">
       <v-btn size="16" @click="toggleCollapse" :icon="isCollapsed ? 'mdi-chevron-up' : 'mdi-chevron-down' " variant="plain"></v-btn>
     </div>

@@ -35,7 +35,7 @@
 
       <v-divider></v-divider>
 
-      <v-sheet max-height="250" class="overflow-y-auto px-4 py-2">
+      <v-sheet elevation="0"  max-height="250" class="overflow-y-auto px-4 py-2">
         <div
             v-for="(shades, name) in materialColorShades"
             :key="name"

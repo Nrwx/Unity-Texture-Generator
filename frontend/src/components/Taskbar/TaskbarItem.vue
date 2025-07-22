@@ -9,7 +9,7 @@
             width="100%"
             size="small"
             class="rounded-0"
-            elevation="0"
+            variant="flat"
             :color="item.active ? 'yellow-lighten-4' : ''"
             @click="emitEvent"
         >
@@ -27,7 +27,7 @@
                     :key="menuItem.id"
                     :color="menuItem.active ? 'yellow-lighten-4' : ''"
                     icon
-                    flat
+                    variant="flat"
                     rounded="0"
                     @click="emitMenuEvent(menuItem)"
                 >
@@ -65,7 +65,7 @@
             width="100%"
             size="small"
             class="rounded-0"
-            elevation="0"
+            variant="flat"
         >
           <component
               :is="item.subComponent.path"

@@ -7,7 +7,7 @@
   >
     <!-- Vorschau-Button -->
     <template #activator="{ props }">
-      <v-card class="pa-0 mb-2" elevation="0" variant="flat">
+      <v-card class="pa-0 mb-2" variant="flat">
         <v-card-subtitle>Gradient</v-card-subtitle>
         <v-card-actions>
           <v-btn
@@ -24,7 +24,7 @@
     </template>
 
     <!-- Editor Inhalt -->
-    <v-sheet class="px-4 py-4" max-height="400" style="overflow-y: auto;">
+    <v-sheet elevation="0" class="px-4 py-4" max-height="400" style="overflow-y: auto;">
       <!-- Typ + Winkel als Pie inline -->
       <div class="d-flex align-center mb-4" style="gap: 8px;">
         <div class="d-flex align-center flex-wrap" style="width: 100%; max-width: 50%">

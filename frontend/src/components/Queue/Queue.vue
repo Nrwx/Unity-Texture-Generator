@@ -6,7 +6,7 @@
       @click="handleCLick"
       :theme="theme"
       class="queue d-flex flex-column pa-4 transition-fast"
-      elevation="4"
+      variant="flat"
   >
     <div class="route-icon-wrapper d-flex align-center">
       <v-icon

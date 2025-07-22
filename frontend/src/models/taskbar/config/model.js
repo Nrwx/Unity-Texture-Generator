@@ -10,6 +10,7 @@ import {localData} from "@/dataLayer/local";
 import {computed} from "vue";
 import {windowStates} from "@/dataLayer/state";
 import Path from "@/view/page/Path/Path";
+import Screenshot from "@/view/page/Screenshot/Screenshot";
 export const taskbarItemLeft = [
     {
         position: 'top',
@@ -239,7 +240,10 @@ export const taskbarItemCenter = [
         tooltip: 'Screenshot',
         active: false,
         hidden: false,
-        event: 'app:screenshot',
+        component: {
+            path: Screenshot,
+            props: {}
+        }
     }
 ];
 

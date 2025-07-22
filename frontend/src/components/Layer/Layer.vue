@@ -7,7 +7,7 @@
   >
     <v-container class="layer-wrapper">
       <!-- Schließen-Button -->
-      <v-btn icon size="small" class="rounded-0" elevation="0" @click="emitEvent('layer-state', false)">
+      <v-btn icon size="small" class="rounded-0" variant="flat" @click="emitEvent('layer-state', false)">
         <v-icon>mdi-window-close</v-icon>
       </v-btn>
       <v-tabs
@@ -54,9 +54,9 @@
           class="overflow-hidden overflow-y-auto"
           max-height="300"
           height="300"
-          elevation="0"
           rounded="0"
           border="0"
+          variant="flat"
       >
         <div v-for="(tab, index) in tabs" :key="tab.name" v-show="tabIndex === index">
           <!-- Layer-Liste -->

@@ -70,8 +70,7 @@
                 v-else-if="prop.type === 'color' && prop.active"
                 v-model="settings[key]"
                 :label="prop.label"
-                flat
-                elevation="0"
+                variant="flat"
                 rounded
             ></v-color-picker>
           </div>

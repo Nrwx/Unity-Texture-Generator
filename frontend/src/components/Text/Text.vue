@@ -47,16 +47,16 @@
               :style="textareaStyle"
           />
         <div class="action-buttons d-flex justify-center align-center">
-          <v-btn ref="confirm" :id="confirmId" icon size="20" elevation="0" color="#87ff8c80" title="Bestätigen">
+          <v-btn ref="confirm" :id="confirmId" icon size="20" variant="flat" color="#87ff8c80" title="Bestätigen">
             <v-icon size="14" color="white" icon="mdi-check"/>
           </v-btn>
-          <v-btn ref="cancel" :id="cancelId" icon size="20" elevation="0" color="#e5222880" title="Abbrechen">
+          <v-btn ref="cancel" :id="cancelId" icon size="20" variant="flat" color="#e5222880" title="Abbrechen">
             <v-icon size="14" color="white" icon="mdi-close"/>
           </v-btn>
         </div>
 
         <!-- Resize Handle (bottom right) -->
-        <v-btn ref="resize" :id="resizeId" class="resize-handle" rounded="0" icon size="24" elevation="0" color="transparent" title="Rahmen neu anordnen">
+        <v-btn ref="resize" :id="resizeId" class="resize-handle" rounded="0" icon size="24" variant="flat" color="transparent" title="Rahmen neu anordnen">
           <v-icon size="24" color="white" icon="mdi-resize-bottom-right"/>
         </v-btn>
       </div>

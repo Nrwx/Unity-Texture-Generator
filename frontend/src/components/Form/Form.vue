@@ -19,6 +19,7 @@
         v-model="item[key]"
         :label="prop.label"
         outlined
+        :prepend-icon="prop.icon"
         @update:modelValue="emitEvent(prop.event, item[key])"
     />
     <!-- Textfeld für Array-Numbers -->
@@ -28,6 +29,7 @@
         type="text"
         :model-value="(item[key] || []).join(', ')"
         outlined
+        :prepend-icon="prop.icon"
         @update:modelValue="val => updateTextArrayNumber(val, prop, item, key)"
     />
     <!-- Textfeld für Zahlen -->
@@ -38,7 +40,7 @@
         :type="prop.inputType || 'number'"
         outlined
         @update:modelValue="emitEvent(prop.event, item[key])"
-    ></v-text-field>
+    />
     <!-- Slider -->
     <v-slider
         v-else-if="prop.type === 'slider' && prop.active"
@@ -56,7 +58,7 @@
         v-model="item[key]"
         :label="prop.label"
         @update:modelValue="emitEvent(prop.event, item[key])"
-    ></v-checkbox>
+    />
 
     <!-- Switch -->
     <v-switch
@@ -64,7 +66,7 @@
         v-model="item[key]"
         :label="prop.label"
         @update:modelValue="emitEvent(prop.event, item[key])"
-    ></v-switch>
+    />
 
     <!-- MDI Icon Picker -->
     <icon-list
@@ -98,13 +100,6 @@
         @update:modelValue="emitEvent(prop.event, item[key])"
     />
 
-    <!-- Dimmer Overlay -->
-    <div
-        v-if="dimmer"
-        class="dimmer"
-        @click="hideDimmer"
-    ></div>
-
     <!-- Dropdown -->
     <v-select
         v-else-if="prop.type === 'select' && prop.active"
@@ -120,7 +115,7 @@
         item-title="title"
         :item-value="prop.return ? (opt) => opt : 'value'"
         @update:modelValue="(val) => selectUpdate(prop, val)"
-    ></v-select>
+    />
 
     <!-- Farbwähler -->
     <v-color-picker
@@ -128,12 +123,52 @@
         v-else-if="prop.type === 'color' && prop.active"
         v-model="item[key]"
         :label="prop.label"
-        flat
         mode="hex"
-        elevation="0"
+        variant="flat"
         rounded
         @update:modelValue="emitEvent(prop.event, item[key])"
-    ></v-color-picker>
+    />
+
+    <!-- Button bar -->
+    <template v-else-if="prop.type === 'button-bar' && prop.active">
+      <div class="d-flex align-center overflow-hidden" :class="prop.class">
+        <div v-if="prop.label && prop.hint" class="d-flex align-center flex-wrap" style="max-width: 70%;">
+          <div class="v-card-title text-truncate" style="width: 100%;">{{ prop.label }}</div>
+          <div class="v-card-subtitle text-truncate" style="width: 100%;">{{ prop.hint }}</div>
+        </div>
+        <v-spacer v-if="prop.label"/>
+        <v-btn-toggle
+            v-model="item[key]"
+            color="primary"
+            variant="outlined"
+            divided
+        >
+          <v-btn
+              v-for="option in prop.options"
+              :key="option.mode"
+              :value="option.mode"
+              icon
+              @click="emitEvent(option.event, option)"
+          >
+            <v-tooltip location="bottom" close-on-content-click>
+              <template v-slot:activator="{ props }">
+                <v-icon v-bind="props">
+                  {{ option.icon }}
+                </v-icon>
+              </template>
+              {{ option.title }}
+            </v-tooltip>
+          </v-btn>
+        </v-btn-toggle>
+      </div>
+    </template>
+
+    <!-- Dimmer Overlay -->
+    <div
+        v-if="dimmer"
+        class="dimmer"
+        @click="hideDimmer"
+    />
   </div>
 </template>
 

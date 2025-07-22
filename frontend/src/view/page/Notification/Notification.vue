@@ -17,7 +17,8 @@
                 <v-list-item
                     v-for="(r) in messages"
                     :key="r.id"
-                    class="mb-4 rounded-lg elevation-1 px-4 py-2"
+                    class="mb-4 rounded-lg px-4 py-2"
+                    variant="flat"
                 >
                   <v-row no-gutters align="center" justify="space-between" class="w-100">
 
@@ -135,21 +136,7 @@ export default defineComponent({
     Form
   },
   setup(props, { emit }) {
-    const {
-      theme,
-      messages,
-      menu,
-      config,
-      operation,
-      emitEvent,
-      systemLogs,
-      activeTab,
-      saveAndClose,
-      toggleMute,
-      toggleMenu,
-      formatDuration,
-      deleteMsg,
-    } = notificationModel(props, emit);
+    const { theme, messages, menu, config, operation, emitEvent, systemLogs, activeTab, saveAndClose, toggleMute, toggleMenu, formatDuration, deleteMsg,} = notificationModel(props, emit);
 
     return {
       theme,

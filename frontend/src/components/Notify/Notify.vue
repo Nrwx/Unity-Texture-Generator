@@ -6,7 +6,7 @@
         v-show="msg.active && !msg.mute"
         class="d-flex flex-column mb-4"
         :style="positionStyle(index)"
-        :elevation="10"
+        variant="flat"
         :color="msg.color || 'surface'"
 
         :theme="theme"

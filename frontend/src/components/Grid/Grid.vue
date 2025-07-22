@@ -86,12 +86,11 @@ export default defineComponent({
     Selection
   },
   setup(props, { emit }) {
-    const { wrapper, wrapperId, canvas, canvasId, offset, cursor, canvasStyle, zoomFaktor, emitEvent, toggleSelection, startRotate, startResize, updateLayer, frameBox} = gridModel(props, emit);
+    const { wrapper, wrapperId, canvas, offset, cursor, canvasStyle, zoomFaktor, emitEvent, toggleSelection, startRotate, startResize, updateLayer, frameBox} = gridModel(props, emit);
     return {
       wrapper,
       wrapperId,
       canvas,
-      canvasId,
       offset,
       cursor,
       canvasStyle,

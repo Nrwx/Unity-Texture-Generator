@@ -1,20 +1,32 @@
 import html2canvas from 'html2canvas';
 
 /**
- * Screenshot eines HTML-Elements erstellen
- * @param {HTMLElement} element - Das HTML-Element, das du capturen willst
- * @returns {Promise<string>} - Ein Data-URL PNG als base64-String
+ * Screenshot eines Ausschnitts aus einem HTML-Element
+ * @param {HTMLElement} el - Das Ziel-Element
+ * @param {Object} config - Screenshot-Konfiguration
+ * @param {Object} [crop] - Optionaler Ausschnitt { x, y, width, height }
+ * @returns {Promise<string>} - Data-URL PNG (base64)
  */
-export const screenshot = async (element) => {
-    if (!element || !(element instanceof HTMLElement)) {
+export const screenshot = async (el, config = {}, crop = null) => {
+    if (!el || !(el instanceof HTMLElement)) {
         throw new Error('Ungültiges Element übergeben.');
     }
 
-    const canvas = await html2canvas(element, {
-        backgroundColor: null, // Transparent optional
-        scale: 2,              // Höhere Auflösung (z.B. Retina)
-        useCORS: true          // Falls externe Bilder enthalten sind
+    const canvas = await html2canvas(el, {
+        backgroundColor: config.backgroundColor ?? null,
+        scale: config.scale ?? 1,
+        useCORS: config.useCORS ?? true
     });
+
+    if (crop && crop.width > 0 && crop.height > 0) {
+        const cropped = document.createElement('canvas');
+        cropped.width = crop.width;
+        cropped.height = crop.height;
+        cropped
+            .getContext('2d')
+            .drawImage(canvas, crop.x, crop.y, crop.width, crop.height, 0, 0, crop.width, crop.height);
+        return cropped.toDataURL('image/png');
+    }
 
     return canvas.toDataURL('image/png');
 };

@@ -2,7 +2,7 @@
   <v-card
       ref="menu"
       class="overflow-hidden"
-      elevation="10"
+      variant="flat"
       :theme="theme"
       min-width="200"
   >

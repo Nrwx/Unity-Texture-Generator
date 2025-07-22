@@ -9,7 +9,7 @@
       <template v-if="expanded">
         <v-card
             v-if="active && active.component && active.component.props"
-            elevation="4"
+            variant="flat"
             color="surface"
             max-width="585"
             width="100%"
@@ -43,7 +43,7 @@
     <v-sheet
         width="100%"
         color="surface"
-        elevation="8"
+        :elevation="0"
         :theme="theme"
         class="rounded-xl d-flex flex-column"
         style="overflow: visible; border: 1px solid rgba(0, 0, 0, 0.1); pointer-events: auto;"

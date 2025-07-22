@@ -114,7 +114,7 @@
                 class="overflow-hidden overflow-y-auto"
                 max-height="300"
                 height="300"
-                elevation="0"
+                variant="flat"
                 rounded="0"
                 border="0"
             >
@@ -265,8 +265,7 @@
                   v-else-if="prop.type === 'color' && prop.active"
                   v-model="settings[key]"
                   :label="prop.label"
-                  flat
-                  elevation="0"
+                  variant="flat"
                   rounded
               ></v-color-picker>
             </div>

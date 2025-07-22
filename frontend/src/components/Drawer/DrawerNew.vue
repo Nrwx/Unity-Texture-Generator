@@ -24,7 +24,7 @@
             class="close-button"
             :class="{ 'mr-auto ml-0': align === 'left', 'ml-auto mr-0': align === 'right' }"
         >
-          <v-btn v-if="icon" icon size="small" class="rounded-0" elevation="0" @click="closeDrawer">
+          <v-btn v-if="icon" icon size="small" class="rounded-0" variant="flat" @click="closeDrawer">
             <v-icon>{{ item?.active && icon.length > 1 ? icon[1] : icon[0] }}</v-icon>
           </v-btn>
         </div>

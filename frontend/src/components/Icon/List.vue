@@ -20,7 +20,7 @@
           clearable
       />
       <v-divider />
-      <v-sheet max-height="200" class="overflow-y-auto px-2">
+      <v-sheet elevation="0"  max-height="200" class="overflow-y-auto px-2">
         <v-btn
             v-for="icon in filteredIcons"
             :key="icon"

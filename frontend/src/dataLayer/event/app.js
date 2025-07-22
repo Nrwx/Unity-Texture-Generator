@@ -1,5 +1,6 @@
 import dayjs from "dayjs";
 import {screenshot} from "@/utils/screenshot";
+import {uuid} from "@/utils/uuid";
 
 export const appEvent = (route) => ({
     "app:viewport-ref": async (payload) => {
@@ -264,26 +265,70 @@ export const appEvent = (route) => ({
     "app:delete-message": async (payload) => {
         const id = payload.id;
         await route.emit('app:clear-message-timer', id);
-        // Nachricht entfernen
         const index = route.localData.messages.value.findIndex(m => m.id === id);
         if (index !== -1) {
             route.localData.messages.value.splice(index, 1);
         }
     },
-    "app:screenshot": async () => {
-        const el = document.getElementById(route.tempData.appId.value);
-        try {
-            const dataUrl = await screenshot(el);
-            // Bild anzeigen oder speichern
-            const img = new Image();
-            img.src = dataUrl;
+    "app:screenshot": async (payload) => {
+        route.screenshotData.url.value = null;
+        let el;
+        let name;
+        const now = dayjs();
+        const title = `Screenshot-${payload.mode}-${now.format('YYYY-MM-DD_HH-mm-ss')}`;
 
-            const link = document.createElement('a');
-            link.href = dataUrl;
-            link.download = 'screenshot.png';
-            link.click();
+        if(payload.title) {
+            name = payload.title
+        } else if (payload.prefix && payload.title === '') {
+            name = payload.prefix + '-' + title
+        } else if (payload.title !== '' && payload.prefix) {
+            name = payload.prefix + '-' + payload.title
+        } else {
+            name = title
+        }
+
+        const data = {
+            id: uuid(),
+            url: '',
+            date: now.format('DD.MM.YYYY'),
+            time: now.format('HH:mm:ss'),
+            mode: payload.mode,
+            title: name
+        }
+
+        if (payload.mode === 'full') {
+            el = document.getElementById(route.tempData.appId.value);
+        } else {
+            el = document.getElementById(route.tempData.canvasId.value);
+        }
+        try {
+            if(payload.crop) {
+                route.screenshotData.url.value = await screenshot(el, payload.config, payload.crop);
+            }
+            else {
+                route.screenshotData.url.value = await screenshot(el, payload.config);
+            }
+
+            if( route.screenshotData.url.value) {
+                data.url = route.screenshotData.url.value;
+                route.screenshotData.history.value.push(data)
+                console.log(route.screenshotData.history.value, 'SCREENSHOTS')
+            }
+
         } catch (err) {
             console.error('Screenshot fehlgeschlagen:', err);
         }
+    },
+    "app:apply-screenshot-prefix": async (payload) => {
+        route.screenshotData.prefix.value = payload
+    },
+    "app:apply-screenshot-title": async (payload) => {
+        route.screenshotData.title.value = payload
+    },
+    "app:apply-screenshot-mode": async (payload) => {
+        route.screenshotData.mode.value = payload.mode
+    },
+    "app:apply-screenshot-quality": async (payload) => {
+        route.screenshotData.quality.value = payload.mode
     },
 });

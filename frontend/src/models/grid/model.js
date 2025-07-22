@@ -6,7 +6,6 @@ export function gridModel(props, emit) {
     const wrapper = ref(null);
     const wrapperId = ref(uuid());
     const canvas = ref(null);
-    const canvasId = ref(uuid());
 
     const zoomFaktor = ref(1);
     const offset = ref({x: 0, y: 0})
@@ -441,7 +440,7 @@ export function gridModel(props, emit) {
         try {
 
             wrapper.value = document.getElementById(wrapperId.value);
-            canvas.value = document.getElementById(canvasId.value);
+            canvas.value = document.getElementById(props.canvasId);
 
             if (wrapper.value) {
                 register('add', wrapper.value, 'mousedown',  resetSelection);
@@ -475,7 +474,6 @@ export function gridModel(props, emit) {
         wrapper,
         wrapperId,
         canvas,
-        canvasId,
         offset,
         cursor,
         canvasStyle,
@@ -560,6 +558,10 @@ export const gridProps = {
         required: true,
     },
     backup: {
+        type: String,
+        required: true,
+    },
+    canvasId: {
         type: String,
         required: true,
     },
