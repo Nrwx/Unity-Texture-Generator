@@ -59,6 +59,17 @@
     </div>
 
     <slot style="width: 100%;"/>
+
+    <!-- Canvas Control -->
+    <Control
+        :state="canvasControl"
+        :data="controlData"
+        :theme="theme"
+        @update:position="onPositionUpdate"
+        @update:scale="onScaleUpdate"
+        @update:rotation="onRotationUpdate"
+        @reset="onReset"
+    />
   </div>
 </template>
 
@@ -72,6 +83,7 @@ import Text from "@/components/Text/Text";
 import Image from "@/components/Image/Image";
 import Selection from "@/components/Selection/Selection";
 import Pen from "@/components/Pen/Pen";
+import Control from "@/components/Transform/Control";
 
 export default defineComponent({
   name: "GridComponent",
@@ -83,10 +95,11 @@ export default defineComponent({
     Brush,
     Text,
     Image,
-    Selection
+    Selection,
+    Control
   },
   setup(props, { emit }) {
-    const { wrapper, wrapperId, canvas, offset, cursor, canvasStyle, zoomFaktor, emitEvent, toggleSelection, startRotate, startResize, updateLayer, frameBox} = gridModel(props, emit);
+    const { wrapper, wrapperId, canvas, offset, cursor, canvasStyle, zoomFaktor, controlData, emitEvent, toggleSelection, startRotate, startResize, updateLayer, onPositionUpdate, onRotationUpdate, onScaleUpdate, onReset, frameBox} = gridModel(props, emit);
     return {
       wrapper,
       wrapperId,
@@ -100,7 +113,12 @@ export default defineComponent({
       startRotate,
       startResize,
       updateLayer,
-      frameBox
+      onPositionUpdate,
+      onRotationUpdate,
+      onScaleUpdate,
+      onReset,
+      frameBox,
+      controlData
     };
   },
 });

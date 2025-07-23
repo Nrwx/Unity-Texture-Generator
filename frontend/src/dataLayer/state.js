@@ -44,6 +44,7 @@ export const transformStates = {
 };
 
 export const canvasStates = {
+    control: ref(true),
     rotate: ref(false),
     transform: ref(false),
     size: ref(false),

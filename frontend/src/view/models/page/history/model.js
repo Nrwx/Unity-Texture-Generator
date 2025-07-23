@@ -1,4 +1,4 @@
-import {localData} from "@/dataLayer/local";
+import {appData, localData} from "@/dataLayer/local";
 import {computed, ref} from "vue";
 
 export function historyModel(props, emit) {
@@ -38,6 +38,7 @@ export function historyModel(props, emit) {
         emit("component-event", event, payload);
     };
     return {
+        theme: appData.theme.value,
         tabs,
         tabIndex,
         sortedBuilds,

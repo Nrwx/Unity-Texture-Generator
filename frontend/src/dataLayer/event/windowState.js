@@ -39,6 +39,11 @@ export const windowStateEvent = (route) => ({
             route.canvasStates.transform.value = payload;
         }
     },
+    "canvas:rotate-state": (payload) => {
+        if (typeof payload === "boolean") {
+            route.canvasStates.rotate.value = payload;
+        }
+    },
     "canvas:select-state": (payload) => {
         if (typeof payload === "boolean") {
             route.canvasStates.select.value = payload;

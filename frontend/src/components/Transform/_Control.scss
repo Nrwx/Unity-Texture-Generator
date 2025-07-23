@@ -1,0 +1,29 @@
+.viewport-controller {
+  width: 150px;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  background: transparent !important;
+  position: absolute;
+  bottom: 0;
+  right: 20px;
+  opacity: 0.5;
+  &:hover {
+    opacity: 1;
+  }
+  &:focus{
+    opacity: 1;
+  }
+}
+
+.control-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 4px;
+}
+
+text {
+  font-family: 'Segoe UI', sans-serif;
+  font-weight: bold;
+  pointer-events: none;
+}

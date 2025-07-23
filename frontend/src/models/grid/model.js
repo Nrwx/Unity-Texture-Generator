@@ -6,6 +6,16 @@ export function gridModel(props, emit) {
     const wrapper = ref(null);
     const wrapperId = ref(uuid());
     const canvas = ref(null);
+    const wrapperData = ref({width: 0, height: 0});
+    const controlData = computed(() => ({
+        x: offset.value.x,
+        y: offset.value.y,
+        rotation: canvasRotation.value,
+        scale: zoomFaktor.value,
+        width: wrapperData.value.width,
+        height: wrapperData.value.height,
+    }));
+    const canvasRotation = ref(0);
 
     const zoomFaktor = ref(1);
     const offset = ref({x: 0, y: 0})
@@ -62,10 +72,17 @@ export function gridModel(props, emit) {
                     layer.matrix.y += dy;
                 }
             });
-        } else if (props.canvasTransform) {
+        }
+
+        else if (props.canvasTransform) {
             offset.value.x += dx;
             offset.value.y += dy;
         }
+
+        else if (props.canvasRotate) {
+            await rotateCanvas(event);
+        }
+
         // Resizing (Skalierung)
         else if (props.size) {
             await resize(dx, dy);
@@ -96,6 +113,7 @@ export function gridModel(props, emit) {
         lastMouse.value.y = event.clientY;
         register('add', document, 'mouseup', stopTransform);
     };
+
 
     const calculateRotation = (mouseX, mouseY) => {
         if (!props.selectedLayer.length) return 0;
@@ -151,6 +169,36 @@ export function gridModel(props, emit) {
             layer.matrix.rotate = parseFloat(newRotation.toFixed(2));
         });
 
+        rotationStartAngle.value = currentAngle;
+    };
+
+    const rotateCanvas = async (event) => {
+        emitEvent('backup:action', 'Canvas Rotieren');
+        event.preventDefault();
+
+        const crosshair = document.querySelector(".center-crosshair");
+        if (!crosshair) return;
+
+        const crosshairRect = crosshair.getBoundingClientRect();
+        const centerX = crosshairRect.left + crosshairRect.width / 2;
+        const centerY = crosshairRect.top + crosshairRect.height / 2;
+
+        const dx = event.clientX - centerX;
+        const dy = event.clientY - centerY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const dampingFactor = Math.min(1, distance / 100);
+
+        const currentAngle = calculateRotation(event.clientX, event.clientY);
+        let deltaAngle = currentAngle - rotationStartAngle.value;
+
+        if (deltaAngle > 180) deltaAngle -= 360;
+        if (deltaAngle < -180) deltaAngle += 360;
+
+        deltaAngle *= dampingFactor;
+
+        const newCanvasAngle = (canvasRotation.value + deltaAngle + 360) % 360;
+
+        canvasRotation.value = parseFloat(newCanvasAngle.toFixed(2));
         rotationStartAngle.value = currentAngle;
     };
 
@@ -213,8 +261,25 @@ export function gridModel(props, emit) {
             emitEvent('layer:transform-align', false);
             alignModeStep.value = 0
             emitEvent('layer:select', [])
-            register('remove', document, 'contextmenu', (event) => event.preventDefault());
         }
+    };
+
+    const onPositionUpdate = ({ x, y }) => {
+        offset.value = { x, y };
+    };
+
+    const onScaleUpdate = (scale) => {
+        zoomFaktor.value = scale;
+    };
+
+    const onRotationUpdate = (rot) => {
+        canvasRotation.value = rot;
+    };
+
+    const onReset = () => {
+        offset.value = { x: 0, y: 0 };
+        zoomFaktor.value = 1;
+        canvasRotation.value = 0;
     };
 
     const layerChanged = (a, b) => {
@@ -279,7 +344,7 @@ export function gridModel(props, emit) {
     const canvasStyle = computed(() => ({
         width: `${props.settings.width}px`,
         height: `${props.settings.height}px`,
-        transform: `translate(${offset.value.x}px, ${offset.value.y}px) scale(${zoomFaktor.value})`,
+        transform: `translate(${offset.value.x}px, ${offset.value.y}px)scale(${zoomFaktor.value})rotate(${canvasRotation.value}deg)`,
         transformOrigin: "center center",
     }));
 
@@ -399,6 +464,11 @@ export function gridModel(props, emit) {
             emitEvent('apply-key-down', e)
         }
         if (key === "r") {
+            if(props.selectedLayer.length) {
+                return
+            } else {
+                emitEvent('canvas:rotate-state', true)
+            }
             emitEvent('apply-key-down', e)
         }
         if (key === "Shift") {
@@ -421,6 +491,7 @@ export function gridModel(props, emit) {
             emitEvent('apply-key-up', e)
         }
         if (key === "r") {
+            emitEvent('canvas:rotate-state', false);
             emitEvent('apply-key-up', e)
         }
         if (key === "w") {
@@ -443,6 +514,9 @@ export function gridModel(props, emit) {
             canvas.value = document.getElementById(props.canvasId);
 
             if (wrapper.value) {
+                const rect = wrapper.value.getBoundingClientRect();
+                wrapperData.value.width = rect.width;
+                wrapperData.value.height = rect.height;
                 register('add', wrapper.value, 'mousedown',  resetSelection);
             }
 
@@ -471,6 +545,7 @@ export function gridModel(props, emit) {
     });
 
     return {
+        controlData,
         wrapper,
         wrapperId,
         canvas,
@@ -483,6 +558,10 @@ export function gridModel(props, emit) {
         startRotate,
         startResize,
         updateLayer,
+        onPositionUpdate,
+        onRotationUpdate,
+        onScaleUpdate,
+        onReset,
         frameBox
     };
 }
@@ -490,6 +569,10 @@ export function gridModel(props, emit) {
 
 export const gridProps = {
     rule: {
+        type: Boolean,
+        required: true,
+    },
+    canvasControl: {
         type: Boolean,
         required: true,
     },
@@ -502,6 +585,10 @@ export const gridProps = {
         required: true,
     },
     canvasTransform: {
+        type: Boolean,
+        required: true,
+    },
+    canvasRotate: {
         type: Boolean,
         required: true,
     },

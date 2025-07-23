@@ -20,16 +20,25 @@
   pointer-events: none;
 }
 
+.scrollFx.dark {
+  .scrollTop {
+    background: linear-gradient(180deg, var(--app-secondary-bg), transparent);
+  }
+  .scrollBottom {
+    background: linear-gradient(0deg, var(--app-secondary-bg), transparent) !important;
+  }
+}
+
 .scrollTop, .scrollBottom{
   height: 100px;
-  background: linear-gradient(180deg, white 0%, transparent);
+  background: linear-gradient(180deg, white, transparent);
   width: 100%;
 }
 
 .scrollBottom{
   margin-top: auto;
   margin-bottom: 0;
-  background: linear-gradient(0deg, white 0%, transparent) !important;
+  background: linear-gradient(0deg, white, transparent) !important;
 }
 
 .nav-badge, .map-image {
