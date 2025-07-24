@@ -7,7 +7,10 @@ export const viewportEvent = (route) => ({
             route.windowStates.viewport = false;
         }
     },
-    "viewport-setting": (payload) => {
-        route.localData.viewport.value = payload;
-    }
+    "viewport:title": (payload) => {
+        route.localData.viewport.value.title = payload;
+    },
+    "viewport:unit": (payload) => {
+        route.localData.viewport.value.unit = payload;
+    },
 });

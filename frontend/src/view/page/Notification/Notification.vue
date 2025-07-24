@@ -129,9 +129,7 @@ import Form from "@/components/Form/Form";
 
 export default defineComponent({
   name: "NotifyPanelPage",
-  props: {
-    notificationProps,
-  },
+  props: notificationProps,
   components: {
     Form
   },

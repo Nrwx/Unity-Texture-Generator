@@ -48,10 +48,11 @@
 .cursor-coordinates {
   position: absolute;
   right: 10px;
-  font-size: 14px;
-  color: white;
+  font-size: 12px;
+  color: #c6d3a5;
   z-index: 1;
-  top: 25px;
+  bottom: 0;
+  font-family: monospace;
 }
 
 .inner-x-axis {

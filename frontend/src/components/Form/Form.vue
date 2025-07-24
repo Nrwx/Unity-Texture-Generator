@@ -1,5 +1,5 @@
 <template v-if="operation[item.method]">
-  <div v-for="(prop, key) in operation[item.method]" :key="key">
+  <div class="d-block overflow-hidden" v-for="(prop, key) in operation[item.method]" :key="key">
     <!-- Titel und Untertitel -->
     <div
         v-if="prop.active"
@@ -39,6 +39,7 @@
         :label="prop.label"
         :type="prop.inputType || 'number'"
         outlined
+        :prepend-icon="prop.icon"
         @update:modelValue="emitEvent(prop.event, item[key])"
     />
     <!-- Slider -->
@@ -49,6 +50,7 @@
         :min="prop.min"
         :max="prop.max"
         :step="prop.step || 1"
+        :prepend-icon="prop.icon"
         thumb-label
         @update:modelValue="emitEvent(prop.event, item[key])"
     ></v-slider>
@@ -56,6 +58,7 @@
     <v-checkbox
         v-else-if="prop.type === 'checkbox' && prop.active"
         v-model="item[key]"
+        :prepend-icon="prop.icon"
         :label="prop.label"
         @update:modelValue="emitEvent(prop.event, item[key])"
     />
@@ -64,6 +67,7 @@
     <v-switch
         v-else-if="prop.type === 'switch' && prop.active"
         v-model="item[key]"
+        :prepend-icon="prop.icon"
         :label="prop.label"
         @update:modelValue="emitEvent(prop.event, item[key])"
     />

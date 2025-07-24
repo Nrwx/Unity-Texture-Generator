@@ -1,5 +1,4 @@
 import {reactive, ref} from "vue";
-import {v4 as uuidv4} from "uuid";
 import {uuid} from "@/utils/uuid";
 
 export const appData = {
@@ -24,7 +23,17 @@ export const localData = {
     queueCompleteTimer: ref(null),
     queuePollTimer: ref(null),
     loading: ref(false),
-    viewport: ref({id: uuidv4(), width: 1024, height: 1024, mode: 1, title: 'Unbekannt', layer: 'Ebene'}),
+    viewport: ref({
+        id: uuid(),
+        width: 1024,
+        height: 1024,
+        mode: 1,
+        dpi: 72,
+        unit: 'px',
+        sync: false,
+        title: 'Unbekannt',
+        layer: 'Ebene'
+    }),
     viewportRef: ref(null),
     file: ref(null),
     fonts: ref([]),

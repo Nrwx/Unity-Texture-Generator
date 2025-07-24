@@ -10,21 +10,56 @@ export function guideModel(props, emit) {
 
     const { register } = eventRegister('listener:guide-panel', emitEvent);
 
+    const convertUnitToPixels = (unit, value, dpi) => {
+        switch (unit) {
+            case 'in': return value * dpi;
+            case 'mm': return (value / 25.4) * dpi;
+            case 'cm': return (value / 2.54) * dpi;
+            case 'px':
+            default:
+                return value;
+        }
+    };
+
     const columnPositions = computed(() => {
         const positions = [];
-        const step = 50;
+        const unit = props.settings.unit || 'px';
+        const dpi = props.settings.dpi || 96;
+
+        // Schrittweite in der gewählten Einheit
+        let stepInUnits = 1;
+
+        if (unit === 'px') stepInUnits = 50;
+        else if (unit === 'in') stepInUnits = 0.5;
+        else if (unit === 'mm') stepInUnits = 10;
+        else if (unit === 'cm') stepInUnits = 1;
+
+        const step = convertUnitToPixels(unit, stepInUnits, dpi);
+
         for (let x = 0; x <= props.settings.width; x += step) {
             positions.push(x);
         }
+
         return positions;
     });
 
     const rowPositions = computed(() => {
         const positions = [];
-        const step = 50;
+        const unit = props.settings.unit || 'px';
+        const dpi = props.settings.dpi || 96;
+
+        let stepInUnits = 1;
+        if (unit === 'px') stepInUnits = 50;
+        else if (unit === 'in') stepInUnits = 0.5;
+        else if (unit === 'mm') stepInUnits = 10;
+        else if (unit === 'cm') stepInUnits = 1;
+
+        const step = convertUnitToPixels(unit, stepInUnits, dpi);
+
         for (let y = 0; y <= props.settings.height; y += step) {
             positions.push(y);
         }
+
         return positions;
     });
 

@@ -11,6 +11,7 @@ import {computed} from "vue";
 import {windowStates} from "@/dataLayer/state";
 import Path from "@/view/page/Path/Path";
 import Screenshot from "@/view/page/Screenshot/Screenshot";
+import Overview from "@/view/page/Overview/Overview";
 export const taskbarItemLeft = [
     {
         position: 'top',
@@ -206,6 +207,10 @@ export const taskbarItemCenter = [
         tooltip: 'Übersicht',
         active: false,
         hidden: false,
+        component: {
+            path: Overview,
+            props: {}
+        },
     },
     {
         position: 'right',

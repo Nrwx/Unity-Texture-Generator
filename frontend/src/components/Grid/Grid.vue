@@ -47,7 +47,7 @@
 
       <!-- Koordinatenanzeige -->
       <div class="cursor-coordinates">
-        {{ `X: ${cursor.x}, Y: ${cursor.y}` }}
+        {{ `X: ${cursor.x}, Y: ${cursor.y}, DPI: ${settings.dpi}, Maß: ${settings.unit.toUpperCase()}`  }}
       </div>
 
       <!-- Selection Box -->
