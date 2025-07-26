@@ -53,6 +53,12 @@ export const localData = {
         tileSize: {x: 1, y: 1},
         tileSrc: ''
     }),
+    exportData: reactive({
+        mode: 0,
+        title: '',
+        id: '',
+        src: '',
+    }),
     color: ref('#000000'),
     output: ref(''),
     dimension: ref({width: 1024, height: 1024}),

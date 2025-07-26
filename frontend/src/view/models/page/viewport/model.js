@@ -1,9 +1,16 @@
 import {ref} from "vue";
+import {localData} from "@/dataLayer/local";
 
 export function viewportModel(props, emit) {
     const emitEvent = (event, payload) => {
         emit("component-event", event, payload);
     };
+
+    const config = ref({
+        fullscreen: true,
+        title: 'Projekteinstellungen',
+        emit: 'viewport-state'
+    });
 
     const presets = ref([
         { mode: 0, title: 'Mobile (375x667)', width: 375, height: 667 },
@@ -27,6 +34,8 @@ export function viewportModel(props, emit) {
     };
 
     return {
+        loading: localData.loading.value,
+        config,
         presets,
         emitEvent,
         selectPreset,

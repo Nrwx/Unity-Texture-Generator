@@ -12,6 +12,7 @@ import {windowStates} from "@/dataLayer/state";
 import Path from "@/view/page/Path/Path";
 import Screenshot from "@/view/page/Screenshot/Screenshot";
 import Overview from "@/view/page/Overview/Overview";
+import Export from "@/view/page/Export/Export";
 export const taskbarItemLeft = [
     {
         position: 'top',
@@ -298,6 +299,20 @@ export const taskbarItemRight = [
         tooltip: 'Verlauf',
         component: {
             path: History,
+            props: {}
+        },
+    },
+    {
+        position: 'center',
+        id: uuidv4(),
+        title: 'Export',
+        icon: 'mdi-file-export',
+        active: false,
+        hidden: false,
+        tooltip: 'Projekt exportieren',
+        event: 'export-state',
+        component: {
+            path: Export,
             props: {}
         },
     },

@@ -10,6 +10,7 @@ export const windowStates = {
     drawerLeft: ref(false),
     drawerRight: ref(false),
     drawerCenter: ref(false),
+    export: ref(false),
     layer: ref(false),
     setting: ref(false),
     dialog: ref(false),

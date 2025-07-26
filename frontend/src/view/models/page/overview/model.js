@@ -9,20 +9,6 @@ export function overviewModel(props, emit) {
 
     const tiles = reactive([
         {
-            id: 'export',
-            label: 'Exportieren',
-            description: 'Projekt als Bild exportieren',
-            icon: 'mdi-export',
-            color: appData.theme.value ? '#0d3559' : '#1e88e5',
-        },
-        {
-            id: 'preview',
-            label: 'Vorschau',
-            description: 'Bildvorschau öffnen',
-            icon: 'mdi-eye',
-            color: appData.theme.value ? '#1d4421' : '#43a047',
-        },
-        {
             id: 'template',
             label: 'Vorlagen',
             description: 'Designvorlagen durchsuchen',
@@ -31,7 +17,7 @@ export function overviewModel(props, emit) {
         },
         {
             id: 'settings',
-            label: 'Einstellungen',
+            label: 'Projekt',
             description: 'Erweiterte Optionen',
             icon: 'mdi-cog',
             color: appData.theme.value ? '#3a2100' : '#fb8c00',

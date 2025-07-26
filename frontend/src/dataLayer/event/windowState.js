@@ -1,3 +1,5 @@
+import {localData} from "@/dataLayer/local";
+
 export const windowStateEvent = (route) => ({
     "reset:window-states": async (payload) => {
         await route.emit("reset:modifiers", payload);
@@ -228,5 +230,20 @@ export const windowStateEvent = (route) => ({
     },
     "color-slot-state": (payload) => {
         route.windowStates.color.value = payload;
+    },
+    "export-state": async (payload) => {
+        console.log(payload)
+        route.windowStates.export.value = payload;
+        route.localData.loading.value = true
+        const response = await route.api.previewLayers();
+        if (response) {
+            localData.exportData = {
+                mode: 0,
+                title: response.title,
+                id: response.id,
+                src: response.src,
+            }
+            route.localData.loading.value = false;
+        }
     },
 });

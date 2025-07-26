@@ -21,7 +21,7 @@
             <template v-if="!$slots.header && data.title">{{data.title}}</template>
             <slot v-if="$slots.header" name="header"/>
           </v-card-title>
-          <v-card-text>
+          <v-card-text :class="data.fullscreen ? 'mt-6' : ''">
             <slot name="content"/>
           </v-card-text>
           <v-card-actions v-if="$slots.action || !data.fullscreen">

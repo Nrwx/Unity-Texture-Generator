@@ -29,6 +29,7 @@
                 @update:image-event="emitEvent"
                 @update:select-layer="toggleSelection"
             />
+
             <div v-if="!selectedLayer.length" class="center-crosshair"></div>
 
             <Text :state="text" @update:component-event="emitEvent" :layer="textLayer"/>
