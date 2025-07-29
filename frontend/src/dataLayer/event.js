@@ -23,6 +23,7 @@ import {cursorEvent} from "@/dataLayer/event/cursor";
 import {appEvent} from "@/dataLayer/event/app";
 import {notifyEvent} from "@/dataLayer/event/notify";
 import {keyEvent} from "@/dataLayer/event/key";
+import {exportEvent} from "@/dataLayer/event/export";
 
 
 /**
@@ -52,7 +53,8 @@ const eventHandler = (route) => ({
     ...pathLayerEvent(route),
     ...pathModifierEvent(route),
     ...channelEvent(route),
-    ...contextMenuEvent(route)
+    ...contextMenuEvent(route),
+    ...exportEvent(route)
 });
 
 

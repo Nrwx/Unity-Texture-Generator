@@ -101,13 +101,13 @@
                           <template v-slot:activator="{ props }">
                             <v-tooltip v-if="layer?.mask" location="bottom">
                               <template v-slot:activator="{ props }">
-                                <v-avatar class="mr-2" v-bind="props" rounded="0" variant="elevated">
-                                  <v-img :src="layer?.mask" :alt="'Mask ' + layer.name" />
+                                <v-avatar class="mr-2 transparent thumbnail" v-bind="props" rounded="0" variant="elevated">
+                                  <v-img :cover="false" :src="layer?.mask" :alt="'Mask ' + layer.name" />
                                 </v-avatar>
                               </template>
                               {{ 'Mask ' + layer.name }}
                             </v-tooltip>
-                            <v-avatar v-bind="props" rounded="0" variant="elevated">
+                            <v-avatar v-bind="props" rounded="0" variant="elevated" class="transparent thumbnail">
                               <template v-if="layer?.type === 1">
                                 <v-icon>mdi-format-text</v-icon>
                               </template>
@@ -120,7 +120,7 @@
                                 />
                               </template>
                               <template v-else>
-                                <v-img :src="layer?.url" :alt="layer.name" />
+                                <v-img :cover="false" :src="layer?.url" :alt="layer.name" />
                               </template>
                             </v-avatar>
                           </template>

@@ -1,36 +1,25 @@
 <template>
-  <Dialog @update:component-event="emitEvent" :state="windowStates.export.value" :data="config" :loading="localData.loading.value" :theme="theme">
+  <Dialog @update:component-event="emitEvent" :state="windowStates.export.value" :data="setting" :loading="localData.loading.value" :theme="theme">
     <template #content>
       <v-row no-gutters>
-        <!-- Preview (70%) -->
         <v-col cols="12" md="8" class="pa-2">
-          <v-img
-              :src="localData.exportData.src"
-              :key="localData.exportData.id"
-              class="rounded border"
-              height="100%"
-              max-width="100%"
-              cover
-          />
+          <div style="max-width: 70%;" class="ml-auto mr-auto transparent">
+            <v-img
+                :src="previewData.src"
+                :key="previewData.id"
+                class="rounded border ml-auto mr-auto"
+                max-height="90vh"
+            />
+          </div>
         </v-col>
 
         <!-- Settings (30%) -->
         <v-col cols="12" md="4" class="pa-2">
-          <v-form>
-            <v-select
-                v-model="exportType"
-                :items="exportTypes"
-                label="Export Typ"
-                prepend-icon="mdi-export"
-                density="comfortable"
-                class="mb-4"
-            />
-
-
-            <v-btn block class="mt-6" color="primary" @click="exportContent">
-              Exportieren
-            </v-btn>
-          </v-form>
+          <Form
+              @component-event="emitEvent"
+              v-model:operation="operation"
+              v-model:item="config"
+          />
         </v-col>
       </v-row>
     </template>
@@ -42,19 +31,25 @@ import { defineComponent } from "vue";
 import {exportModel, exportProps} from "@/view/models/page/export/model";
 import Dialog from "@/components/Dialog/Dialog";
 import {windowStates} from "@/dataLayer/state";
+import {previewData} from "@/models/export/config/model";
 import {localData} from "@/dataLayer/local";
+import Form from "@/components/Form/Form";
 
 export default defineComponent({
   name: "ExportPage",
   props: exportProps,
   components: {
-    Dialog
+    Dialog,
+    Form
   },
   setup(props, { emit }) {
-    const { config, theme, emitEvent } = exportModel(props, emit);
+    const { config, setting, operation, theme, emitEvent } = exportModel(props, emit);
     return {
-      localData,
+      previewData,
       windowStates,
+      localData,
+      setting,
+      operation,
       config,
       theme,
       emitEvent

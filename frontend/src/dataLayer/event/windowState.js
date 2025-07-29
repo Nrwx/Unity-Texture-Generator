@@ -1,5 +1,3 @@
-import {localData} from "@/dataLayer/local";
-
 export const windowStateEvent = (route) => ({
     "reset:window-states": async (payload) => {
         await route.emit("reset:modifiers", payload);
@@ -237,12 +235,10 @@ export const windowStateEvent = (route) => ({
         route.localData.loading.value = true
         const response = await route.api.previewLayers();
         if (response) {
-            localData.exportData = {
-                mode: 0,
-                title: response.title,
-                id: response.id,
-                src: response.src,
-            }
+            route.previewData.value.mode = 0
+            route.previewData.value.title = response.title
+            route.previewData.value.id = response.id
+            route.previewData.value.src =  response.src
             route.localData.loading.value = false;
         }
     },

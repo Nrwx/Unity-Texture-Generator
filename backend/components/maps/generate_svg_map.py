@@ -1,7 +1,11 @@
 import math
 import uuid
 from typing import List, Dict, Optional
-
+from io import BytesIO
+from PIL import Image
+import cairosvg
+import os
+from generated.paths import ( PUBLIC_TEMP_UPLOAD_FOLDER )
 
 def generate_svg_path(points: List[Dict], connections: List[List[int]], closed: bool = False) -> str:
     if not connections or not points:
@@ -158,7 +162,28 @@ def build_gradient_def(gradient: Optional[dict], gradient_id: str,
 
     return ""
 
+def render_svg(svg_id: str, output_format: str = "PNG") -> Image.Image:
+    """
+    Rendert eine SVG-Datei (basierend auf ihrer ID) aus dem PUBLIC_TEMP_UPLOAD_FOLDER zu einem PIL.Image.
 
+    :param svg_id: Nur die ID der SVG-Datei (z.B. "abc123", nicht "abc123.svg")
+    :param output_format: Derzeit nur "PNG" unterstützt.
+    :return: PIL.Image.Image
+    """
+    filename = f"{svg_id}.svg"
+    file_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER, filename)
+
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"SVG-Datei nicht gefunden: {file_path}")
+
+    with open(file_path, "rb") as f:
+        svg_bytes = f.read()
+
+    # SVG in PNG konvertieren
+    png_bytes = cairosvg.svg2png(bytestring=svg_bytes)
+    img = Image.open(BytesIO(png_bytes)).convert("RGBA")
+
+    return img
 
 def generate_svg_map(layer: dict) -> str:
     points = layer.get("points", [])

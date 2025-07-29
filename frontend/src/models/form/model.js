@@ -4,7 +4,6 @@ export function formModel(props, emit) {
     const dimmer = ref(false);
 
     const emitEvent = (event, payload) => {
-        console.log(event, payload)
         emit("component-event", event, payload);
     };
     const selectUpdate = (config, payload) => {

@@ -65,6 +65,7 @@ import TaskbarCenter from "@/components/Taskbar/TaskbarCenter";
 import Notify from "@/components/Notify/Notify";
 import {notifyMessage} from "@/models/notify/config/model";
 import Key from "@/components/Key/Key";
+import {exportData, previewData} from "@/models/export/config/model";
 
 export default {
   name: 'App',
@@ -109,7 +110,9 @@ export default {
       settings,
       osSettings,
       tempData,
-      screenshotData
+      screenshotData,
+      exportData,
+      previewData
     });
 
     const taskbarEvent = async (side, itemId) => {

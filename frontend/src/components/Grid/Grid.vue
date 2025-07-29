@@ -20,7 +20,7 @@
             :id="canvasId"
         >
           <!-- Zentrale Inhalte im Canvas -->
-          <div class="canvas-content overflow-hidden">
+          <div class="canvas-content overflow-hidden transparent">
             <Image
                 :layers="layers"
                 :color="color"

@@ -3,6 +3,7 @@
 :root {
   --app-primary-bg: #{$app_primary_bg};
   --app-secondary-bg: #{$app_secondary_bg};
+  --app-third-bg: #{$app_third_bg};
 }
 
 .scrollbar-hidden {
@@ -16,4 +17,18 @@
 
 .scrollbar-hidden::-webkit-scrollbar {
   display: none; /* Chrome, Safari */
+}
+
+.transparent {
+  background-size: 16px 16px;
+  background-repeat: repeat;
+  background-image: repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%);
+}
+
+.transparent.thumbnail {
+  background-size: 8px 8px;
+}
+
+.transparent.dark {
+  background-image: repeating-conic-gradient(#444 0% 25%, #666  0% 50%)
 }

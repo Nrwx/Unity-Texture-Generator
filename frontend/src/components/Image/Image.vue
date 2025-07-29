@@ -2,28 +2,27 @@
   <v-col ref="containerRef" id="containerRef" cols="auto" class="pa-0" style="position:relative; height: 100%; width: 100%;">
     <template v-for="(layer, index) in layers">
       <!-- 📷 Bild-Layer -->
-      <v-img
+      <img
           v-if="layer.type === 0"
           :src="layer?.masked && layer.mask ? layer?.masked : layer.url"
           :hidden="layer.hidden"
-          :key="layer.id"
-          :aspect-ratio="1"
+          :key="layer.time"
           class="layer-image"
-          :transition="false"
-          :lazy-src="layer.url"
-          :width="layer.width"
-          :height="layer.height"
           @click="emitSelectLayer(layer, $event)"
           :class="{ 'absolute': index >= 0, 'selected': selectedLayer.includes(layer) }"
           :data-context-id="layer.id"
-          alt="Layer Image"
-          :cover="false"
+          :alt="layer.name"
           :style="{
-          opacity: layer.opacity,
-          zIndex: index,
-          transform: `matrix(${layer.matrix.a}, ${layer.matrix.b}, ${layer.matrix.c}, ${layer.matrix.d}, ${layer.matrix.x}, ${layer.matrix.y}) rotate(${layer.matrix.rotate}deg)`
-        }"
-      ></v-img>
+            width: layer.width + 'px',
+            height: layer.height + 'px',
+            opacity: layer.opacity,
+            zIndex: index,
+            position: 'absolute',
+            top: '0',
+            left: '0',
+            transform: `matrix(${layer.matrix.a}, ${layer.matrix.b}, ${layer.matrix.c}, ${layer.matrix.d}, ${layer.matrix.x}, ${layer.matrix.y}) rotate(${layer.matrix.rotate}deg)`
+          }"
+      />
 
       <!-- 📝 Text-Layer -->
       <div
@@ -33,7 +32,7 @@
           @click="emitSelectLayer(layer, $event)"
           :class="{ 'absolute': index >= 0, 'selected': selectedLayer.includes(layer) }"
           :data-context-id="layer.id"
-          :key="layer.id"
+          :key="layer.time"
           :style="{
           width: `${layer.width}px`,
           height: `${layer.height}px`,
@@ -59,10 +58,12 @@
           v-else-if="layer.type === 2"
           :src="layer.svg"
           :hidden="layer.hidden"
-          :key="layer.id"
+          :key="layer.time"
+          :transition="false"
           @click="emitSelectLayer(layer, $event)"
           :class="{ 'absolute': index >= 0, 'selected': selectedLayer.includes(layer) }"
           :data-context-id="layer.id"
+          :alt="layer.name"
           :style="{
           width: `${layer.width}px`,
           height: `${layer.height}px`,

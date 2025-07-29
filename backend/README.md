@@ -15,6 +15,23 @@ source venv/bin/activate
 venv\Scripts\activate
 ```
 
+### packages
+```
+GTK+ 3 Runtime
+----------------
+pip install cairosvg
+pip install --force-reinstall cairosvg
+
+# Linux
+sudo apt install libcairo2
+
+# macOS
+brew install cairo
+
+# Windows
+https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer
+```
+
 ### Anaconda files
 ```
 conda install -c conda-forge cairo pango gdk-pixbuf libxml2 libffi

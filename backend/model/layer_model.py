@@ -10,7 +10,7 @@ from generated.paths import ( PUBLIC_BACKUP_FOLDER, PUBLIC_LAYER_FOLDER, PUBLIC_
 from config.data.constant import ( VIEWPORT_CONFIG, LAYERS, CHANNELS, FONTS )
 from model.fonts_model import FontsModel
 from model.backup_model import BackupModel
-from components import ( generate_channels, apply_color, apply_mask, apply_blend_layer, get_svg_box, generate_svg_map)
+from components import ( generate_channels, apply_color, apply_mask, apply_blend_layer, get_svg_box, generate_svg_map, render_svg)
 from utils import get_path, apply_rgb_rgba, apply_alpha, time, layer_transform
 
 class LayerModel:
@@ -35,29 +35,30 @@ class LayerModel:
             width, height = img.size
 
         img.save(source_path)
-
-        scale_factor = min(viewport_width / width, viewport_height / height)
         image_path = os.path.join(PUBLIC_LAYER_FOLDER , f"{id}.png")
 
-        if scale_factor < 1:
-            new_width = int(width * scale_factor)
-            new_height = int(height * scale_factor)
+        img.save(image_path)
 
-            img = img.resize((new_width, new_height), Image.LANCZOS)
-            img.save(image_path)
+        if width > viewport_width or height > viewport_height:
+            if width / viewport_width > height / viewport_height:
+                scale_x = min(viewport_width / width, 1)
+                scale_y = scale_x
+            else:
+                scale_y = min(viewport_height / height, 1)
+                scale_x = scale_y
 
-            translate_x = int((viewport_width - new_width) / 2)
-            translate_y = int((viewport_height - new_height) / 2)
         else:
-            img.save(image_path)
-            translate_x = int((viewport_width - width) / 2)
-            translate_y = int((viewport_height - height) / 2)
+            scale_x = 1.0
+            scale_y = 1.0
+
+        translate_x = int((viewport_width - width) / 2)
+        translate_y = int((viewport_height - height) / 2)
 
         matrix = {
-            "a": 1,
+            "a": scale_x,
             "b": 0,
             "c": 0,
-            "d": 1,
+            "d": scale_y,
             "x": translate_x,
             "y": translate_y,
             "rotate": 0,
@@ -68,8 +69,8 @@ class LayerModel:
             "type": type,
             "id": id,
             "name": name,
-            "width": new_width if scale_factor < 1 else width,
-            "height": new_height if scale_factor < 1 else height,
+            "width": width,
+            "height": height,
             "url": f"/download/{id}.png",
             "matrix": matrix,
             "source": source_id,
@@ -170,7 +171,12 @@ class LayerModel:
             render_layers = [l for l in LAYERS if l.get("hidden", 0) != 1]
 
         for layer in render_layers:
-            if layer.get("type") == 1:  # Text Layer
+            if layer.get("type") == 2:  # Path Layer
+                print(layer)
+                layer_img = render_svg(layer['id'])
+                if not layer_img:
+                    continue
+            elif layer.get("type") == 1:  # Text Layer
                 layer_img = FontsModel.render(layer)
                 if not layer_img:
                     continue
@@ -308,8 +314,7 @@ class LayerModel:
         })
 
         # Datei speichern
-        svg_id = str(uuid.uuid4())
-        filename = f"{svg_id}.svg"
+        filename = f"{id}.svg"
         file_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER, filename)
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(svg_string)
