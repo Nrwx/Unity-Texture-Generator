@@ -19,4 +19,5 @@ export const previewData = ref({
     title: '',
     id: '',
     src: '',
+    file: '',
 });

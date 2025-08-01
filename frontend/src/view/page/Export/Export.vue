@@ -3,23 +3,46 @@
     <template #content>
       <v-row no-gutters>
         <v-col cols="12" md="8" class="pa-2">
-          <div style="max-width: 70%;" class="ml-auto mr-auto transparent">
+          <div style="max-width: 70%; min-height: 100%;" class="ml-auto mr-auto transparent">
             <v-img
                 :src="previewData.src"
                 :key="previewData.id"
                 class="rounded border ml-auto mr-auto"
                 max-height="90vh"
+                min-height="100%"
             />
           </div>
         </v-col>
 
         <!-- Settings (30%) -->
-        <v-col cols="12" md="4" class="pa-2">
-          <Form
-              @component-event="emitEvent"
-              v-model:operation="operation"
-              v-model:item="config"
-          />
+        <v-col cols="12" md="4" class="d-flex flex-wrap pa-2">
+          <div class="overflow-hidden overflow-y-auto" style="width: 100%; max-height: 80vh;">
+            <Form
+                @component-event="emitEvent"
+                v-model:operation="operation"
+                v-model:item="config"
+            />
+          </div>
+
+          <div class="mt-auto mb-0" style="width: 100%;">
+            <v-btn
+                color="secondary"
+                block
+                prepend-icon="mdi-refresh"
+                @click="emitEvent('export:update', config)"
+            >
+              Änderungen anwenden
+            </v-btn>
+            <v-btn
+                color="primary"
+                block
+                :disabled="previewData.file === ''"
+                prepend-icon="mdi-download"
+                @click="download(previewData.file)"
+            >
+              Exportieren
+            </v-btn>
+          </div>
         </v-col>
       </v-row>
     </template>
@@ -43,7 +66,7 @@ export default defineComponent({
     Form
   },
   setup(props, { emit }) {
-    const { config, setting, operation, theme, emitEvent } = exportModel(props, emit);
+    const { config, setting, operation, theme, download, emitEvent } = exportModel(props, emit);
     return {
       previewData,
       windowStates,
@@ -52,6 +75,7 @@ export default defineComponent({
       operation,
       config,
       theme,
+      download,
       emitEvent
     };
   },

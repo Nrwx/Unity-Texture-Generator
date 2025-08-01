@@ -24,3 +24,5 @@ export { fetchFont } from "./font";
 export { fillModifier } from  "./modifier";
 
 export { viewportSetup } from "./viewport";
+
+export { updateExport } from "./export";

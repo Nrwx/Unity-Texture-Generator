@@ -37,4 +37,28 @@ export const exportEvent = (route) => ({
     "export:margin": async (payload) => {
         route.exportData.margin.value = payload;
     },
+    "export:update": async (payload) => {
+        const data = {
+            mode: payload.mode,
+            quality: payload.quality,
+            type: payload.type,
+            dpi: payload.dpi,
+            title: payload.title,
+            compress: payload.compress,
+            inlineCss: payload.inlineCss,
+            paperSize: payload.paperSize,
+            landscape: payload.landscape,
+            margin: payload.margin
+        };
+
+        const res = await route.api.updateExport(data);
+
+        if (res) {
+            route.previewData.value.mode = 0
+            route.previewData.value.title = res.title
+            route.previewData.value.id = res.id
+            route.previewData.value.src =  res.src
+            route.previewData.value.file =  res.file
+        }
+    }
 })

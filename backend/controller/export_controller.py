@@ -6,13 +6,9 @@ class ExportController:
 
     METHOD_MAP = {
         "update": {
-            "keys": {"name", "type", "width", "height", "id"},
+            "keys": {"mode", "quality", "type", "dpi", "title", "compress", "inlineCss", "paperSize", "landscape", "margin"},
             "function": ExportModel.update
         },
-        "fetch": {
-            "keys": {},
-            "function": ExportModel.fetch
-        }
     }
 
     @classmethod
@@ -27,9 +23,3 @@ class ExportController:
         method_function = method_info['function']
         method_params = {key: params[key] for key in method_keys if key in params}
         return method_function(**method_params)
-
-    @classmethod
-    def fetch(cls):
-        method_info = cls.METHOD_MAP['fetch']
-        method_function = method_info['function']
-        return method_function()

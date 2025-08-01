@@ -1,5 +1,6 @@
 from .animation.create_wave_animation import create_wave_animation
 
+from .maps.generate_pdf_map import generate_pdf_map
 from .maps.generate_svg_map import render_svg
 from .maps.generate_svg_map import get_svg_box
 from .maps.generate_svg_map import generate_svg_map

@@ -142,11 +142,26 @@ export function exportModel(props, emit) {
         },
     }));
 
+    const download = (filePath) => {
+        if (!filePath) {
+            console.error("Kein gültiger Dateipfad übergeben.");
+            return;
+        }
+
+        const link = document.createElement("a");
+        link.href = filePath;
+        link.download = filePath.split("/").pop(); // Dateiname aus Pfad extrahieren
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     return {
         theme: appData.theme.value,
         setting,
         operation,
         config,
+        download,
         emitEvent
     };
 }

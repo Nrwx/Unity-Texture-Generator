@@ -5,17 +5,10 @@ from config.data.constant import REDIRECT_ROUTE
 
 router_export = Blueprint("export", __name__)
 
-@router_export.route("", methods=["GET", "POST"], strict_slashes=REDIRECT_ROUTE)
+@router_export.route("", methods=["POST"], strict_slashes=REDIRECT_ROUTE)
 def handle_export():
     print(f"Incoming request URL: {request.url}")
-    if request.method == 'GET':
-        try:
-            # Methode aufrufen!
-            result = ExportController.fetch()
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
-    elif request.method == 'POST':
+    if request.method == 'POST':
         try:
             result = ExportController.handle(request.form)
         except Exception as e:
