@@ -1,3 +1,5 @@
+from .generate_dds_map import generate_dds_map
+from .generate_tga_map import generate_tga_map
 from .generate_pdf_map import generate_pdf_map
 from .generate_svg_map import render_svg
 from .generate_svg_map import get_svg_box

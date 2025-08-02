@@ -13,5 +13,11 @@ CURSOR = {}
 EXTENSION = [".png", ".jpg", ".jpeg"]
 REDIRECT_ROUTE = False
 
+NV_COMPRESS = None
+
 QUEUE_HANDLER = ["/upload", "/brush", "/ai/generateImage", "/modifier"]
 FRONTEND_PATH = ['../frontend/dist', 'index.html']
+
+def set_nvcompress(path):
+    global NV_COMPRESS
+    NV_COMPRESS = path

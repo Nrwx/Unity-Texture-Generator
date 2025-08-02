@@ -14,6 +14,8 @@ export const updateExport = async (data) => {
         formData.append("paperSize", data.paperSize);
         formData.append("landscape", data.landscape);
         formData.append("margin", data.margin);
+        formData.append("mipmap", data.mipmap);
+        formData.append("ddsCompress", data.ddsCompress);
 
         const response = await api.post("/export", formData, {
             headers: { "Content-Type": "multipart/form-data" },

@@ -24,6 +24,7 @@ import {appEvent} from "@/dataLayer/event/app";
 import {notifyEvent} from "@/dataLayer/event/notify";
 import {keyEvent} from "@/dataLayer/event/key";
 import {exportEvent} from "@/dataLayer/event/export";
+import {rendererEvent} from "@/dataLayer/event/renderer";
 
 
 /**
@@ -54,7 +55,8 @@ const eventHandler = (route) => ({
     ...pathModifierEvent(route),
     ...channelEvent(route),
     ...contextMenuEvent(route),
-    ...exportEvent(route)
+    ...exportEvent(route),
+    ...rendererEvent(route)
 });
 
 

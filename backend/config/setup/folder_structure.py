@@ -1,6 +1,6 @@
 FOLDER_STRUCTURE = {
     "public": {
-        "temp": ["upload", "channel", "mask", "cursor"],
+        "temp": ["upload", "channel", "mask", "cursor", "render"],
         "layer": None,
         "font": None,
         "brush": None,
@@ -9,8 +9,12 @@ FOLDER_STRUCTURE = {
     },
     "assets": {
         "brush": None,
-        "font": None
+        "font": None,
+        "test": None,
+        "driver": ["windows", "linux", "aarch64"],
+    },
+    "__DRIVER": {
     }
 }
 
-FOLDERS_TO_RESET = ["public"]
+FOLDERS_TO_RESET = ["public", "__DRIVER"]

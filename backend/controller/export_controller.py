@@ -6,7 +6,7 @@ class ExportController:
 
     METHOD_MAP = {
         "update": {
-            "keys": {"mode", "quality", "type", "dpi", "title", "compress", "inlineCss", "paperSize", "landscape", "margin"},
+            "keys": {"mode", "quality", "type", "dpi", "title", "compress", "inlineCss", "paperSize", "landscape", "margin", "mipmap", "ddsCompress"},
             "function": ExportModel.update
         },
     }

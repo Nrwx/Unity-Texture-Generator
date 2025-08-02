@@ -1,55 +1,66 @@
 export const exportEvent = (route) => ({
     "export:mode": async (payload) => {
-        route.exportData.mode.value = payload;
+        route.exportData.value.mode = payload;
         if (payload === 1) {
-            route.exportData.type.value = 'SVG';
+            route.emit('export:type', 'SVG')
         } else if (payload === 2) {
-            route.exportData.type.value = 'PDF';
+            route.emit('export:type', 'PDF')
         } else {
-            route.exportData.type.value = 'PNG';
+            route.emit('export:type', 'PNG')
         }
-        console.log(payload)
     },
     "export:quality": async (payload) => {
-        route.exportData.quality.value = payload;
+        route.exportData.value.quality = payload;
     },
     "export:type": async (payload) => {
-        route.exportData.type.value = payload;
+        route.exportData.value.type = payload;
+        console.log(route.exportData.value.type)
+    },
+    "export:dds-compress": async (payload) => {
+        route.exportData.value.ddsCompress = payload;
+        console.log(route.exportData.value.type)
     },
     "export:dpi": async (payload) => {
-        route.exportData.dpi.value = payload;
+        route.exportData.value.dpi = payload;
     },
     "export:title": async (payload) => {
-        route.exportData.title.value = payload;
+        route.exportData.value.title = payload;
     },
     "export:compress": async (payload) => {
-        route.exportData.compress.value = payload;
+        route.exportData.value.compress = payload;
+    },
+    "export:mipmap": async (payload) => {
+        route.exportData.value.mipmap = payload;
     },
     "export:inlineCss": async (payload) => {
-        route.exportData.inlineCss .value= payload;
+        route.exportData.value.inlineCss= payload;
     },
     "export:paperSize": async (payload) => {
-        route.exportData.paperSize.value = payload;
+        route.exportData.value.paperSize = payload;
     },
     "export:landscape": async (payload) => {
-        route.exportData.landscape.value = payload;
+        route.exportData.value.landscape = payload;
     },
     "export:margin": async (payload) => {
-        route.exportData.margin.value = payload;
+        route.exportData.value.margin = payload;
     },
     "export:update": async (payload) => {
         const data = {
             mode: payload.mode,
             quality: payload.quality,
-            type: payload.type,
+            type: payload.type.value,
             dpi: payload.dpi,
             title: payload.title,
             compress: payload.compress,
             inlineCss: payload.inlineCss,
             paperSize: payload.paperSize,
             landscape: payload.landscape,
-            margin: payload.margin
+            margin: payload.margin,
+            mipmap: payload.mipmap,
+            ddsCompress: payload.ddsCompress
         };
+
+        console.log(data)
 
         const res = await route.api.updateExport(data);
 

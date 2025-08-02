@@ -11,6 +11,7 @@ from view.brush_view import router_brush
 from view.cursor_view import router_cursor
 from view.queue_view import router_queue
 from view.export_view import router_export
+from view.render_view import router_render
 
 def register_router(app):
     app.register_blueprint(router_app, url_prefix='/')
@@ -26,3 +27,4 @@ def register_router(app):
     app.register_blueprint(router_brush, url_prefix="/brush")
     app.register_blueprint(router_cursor, url_prefix="/cursor")
     app.register_blueprint(router_export, url_prefix="/export")
+    app.register_blueprint(router_render, url_prefix="/renderer")

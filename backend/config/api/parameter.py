@@ -207,11 +207,18 @@ PARAMETERS = {
         "dpi": {"type": int, "default": 70},
         "title": {"type": str, "default": ""},
         "compress": {"type": bool, "default": False},
+        "ddsCompress": {"type": str, "default": "DTX3"},
+        "mipmap": {"type": bool, "default": True},
         #SVG EXPORT
         "inlineCss": {"type": bool, "default": False},
         #PDF EXPORT
         "paperSize": {"type": str, "default": ""},
         "landscape": {"type": bool, "default": False},
         "margin": {"type": int, "default": 10},
+    },
+    "renderer": {
+        "method": {"type": str, "required": True},
+        "id": {"type": str, "required": True},
+        "write_svg": {"type": bool, "required": False, "default": False},
     },
 }

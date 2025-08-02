@@ -26,3 +26,5 @@ export { fillModifier } from  "./modifier";
 export { viewportSetup } from "./viewport";
 
 export { updateExport } from "./export";
+
+export { renderer } from "./renderer";

@@ -24,10 +24,10 @@
             />
           </div>
 
-          <div class="mt-auto mb-0" style="width: 100%;">
+          <div class="mt-auto mb-0 d-flex align-center" style="width: 100%;">
             <v-btn
                 color="secondary"
-                block
+                class="mr-4"
                 prepend-icon="mdi-refresh"
                 @click="emitEvent('export:update', config)"
             >
@@ -35,7 +35,7 @@
             </v-btn>
             <v-btn
                 color="primary"
-                block
+                class="ml-auto mr-0"
                 :disabled="previewData.file === ''"
                 prepend-icon="mdi-download"
                 @click="download(previewData.file)"
