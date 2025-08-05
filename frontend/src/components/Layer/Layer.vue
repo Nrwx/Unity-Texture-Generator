@@ -2,7 +2,7 @@
   <v-card
       v-if="state"
       class="layer-system"
-      width="340"
+      width="360"
       :theme="theme"
   >
     <v-container class="layer-wrapper">
@@ -65,15 +65,19 @@
               <template #default>
                 <v-list-item
                     v-for="(layer) in layers"
+                    v-show="shouldShowLayer(layer)"
                     :key="layer.id"
                     :disabled="windowStates.drag.value && dragId === layer.id"
                     :data-id="layer.id"
                     class="layer-item"
                     :class="{selected: selectedLayer.find(x => x.id === layer.id),dragging: windowStates.drag.value && dragId === layer.id,'not-dragging': windowStates.drag.value && dragId !== layer.id}"
-                    @click="toggleLayerSelection(layer)"
+                    @click="layer.type === 4 ? '' : toggleLayerSelection(layer)"
                 >
                   <template v-slot:prepend>
-                    <v-icon color="grey" size="x-small" @click.stop="emitEvent('hide-layer', layer)">
+                    <v-icon v-if="layer.type === 4" @click="groupCollapse[layer.id] = !groupCollapse[layer.id]">
+                      {{ groupCollapse[layer.id] ? 'mdi-chevron-up' : 'mdi-chevron-down' }}
+                    </v-icon>
+                    <v-icon v-else color="grey" size="x-small" @click.stop="emitEvent('hide-layer', layer)">
                       {{ layer?.hidden === 1 ? 'mdi-eye-off' : 'mdi-eye' }}
                     </v-icon>
                   </template>
@@ -99,7 +103,7 @@
                       <template v-slot:prepend-inner>
                         <v-tooltip location="bottom">
                           <template v-slot:activator="{ props }">
-                            <v-tooltip v-if="layer?.mask" location="bottom">
+                            <v-tooltip v-if="layer?.mask && layer.type !== 4" location="bottom">
                               <template v-slot:activator="{ props }">
                                 <v-avatar class="mr-2 transparent thumbnail" v-bind="props" rounded="0" variant="elevated">
                                   <v-img :cover="false" :src="layer?.mask" :alt="'Mask ' + layer.name" />
@@ -107,20 +111,23 @@
                               </template>
                               {{ 'Mask ' + layer.name }}
                             </v-tooltip>
-                            <v-avatar v-bind="props" rounded="0" variant="elevated" class="transparent thumbnail">
+                            <v-avatar v-bind="props" rounded="0" variant="elevated" :class="layer.type !== 1 && layer.type !== 4 ? 'transparent thumbnail' : ''">
                               <template v-if="layer?.type === 1">
                                 <v-icon>mdi-format-text</v-icon>
                               </template>
                               <template v-else-if="layer?.type === 2">
                                 <v-img
-                                    :src="layer.svg"
+                                    :src="layer?.thumbnail || layer?.url || layer?.svg"
                                     :alt="layer.name"
                                     style="width: 100%; height: 100%; object-fit: contain;"
                                     cover
                                 />
                               </template>
+                              <template v-else-if="layer.type === 4">
+                                <v-icon>mdi-folder</v-icon>
+                              </template>
                               <template v-else>
-                                <v-img :cover="false" :src="layer?.url" :alt="layer.name" />
+                                <v-img :cover="false" :src="layer?.thumbnail || layer?.url" :alt="layer.name" />
                               </template>
                             </v-avatar>
                           </template>
@@ -133,7 +140,8 @@
               </template>
             </Drag>
           </v-list>
-          <Channel v-show="tabIndex === 1 && channel.length > 0" :data="channel"/>
+          <Channel v-show="tabIndex === 1 && channel.length > 0" :data="channel" @update:componentEvent="emitEvent"/>
+          <Path v-show="tabIndex === 2 && paths.length > 0" :data="paths" @update:componentEvent="emitEvent"/>
         </div>
       </v-card>
       <!-- Navigation -->
@@ -160,9 +168,20 @@
             color="#DCFDD4"
             size="x-small"
             :disabled="!layers.length"
-            @click="emitEvent('preview-layer')"
+            @click="emitEvent('renderer:preview')"
         >
           <v-icon color="black">mdi-printer</v-icon>
+        </v-btn>
+        <v-btn
+            icon
+            color="#C2F0FF"
+            size="x-small"
+            :disabled="!groupAble"
+            @click="emitEvent('group-layer', allInSameGroup ? {ids: selectedLayer, group: selectedLayer[0].group, reset: true} : {ids: selectedLayer, group: null, reset: false})"
+        >
+          <v-icon color="black">
+            {{ allInSameGroup ? 'mdi-link-off' : 'mdi-link' }}
+          </v-icon>
         </v-btn>
         <v-btn
             icon
@@ -185,18 +204,30 @@ import Drag from "@/components/Drag/Drag.vue";
 import {windowStates} from "@/dataLayer/state";
 import Channel from "@/components/Channel/Channel.vue";
 import Form from "@/components/Form/Form.vue";
+import Path from "@/components/Path/Path";
 
 export default defineComponent({
   name: "LayerComponent",
   props: layerProps,
   components: {
+    Path,
     Form,
     Drag,
     Channel
   },
   setup(props, { emit }) {
-    const { emitEvent, validRule, toggleLayerSelection, handleDrop, dragId, hiddenState, tabs, tabIndex, handleTabEmit, globalOpacity, updateOpacity, methods, config, updateBlend } = layerModel(props, emit);
+    const {
+      groupCollapse,
+      shouldShowLayer,
+      toggleGroupCollapse,
+      groupAble,
+      allInSameGroup, emitEvent, validRule, toggleLayerSelection, handleDrop, dragId, hiddenState, tabs, tabIndex, handleTabEmit, globalOpacity, updateOpacity, methods, config, updateBlend } = layerModel(props, emit);
     return {
+      groupCollapse,
+      shouldShowLayer,
+      toggleGroupCollapse,
+      groupAble,
+      allInSameGroup,
       emitEvent,
       validRule,
       toggleLayerSelection,

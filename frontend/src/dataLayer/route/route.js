@@ -2,8 +2,10 @@ export { queueStatus } from "./app"
 
 export {
     addLayer, addTextLayer, addPathLayer, blendLayer, deleteLayer, fetchLayers, maskLayer,
-    hideLayer, orderLayers, previewLayers, updateChannel, updateLayer, pasteLayer, maskedLayer
+    hideLayer, orderLayers, previewLayers, updateChannel, updateLayer, pasteLayer, maskedLayer, groupLayer
 } from "./layer";
+
+export { addPath, deletePath, updatePath, fetchPath } from "./path";
 
 export { createCursor } from "./cursor"
 

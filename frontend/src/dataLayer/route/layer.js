@@ -102,6 +102,7 @@ export const fetchLayers = async () => {
     try {
         const data = await api.get('/layer');
         if(data) {
+            console.log(data)
             return data
         }
     } catch (err) {
@@ -175,6 +176,38 @@ export const deleteLayer = async (layers) => {
         console.error("Error deleting layers:", error.response?.data || error.message);
     }
 };
+
+// Layer gruppieren
+export const groupLayer = async (payload) => {
+    if (!payload.ids || payload.ids.length === 0) return;
+
+    try {
+        const formData = new FormData();
+        formData.append("method", "group");
+
+        // Entweder einzelne ID oder Liste übergeben
+        formData.append("ids", JSON.stringify(payload.ids));
+
+        if (payload.group) {
+            formData.append("group", payload.group);
+        }
+
+        if (payload.reset) {
+            formData.append("reset", payload.reset);
+        }
+
+        console.log(payload)
+
+        const response = await api.post('/layer', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        if(response) return true
+    } catch (error) {
+        console.error("Error grouping layers:", error.response?.data || error.message);
+    }
+};
+
 
 export const pasteLayer = async (layer) => {
     try {

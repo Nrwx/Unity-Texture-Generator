@@ -49,7 +49,7 @@ export function contextModel(props, emit) {
         // Menü sichtbar machen, damit es im DOM gerendert wird
         contextId.value = id;
         updateDisabledStates(props.disabled)
-        emitEvent('context-menu-state', true);
+        emitEvent('context-menu-state', {state: true, id: id});
 
         await nextTick(); // Warten bis das Menü im DOM gerendert ist
 

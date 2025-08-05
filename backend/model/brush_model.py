@@ -2,6 +2,7 @@ import os, uuid, shutil, zipfile, tempfile
 from flask import jsonify
 from generated.paths import ASSETS_BRUSH_FOLDER, PUBLIC_BRUSH_FOLDER
 from config.data.constant import BRUSHES
+from components import generate_thumbnail_map
 
 class BrushModel:
     @staticmethod
@@ -23,10 +24,12 @@ class BrushModel:
             for f in files:
                 if f.lower().endswith(('.jpg', '.png')):
                     item_id = str(uuid.uuid4())
+                    file_path = os.path.join(PUBLIC_BRUSH_FOLDER, group_id, f)
                     items.append({
                         'id': item_id,
                         'name': os.path.splitext(f)[0],
-                        'path': f"/{group_id}/{f}"
+                        'path': f"/{group_id}/{f}",
+                        'thumbnail': generate_thumbnail_map(item_id,path=file_path,size=64,image=None)
                     })
             if items:
                 scanned.append({

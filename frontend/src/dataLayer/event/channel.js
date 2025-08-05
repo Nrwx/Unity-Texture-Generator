@@ -1,6 +1,6 @@
 export const channelEvent = (route) => ({
-    "update-channel": async () => {
-        const response = await route.api.updateChannel()
+    "renderer:channel": async () => {
+        const response = await route.api.renderer({mode: 'channel'})
         if (response) {
             route.localData.channel.value = response
             console.log(response)

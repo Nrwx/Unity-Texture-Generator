@@ -224,6 +224,26 @@ export const windowStateEvent = (route) => ({
     "context-menu-state": async (payload) => {
         if (typeof payload === "boolean") {
             route.windowStates.context.value = payload;
+        } else {
+            const layer = route.localData.layers.value.find(x => x.id === payload.id);
+            route.contextConfig.contextData.value = route.contextConfig.contextData.value.map(group => {
+                if (group.action === 'edit' && Array.isArray(group?.children)) {
+                    return {
+                        ...group,
+                        children: group?.children.map(child => {
+                            if (child.action === 'text-path') {
+                                return {
+                                    ...child,
+                                    active: layer?.type === 1
+                                };
+                            }
+                            return child;
+                        })
+                    };
+                }
+                return group;
+            });
+            route.windowStates.context.value = payload.state;
         }
     },
     "color-slot-state": (payload) => {
@@ -233,7 +253,7 @@ export const windowStateEvent = (route) => ({
         console.log(payload)
         route.windowStates.export.value = payload;
         route.localData.loading.value = true
-        const response = await route.api.previewLayers();
+        const response = await route.api.renderer({mode: 'preview'});
         if (response) {
             route.previewData.value.mode = 0
             route.previewData.value.title = response.title

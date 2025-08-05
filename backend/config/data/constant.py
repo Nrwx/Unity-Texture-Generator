@@ -1,6 +1,8 @@
 VIEWPORT_CONFIG = []
 
 LAYERS = []
+GROUPS = []
+PATHS = []
 BACKUP = []
 MAX_BACKUPS = 5
 

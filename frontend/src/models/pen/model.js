@@ -6,10 +6,6 @@ export function penModel(props, emit) {
     const canvas = ref(null);
     const ctx = ref(null);
 
-    // Punkte und Verbindungen zwischen ihnen
-    const points = reactive([]);
-    const connections = reactive([]);
-
     const draggedAnchor = ref(null);
     const draggingNewPoint = ref(false);
     const draggedPointIdx = ref(null);
@@ -32,7 +28,7 @@ export function penModel(props, emit) {
         anchorArms: { cp1: null, cp2: null },
     });
 
-    const pointsLength = computed(() => points.length);
+    const pointsLength = computed(() => props.pathLayer.points.length);
 
     const emitEvent = (event, payload) => emit('update:component-event', event, payload);
     const { register } = eventRegister('listener:pen', emitEvent);
@@ -41,16 +37,16 @@ export function penModel(props, emit) {
 
     const updatePathLayer = () => {
         const layer = props.pathLayer;
-        layer.points     = JSON.parse(JSON.stringify(points));
-        layer.connections= JSON.parse(JSON.stringify(connections));
+        layer.points     = JSON.parse(JSON.stringify(props.pathLayer.points));
+        layer.connections= JSON.parse(JSON.stringify(props.pathLayer.connections));
         emitEvent('update:path-layer', layer);
     };
 
     const handleClosePath = (pos) => {
         const hitIdx = findPointAtPos(pos);
 
-        if (points.length >= 3 && hitIdx === 0 && !props.pathLayer.closed) {
-            const last = points[points.length - 1];
+        if (props.pathLayer.points.length >= 3 && hitIdx === 0 && !props.pathLayer.closed) {
+            const last = props.pathLayer.points[props.pathLayer.points.length - 1];
             return findPointAtPos(last) === 0;
         }
 
@@ -61,9 +57,9 @@ export function penModel(props, emit) {
         const idx = findPointAtPos({ x: props.mouse.x, y: props.mouse.y });
         if (idx === -1) return;
 
-        const p = points[idx];
-        const prev = points[idx - 1];
-        const next = points[idx + 1];
+        const p = props.pathLayer.points[idx];
+        const prev = props.pathLayer.points[idx - 1];
+        const next = props.pathLayer.points[idx + 1];
 
         p.linear = !p.linear;
 
@@ -106,7 +102,7 @@ export function penModel(props, emit) {
         const idx = findPointAtPos({ x: props.mouse.x, y: props.mouse.y });
         if (idx !== -1) {
             if (anchorMenu.visible) {
-                const affected = anchorMenu.points.some(p => points.indexOf(p) === idx);
+                const affected = anchorMenu.points.some(p => props.pathLayer.points.indexOf(p) === idx);
                 if (affected || anchorMenu.midPoint?.idx === idx || anchorMenu.selectedAnchor?.idx === idx) {
                     anchorMenu.visible = false;
                     anchorMenu.selectedAnchor = null;
@@ -116,34 +112,34 @@ export function penModel(props, emit) {
                 }
             }
 
-            if (idx > 0 && idx < points.length - 1) {
+            if (idx > 0 && idx < props.pathLayer.points.length - 1) {
                 const prevIdx = idx - 1;
                 const nextIdx = idx + 1;
 
-                const exists = connections.some(([a, b]) =>
+                const exists = props.pathLayer.connections.some(([a, b]) =>
                     (a === prevIdx && b === nextIdx) || (a === nextIdx && b === prevIdx)
                 );
 
                 if (!exists) {
-                    connections.push([prevIdx, nextIdx]);
+                    props.pathLayer.connections.push([prevIdx, nextIdx]);
                 }
             }
 
-            for (let i = connections.length - 1; i >= 0; i--) {
-                if (connections[i][0] === idx || connections[i][1] === idx) {
-                    connections.splice(i, 1);
+            for (let i = props.pathLayer.connections.length - 1; i >= 0; i--) {
+                if (props.pathLayer.connections[i][0] === idx || props.pathLayer.connections[i][1] === idx) {
+                    props.pathLayer.connections.splice(i, 1);
                 }
             }
 
-            points.splice(idx, 1);
+            props.pathLayer.points.splice(idx, 1);
 
-            for (let i = 0; i < connections.length; i++) {
-                connections[i][0] = connections[i][0] > idx ? connections[i][0] - 1 : connections[i][0];
-                connections[i][1] = connections[i][1] > idx ? connections[i][1] - 1 : connections[i][1];
+            for (let i = 0; i < props.pathLayer.connections.length; i++) {
+                props.pathLayer.connections[i][0] = props.pathLayer.connections[i][0] > idx ? props.pathLayer.connections[i][0] - 1 : props.pathLayer.connections[i][0];
+                props.pathLayer.connections[i][1] = props.pathLayer.connections[i][1] > idx ? props.pathLayer.connections[i][1] - 1 : props.pathLayer.connections[i][1];
             }
 
             // Nachbarn updaten
-            points.forEach((p) => {
+            props.pathLayer.points.forEach((p) => {
                 const newNeighbors = {};
                 for (const [nbrIdxStr, data] of Object.entries(p.anchor.neighbors)) {
                     let nbrIdx = Number(nbrIdxStr);
@@ -191,15 +187,15 @@ export function penModel(props, emit) {
 
 
     const loadAnchorMenuFromSelection = () => {
-        const sel = points.findIndex(p => p.selected);
+        const sel = props.pathLayer.points.findIndex(p => p.selected);
         if (sel === -1) { anchorMenu.visible = false; return; }
 
-        const conn = connections.find(([a, b]) => a === sel || b === sel);
+        const conn = props.pathLayer.connections.find(([a, b]) => a === sel || b === sel);
         if (!conn) { anchorMenu.visible = false; return; }
 
         const [iA, iB] = conn;
-        const pA = points[iA];
-        const pB = points[iB];
+        const pA = props.pathLayer.points[iA];
+        const pB = props.pathLayer.points[iB];
 
         if (!pA || !pB) {
             anchorMenu.visible = false;
@@ -254,9 +250,9 @@ export function penModel(props, emit) {
     };
 
     const selectPoint = (idx) => {
-        points.forEach((p, i) => p.selected = i === idx);
+        props.pathLayer.points.forEach((p, i) => p.selected = i === idx);
         loadAnchorMenuFromSelection();
-        const p = points[idx];
+        const p = props.pathLayer.points[idx];
         p.selected = true;
         p.pulseAt = Date.now();
 
@@ -267,7 +263,7 @@ export function penModel(props, emit) {
     };
 
     const findPointAtPos = (pos, radius = 8) => {
-        return points.findIndex(p => {
+        return props.pathLayer.points.findIndex(p => {
             const dx = p.x - pos.x;
             const dy = p.y - pos.y;
             return dx * dx + dy * dy <= radius * radius;
@@ -309,8 +305,8 @@ export function penModel(props, emit) {
         if (!anchorMenu.visible || !anchorMenu.midPoint) return;
 
         const [pA, pB] = anchorMenu.points;
-        const idxA = points.indexOf(pA);
-        const idxB = points.indexOf(pB);
+        const idxA = props.pathLayer.points.indexOf(pA);
+        const idxB = props.pathLayer.points.indexOf(pB);
         const mid = anchorMenu.midPoint;
 
         // Sicherheitscheck
@@ -374,9 +370,9 @@ export function penModel(props, emit) {
         c.clearRect(0, 0, w, h);
 
         // === 1) Pfade ===
-        connections.forEach(([a, b]) => {
-            const pA = points[a];
-            const pB = points[b];
+        props.pathLayer.connections.forEach(([a, b]) => {
+            const pA = props.pathLayer.points[a];
+            const pB = props.pathLayer.points[b];
             if (!pA || !pB) return;
 
             const linearA = !!pA.linear;
@@ -433,9 +429,9 @@ export function penModel(props, emit) {
 
 
         // === 2) Punkte ===
-        points.forEach((p, i) => {
+        props.pathLayer.points.forEach((p, i) => {
             const isStart = i === 0;
-            const isEnd = i === points.length - 1;
+            const isEnd = i === props.pathLayer.points.length - 1;
             const isSelected = p.selected;
             const size = 6;
 
@@ -620,11 +616,11 @@ export function penModel(props, emit) {
         }
 
         // Punkt hinzufügen: erster oder selektierter Randpunkt
-        const isFirstPoint = points.length === 0;
-        const selectedPts = points.filter(p => p.selected);
+        const isFirstPoint = props.pathLayer.points.length === 0;
+        const selectedPts = props.pathLayer.points.filter(p => p.selected);
         const isOnlyOneSel = selectedPts.length === 1;
-        const isStartSel = isOnlyOneSel && points[0]?.selected;
-        const isEndSel = isOnlyOneSel && points[points.length - 1]?.selected;
+        const isStartSel = isOnlyOneSel && props.pathLayer.points[0]?.selected;
+        const isEndSel = isOnlyOneSel && props.pathLayer.points[props.pathLayer.points.length - 1]?.selected;
 
         if (isFirstPoint || isStartSel || isEndSel) {
             const newPoint = {
@@ -644,30 +640,30 @@ export function penModel(props, emit) {
                 }
             };
 
-            points.forEach(p => p.selected = false);
+            props.pathLayer.points.forEach(p => p.selected = false);
 
             if (isFirstPoint || isEndSel) {
-                points.push(newPoint);
+                props.pathLayer.points.push(newPoint);
                 if (!isFirstPoint) {
-                    connections.push([points.length - 2, points.length - 1]);
+                    props.pathLayer.connections.push([props.pathLayer.points.length - 2, props.pathLayer.points.length - 1]);
                 }
             } else {
-                points.unshift(newPoint);
-                connections.forEach(c => {
+                props.pathLayer.points.unshift(newPoint);
+                props.pathLayer.connections.forEach(c => {
                     c[0]++;
                     c[1]++;
                 });
-                connections.unshift([0, 1]);
+                props.pathLayer.connections.unshift([0, 1]);
             }
 
             // Mid-Anchor berechnen
-            if (!newPoint.linear && points.length > 1) {
-                const pA = isStartSel ? points[0] : points[points.length - 2];
-                const pB = isStartSel ? points[1] : points[points.length - 1];
+            if (!newPoint.linear && props.pathLayer.points.length > 1) {
+                const pA = isStartSel ? props.pathLayer.points[0] : props.pathLayer.points[props.pathLayer.points.length - 2];
+                const pB = isStartSel ? props.pathLayer.points[1] : props.pathLayer.points[props.pathLayer.points.length - 1];
                 if (!pA?.anchor || !pB?.anchor) return;
 
-                const idxA = points.indexOf(pA);
-                const idxB = points.indexOf(pB);
+                const idxA = props.pathLayer.points.indexOf(pA);
+                const idxB = props.pathLayer.points.indexOf(pB);
                 if (idxA === -1 || idxB === -1) return;
 
                 if (!pA.anchor.neighbors[idxB]) {
@@ -699,7 +695,7 @@ export function penModel(props, emit) {
             return;
         }
 
-        points.forEach(p => p.selected = false);
+        props.pathLayer.points.forEach(p => p.selected = false);
         anchorMenu.visible = false;
         draw();
     };
@@ -714,8 +710,8 @@ export function penModel(props, emit) {
         if (draggingNewPoint.value) {
             if (!anchorMenu.points || anchorMenu.points.length < 2) return;
             const [pA, pB] = anchorMenu.points;
-            const idxA = points.indexOf(pA);
-            const idxB = points.indexOf(pB);
+            const idxA = props.pathLayer.points.indexOf(pA);
+            const idxB = props.pathLayer.points.indexOf(pB);
             if (idxA === -1 || idxB === -1) return;
 
             const mid = calcMidAnchorPoint(pA, pos);
@@ -729,7 +725,7 @@ export function penModel(props, emit) {
 
         // 2) Punkt verschieben
         else if (ctrl && draggedPointIdx.value !== null && !draggedControlPoint.value && !draggedAnchor.value) {
-            const p = points[draggedPointIdx.value];
+            const p = props.pathLayer.points[draggedPointIdx.value];
             if (!p) return;
 
             anchorMenu.visible = !p?.linear;
@@ -756,19 +752,19 @@ export function penModel(props, emit) {
                 data.mid.x += dx;
                 data.mid.y += dy;
 
-                const nb = points[Number(nbrIdx)];
+                const nb = props.pathLayer.points[Number(nbrIdx)];
                 if (nb?.anchor?.neighbors?.[draggedPointIdx.value]) {
                     nb.anchor.neighbors[draggedPointIdx.value].mid.x += dx;
                     nb.anchor.neighbors[draggedPointIdx.value].mid.y += dy;
                 }
             });
 
-            if (anchorMenu.points?.length >= 2 && anchorMenu.points.includes(p)) {
+            if (anchorMenu.points?.length >= 2 && anchorMenu.props.pathLayer.points.includes(p)) {
                 const [pA, pB] = anchorMenu.points;
                 if (!pA || !pB) return;
 
-                const mA = pA.anchor.neighbors[points.indexOf(pB)]?.mid;
-                const mB = pB.anchor.neighbors[points.indexOf(pA)]?.mid;
+                const mA = pA.anchor.neighbors[props.pathLayer.points.indexOf(pB)]?.mid;
+                const mB = pB.anchor.neighbors[props.pathLayer.points.indexOf(pA)]?.mid;
                 if (!mA || !mB) return;
 
                 anchorMenu.midPoint = {
@@ -800,8 +796,8 @@ export function penModel(props, emit) {
             const neighbor = anchorMenu.points.find(p => p !== point);
             if (!neighbor) return;
 
-            const idxP = points.indexOf(point);
-            const idxN = points.indexOf(neighbor);
+            const idxP = props.pathLayer.points.indexOf(point);
+            const idxN = props.pathLayer.points.indexOf(neighbor);
             if (idxP === -1 || idxN === -1) return;
             if (!point.anchor?.neighbors?.[idxN] || !neighbor.anchor?.neighbors?.[idxP]) return;
 
@@ -837,8 +833,8 @@ export function penModel(props, emit) {
                 return;
             }
 
-            const idxA = points.indexOf(pA);
-            const idxB = points.indexOf(pB);
+            const idxA = props.pathLayer.points.indexOf(pA);
+            const idxB = props.pathLayer.points.indexOf(pB);
 
             if (draggedAnchor.value === 'mid') {
                 if (!anchorMenu.midPoint) return;
@@ -928,7 +924,7 @@ export function penModel(props, emit) {
 
 
     const onPointerUp = (e) => {
-        if (!isCtrlPressed(e) && !draggingNewPoint.value && handleClosePath({ x: props.mouse.x, y: props.mouse.y }) && points.length >= 3) {
+        if (!isCtrlPressed(e) && !draggingNewPoint.value && handleClosePath({ x: props.mouse.x, y: props.mouse.y }) && props.pathLayer.points.length >= 3) {
             emitEvent('pen:path-state', true);
         }
         reset(false, true, {drag: true})
@@ -984,18 +980,18 @@ export function penModel(props, emit) {
             props.pathLayer.closed = true;
             props.pathLayer.edit = false;
 
-            if (points.length >= 3) {
-                const first = points[0];
+            if (props.pathLayer.points.length >= 3) {
+                const first = props.pathLayer.points[0];
                 const newPoint = JSON.parse(JSON.stringify(first));
 
                 newPoint.selected = false;
                 newPoint.pulseAt = Date.now();
 
-                points.push(newPoint);
-                connections.push([points.length - 2, points.length - 1]);
+                props.pathLayer.points.push(newPoint);
+                props.pathLayer.connections.push([props.pathLayer.points.length - 2, props.pathLayer.points.length - 1]);
 
                 const idxFirst = 0;
-                const idxLast = points.length - 1;
+                const idxLast = props.pathLayer.points.length - 1;
 
                 if (!first.anchor) {
                     first.anchor = {
@@ -1052,7 +1048,6 @@ export function penModel(props, emit) {
         canvas,
         config,
         pointsLength,
-        connections,
         anchorMenu,
         handlePath,
         emitEvent

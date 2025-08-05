@@ -22,7 +22,7 @@
                   :key="index"
                   @click="emitEvent('update:selected-brush', brush)"
               >
-                <img :src="brush?.imageUrl" class="brush-thumb" />
+                <img :alt="brush.categoryName" :src="brush?.thumbnail || brush?.imageUrl" class="brush-thumb" />
                 <div class="brush-info d-flex overflow-hidden">
                   <strong class="text-truncate">{{ brush.categoryName }}</strong>
                 </div>

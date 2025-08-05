@@ -20,7 +20,7 @@
             <v-tooltip location="bottom">
               <template v-slot:activator="{ props }">
                 <v-avatar v-bind="props" rounded="0" variant="elevated">
-                  <v-img :src="channel?.url" :alt="channel.name" />
+                  <v-img :src="channel?.thumbnail || channel?.url" :alt="channel.name" />
                 </v-avatar>
               </template>
               {{ channel.name }}

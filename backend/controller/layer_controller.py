@@ -21,6 +21,10 @@ class LayerController:
             "keys": {"id"},
             "function": LayerModel.delete
         },
+        "group": {
+            "keys": {"ids", "group", 'reset'},
+            "function": LayerModel.group
+        },
         "list": {
             "keys": {},
             "function": LayerModel.fetch
@@ -28,10 +32,6 @@ class LayerController:
         "update": {
             'keys': {"type", "name", "width", "height", "id", "a", "b", "c", "d", "x", "y", "rotate", "order", "hidden", "opacity", "blend_mode", "color", "mask"},
             'function': LayerModel.update
-        },
-        "preview": {
-            'keys': {},
-            'function': LayerModel.preview
         },
         "order": {
             'keys': {"id", "order"},
@@ -56,10 +56,6 @@ class LayerController:
         "masked": {
             'keys': {"id", "id2"},
             'function': LayerModel.masked
-        },
-        "update:channel": {
-            'keys': {},
-            'function': LayerModel.channel
         },
     }
 

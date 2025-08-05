@@ -6,11 +6,10 @@ from datetime import datetime
 import shutil
 import copy
 import math
-from generated.paths import ( PUBLIC_BACKUP_FOLDER, PUBLIC_LAYER_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER, PUBLIC_TEMP_CHANNEL_FOLDER, PUBLIC_TEMP_MASK_FOLDER, PUBLIC_FONT_FOLDER )
-from config.data.constant import ( VIEWPORT_CONFIG, LAYERS, CHANNELS, FONTS )
-from model.fonts_model import FontsModel
+from generated.paths import ( PUBLIC_BACKUP_FOLDER, PUBLIC_LAYER_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER, PUBLIC_TEMP_CHANNEL_FOLDER, PUBLIC_TEMP_MASK_FOLDER )
+from config.data.constant import ( VIEWPORT_CONFIG, LAYERS, CHANNELS, PATHS, GROUPS )
 from model.backup_model import BackupModel
-from components import ( generate_channels, apply_color, apply_mask, apply_blend_layer, get_svg_box, generate_svg_map, render_svg)
+from components import ( generate_channels, apply_color, apply_mask, apply_blend_layer, get_svg_box, generate_svg_map, generate_thumbnail_map, render_svg)
 from utils import get_path, apply_rgb_rgba, apply_alpha, time, layer_transform
 
 class LayerModel:
@@ -75,7 +74,9 @@ class LayerModel:
             "matrix": matrix,
             "source": source_id,
             "order": len(LAYERS),
+            "thumbnail": generate_thumbnail_map(id, image_path, 64),
             "hidden": 0,
+            "group": None,
             "opacity": 1,
             "blend_mode": 0,
             "color": "#ffffff",
@@ -146,69 +147,102 @@ class LayerModel:
             layer["color"] = color
         if mask:
             layer["mask"] = mask
-
+        if type != 4:
+            image_path = os.path.join(PUBLIC_LAYER_FOLDER, f"{id}.png")
+            if os.path.exists(image_path):
+                img = Image.open(image_path)
+                transformed_img, paste_x, paste_y = layer_transform(layer, img)
+                layer["thumbnail"] = generate_thumbnail_map(id, path=None, size=64, image=transformed_img)
+            else:
+                print(f"[WARN] Thumbnail skipped – file not found for layer ID: {layer_id}")
         layer["time"] = time('unix_ms')
 
         print(LAYERS)
         return layer, 200
 
     @staticmethod
-    def preview(return_image=False, layer_id=None):
-        if not LAYERS:
-            return {"error": "No layers to preview"}, 404
+    def group(ids, group=None, reset=False):
+        if isinstance(ids, str):
+            ids = [ids]
+        if not isinstance(ids, list):
+            return {"error": "Invalid ID input"}, 400
 
-        viewport_width = VIEWPORT_CONFIG[0]["width"]
-        viewport_height = VIEWPORT_CONFIG[0]["height"]
-        composite_image = Image.new('RGBA', (viewport_width, viewport_height), (0, 0, 0, 0))
-
-        render_layers = []
-        if layer_id:
-            single_layer = next((l for l in LAYERS if l["id"] == layer_id), None)
-            if single_layer is None:
-                return {"error": f"Layer with id '{layer_id}' not found."}, 404
-            render_layers.append(single_layer)
+        if reset:
+            group_id = None
+        elif group is None:
+            group_id = str(uuid.uuid4())
         else:
-            render_layers = [l for l in LAYERS if l.get("hidden", 0) != 1]
+            group_id = group
 
-        for layer in render_layers:
-            if layer.get("type") == 2:  # Path Layer
-                print(layer)
-                layer_img = render_svg(layer['id'])
-                if not layer_img:
-                    continue
-            elif layer.get("type") == 1:  # Text Layer
-                layer_img = FontsModel.render(layer)
-                if not layer_img:
-                    continue
-            else:
-                layer_path = os.path.join(PUBLIC_LAYER_FOLDER, f"{layer['id']}.png")
-                if not os.path.exists(layer_path):
-                    continue
-                layer_img = Image.open(layer_path).convert('RGBA')
+        updated = 0
+        grouped_orders = []
 
-            # Transformation anwenden
-            transformed_img, paste_x, paste_y = layer_transform(
-                layer,
-                layer_img,
-                apply_opacity=True
+        for layer_id in ids:
+            layer = next((l for l in LAYERS if l["id"] == layer_id), None)
+            if not layer:
+                continue
+            grouped_orders.append(layer["order"])
+            layer["group"] = group_id
+            updated += 1
+
+        if updated == 0:
+            return {"error": "No valid layer IDs provided"}, 404
+
+        if reset and group:
+            still_grouped = any(
+                l for l in LAYERS
+                if l.get("group") == group and l.get("type") != 4
             )
+            if not still_grouped:
+                LAYERS[:] = [l for l in LAYERS if not (l["type"] == 4 and l["id"] == group)]
+                LayerModel.delete(group)
+                # Entferne aus GROUPS
+                GROUPS[:] = [g for g in GROUPS if g["id"] != group]
 
-            # In Gesamtdarstellung einfügen
-            composite_image.paste(transformed_img, (paste_x, paste_y), transformed_img)
+        elif not reset and group_id:
+            group_layer = next((l for l in LAYERS if l["type"] == 4 and l["id"] == group_id), None)
+            if not group_layer:
+                # Neue Gruppe einfügen an der höchsten Position ihrer Member-IDs
+                max_order = max(grouped_orders)
 
-        # Speichern & Rückgabe
-        map_id = str(uuid.uuid4())
-        map_filename = f"{map_id}.png"
-        map_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER, map_filename)
-        composite_image.save(map_path, format="PNG", quality=100)
+                # Ermittle Einfügeindex: nach dem letzten Layer mit dieser order
+                insert_index = next(
+                    (i + 1 for i, l in enumerate(LAYERS) if l["order"] == max_order),
+                    len(LAYERS)
+                )
 
-        if return_image:
-            return composite_image
+                # Neue Gruppen-Layer-Struktur
+                group_layer = {
+                    "id": group_id,
+                    "type": 4,
+                    "name": group_id,
+                    "width": 0,
+                    "height": 0,
+                    "matrix": {
+                        "a": 1, "b": 0, "c": 0, "d": 1, "x": 0, "y": 0, "rotate": 0,
+                    },
+                    "order": 0,  # Temporär
+                    "hidden": 1,
+                    "group": group_id,
+                    "groupName": group_id,
+                    "opacity": 1,
+                    "blend_mode": 0,
+                    "color": "#ffffff"
+                }
+
+                # Gruppe an korrekter Stelle einfügen
+                LAYERS.insert(insert_index, group_layer)
+
+                # Neue Ordnung anwenden
+                for i, l in enumerate(LAYERS):
+                    l["order"] = i
+
+                # In GROUPS registrieren
+                GROUPS.append({"id": group_id, "order": group_layer["order"]})
 
         return {
-            "id": map_id,
-            "title": "preview",
-            "src": f"/download/{map_filename}"
+            "message": f"{updated} layer(s) grouped",
+            "group": group_id
         }, 200
 
     @staticmethod
@@ -299,45 +333,81 @@ class LayerModel:
             "mask": '',
         }
 
-        svg_string = generate_svg_map({
-            "points": points,
-            "connections": connections,
-            "closed": closed,
-            "gradient": gradient,
-            "fill": fill,
-            "fillOpacity": fillOpacity,
-            "stroke": stroke,
-            "strokeWidth": strokeWidth,
-            "strokeDashType": strokeDashType,
-            "strokeDash": strokeDash,
-            "strokeDashArray": strokeDashArray
-        })
+        pId = str(uuid.uuid4())
+        path = {
+           "id": pId,
+           "points": points,
+           "connections": connections,
+           "closed": closed,
+           "gradient": gradient,
+           "fill": fill,
+           "fillOpacity": fillOpacity,
+           "stroke": stroke,
+           "strokeWidth": strokeWidth,
+           "strokeDashType": strokeDashType,
+           "strokeDash": strokeDash,
+           "strokeDashArray": strokeDashArray
+       }
+
+        svg_string = generate_svg_map(path)
 
         # Datei speichern
         filename = f"{id}.svg"
+        imgName = f"{id}.png"
         file_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER, filename)
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(svg_string)
 
+        layer_img = render_svg(layer['id'])
+        img_path = os.path.join(PUBLIC_LAYER_FOLDER, imgName)
+        layer_img.save(img_path)
+
         # URL im Layer speichern
         layer["svg"] = f"/download/{filename}"
+        layer["url"] = f"/download/{imgName}"
+        layer["thumbnail"] = generate_thumbnail_map(id, path=img_path, size=64, image=None)
+
 
         LAYERS.append(layer)
         return layer, 200
 
-
     @staticmethod
     def order(id, order):
         order = int(order)
+
+        # Index des gezogenen Layers finden
         index = next((i for i, l in enumerate(LAYERS) if l["id"] == id), None)
         if index is None:
             return {"error": f"Layer with id {id} not found."}, 404
-        moved_layer = LAYERS.pop(index)
-        LAYERS.insert(order, moved_layer)
+
+        dragged_layer = LAYERS[index]
+
+        # Wenn es ein Gruppenlayer ist, alle zugehörigen Layer finden
+        if dragged_layer["type"] == 4:
+            group_id = dragged_layer["id"]
+            group_layers = [l for l in LAYERS if l.get("group") == group_id or l["id"] == group_id]
+
+            # Alte Positionen entfernen
+            LAYERS[:] = [l for l in LAYERS if l not in group_layers]
+
+            # Neue Position einfügen
+            for i, layer in enumerate(group_layers):
+                LAYERS.insert(order + i, layer)
+
+            message = f"Group {group_id} with {len(group_layers)} layers moved to position {order}."
+        else:
+            # Einzelnes Layer bewegen
+            moved_layer = LAYERS.pop(index)
+            LAYERS.insert(order, moved_layer)
+            message = f"Layer {id} moved to position {order}."
+
+        # Neu ordnen
         for i, layer in enumerate(LAYERS):
             layer["order"] = i
             layer["time"] = time('unix_ms')
-        return {"success": True, "message": f"Layer {id} moved to position {order}."}, 200
+
+        return {"success": True, "message": message}, 200
+
 
     @staticmethod
     def paste(id):
@@ -518,48 +588,6 @@ class LayerModel:
             "success": True,
             "message": f"Layer {id} visibility set to {hidden}."
         }, 200
-
-    @staticmethod
-    def channel():
-        if os.path.exists(PUBLIC_TEMP_CHANNEL_FOLDER ):
-            shutil.rmtree(PUBLIC_TEMP_CHANNEL_FOLDER )
-
-        result = LayerModel.preview(return_image=True)
-        if isinstance(result, tuple) and "error" in result[0]:
-            return result
-
-        composite_image = result
-
-        temp_channels = generate_channels(composite_image)
-
-        channel_titles = {
-            "R": "Red",
-            "G": "Green",
-            "B": "Blue",
-            "A": "Alpha"
-        }
-
-        CHANNELS.clear()
-
-        if not os.path.exists(PUBLIC_TEMP_CHANNEL_FOLDER ):
-            os.makedirs(PUBLIC_TEMP_CHANNEL_FOLDER , exist_ok=True)
-
-        for key, img in temp_channels.items():
-            map_id = str(uuid.uuid4())
-            filename = f"{map_id}.png"
-            path = os.path.join(PUBLIC_TEMP_CHANNEL_FOLDER , filename)
-            img.save(path, format="PNG", quality=100)
-
-            CHANNELS.append({
-                "time": time('unix_ms'),
-                "id": f"{map_id}",
-                "name": channel_titles.get(key, key),
-                "url": f"/download/{filename}",
-                "width": img.width,
-                "height": img.height
-            })
-
-        return CHANNELS, 200
 
     @staticmethod
     def mask(id, id2):

@@ -1,6 +1,6 @@
 import os
 from flask import send_from_directory, send_file, jsonify
-from generated.paths import ( PUBLIC_LAYER_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER, PUBLIC_TEMP_CHANNEL_FOLDER, PUBLIC_TEMP_MASK_FOLDER, PUBLIC_TEMP_CURSOR_FOLDER )
+from generated.paths import ( PUBLIC_LAYER_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER, PUBLIC_TEMP_RENDER_FOLDER, PUBLIC_TEMP_CHANNEL_FOLDER, PUBLIC_TEMP_MASK_FOLDER, PUBLIC_TEMP_CURSOR_FOLDER )
 from config.data.constant import ( FRONTEND_PATH )
 import mimetypes
 
@@ -18,6 +18,7 @@ class AppController:
     def download(filename):
         file_paths = [
             os.path.join(PUBLIC_LAYER_FOLDER, filename),
+            os.path.join(PUBLIC_TEMP_RENDER_FOLDER, filename),
             os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER, filename),
             os.path.join(PUBLIC_TEMP_CHANNEL_FOLDER, filename),
             os.path.join(PUBLIC_TEMP_MASK_FOLDER, filename),

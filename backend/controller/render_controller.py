@@ -5,8 +5,20 @@ from config.api.parameter import PARAMETERS
 class RenderController:
 
     METHOD_MAP = {
+        "channel": {
+            'keys': {},
+            'function': RenderModel.channel
+        },
+        "preview": {
+            'keys': {},
+            'function': RenderModel.preview
+        },
+        "thumbnail": {
+            "keys": {"id", "size"},
+            "function": RenderModel.thumbnail
+        },
         "text-path": {
-            "keys": {"id", "write_svg"},
+            "keys": {"id"},
             "function": RenderModel.text_to_path
         },
     }

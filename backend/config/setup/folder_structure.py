@@ -5,12 +5,13 @@ FOLDER_STRUCTURE = {
         "font": None,
         "brush": None,
         "static": None,
-        "backup": None
+        "backup": None,
+        "path": None
     },
     "assets": {
         "brush": None,
         "font": None,
-        "test": None,
+        "path": None,
         "driver": ["windows", "linux", "aarch64"],
     },
     "__DRIVER": {

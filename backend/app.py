@@ -30,6 +30,7 @@ from router.index import register_router
 from model.fonts_model import FontsModel
 from model.brush_model import BrushModel
 from model.layer_model import LayerModel
+from model.path_model import PathModel
 from model.queue_model import QueueModel
 from controller.queue_controller import QueueController, set_queue
 from utils import ( apply_rgb_rgba, apply_alpha, parse_parameters )
@@ -50,6 +51,7 @@ register_router(app)
 
 FontsModel.initialize()
 BrushModel.initialize()
+PathModel.initialize()
 
 # Queue initialisieren
 queue_instance = QueueModel(app)

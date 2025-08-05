@@ -6,7 +6,7 @@ import numpy as np
 from datetime import datetime
 from generated.paths import ( PUBLIC_LAYER_FOLDER, PUBLIC_BACKUP_FOLDER )
 from config.data.constant import ( LAYERS )
-from components import ( apply_color_fill )
+from components import ( apply_color_fill, generate_thumbnail_map )
 from utils import ( apply_rgb_rgba, apply_alpha, time )
 
 class ModifierModel:
@@ -56,8 +56,8 @@ class ModifierModel:
             layer["url"] = f"/download/{new_filename}"
             layer["id"] = new_id
             layer["source"] = id
+            layer["thumbnail"] = generate_thumbnail_map(new_id, path=new_save_path, size=64, image=None)
             layer["time"] = time('unix_ms')
-
             return {
                 "message": "Farbfüllung erfolgreich angewendet.",
                 "url": layer["url"]

@@ -13,6 +13,8 @@ export const localData = {
         indeterminate: true,
         complete: false,
     }),
+    paths: ref([]),
+    selectedPath: ref(null),
     messageTimers: ref(new Map()),
     messages: ref([]),
     queuePending: ref(null),

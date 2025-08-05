@@ -113,7 +113,10 @@ export function layerModel(props, emit) {
             emitEvent('layer:select', [])
         }
         if(index === 1) {
-            emitEvent('update-channel')
+            emitEvent('renderer:channel')
+        }
+        if(index === 2) {
+            emitEvent('path:fetch')
         }
     };
 
@@ -136,7 +139,41 @@ export function layerModel(props, emit) {
         });
     };
 
+    const groupCollapse = reactive({});
+
+    const shouldShowLayer = (layer) => {
+        if (layer.type === 4) return true
+
+        const groupId = layer.group;
+        return !(groupId && groupCollapse[groupId]);
+    };
+
+    const toggleGroupCollapse = (groupId) => {
+        groupCollapse[groupId] = !groupCollapse[groupId];
+    };
+
+    const groupAble = computed(() => {
+        if (props.selectedLayer.length < 2) return false;
+
+        const groupIds = props.selectedLayer.map(layer => layer.group ?? null);
+        const uniqueGroups = [...new Set(groupIds)];
+
+        return uniqueGroups.length === 1 || uniqueGroups.includes(null);
+    });
+
+    const allInSameGroup = computed(() => {
+        if (props.selectedLayer.length < 2) return false;
+
+        const groupId = props.selectedLayer[0].group;
+        return props.selectedLayer.every(layer => layer.group === groupId && groupId !== null);
+    });
+
     return {
+        groupCollapse,
+        shouldShowLayer,
+        toggleGroupCollapse,
+        groupAble,
+        allInSameGroup,
         emitEvent,
         validRule,
         toggleLayerSelection,
@@ -159,6 +196,11 @@ export const layerProps = {
         default: false
     },
     layers: {
+        type: Array,
+        required: true,
+        default: () => [],
+    },
+    paths: {
         type: Array,
         required: true,
         default: () => [],

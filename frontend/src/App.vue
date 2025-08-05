@@ -14,7 +14,7 @@
       <!-- Linker Drawer -->
       <DrawerNew v-model:taskbar-menu="windowStates.drawerLeft.value" v-model:item="activeItemLeft" align="left" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
       <!-- Context Menu -->
-      <Context :state="windowStates.context.value" :copy="contextStates.copy.value" :ref-id="contextConfig.contextRefId.value" :data="contextConfig.contextData.value" v-model:disabled="contextConfig.disabledData.value"  v-model:theme="appData.theme.value" @update:component-event="componentEvent"/>
+      <Context :state="windowStates.context.value" :copy="contextStates.copy.value" :ref-id="contextConfig.contextRefId.value" v-model:data="contextConfig.contextData.value" v-model:disabled="contextConfig.disabledData.value"  v-model:theme="appData.theme.value" @update:component-event="componentEvent"/>
       <!-- Main Content -->
       <v-main>
         <!-- Grid -->
@@ -25,7 +25,7 @@
           <Key v-model:keys="tempData.keys.value" v-model:held-keys="tempData.heldKeys.value"/>
         </Grid>
       </v-main>
-      <Layer style="position: absolute; top: 40px; right: 70px;" :state="windowStates.layer.value" v-model:layers="localData.layers.value" v-model:selected-layer="localData.selectedLayer.value" v-model:channel="localData.channel.value" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
+      <Layer style="position: absolute; top: 40px; right: 70px;" :state="windowStates.layer.value" v-model:layers="localData.layers.value" v-model:paths="localData.paths.value" v-model:selected-layer="localData.selectedLayer.value" v-model:channel="localData.channel.value" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
       <!-- Rechte Taskbar -->
       <Taskbar @taskbar-event="taskbarEvent('right', $event)" align="right" v-model:items="itemsRight" v-model:theme="appData.theme.value" />
       <!-- Rechter Drawer -->

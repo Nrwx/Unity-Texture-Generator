@@ -517,12 +517,12 @@ export function gridModel(props, emit) {
                 const rect = wrapper.value.getBoundingClientRect();
                 wrapperData.value.width = rect.width;
                 wrapperData.value.height = rect.height;
-                register('add', wrapper.value, 'mousedown',  resetSelection);
+                register('add', wrapper.value, 'mousedown', resetSelection);
             }
 
             if (canvas.value) {
-                register('add', canvas.value, 'mousedown',  mouseDown);
-                register('add', document, 'mousemove',  mouseMove);
+                register('add', canvas.value, 'mousedown', mouseDown);
+                register('add', document, 'mousemove', mouseMove);
                 register('add', document, 'keydown', keyDown);
                 register('add', document, 'keyup', keyUp);
             }

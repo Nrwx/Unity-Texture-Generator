@@ -163,6 +163,9 @@ PARAMETERS = {
         "blend_mode": {"type": int, "default": 0},
         "color": {"type": str, "default": "#000000"},
         "mask": {"type": str, "default": ""},
+        "ids": {"type": list, "default": []},
+        "group": {"type": str, "default": None},
+        "reset": {"type": bool, "default": False},
 
         # TextLayer spezifisch
         "font": {"type": str, "default": ""},
@@ -218,7 +221,26 @@ PARAMETERS = {
     },
     "renderer": {
         "method": {"type": str, "required": True},
-        "id": {"type": str, "required": True},
-        "write_svg": {"type": bool, "required": False, "default": False},
+        "id": {"type": str, "default": ""},
+        "size": {"type": int, "default": 128},
+    },
+    "path": {
+        "method": {"type": str, "required": True},
+        "name": {"type": str, "default": ""},
+        "id": {"type": str, "default": ""},
+        "stroke": {"type": str, "default": "#000000"},
+        "strokeWidth": {"type": float, "default": 1.5},
+        "strokeDash": {"type": float, "default": 0},
+        "strokeDashType": {"type": str, "default": ""},
+        "strokeDashArray": {"type": list, "default": []},
+        "fill": {"type": str, "default": "#ffffff"},
+        "fillOpacity": {"type": float, "default": 1.0},
+        "points": {"type": list, "default": []},
+        "connections": {"type": list, "default": []},
+        "gradient": {"type": dict, "default": {}},
+        "closed": {"type": bool, "default": False},
+        "edit": {"type": bool, "default": True},
+        "width": {"type": int, "default": 0},
+        "height": {"type": int, "default": 0}
     },
 }

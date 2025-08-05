@@ -55,6 +55,7 @@ export const canvasStates = {
 
 export const contextStates = {
     copy: ref(false),
+    textPath: ref(false)
 };
 
 export const backupStates = {

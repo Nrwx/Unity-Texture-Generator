@@ -9,7 +9,7 @@
 
   <v-card-actions>
     <v-spacer />
-    <v-btn width="50%" text @click="emitEvent('pen:path-state', false)">Abbrechen</v-btn>
+    <v-btn width="50%" @click="cancel">Abbrechen</v-btn>
     <v-btn width="50%" color="primary" @click="save">Speichern</v-btn>
   </v-card-actions>
 </template>
@@ -26,9 +26,10 @@ export default defineComponent({
     Form
   },
   setup(props, { emit }) {
-    const { config, operation, emitEvent, save} = pathModel(emit);
+    const { cancel, config, operation, emitEvent, save} = pathModel(emit);
 
     return {
+      cancel,
       config,
       operation,
       emitEvent,

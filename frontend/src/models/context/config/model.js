@@ -27,6 +27,7 @@ export const contextConfig = {
             icon: 'mdi-pencil',
             action: 'edit',
             children: [
+                { active: true, label: 'Zu Form umwandeln', icon: 'mdi-format-text', action: 'text-path', disabled: false },
                 { active: true, label: 'Kopieren', icon: 'mdi-content-copy', action: 'copy', disabled: false },
                 { active: true, label: 'Einfügen', icon: 'mdi-content-paste', action: 'paste', disabled: false },
                 { active: false, label: 'Abbrechen', icon: 'mdi-cancel', action: 'cancel', disabled: false},

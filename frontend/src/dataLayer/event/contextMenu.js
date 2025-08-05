@@ -14,6 +14,9 @@ export const contextMenuEvent = (route) => ({
                 console.log('Aktion:', action, 'auf Datei:', contextId)
             }
         }
+        else if(action === 'text-path') {
+            await route.emit('renderer:text-to-path', {mode: 'text-path', id: contextId})
+        }
         else if(action === 'copy') {
             route.emit('context-menu-copy', {state: true, id: contextId})
             console.log('Element kopiert', contextId)

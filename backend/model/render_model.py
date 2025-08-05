@@ -1,148 +1,162 @@
 import os
 import uuid
-from fontTools.ttLib import TTFont
-from fontTools.pens.basePen import BasePen
-from io import BytesIO
-import svgwrite
-from generated.paths import PUBLIC_FONT_FOLDER, PUBLIC_TEMP_RENDER_FOLDER
-from config.data.constant import (FONTS, LAYERS)
-import cairosvg
+import shutil
+from config.data.constant import (LAYERS, VIEWPORT_CONFIG, CHANNELS)
+from controller.layer_controller import LayerController
+from model.fonts_model import FontsModel
+from components import (generate_channels, generate_text_path_map, render_svg, generate_thumbnail_map)
+from generated.paths import (PUBLIC_TEMP_RENDER_FOLDER, PUBLIC_LAYER_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER, PUBLIC_TEMP_CHANNEL_FOLDER )
+from PIL import Image
+from utils import (layer_transform, time)
 
 class RenderModel:
 
-   @staticmethod
-   def text_to_path(id, write_svg=False):
-       # Layer aus globaler LAYERS-Liste suchen
-       layer = next((l for l in LAYERS if l.get("id") == id), None)
-       if not layer:
-           raise ValueError(f"Layer mit ID '{id}' nicht gefunden")
+    @staticmethod
+    def channel():
+        if os.path.exists(PUBLIC_TEMP_CHANNEL_FOLDER):
+            shutil.rmtree(PUBLIC_TEMP_CHANNEL_FOLDER)
 
-       text = layer.get("text", "")
-       font_id = layer.get("font")
-       font_size = int(layer.get("fontSize", 20))
-       color = layer.get("color", "#000000")
+        result = RenderModel.preview(return_image=True)
+        if isinstance(result, tuple) and "error" in result[0]:
+            return result
 
-       # Font suchen
-       font_path = None
-       for group in FONTS:
-           for child in group.get("children", []):
-               if child.get("id") == font_id:
-                   font_path = os.path.join(PUBLIC_FONT_FOLDER, group["id"], os.path.basename(child["path"]))
-                   break
-           if font_path:
-               break
+        composite_image = result
+        temp_channels = generate_channels(composite_image)
 
-       if not font_path or not os.path.exists(font_path):
-           raise FileNotFoundError("Font not found")
+        channel_titles = {
+            "R": "Red",
+            "G": "Green",
+            "B": "Blue",
+            "A": "Alpha"
+        }
 
-       font = TTFont(font_path)
-       glyph_set = font.getGlyphSet()
-       cmap = font['cmap'].getcmap(3, 1).cmap
-       units_per_em = font['head'].unitsPerEm
-       scale = font_size / units_per_em
+        CHANNELS.clear()
 
-       all_points = []
-       connections = []
-       x_cursor = 0
-       point_index = 0
+        if not os.path.exists(PUBLIC_TEMP_CHANNEL_FOLDER):
+            os.makedirs(PUBLIC_TEMP_CHANNEL_FOLDER, exist_ok=True)
 
-       class PathPen(BasePen):
-           def __init__(self, glyphSet):
-               super().__init__(glyphSet)
-               self.path_points = []
-               self.path_connections = []
+        for key, img in temp_channels.items():
+            map_id = str(uuid.uuid4())
+            filename = f"{map_id}.png"
+            path = os.path.join(PUBLIC_TEMP_CHANNEL_FOLDER, filename)
+            img.save(path, format="PNG", quality=100)
+            thumbnail_url = RenderModel.thumbnail(map_id, path, size=64)
+            CHANNELS.append({
+                "time": time('unix_ms'),
+                "id": map_id,
+                "name": channel_titles.get(key, key),
+                "url": f"/download/{filename}",
+                "thumbnail": thumbnail_url,
+                "width": img.width,
+                "height": img.height
+            })
 
-           def _moveTo(self, p0):
-               self.path_points.append({"x": p0[0], "y": -p0[1], "linear": True})
+        # 📸 Generiere Thumbnails für alle Channels
 
-           def _lineTo(self, p1):
-               self.path_points.append({"x": p1[0], "y": -p1[1], "linear": True})
-               self.path_connections.append([len(self.path_points) - 2, len(self.path_points) - 1])
+        return CHANNELS, 200
 
-           def _curveToOne(self, p1, p2, p3):
-               idx = len(self.path_points)
-               self.path_points.append({
-                   "x": p3[0], "y": -p3[1],
-                   "linear": False,
-                   "bezier": {
-                       "cp1": {"x": p1[0], "y": -p1[1]},
-                       "cp2": {"x": p2[0], "y": -p2[1]},
-                   }
-               })
-               self.path_connections.append([idx - 1, idx])
+    @staticmethod
+    def thumbnail(id, path, size=128):
+        """
+        Erzeugt ein Thumbnail über externe Utility und gibt die URL zurück.
+        """
+        return generate_thumbnail_map(id, path, size)
 
-           def _closePath(self):
-               if len(self.path_points) > 1:
-                   self.path_connections.append([len(self.path_points) - 1, 0])
 
-       for char in text:
-           glyph_name = cmap.get(ord(char))
-           if not glyph_name:
-               continue
-           glyph = glyph_set[glyph_name]
-           pen = PathPen(glyph_set)
-           glyph.draw(pen)
+    @staticmethod
+    def preview(return_image=False, layer_id=None):
+        if not LAYERS:
+            return {"error": "No layers to preview"}, 404
 
-           for p in pen.path_points:
-               p["x"] = (p["x"] + x_cursor) * scale
-               p["y"] = p["y"] * scale
-               all_points.append(p)
+        viewport_width = VIEWPORT_CONFIG[0]["width"]
+        viewport_height = VIEWPORT_CONFIG[0]["height"]
+        composite_image = Image.new('RGBA', (viewport_width, viewport_height), (0, 0, 0, 0))
 
-           for conn in pen.path_connections:
-               connections.append([
-                   point_index + conn[0],
-                   point_index + conn[1]
-               ])
+        render_layers = []
+        if layer_id:
+            single_layer = next((l for l in LAYERS if l["id"] == layer_id), None)
+            if single_layer is None:
+                return {"error": f"Layer with id '{layer_id}' not found."}, 404
+            render_layers.append(single_layer)
+        else:
+            render_layers = [l for l in LAYERS if l.get("hidden", 0) != 1]
 
-           point_index += len(pen.path_points)
-           x_cursor += glyph.width
+        for layer in render_layers:
+            if layer.get("type") == 2:  # Path Layer
+                layer_img = render_svg(layer['id'])
+                if not layer_img:
+                    continue
+            elif layer.get("type") == 1:  # Text Layer
+                layer_img = FontsModel.render(layer)
+                if not layer_img:
+                    continue
+            else:
+                layer_path = os.path.join(PUBLIC_LAYER_FOLDER, f"{layer['id']}.png")
+                if not os.path.exists(layer_path):
+                    continue
+                layer_img = Image.open(layer_path).convert('RGBA')
 
-       width = max([p["x"] for p in all_points]) - min([p["x"] for p in all_points]) if all_points else 0
-       height = max([p["y"] for p in all_points]) - min([p["y"] for p in all_points]) if all_points else 0
+            # Transformation anwenden
+            transformed_img, paste_x, paste_y = layer_transform(
+                layer,
+                layer_img,
+                apply_opacity=True
+            )
 
-       result = {
-           "name": "TextForm",
-           "closed": False,
-           "edit": True,
-           "width": width,
-           "height": height,
-           "points": all_points,
-           "connections": connections,
-           "stroke": "#000000",
-           "strokeWidth": 1,
-           "strokeDash": 0,
-           "strokeDashArray": [],
-           "strokeDashType": '',
-           "fill": color,
-           "fillOpacity": 1,
-           "gradient": {
-               "type": "linear",
-               "angle": 90,
-               "stops": [],
-           }
-       }
+            # In Gesamtdarstellung einfügen
+            composite_image.paste(transformed_img, (paste_x, paste_y), transformed_img)
 
-       if write_svg:
-           dwg = svgwrite.Drawing(size=(f"{width}px", f"{height}px"))
-           for conn in connections:
-               p1 = all_points[conn[0]]
-               p2 = all_points[conn[1]]
-               if p2.get("linear", True):
-                   dwg.add(dwg.line(start=(p1["x"], height - p1["y"]), end=(p2["x"], height - p2["y"]), stroke=color))
-               else:
-                   cp1 = p2["bezier"]["cp1"]
-                   cp2 = p2["bezier"]["cp2"]
-                   path_data = f"M {p1['x']},{height - p1['y']} C {cp1['x']},{height - cp1['y']} {cp2['x']},{height - cp2['y']} {p2['x']},{height - p2['y']}"
-                   dwg.add(dwg.path(d=path_data, fill="none", stroke=color))
+        # Speichern & Rückgabe
+        map_id = str(uuid.uuid4())
+        map_filename = f"{map_id}.png"
+        map_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER, map_filename)
+        composite_image.save(map_path, format="PNG", quality=100)
 
-           svg_path = os.path.join(PUBLIC_TEMP_RENDER_FOLDER, f"{uuid.uuid4()}.svg")
-           dwg.saveas(svg_path)
+        if return_image:
+            return composite_image
 
-           try:
-               cairosvg.svg2png(url=svg_path, write_to=svg_path.replace(".svg", ".png"))
-           except Exception as e:
-               print(f"⚠️ CairoSVG Fehler: {e}")
+        return {
+            "id": map_id,
+            "title": "preview",
+            "src": f"/download/{map_filename}"
+        }, 200
 
-           result["svgPath"] = svg_path
+    @staticmethod
+    def text_to_path(id):
+        layer = next((l for l in LAYERS if l.get("id") == id), None)
+        if not layer:
+            raise ValueError(f"Layer mit ID '{id}' nicht gefunden")
 
-       return result
+        path_map = generate_text_path_map(layer)
+
+        add_form = {
+            "method": "addPath",
+            "name": "TextForm",
+            "points": path_map["points"],
+            "connections": path_map["connections"],
+            "stroke": "#000000",
+            "strokeWidth": 0,
+            "strokeDashArray": [],
+            "strokeDash": 0,
+            "strokeDashType": "",
+            "fill": path_map["fill"],
+            "fillOpacity": 1,
+            "gradient": {"type": "linear", "angle": 90, "stops": []},
+            "closed": True
+        }
+        new_layer, status_code = LayerController.handle(add_form)
+        if status_code != 200:
+            return {"error": "Neuer Pfad-Layer konnte nicht hinzugefügt werden"}, 500
+
+        delete_form = {
+            "method": "delete",
+            "id": layer["id"]
+        }
+        delete_result, delete_status = LayerController.handle(delete_form)
+        if delete_status != 200:
+            return {"error": "Alter Layer konnte nicht gelöscht werden"}, 500
+
+        if layer in LAYERS:
+            LAYERS.remove(layer)
+
+        return {"message": f"Umwandlung erfolgreich auf ID {new_layer['id']}"}, 200

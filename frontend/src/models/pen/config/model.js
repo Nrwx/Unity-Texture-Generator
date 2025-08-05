@@ -24,5 +24,5 @@ export const pathLayer = ref({
         type: 'linear',
         angle: 90,
         stops: [],
-    },
+    }
 });

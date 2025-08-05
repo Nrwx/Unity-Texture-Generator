@@ -41,28 +41,24 @@ export const layerEvent = (route) => ({
             await route.emit("fetch-layer");
         }
     },
+    "group-layer": async (payload) => {
+        const ids = payload.ids.map(x => x.id);
+        const data = {
+            ...payload,
+            ids: ids
+        };
+        const response = await route.api.groupLayer(data);
+        if (response) {
+            await route.emit("layer:select", []);
+            await route.emit("fetch-layer");
+        }
+    },
     "paste-layer": async (payload) => {
         const response = await route.api.pasteLayer(payload);
         if (response) {
             await route.emit("fetch-layer");
         }
-    },
-    "preview-layer": async () => {
-        route.localData.loading.value = true
-        route.windowStates.fullscreen.value = true;
-        const response = await route.api.previewLayers();
-        if (response) {
-            const payload = {
-                title: response.title,
-                id: response.id,
-                src: response.src,
-            }
-            const data = route.emit('fullscreen-state', payload)
-            if(data) {
-                route.localData.loading.value = false;
-            }
-        }
-    },
+    }
 });
 
 export const layerModifierEvent = (route) => ({
@@ -155,12 +151,12 @@ export const pathLayerEvent = (route) => ({
     "add-path-layer": async (payload) => {
         const response = await route.api.addPathLayer(payload);
         if (response) {
+            await  route.emit('path:add', payload);
             await route.emit("fetch-layer");
         }
     },
     "update:path-layer": async (payload) => {
         route.pathLayer.value = payload;
-        console.log(route.pathLayer)
     },
     "path:edit": async (payload) => {
         route.windowStates.pathEdit.value = payload;
@@ -182,7 +178,6 @@ export const pathModifierEvent = (route) => ({
     },
     "apply-path-gradient": (payload) => {
         route.pathLayer.value.gradient = payload;
-        console.log(payload)
     },
     "apply-path-stroke-width": (payload) => {
         route.pathLayer.value.strokeWidth = payload;
