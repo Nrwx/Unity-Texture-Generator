@@ -708,4 +708,8 @@ export const gridProps = {
         type: String,
         required: false,
     },
+    pathImport: {
+        type: Boolean,
+        required: true,
+    },
 };

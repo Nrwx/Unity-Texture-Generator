@@ -116,37 +116,7 @@ export function pathModel(emit) {
     };
 
     const cancel = () => {
-        const data =  {
-            name: 'Form',
-            closed: false,
-            edit: true,
-
-            width: 0,
-            height: 0,
-
-            points: [],
-            connections: [],
-
-            // Style-Attribute für Stroke/Fill
-            stroke: '#000000',
-            strokeWidth: 1,
-            strokeDash: 0,
-            strokeDashArray: [],
-            strokeDashType: '',
-            fill: '#ffffff',
-            fillOpacity: 1,
-            gradient: {
-                type: 'linear',
-                angle: 90,
-                stops: [],
-            },
-        };
-
-        emitEvent('update:path-layer', data)
-        emitEvent('pen:path-state', false)
-        emitEvent('drawer-center-state', false)
-        emitEvent('path:close', false)
-        emitEvent('path:edit', true)
+        emitEvent('path:reset', false)
     };
 
     return {

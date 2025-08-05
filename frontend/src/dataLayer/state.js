@@ -26,6 +26,7 @@ export const windowStates = {
     path: ref(false),
     pathEdit: ref(false),
     pathClose: ref(false),
+    pathImport: ref(false),
     context: ref(false),
     color: ref(false),
     drawing: ref(false),

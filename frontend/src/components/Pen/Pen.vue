@@ -3,7 +3,7 @@
     <canvas
         ref="canvas"
     ></canvas>
-    <Dialog :data="config" @update:component-event="emitEvent" :state="pathState" :loading="loading" :theme="theme">
+    <Dialog :data="config" @update:component-event="emitEvent" :state="pathState || pathImport" :loading="loading" :theme="theme">
       <template #header>
         <div class="d-flex align-center flex-wrap">
           <div>
@@ -23,12 +23,15 @@
       </template>
 
       <template #action>
-        <v-btn @click="handlePath({edit: true})" color="error" variant="flat">
+        <v-btn v-if="pathState && !pathImport" @click="handlePath({edit: true})" color="error" variant="flat">
           Weiter
+        </v-btn>
+        <v-btn v-else @click="cancel" color="grey" variant="flat">
+          Abbrechen
         </v-btn>
         <v-spacer/>
         <v-btn @click="handlePath" color="error" variant="flat">
-          Pfad schließen
+          {{ pathState && !pathImport ? 'Pfad schließen' : 'Pfad importieren' }}
         </v-btn>
       </template>
     </Dialog>
@@ -49,6 +52,7 @@ export default defineComponent({
       pointsLength,
       canvas,
       config,
+      cancel,
       handlePath,
       emitEvent
     } = penModel(props, emit);
@@ -57,6 +61,7 @@ export default defineComponent({
       pointsLength,
       canvas,
       config,
+      cancel,
       handlePath,
       emitEvent
     };

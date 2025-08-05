@@ -30,7 +30,7 @@ export function viewportModel(props, emit) {
         props.settings.width = preset.width;
         props.settings.height = preset.height;
         props.settings.layer = preset.title;
-        emitEvent('viewport-setting', props.settings);
+        emitEvent('"viewport-setup', props.settings);
     };
 
     return {

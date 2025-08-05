@@ -11,7 +11,7 @@ export function pathModel(props, emit) {
         emitEvent('path:close', true);
         emitEvent('path:edit', false)
         emitEvent('pen-state', true)
-        emitEvent('pen:path-state', true);
+        emitEvent('path:import', true)
     };
 
     onMounted(async () => {

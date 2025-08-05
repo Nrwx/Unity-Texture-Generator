@@ -1,10 +1,7 @@
 <template>
   <!-- Path-Liste -->
   <v-list
-      density="comfortable"
-      two-line
-      class="path-list overflow-hidden"
-      bg-color="transparent"
+      density="comfortable" two-line class="layer-list overflow-hidden" bg-color="transparent"
   >
     <v-list-item
         v-for="(path) in data.filter(x => !x.default)"
@@ -29,8 +26,7 @@
         <v-text-field
             v-model="path.name"
             variant="outlined"
-            min-width="100"
-            max-width="150"
+            min-width="160"
             :hide-details="true"
             @click.stop
         >

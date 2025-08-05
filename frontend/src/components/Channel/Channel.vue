@@ -11,8 +11,7 @@
         <v-text-field
             v-model="channel.name"
             variant="outlined"
-            min-width="100"
-            max-width="150"
+            min-width="160"
             :hide-details="true"
             @click.stop
         >

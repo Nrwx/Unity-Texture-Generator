@@ -160,9 +160,49 @@ export const pathLayerEvent = (route) => ({
     },
     "path:edit": async (payload) => {
         route.windowStates.pathEdit.value = payload;
+        route.emit('path:import', false)
     },
     "path:close": async (payload) => {
         route.windowStates.pathClose.value = payload;
+        route.emit('path:import', false)
+    },
+    "path:import": async (payload) => {
+        route.windowStates.pathImport.value = payload;
+    },
+    "path:reset": async (payload) => {
+        await route.emit('pen-state', payload)
+        await route.emit('pen:path-state', payload)
+        await route.emit('path:import', payload)
+        await route.emit('drawer-center-state', payload)
+
+        const data =  {
+            name: 'Form',
+            closed: false,
+            edit: true,
+
+            width: 0,
+            height: 0,
+
+            points: [],
+            connections: [],
+
+            // Style-Attribute für Stroke/Fill
+            stroke: '#000000',
+            strokeWidth: 1,
+            strokeDash: 0,
+            strokeDashArray: [],
+            strokeDashType: '',
+            fill: '#ffffff',
+            fillOpacity: 1,
+            gradient: {
+                type: 'linear',
+                angle: 90,
+                stops: [],
+            },
+        };
+        await route.emit('update:path-layer', data)
+        await route.emit('path:edit', !payload)
+        await route.emit('path:close', payload)
     },
 });
 

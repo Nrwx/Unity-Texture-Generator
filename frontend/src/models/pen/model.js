@@ -970,6 +970,10 @@ export function penModel(props, emit) {
         }
     };
 
+    const cancel = () => {
+        emitEvent('path:reset', false)
+    };
+
     const handlePath = (payload) => {
         if (payload.edit) {
             props.pathLayer.closed = false;
@@ -1049,6 +1053,7 @@ export function penModel(props, emit) {
         config,
         pointsLength,
         anchorMenu,
+        cancel,
         handlePath,
         emitEvent
     };
@@ -1057,6 +1062,7 @@ export function penModel(props, emit) {
 export const penProps = {
     state: { type: Boolean, required: true },
     pathState: { type: Boolean, required: true },
+    pathImport: { type: Boolean, required: true },
     viewport: { type: Object, required: true },
     pathLayer: { type: Object, required: true },
     loading: { type: Boolean, required: true },
