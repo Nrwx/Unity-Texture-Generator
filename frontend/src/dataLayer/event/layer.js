@@ -162,8 +162,8 @@ export const pathLayerEvent = (route) => ({
         route.windowStates.pathEdit.value = payload;
         route.emit('path:import', false)
     },
-    "path:close": async (payload) => {
-        route.windowStates.pathClose.value = payload;
+    "path:lock": async (payload) => {
+        route.windowStates.pathLock.value = payload;
         route.emit('path:import', false)
     },
     "path:import": async (payload) => {
@@ -202,7 +202,7 @@ export const pathLayerEvent = (route) => ({
         };
         await route.emit('update:path-layer', data)
         await route.emit('path:edit', !payload)
-        await route.emit('path:close', payload)
+        await route.emit('path:lock', payload)
     },
 });
 

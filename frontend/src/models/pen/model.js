@@ -57,44 +57,82 @@ export function penModel(props, emit) {
         const idx = findPointAtPos({ x: props.mouse.x, y: props.mouse.y });
         if (idx === -1) return;
 
+        toggleBezierWithNeighbors(idx);
+        draw();
+    };
+
+    const toggleBezierWithNeighbors = (idx) => {
         const p = props.pathLayer.points[idx];
+        if (!p) return;
+
         const prev = props.pathLayer.points[idx - 1];
         const next = props.pathLayer.points[idx + 1];
 
         p.linear = !p.linear;
 
         if (p.linear) {
-            // Zurück zu linear → Bezier-Daten löschen
+            // Zurück zu linear – alles entfernen
             p.bezier = null;
+            if (prev?.bezier) prev.bezier.cp2 = null;
+            if (next?.bezier) next.bezier.cp1 = null;
+
             anchorMenu.visible = false;
+            anchorMenu.points = null;
+            anchorMenu.midPoint = null;
         } else {
-            // Initialisiere Bezier-Daten
+            // Initiale Bézier-Daten
             const cpDistance = 40;
             p.bezier = {
                 cp1: { x: p.x - cpDistance, y: p.y },
                 cp2: { x: p.x + cpDistance, y: p.y }
             };
 
-            // Logik: cp1 oder cp2 linear, je nach Vorgänger
-            if (prev?.linear) {
-                // Vorgänger ist linear → cp1 linear, cp2 bezier
-                p.bezier.cp1 = { x: p.x, y: p.y };
-            } else {
-                // Vorgänger ist bezier → cp1 bezier, cp2 linear
-                p.bezier.cp2 = { x: p.x, y: p.y };
-            }
+            // Ensure anchor object exists
+            p.anchor = p.anchor || { start: { x: p.x, y: p.y }, end: { x: p.x, y: p.y }, neighbors: {} };
 
-            // Menü vorbereiten, falls sinnvoll
-            const neighbor = prev || next;
-            if (neighbor) {
-                anchorMenu.visible = true;
-                anchorMenu.points = [p, neighbor];
-                anchorMenu.midPoint = calcMidAnchorPoint(p, neighbor);
-                updateBezierControls(true);
-            }
+
+            setupNeighbor(prev, true, cpDistance, p);
+            setupNeighbor(next, false, cpDistance, p);
+        }
+    };
+
+
+    const setupNeighbor = (neighbor, isPrev, cpDistance, self) => {
+        if (!neighbor) return;
+
+        const idxSelf = props.pathLayer.points.indexOf(self);
+        const idxNeighbor = props.pathLayer.points.indexOf(neighbor);
+        if (idxSelf === -1 || idxNeighbor === -1) return;
+
+        neighbor.anchor = neighbor.anchor || {
+            start: { x: neighbor.x, y: neighbor.y },
+            end: { x: neighbor.x, y: neighbor.y },
+            neighbors: {}
+        };
+
+        if (neighbor.linear === true) {
+            neighbor.linear = false;
+            neighbor.bezier = {
+                cp1: { x: neighbor.x - cpDistance, y: neighbor.y },
+                cp2: { x: neighbor.x + cpDistance, y: neighbor.y }
+            };
         }
 
-        draw();
+        // Midpoint berechnen
+        const mid = calcMidAnchorPoint(self, neighbor);
+
+        // Neighbors setzen
+        self.anchor.neighbors[idxNeighbor] = { mid };
+        neighbor.anchor.neighbors[idxSelf] = { mid };
+
+        // anchorMenu setzen, wenn ein Punkt ausgewählt ist
+        if (self.selected || neighbor.selected) {
+            anchorMenu.visible = true;
+            anchorMenu.points = isPrev ? [neighbor, self] : [self, neighbor];
+            anchorMenu.midPoint = mid;
+            anchorMenu.selectedAnchor = null;
+            updateBezierControls(true);
+        }
     };
 
 
@@ -153,6 +191,9 @@ export function penModel(props, emit) {
             draw();
         }
     };
+
+
+
 
     /**
      * Beschränkt cp auf maximal `maxRatio` der Länge von A nach B.
@@ -277,18 +318,22 @@ export function penModel(props, emit) {
     };
 
     const findControlPointAtPos = (pos, radius = 6) => {
-        const [pA, pB] = anchorMenu.points;
-        if (!pA?.bezier || !pB?.bezier) return null;
+        if(anchorMenu.visible &&
+            Array.isArray(anchorMenu.points) &&
+            anchorMenu.points.length >= 2) {
+            const [pA, pB] = anchorMenu.points;
+            if (!pA?.bezier || !pB?.bezier) return null;
 
-        // Nur prüfen, wenn cp2 wirklich da ist
-        if (pA.bezier.cp2 && isOnAnchorPoint(pos, pA.bezier.cp2, radius)) {
-            anchorMenu.selectedAnchor = 'cp2';
-            return { point: pA, control: 'cp2' };
-        }
-        // Dasselbe für cp1
-        if (pB.bezier.cp1 && isOnAnchorPoint(pos, pB.bezier.cp1, radius)) {
-            anchorMenu.selectedAnchor = 'cp1';
-            return { point: pB, control: 'cp1' };
+            // Nur prüfen, wenn cp2 wirklich da ist
+            if (pA.bezier.cp2 && isOnAnchorPoint(pos, pA.bezier.cp2, radius)) {
+                anchorMenu.selectedAnchor = 'cp2';
+                return { point: pA, control: 'cp2' };
+            }
+            // Dasselbe für cp1
+            if (pB.bezier.cp1 && isOnAnchorPoint(pos, pB.bezier.cp1, radius)) {
+                anchorMenu.selectedAnchor = 'cp1';
+                return { point: pB, control: 'cp1' };
+            }
         }
 
         return null;
@@ -302,15 +347,15 @@ export function penModel(props, emit) {
 
     // Update der Bezier-Kontrollpunkte
     const updateBezierControls = (force = false) => {
-        if (!anchorMenu.visible || !anchorMenu.midPoint) return;
+        if (!anchorMenu.visible || !anchorMenu.midPoint || !Array.isArray(anchorMenu.points)) return;
+        if (anchorMenu.points.length !== 2) return;
 
         const [pA, pB] = anchorMenu.points;
+        if (!pA || !pB) return;
+
         const idxA = props.pathLayer.points.indexOf(pA);
         const idxB = props.pathLayer.points.indexOf(pB);
         const mid = anchorMenu.midPoint;
-
-        // Sicherheitscheck
-        if (!pA || !pB || !mid) return;
 
         const aIsLinear = pA.linear === true;
         const bIsLinear = pB.linear === true;
@@ -355,8 +400,13 @@ export function penModel(props, emit) {
             anchorMenu.anchorArms.cp2 = cp2;
         }
 
-        if (pA.anchor?.neighbors) pA.anchor.neighbors[idxB].mid = { ...mid };
-        if (pB.anchor?.neighbors) pB.anchor.neighbors[idxA].mid = { ...mid };
+        if (pA.anchor?.neighbors?.[idxB]) {
+            pA.anchor.neighbors[idxB].mid = { ...mid };
+        }
+
+        if (pB.anchor?.neighbors?.[idxA]) {
+            pB.anchor.neighbors[idxA].mid = { ...mid };
+        }
     };
 
 
@@ -543,8 +593,11 @@ export function penModel(props, emit) {
 
 
     const isValidAnchorMenu = () => {
+        if (!Array.isArray(anchorMenu.points) || anchorMenu.points.length < 2) return false;
+
         const [pA, pB] = anchorMenu.points;
         const mid = anchorMenu.midPoint;
+
         return (
             anchorMenu.visible &&
             pA && pB && mid &&
@@ -581,7 +634,11 @@ export function penModel(props, emit) {
 
         // Strg gedrückt → Anker-/Kontrollpunkt-Modus
         if (ctrl) {
-            if (anchorMenu.visible && anchorMenu.points?.length >= 2) {
+            if (
+                anchorMenu.visible &&
+                Array.isArray(anchorMenu.points) &&
+                anchorMenu.points.length >= 2
+            ) {
                 const [pA, pB] = anchorMenu.points;
                 if (pA?.anchor && isOnAnchorPoint(pos, pA.anchor.start)) {
                     draggedAnchor.value = 'start';
@@ -759,7 +816,7 @@ export function penModel(props, emit) {
                 }
             });
 
-            if (anchorMenu.points?.length >= 2 && anchorMenu.props.pathLayer.points.includes(p)) {
+            if (anchorMenu.points?.length >= 2 && anchorMenu.points.includes(p)) {
                 const [pA, pB] = anchorMenu.points;
                 if (!pA || !pB) return;
 
@@ -979,24 +1036,23 @@ export function penModel(props, emit) {
             props.pathLayer.closed = false;
             props.pathLayer.edit = true;
             emitEvent('path:edit', true)
-            emitEvent('path:close', false)
+            emitEvent('path:lock', false)
         } else {
             props.pathLayer.closed = true;
             props.pathLayer.edit = false;
 
             if (props.pathLayer.points.length >= 3) {
                 const first = props.pathLayer.points[0];
-                const newPoint = JSON.parse(JSON.stringify(first));
+                const lastIndex = props.pathLayer.points.length - 1;
+                const last = props.pathLayer.points[lastIndex];
 
-                newPoint.selected = false;
-                newPoint.pulseAt = Date.now();
+                // Verbindung von letztem zu erstem Punkt herstellen
+                props.pathLayer.connections.push([lastIndex, 0]);
 
-                props.pathLayer.points.push(newPoint);
-                props.pathLayer.connections.push([props.pathLayer.points.length - 2, props.pathLayer.points.length - 1]);
+                // Pulse am ersten Punkt auslösen
+                first.pulseAt = Date.now();
 
-                const idxFirst = 0;
-                const idxLast = props.pathLayer.points.length - 1;
-
+                // Anker vorbereiten (falls nicht vorhanden)
                 if (!first.anchor) {
                     first.anchor = {
                         start: { x: first.x, y: first.y },
@@ -1004,21 +1060,23 @@ export function penModel(props, emit) {
                         neighbors: {}
                     };
                 }
-                if (!newPoint.anchor) {
-                    newPoint.anchor = {
-                        start: { x: newPoint.x, y: newPoint.y },
-                        end: { x: newPoint.x, y: newPoint.y },
+                if (!last.anchor) {
+                    last.anchor = {
+                        start: { x: last.x, y: last.y },
+                        end: { x: last.x, y: last.y },
                         neighbors: {}
                     };
                 }
 
-                first.anchor.neighbors[idxLast] = { mid: calcMidAnchorPoint(first, newPoint) };
-                newPoint.anchor.neighbors[idxFirst] = { mid: calcMidAnchorPoint(newPoint, first) };
+                // Nachbarschaft für Bezier-Verbindungen definieren
+                first.anchor.neighbors[lastIndex] = { mid: calcMidAnchorPoint(first, last) };
+                last.anchor.neighbors[0] = { mid: calcMidAnchorPoint(last, first) };
 
-                if (first.bezier) {
-                    newPoint.bezier = {
-                        cp1: { ...first.bezier.cp1 },
-                        cp2: { ...first.bezier.cp2 }
+                // Optional: Bezier-Kontrollpunkte übernehmen, wenn vorhanden
+                if (last.bezier) {
+                    first.bezier = {
+                        cp1: { ...last.bezier.cp1 },
+                        cp2: { ...last.bezier.cp2 }
                     };
                 }
 
@@ -1027,7 +1085,7 @@ export function penModel(props, emit) {
                 draw();
 
                 emitEvent('path:edit', false)
-                emitEvent('path:close', true)
+                emitEvent('path:lock', true)
             }
         }
         emitEvent('pen:path-state', false)

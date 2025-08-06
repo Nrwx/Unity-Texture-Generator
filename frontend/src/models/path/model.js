@@ -8,7 +8,7 @@ export function pathModel(props, emit) {
 
     const add = (path) => {
         emitEvent('update:path-layer', path);
-        emitEvent('path:close', true);
+        emitEvent('path:lock', true);
         emitEvent('path:edit', false)
         emitEvent('pen-state', true)
         emitEvent('path:import', true)

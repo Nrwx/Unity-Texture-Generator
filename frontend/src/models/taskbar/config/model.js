@@ -186,7 +186,7 @@ export const taskbarItemCenter = [
         tooltip: 'Form-Einstellungen',
         active: false,
         hidden: computed(() => {
-            return !windowStates.pathClose.value;
+            return !windowStates.pathLock.value;
         }),
         component: {
             path: Path,

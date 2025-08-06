@@ -28,6 +28,7 @@
             variant="outlined"
             min-width="160"
             :hide-details="true"
+            @blur="emitEvent('path:update', path)"
             @click.stop
         >
           <template v-slot:prepend-inner>

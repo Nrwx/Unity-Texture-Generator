@@ -1,5 +1,5 @@
 import {pathLayer} from "@/models/pen/config/model";
-import {reactive} from "vue";
+import {computed, reactive} from "vue";
 
 export function pathModel(emit) {
 
@@ -14,11 +14,10 @@ export function pathModel(emit) {
         fill: pathLayer.value.fill,
         gradient: pathLayer.value.gradient,
         fillOpacity: pathLayer.value.fillOpacity,
-        closed: pathLayer.value.closed,
-        edit: pathLayer.value.edit,
+        closed: pathLayer.value.closed
     })
 
-    const operation = {
+    const operation = computed(() =>({
         16: {
             name: {
                 type: 'text',
@@ -90,18 +89,12 @@ export function pathModel(emit) {
             },
             closed: {
                 type: 'switch',
-                label: 'Pfad geschlossen',
+                label: config.closed ? 'Pfad entsperren' : 'Pfad sperren',
                 event: 'apply-path-closed',
-                active: true
-            },
-            edit: {
-                type: 'switch',
-                label: 'Pfad bearbeiten',
-                event: 'apply-path-edit',
                 active: true
             }
         }
-    }
+    }))
 
 
     const emitEvent = (event, payload) => {
