@@ -10,6 +10,8 @@ export const windowStateEvent = (route) => ({
         await route.emit("pen-state", payload);
         await route.emit("event:listener", {pause: true, id: 'listener:pen'})
         await route.emit("drawing-state", payload);
+        await route.emit("event:listener", {pause: true, id: 'listener:path'})
+        await route.emit("path-drag-state", payload);
     },
     "reset:grid-states": (payload) => {
         if (typeof payload === "boolean") {
@@ -248,6 +250,18 @@ export const windowStateEvent = (route) => ({
     },
     "color-slot-state": (payload) => {
         route.windowStates.color.value = payload;
+    },
+    "select-form-state": async (payload) => {
+        route.windowStates.form.value = payload;
+        await route.emit('path:reset', false)
+    },
+    "path-drag-state": async (payload) => {
+        route.windowStates.pathDrag.value = payload;
+        if (!route.listener.isActive('listener:path')) {
+            await route.emit("event:listener", {resume: true, id: 'listener:path'})
+        } else {
+            await route.emit("event:listener", {pause: true, id: 'listener:path'})
+        }
     },
     "export-state": async (payload) => {
         console.log(payload)

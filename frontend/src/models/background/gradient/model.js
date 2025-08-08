@@ -40,8 +40,6 @@ export function gradientModel(props) {
 
     const getAnimatedStops = (base, type) => {
         const steps = type === "light" ? lightSteps.value : darkSteps.value;
-        console.log("gradientId", gradientId.value);
-        console.log("props.id", props.id);
         return [...steps, ...steps.reverse()].join(";");
     };
 

@@ -13,8 +13,6 @@
           :data-context-id="layer.id"
           :alt="layer.name"
           :style="{
-            width: layer.width + 'px',
-            height: layer.height + 'px',
             opacity: layer.opacity,
             zIndex: index,
             position: 'absolute',
@@ -92,9 +90,8 @@
     Frame
   },
   setup(props, { emit }) {
-    const { emitSelectLayer, handleClick} = imageModel(props, emit);
+    const { emitSelectLayer} = imageModel(props, emit);
     return {
-      handleClick,
       emitSelectLayer,
     };
   },

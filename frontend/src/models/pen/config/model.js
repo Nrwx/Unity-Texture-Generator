@@ -13,7 +13,7 @@ export const pathLayer = ref({
     connections: [],     // [[idxA, idxB], ...] – Indizes in `points`
 
     // Style-Attribute für Stroke/Fill
-    stroke: '#000000',   // Pfad-Kontur-Farbe
+    stroke: 'transparent',   // Pfad-Kontur-Farbe
     strokeWidth: 1,    // Stärke der Kontur
     strokeDash: 0,     // Kontur Abstände
     strokeDashArray: [], // Kontur Abstände Array

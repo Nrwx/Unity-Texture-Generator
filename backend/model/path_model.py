@@ -169,6 +169,7 @@ class PathModel:
                                         image=image
                                     )
                                     shape["thumbnail"] = thumbnail
+                                    shape["svg"] = f"/download/{filename}"
                                 except Exception as img_err:
                                     print(f"[WARN] Failed to generate thumbnail for shape {shape_id}: {img_err}")
 

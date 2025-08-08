@@ -29,6 +29,8 @@ export const pathEvent = (route) => ({
                 route.localData.selectedPath.value = response;
             } else {
                 route.localData.paths.value = response;
+                console.log(route.localData.paths.value, 'PATHS')
+                console.log(route.localData.layers.value, 'LAYER')
             }
         }
     },

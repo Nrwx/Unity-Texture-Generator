@@ -21,7 +21,12 @@ export function taskbarItemModel(props, emit) {
         emit("update:menu-event", menuItem.id);
     };
 
+    const emitSubEvent = (event, payload) => {
+        emit("update:sub-component-event",event, payload);
+    };
+
     return {
+        emitSubEvent,
         emitMenuEvent,
         hasMenu,
         menu,

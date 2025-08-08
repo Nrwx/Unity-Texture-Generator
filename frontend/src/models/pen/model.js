@@ -1029,6 +1029,16 @@ export function penModel(props, emit) {
 
     const cancel = () => {
         emitEvent('path:reset', false)
+        resetCanvas()
+    };
+
+    const resetCanvas = () => {
+        if (!ctx.value || !canvas.value) return;
+
+        const w = canvas.value.width;
+        const h = canvas.value.height;
+
+        ctx.value.clearRect(0, 0, w, h);
     };
 
     const handlePath = (payload) => {

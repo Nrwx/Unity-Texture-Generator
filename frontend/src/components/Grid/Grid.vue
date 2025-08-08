@@ -21,6 +21,7 @@
         >
           <!-- Zentrale Inhalte im Canvas -->
           <div class="canvas-content overflow-hidden transparent">
+
             <Image
                 :layers="layers"
                 :color="color"
@@ -33,8 +34,11 @@
             <div v-if="!selectedLayer.length" class="center-crosshair"></div>
 
             <Text :state="text" @update:component-event="emitEvent" :layer="textLayer"/>
-
-            <Brush :selected="selectedLayer" :mouse="cursor" :cursor="brushCursor" :viewport="viewport" :brushes="brushes" :state="brush" :drawing="drawing" :data="brushLayer" @update:component-event="emitEvent"></Brush>
+            <!-- Formzeichnung -->
+            <Path :viewport="viewport" :state="pathDrag" :selected="selectedPath" :mouse="cursor" @update:component-event="emitEvent"/>
+            <!-- Zeichnung -->
+            <Brush :selected="selectedLayer" :mouse="cursor" :cursor="brushCursor" :viewport="viewport" :brushes="brushes" :state="brush" :drawing="drawing" :data="brushLayer" @update:component-event="emitEvent"/>
+            <!-- Pfadzeichnung -->
             <Pen :mouse="cursor" :bezier="bezier" :viewport="viewport" :state="pen" :path-import="pathImport" :path-layer="pathLayer" :loading="loading" :path-state="penPathState" :theme="theme" @update:component-event="emitEvent"/>
           </div>
           <SelectVector
@@ -85,11 +89,13 @@ import Image from "@/components/Image/Image";
 import Selection from "@/components/Selection/Selection";
 import Pen from "@/components/Pen/Pen";
 import Control from "@/components/Transform/Control";
+import Path from "@/components/Path/Drag";
 
 export default defineComponent({
   name: "GridComponent",
   props: gridProps,
   components: {
+    Path,
     Pen,
     SelectVector,
     Guide,

@@ -151,12 +151,17 @@ export const pathLayerEvent = (route) => ({
     "add-path-layer": async (payload) => {
         const response = await route.api.addPathLayer(payload);
         if (response) {
-            await  route.emit('path:add', payload);
+            await route.emit('path:add', payload);
+            await route.emit('path-drag-state', false)
+            await route.emit('path:reset', false)
             await route.emit("fetch-layer");
         }
     },
     "update:path-layer": async (payload) => {
         route.pathLayer.value = payload;
+    },
+    "select:path-layer": async (payload) => {
+        route.localData.selectedPath.value = payload;
     },
     "path:edit": async (payload) => {
         route.windowStates.pathEdit.value = payload;

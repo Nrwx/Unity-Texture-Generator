@@ -71,6 +71,7 @@
               :is="item.subComponent.path"
               v-bind="item.subComponent.props"
               @update:componentEvent="emitEvent"
+              @update:subComponentEvent="emitSubEvent"
           />
         </v-btn>
       </template>
@@ -87,12 +88,13 @@ export default defineComponent({
   name: "TaskbarItem",
   props: taskbarItemProps,
   setup(props, { emit }) {
-    const { menu, hasMenu, emitMenuEvent, emitEvent } = taskbarItemModel(props, emit);
+    const { menu, hasMenu, emitMenuEvent, emitEvent, emitSubEvent } = taskbarItemModel(props, emit);
     return {
       hasMenu,
       emitMenuEvent,
       menu,
       emitEvent,
+      emitSubEvent
     };
   },
 });

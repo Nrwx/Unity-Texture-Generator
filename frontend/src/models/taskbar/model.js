@@ -11,12 +11,17 @@ export function taskbarModel(props, emit) {
         emit("taskbar-event", id);
     };
 
+    const emitSubEvent = (event, payload) => {
+        emit("component-event",event, payload);
+    };
+
     return {
         taskbar,
         topItems,
         centerItems,
         bottomItems,
-        emitEvent
+        emitEvent,
+        emitSubEvent
     };
 }
 

@@ -25,6 +25,7 @@ export function gridModel(props, emit) {
     const rotationStartAngle = ref(0);
     const fineSnapAngle = 360 / 64; // 5.625° pro Schritt
     const alignModeStep = ref(0);
+    const guideSnap = ref(5);
 
     const emitEvent = (event, payload) => {
         emit("component-event", event, payload);
@@ -53,26 +54,120 @@ export function gridModel(props, emit) {
         const dx = (event.clientX - lastMouse.value.x);
         const dy = (event.clientY - lastMouse.value.y);
 
-        // Transformieren:
         if (props.transform) {
+            const canvasCenterX = rect.width / 2;
+            const canvasCenterY = rect.height / 2;
+
+            const hasGuides = props.guides && props.guides.length > 0;
+
+            // Aktuelle FrameBox-Position + Mausdelta
+            let newX = frameBox.value.left + dx;
+            let newY = frameBox.value.top + dy;
+
+            const width = frameBox.value.width;
+            const height = frameBox.value.height;
+
+            if (hasGuides) {
+                const edgesX = {
+                    left: newX,
+                    center: newX + width / 2,
+                    right: newX + width
+                };
+
+                const edgesY = {
+                    top: newY,
+                    center: newY + height / 2,
+                    bottom: newY + height
+                };
+
+                const allGuidesX = [
+                    0,
+                    canvasCenterX,
+                    rect.width,
+                    ...props.guides.filter(g => g.type === 'vertical').map(g => g.position)
+                ];
+
+                const allGuidesY = [
+                    0,
+                    canvasCenterY,
+                    rect.height,
+                    ...props.guides.filter(g => g.type === 'horizontal').map(g => g.position)
+                ];
+
+                let snappedX = false;
+                let snappedY = false;
+
+                // Snap X-Achse
+                for (const gx of allGuidesX) {
+                    for (const key in edgesX) {
+                        const posX = edgesX[key];
+                        if (Math.abs(posX - gx) < guideSnap.value) {
+                            const offset = posX - newX;
+                            newX = gx - offset;
+                            snappedX = true;
+                            break;
+                        }
+                    }
+                    if (snappedX) break;
+                }
+
+                // Snap Y-Achse
+                for (const gy of allGuidesY) {
+                    for (const key in edgesY) {
+                        const posY = edgesY[key];
+                        if (Math.abs(posY - gy) < guideSnap.value) {
+                            const offset = posY - newY;
+                            newY = gy - offset;
+                            snappedY = true;
+                            break;
+                        }
+                    }
+                    if (snappedY) break;
+                }
+
+                // Center Snap (beide Achsen)
+                for (const gx of allGuidesX) {
+                    for (const gy of allGuidesY) {
+                        const centerX = newX + width / 2;
+                        const centerY = newY + height / 2;
+
+                        if (Math.abs(centerX - gx) < guideSnap.value && Math.abs(centerY - gy) < guideSnap.value) {
+                            newX = gx - width / 2;
+                            newY = gy - height / 2;
+                            snappedX = true;
+                            snappedY = true;
+                            break;
+                        }
+                    }
+                    if (snappedX && snappedY) break;
+                }
+            }
+
+            console.log('Final newX, newY:', newX, newY);
+
+            const offsetX = Math.round(newX - frameBox.value.left);
+            const offsetY = Math.round(newY - frameBox.value.top);
+
             props.selectedLayer.forEach(layer => {
+                // Setze neue Layerpositionen relativ zur alten + Offset
                 if (props.align) {
-                    // Handle Align Modes
                     if (alignModeStep.value === 1) {
-                        layer.matrix.x += dx;
+                        layer.matrix.x = (layer.matrix.x ?? 0) + offsetX;
                     } else if (alignModeStep.value === 2) {
-                        layer.matrix.y += dy;
+                        layer.matrix.y = (layer.matrix.y ?? 0) + offsetY;
                     } else {
-                        layer.matrix.x += dx;
-                        layer.matrix.y += dy;
+                        layer.matrix.x = (layer.matrix.x ?? 0) + offsetX;
+                        layer.matrix.y = (layer.matrix.y ?? 0) + offsetY;
                     }
                 } else {
-                    // Normales Transformieren
-                    layer.matrix.x += dx;
-                    layer.matrix.y += dy;
+                    layer.matrix.x = (layer.matrix.x ?? 0) + offsetX;
+                    layer.matrix.y = (layer.matrix.y ?? 0) + offsetY;
                 }
             });
         }
+
+
+
 
         else if (props.canvasTransform) {
             offset.value.x += dx;
@@ -610,6 +705,14 @@ export const gridProps = {
     },
     align: {
         type: Boolean,
+        required: true,
+    },
+    pathDrag: {
+        type: Boolean,
+        required: true,
+    },
+    selectedPath: {
+        type: Object,
         required: true,
     },
     viewport: {

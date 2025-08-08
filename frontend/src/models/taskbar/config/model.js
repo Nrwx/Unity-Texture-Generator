@@ -13,6 +13,8 @@ import Path from "@/view/page/Path/Path";
 import Screenshot from "@/view/page/Screenshot/Screenshot";
 import Overview from "@/view/page/Overview/Overview";
 import Export from "@/view/page/Export/Export";
+import Form from "@/view/page/Form/Form";
+
 export const taskbarItemLeft = [
     {
         position: 'top',
@@ -175,6 +177,19 @@ export const taskbarItemLeft = [
                 val: 'linear'
             }
         ]
+    },
+    {
+        position: 'center',
+        id: uuidv4(),
+        title: 'Formauswahl',
+        active: false,
+        hidden: false,
+        tooltip: 'Form auswählen',
+        event: 'select-form-state',
+        subComponent: {
+            path: Form,
+            props: {}
+        },
     },
 ];
 

@@ -1,3 +1,4 @@
+from .generate_dummy_map import generate_dummy_map
 from .generate_thumbnail_map import generate_thumbnail_map
 from .generate_text_path_map import generate_text_path_map
 from .generate_dds_map import generate_dds_map

@@ -10,7 +10,7 @@
       <!-- Fullscreen Dialog -->
       <Fullscreen @component-event="componentEvent" v-model:state="windowStates.fullscreen.value" v-model:data="localData.fullscreenData" :loading="localData.loading.value" v-model:theme="appData.theme.value"/>
       <!-- Linke Taskbar -->
-      <Taskbar @taskbar-event="taskbarEvent('left', $event)" align="left" v-model:items="itemsLeft" v-model:theme="appData.theme.value" />
+      <Taskbar @taskbar-event="taskbarEvent('left', $event)" @component-event="componentEvent" align="left" v-model:items="itemsLeft" v-model:theme="appData.theme.value" />
       <!-- Linker Drawer -->
       <DrawerNew v-model:taskbar-menu="windowStates.drawerLeft.value" v-model:item="activeItemLeft" align="left" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
       <!-- Context Menu -->
@@ -18,16 +18,16 @@
       <!-- Main Content -->
       <v-main>
         <!-- Grid -->
-        <Grid v-model:canvas-id="tempData.canvasId.value" v-model:rule="ruleStates.form.value" v-model:canvas-control="canvasStates.control.value" v-model:canvas-zoom="canvasStates.zoom.value" v-model:canvas-transform="canvasStates.transform.value" v-model:canvas-rotate="canvasStates.rotate.value" v-model:transform="transformStates.transform.value" v-model:canvas-select="canvasStates.select.value" v-model:rotate="transformStates.rotate.value" v-model:size="transformStates.size.value" v-model:menu="transformStates.menu.value" v-model:align="transformStates.align.value" v-model:backup="backupStates.action.value" v-model:form-rule="ruleStates.form.value" @component-event="componentEvent" v-model:path-import="windowStates.pathImport.value" v-model:bezier="localData.bezier.value" v-model:layers="localData.layers.value" v-model:selected-layer="localData.selectedLayer.value" v-model:text-layer="textLayer" v-model:brush-cursor="localData.cursor.value" v-model:color="localData.color.value" v-model:settings="localData.viewport.value" v-model:guides="localData.guides.value" v-model:fill-state="modifierStates.fill.value" v-model:select="windowStates.select.value" v-model:select-mode="localData.selectedShape.value" v-model:text="windowStates.text.value" v-model:brushes="localData.brush.value" v-model:brush-layer="brushSettings" v-model:brush="windowStates.brush.value" v-model:drawing="windowStates.drawing.value" v-model:pen="windowStates.pen.value" v-model:path-layer="pathLayer" :viewport="{width: localData.viewport.value.width, height: localData.viewport.value.height}" :theme="appData.theme.value" :loading="localData.loading.value" :pen-path-state="windowStates.path.value" style="position: relative;">
+        <Grid v-model:canvas-id="tempData.canvasId.value" v-model:rule="ruleStates.form.value" v-model:path-drag="windowStates.pathDrag.value" v-model:selected-path="localData.selectedPath.value" v-model:canvas-control="canvasStates.control.value" v-model:canvas-zoom="canvasStates.zoom.value" v-model:canvas-transform="canvasStates.transform.value" v-model:canvas-rotate="canvasStates.rotate.value" v-model:transform="transformStates.transform.value" v-model:canvas-select="canvasStates.select.value" v-model:rotate="transformStates.rotate.value" v-model:size="transformStates.size.value" v-model:menu="transformStates.menu.value" v-model:align="transformStates.align.value" v-model:backup="backupStates.action.value" v-model:form-rule="ruleStates.form.value" @component-event="componentEvent" v-model:path-import="windowStates.pathImport.value" v-model:bezier="localData.bezier.value" v-model:layers="localData.layers.value" v-model:selected-layer="localData.selectedLayer.value" v-model:text-layer="textLayer" v-model:brush-cursor="localData.cursor.value" v-model:color="localData.color.value" v-model:settings="localData.viewport.value" v-model:guides="localData.guides.value" v-model:fill-state="modifierStates.fill.value" v-model:select="windowStates.select.value" v-model:select-mode="localData.selectedShape.value" v-model:text="windowStates.text.value" v-model:brushes="localData.brush.value" v-model:brush-layer="brushSettings" v-model:brush="windowStates.brush.value" v-model:drawing="windowStates.drawing.value" v-model:pen="windowStates.pen.value" v-model:path-layer="pathLayer" :viewport="{width: localData.viewport.value.width, height: localData.viewport.value.height}" :theme="appData.theme.value" :loading="localData.loading.value" :pen-path-state="windowStates.path.value" style="position: relative;">
           <!-- Mittige Taskbar -->
-          <TaskbarCenter v-model:items="itemsCenter" v-model:expanded="windowStates.drawerCenter.value" :active="activeItemCenter" @component-event="componentEvent" @taskbar-event="taskbarEvent('center', $event)" v-model:theme="appData.theme.value"/>
+          <TaskbarCenter  v-model:items="itemsCenter" v-model:expanded="windowStates.drawerCenter.value" :active="activeItemCenter" @component-event="componentEvent" @taskbar-event="taskbarEvent('center', $event)" v-model:theme="appData.theme.value"/>
           <!-- Key-Event Log System -->
           <Key v-model:keys="tempData.keys.value" v-model:held-keys="tempData.heldKeys.value"/>
         </Grid>
       </v-main>
       <Layer style="position: absolute; top: 40px; right: 70px;" :state="windowStates.layer.value" v-model:layers="localData.layers.value" v-model:paths="localData.paths.value" v-model:selected-layer="localData.selectedLayer.value" v-model:channel="localData.channel.value" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
       <!-- Rechte Taskbar -->
-      <Taskbar @taskbar-event="taskbarEvent('right', $event)" align="right" v-model:items="itemsRight" v-model:theme="appData.theme.value" />
+      <Taskbar @taskbar-event="taskbarEvent('right', $event)" align="right"  @component-event="componentEvent" v-model:items="itemsRight" v-model:theme="appData.theme.value" />
       <!-- Rechter Drawer -->
       <DrawerNew v-model:taskbar-menu="windowStates.drawerRight.value" v-model:item="activeItemRight" align="right" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
     </template>
@@ -196,6 +196,10 @@ export default {
       }
       if(!osSettings.use_gpu) {
         await componentEvent('fetch-setting');
+      }
+      if(!localData.paths.value.length) {
+        await componentEvent("path:fetch")
+        await componentEvent("select:path-layer", localData.paths.value[1]);
       }
     };
 
