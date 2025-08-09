@@ -1,7 +1,7 @@
 <template>
   <div ref="wrapper" :id="wrapperId" class="viewport-wrapper">
     <!-- Hauptcontainer: Zentriert das Canvas -->
-    <div class="main-layer">
+    <div class="main-layer" ref="main" :id="mainId">
       <!-- Lineale -->
       <Guide
           :guides="guides"
@@ -106,10 +106,12 @@ export default defineComponent({
     Control
   },
   setup(props, { emit }) {
-    const { wrapper, wrapperId, canvas, offset, cursor, canvasStyle, zoomFaktor, controlData, emitEvent, toggleSelection, startRotate, startResize, updateLayer, onPositionUpdate, onRotationUpdate, onScaleUpdate, onReset, frameBox} = gridModel(props, emit);
+    const { wrapper, wrapperId, main, mainId, canvas, offset, cursor, canvasStyle, zoomFaktor, controlData, emitEvent, toggleSelection, startRotate, startResize, updateLayer, onPositionUpdate, onRotationUpdate, onScaleUpdate, onReset, frameBox} = gridModel(props, emit);
     return {
       wrapper,
       wrapperId,
+      main,
+      mainId,
       canvas,
       offset,
       cursor,
