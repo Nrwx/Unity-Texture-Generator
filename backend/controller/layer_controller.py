@@ -30,7 +30,7 @@ class LayerController:
             "function": LayerModel.fetch
         },
         "update": {
-            'keys': {"type", "name", "width", "height", "id", "a", "b", "c", "d", "x", "y", "rotate", "order", "hidden", "opacity", "blend_mode", "color", "mask"},
+            'keys': {"type", "name", "width", "height", "id", "url", "a", "b", "c", "d", "x", "y", "rotate", "order", "hidden", "opacity", "blend_mode", "color", "mask"},
             'function': LayerModel.update
         },
         "order": {

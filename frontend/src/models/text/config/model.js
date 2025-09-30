@@ -19,7 +19,7 @@ export const textLayer = ref({
     initFontSize: 0,
 
     // Style-Attribute
-    fontFamily: 'sans-serif',
+    fontFamily: 'Microsoft Sans Serif',
     fontWeight: 'normal',
     textAlign: 'left',
     lineHeight: 1.4,

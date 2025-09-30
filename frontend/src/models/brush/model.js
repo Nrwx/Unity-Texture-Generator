@@ -6,6 +6,7 @@ const brushCache = new Map();
 export function brushModel(props, emit) {
     const canvas = ref(null);
     const ctx = ref(null);
+
     const visible = ref(false);
     const menuPos = ref({ x: 0, y: 0 });
 
@@ -18,9 +19,9 @@ export function brushModel(props, emit) {
     let drawing = false;
     let moved = false;
     let currentBrush = null;
-    let brushReady = false;
     let drawQueue = [];
     let animating = false;
+    let updateTimeout = null;
 
     const setCursor = computed(() => {
         if (!props.cursor && !props.state && !props.mouse && !props.data.id) return {};
@@ -68,14 +69,15 @@ export function brushModel(props, emit) {
 
     const { register } = eventRegister('listener:brush', emitEvent);
 
-    const initCanvas = () => {
-        const el = canvas.value;
-        if (!el) return;
+    const setup = async () => {
+        canvas.value = document.getElementById(props.canvasId);
+        if (!canvas.value) return
         const { width, height } = props.viewport;
-        Object.assign(el, { width, height });
-        ctx.value = el.getContext('2d');
+        Object.assign(canvas.value, { width, height });
+        ctx.value = canvas.value.getContext('2d');
         Object.assign(ctx.value, { lineCap: 'round', lineJoin: 'round' });
     };
+
 
     const parseColor = (() => {
         const cache = {};
@@ -135,12 +137,67 @@ export function brushModel(props, emit) {
     const enqueue = async ({x, y, alpha, size, angle, flipX, flipY}) => {
         drawQueue.push({x, y, alpha, size, angle, flipX, flipY});
         if (!animating) {
-            if (props.selected?.[0]?.url) {
-                await drawToLayer();
-            } else {
-                drawLoop();
-            }
+            drawLoop();
         }
+        updateQueue();
+    };
+
+    /**
+     * Erstellt ein neues Layer-Objekt aus dem aktuellen Canvas
+     */
+    const createLayer = () => {
+        if (!canvas.value || !props.layer) return null;
+
+        const { width: layerWidth, height: layerHeight } = props.layer;
+
+        // Shadow-Canvas exakt in Layer-Größe
+        const shadowCanvas = document.createElement('canvas');
+        shadowCanvas.width = layerWidth;
+        shadowCanvas.height = layerHeight;
+        const shadowCtx = shadowCanvas.getContext('2d');
+
+        // Direkt den Canvas-Inhalt kopieren (ohne Skalierung)
+        shadowCtx.clearRect(0, 0, layerWidth, layerHeight);
+        shadowCtx.drawImage(
+            canvas.value,
+            0, 0, canvas.value.width, canvas.value.height, // Quelle
+            0, 0, layerWidth, layerHeight                  // Ziel: exakt Layer-Größe
+        );
+
+        const base64 = shadowCanvas.toDataURL('image/png');
+
+        return {
+            ...props.layer,
+            base64,
+            width: layerWidth,
+            height: layerHeight
+        };
+    };
+
+    /**
+     * Überwacht die DrawQueue und triggert nach 1 Sekunde Inaktivität ein Update
+     */
+    const updateQueue = () => {
+        // Timer zurücksetzen, falls noch aktiv
+        if (updateTimeout) clearTimeout(updateTimeout);
+
+        // Neuen Timer setzen
+        updateTimeout = setTimeout(async () => {
+            // Prüfen: nur ausführen, wenn DrawQueue leer ist
+            if (drawQueue.length > 0) return;
+
+            // Neues Layer erstellen
+            const layer = createLayer();
+            if (!layer) return;
+
+            // Event feuern
+            emitEvent("update-layer", layer);
+
+            // Canvas leeren
+            if (ctx.value) {
+                ctx.value.clearRect(0, 0, canvas.value.width, canvas.value.height);
+            }
+        }, 2000); // 2 Sekunde Inaktivität
     };
 
     const drawLoop = () => {
@@ -172,19 +229,22 @@ export function brushModel(props, emit) {
     const onPointerDown = async (e) => {
         if (e.pointerType === 'mouse' && e.button !== 0) return;
         if (!props.state) return;
+
+        register('add', canvas.value, 'pointermove', onPointerMove);
+        register('add', canvas.value, 'pointerup', onPointerUp);
+        register('add', canvas.value, 'pointerleave', onPointerUp);
+
         emitEvent('drawing-state', true);
         const rect = canvas.value.getBoundingClientRect();
         lastPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
         lastTime = Date.now();
         moved = false;
-        brushReady = false;
         currentBrush = await prepareBrush(props.data);
-        brushReady = true;
         drawing = true;
     };
 
     const onPointerMove = async (e) => {
-        if (!drawing || !brushReady || !lastPos) return;
+        if (!drawing || !lastPos) return;
         moved = true;
 
         const now = Date.now();
@@ -274,67 +334,6 @@ export function brushModel(props, emit) {
         lastPos = curr;
     };
 
-    const drawToLayer = async () => {
-        const layer = props.selected?.[0];
-        if (!layer || !layer.url) {
-            emitEvent('warn', 'Kein Layer ausgewählt. Bitte wählen Sie ein Ziel-Layer aus.');
-            return;
-        }
-
-        const image = await new Promise((resolve, reject) => {
-            const img = new Image();
-            img.crossOrigin = 'Anonymous';
-            img.src = layer.url;
-            img.onload = () => resolve(img);
-            img.onerror = reject;
-        });
-
-        const offCanvas = document.createElement('canvas');
-        offCanvas.width = layer.width;
-        offCanvas.height = layer.height;
-        const offCtx = offCanvas.getContext('2d');
-
-        // Aktuelle Ebene zeichnen (ursprünglicher Zustand)
-        offCtx.drawImage(image, 0, 0);
-
-        // Transformation anwenden
-        const m = layer.matrix;
-        offCtx.setTransform(m.a, m.b, m.c, m.d, m.x, m.y);
-
-        if (m.rotate) {
-            const cx = layer.width / 2;
-            const cy = layer.height / 2;
-            offCtx.translate(cx, cy);
-            offCtx.rotate((m.rotate * Math.PI) / 180);
-            offCtx.translate(-cx, -cy);
-        }
-
-        // Brush-Routine
-        while (drawQueue.length && currentBrush) {
-            const { x, y, alpha, size, angle, flipX, flipY } = drawQueue.shift();
-            const sc = (props.data.scatter / 100) * size;
-            const sx = (Math.random() - 0.5) * sc;
-            const sy = (Math.random() - 0.5) * sc;
-            const jitter = (props.data.jitter / 100) * size;
-            const finalSize = Math.max(1, size + (Math.random() - 0.5) * jitter);
-
-            offCtx.save();
-            offCtx.globalAlpha = alpha;
-            offCtx.globalCompositeOperation = props.data.blendMode;
-
-            offCtx.translate(x + sx, y + sy);
-            offCtx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
-            offCtx.rotate(angle);
-            offCtx.drawImage(currentBrush, -finalSize / 2, -finalSize / 2, finalSize, finalSize);
-            offCtx.restore();
-        }
-
-        emitEvent('update-layer', {
-            ...layer,
-            url: offCanvas.toDataURL()
-        });
-    };
-
     const onPointerUp = async (e) => {
         if (!drawing) return;
         if (!moved) await onPointerMove(e);
@@ -342,6 +341,9 @@ export function brushModel(props, emit) {
         drawing = false;
         lastPos = null;
         moved = false;
+        register('remove', canvas.value, 'pointerup', onPointerUp);
+        register('remove', canvas.value, 'pointermove', onPointerMove);
+        register('remove', canvas.value, 'pointerleave', onPointerMove);
     };
 
     const openContextMenu = async (e) => {
@@ -367,38 +369,28 @@ export function brushModel(props, emit) {
         }
     };
 
-    const onSavePreset = (name) => {
-        emitEvent('save-preset', { name, settings: props.data });
-        visible.value = false;
-    };
+    onMounted(async () => {
+        await setup();
 
-    const onUploadBrush = (file) => {
-        emitEvent('upload-brush', file);
-        visible.value = false;
-    };
+        register('add', canvas.value, 'pointerdown', onPointerDown);
+        register('add', canvas.value, 'contextmenu', openContextMenu, {prevent: true});
 
-    onMounted(() => {
-        initCanvas();
-        register('add', document, 'resize', initCanvas);
         register('pause');
     });
 
     onBeforeUnmount(() => {
-        register('remove', document, 'resize', initCanvas);
+        register('removeAll');
     });
 
     return {
         canvas,
+
         visible,
         menuPos,
-        onPointerDown,
-        onPointerMove,
-        onPointerUp,
-        openContextMenu,
-        onSavePreset,
-        onUploadBrush,
-        emitEvent,
-        setCursor
+
+        setCursor,
+
+        emitEvent
     };
 }
 
@@ -406,9 +398,10 @@ export const brushProps = {
     state: { type: Boolean, required: true },
     drawing: { type: Boolean, required: true },
     viewport: { type: Object, required: true },
+    layer: { type: Object, required: true },
     data: { type: Object, required: true },
     brushes: { type: Array, required: true },
     cursor: { type: String, required: false },
+    canvasId: { type: String, required: true },
     mouse: { type: Object, required: false },
-    selected: { type: Array, required: false },
 };

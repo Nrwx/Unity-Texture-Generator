@@ -157,8 +157,9 @@ class FontsModel:
         width = int(layer.get("width", 200))
         height = int(layer.get("height", 50))
 
-        # Font-Dateipfad ermitteln
         font_path = None
+
+        # 1. Gewünschten Font suchen
         for group in FONTS:
             for child in group.get("children", []):
                 if child.get("id") == font_id:
@@ -167,7 +168,16 @@ class FontsModel:
             if font_path:
                 break
 
-        # Font laden oder Default verwenden
+        # 2. Falls nicht gefunden → Fallback: Microsoft Sans Serif.zip suchen
+        if not font_path:
+            for group in FONTS:
+                if group.get("name") == "Microsoft Sans Serif.zip":
+                    if group.get("children"):
+                        fallback_child = group["children"][0]  # Nimm das erste Kind
+                        font_path = os.path.join(PUBLIC_FONT_FOLDER, group["id"], os.path.basename(fallback_child["path"]))
+                    break
+
+        # 3. Font laden
         try:
             if font_path and os.path.exists(font_path):
                 font = ImageFont.truetype(font_path, font_size)
@@ -176,12 +186,13 @@ class FontsModel:
         except Exception:
             font = ImageFont.load_default()
 
-        # Neues leeres Bild erstellen
+        # 4. Bild rendern
         img = Image.new('RGBA', (width, height), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
         draw.text((0, 0), text, font=font, fill=color)
 
         return img
+
 
     @staticmethod
     def update_group(data):

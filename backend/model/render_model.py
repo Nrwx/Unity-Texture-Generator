@@ -1,6 +1,7 @@
 import os
 import uuid
 import shutil
+import base64
 from config.data.constant import (LAYERS, VIEWPORT_CONFIG, CHANNELS)
 from controller.layer_controller import LayerController
 from model.fonts_model import FontsModel
@@ -160,3 +161,36 @@ class RenderModel:
             LAYERS.remove(layer)
 
         return {"message": f"Umwandlung erfolgreich auf ID {new_layer['id']}"}, 200
+
+    @staticmethod
+    def upload_base64(image_base64, id=None):
+        """
+        Nimmt einen Base64-String (PNG) und speichert ihn im Upload-Folder.
+        Optional kann eine Layer-ID mitgegeben werden, ansonsten wird eine UUID erzeugt.
+        Gibt URL, ID und Pfad zurück.
+        """
+        try:
+            # Falls "data:image/png;base64," enthalten ist, entfernen
+            if image_base64.startswith("data:image"):
+                image_base64 = image_base64.split(",", 1)[1]
+
+            # Base64 dekodieren
+            image_data = base64.b64decode(image_base64)
+
+            # Falls keine ID angegeben wurde, generieren wir eine neue
+            layer_id = id or str(uuid.uuid4())
+            filename = f"{layer_id}.png"
+            file_path = os.path.join(PUBLIC_LAYER_FOLDER, filename)
+
+            # Datei schreiben
+            with open(file_path, "wb") as f:
+                f.write(image_data)
+
+            # Rückgabe-URL
+            return {
+                "id": layer_id,
+                "url": f"/download/{filename}",
+            }, 200
+
+        except Exception as e:
+            return {"error": f"Fehler beim Upload: {str(e)}"}, 500

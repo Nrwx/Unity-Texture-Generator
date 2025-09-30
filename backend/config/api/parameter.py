@@ -222,6 +222,7 @@ PARAMETERS = {
     "renderer": {
         "method": {"type": str, "required": True},
         "id": {"type": str, "default": ""},
+        "image_base64": {"type": str, "default": ""},
         "size": {"type": int, "default": 128},
     },
     "path": {

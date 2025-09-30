@@ -3,6 +3,13 @@ export const layerEvent = (route) => ({
         const response = await route.api.fetchLayers()
         if (response) {
             route.localData.layers.value = response;
+            if(route.windowStates.brush.value){
+                const brushItem = route.localData.layers.value.find(x => x.id === route.tempData.singleLayer.value.id);
+                if(brushItem) await route.emit("update:brush-layer", brushItem);
+                else await route.emit("update:brush-layer", null);
+            } else {
+                await route.emit("update:brush-layer", null);
+            }
             if(route.localData.layers.value?.length) {
                 if (!route.listener.isActive('listener:layer-context')) {
                     await route.emit("event:listener", {resume: true, id: 'listener:layer-context'})
@@ -103,7 +110,14 @@ export const layerModifierEvent = (route) => ({
 
 export const selectLayerEvent = (route) => ({
     "layer:select": async (payload) => {
-        route.localData.selectedLayer.value = payload
+        if (route.windowStates.brush.value) {
+            if (payload.length > 0) {
+                route.localData.selectedLayer.value = [payload[payload.length - 1]];
+                await route.emit("update:brush-layer", payload[payload.length - 1]);
+            }
+        } else {
+            route.localData.selectedLayer.value = payload;
+        }
     },
 });
 
@@ -113,6 +127,85 @@ export const textLayerEvent = (route) => ({
         if (response) {
             await route.emit("fetch-layer");
         }
+    },
+});
+
+export const brushLayerEvent = (route) => ({
+    "update:brush-layer": async (payload) => {
+        route.tempData.singleLayer.value = payload;
+        if(payload !== null) {
+            await route.emit("update:brush-ctx", {id: route.tempData.brushCanvasId.value, layer: route.tempData.singleLayer.value});
+        }
+        console.log(payload)
+    },
+    "update:brush-ctx": async (payload) => {
+        if (!payload?.id || !payload?.layer || !payload?.layer.matrix) return;
+
+        // Canvas referenzieren
+        const canvas = document.getElementById(payload.id);
+        if (!canvas) return;
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+
+        const { width: layerWidth, height: layerHeight, matrix, url } = payload.layer;
+        const { a = 1, d = 1, x = 0, y = 0, rotate = 0 } = matrix;
+
+        // Canvas-Größe = transformierte Layer-Größe
+        const canvasWidth = layerWidth * a;
+        const canvasHeight = layerHeight * d;
+
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+
+        // Positionierung / mittig relativ
+        const left = x - canvasWidth / 2 + route.localData.viewport.value.width / 2;
+        const top = y - canvasHeight / 2 + route.localData.viewport.value.height / 2;
+
+        Object.assign(canvas.style, {
+            position: 'absolute',
+            left: `${left}px`,
+            top: `${top}px`,
+            width: `${canvasWidth}px`,
+            height: `${canvasHeight}px`,
+            transform: rotate ? `rotate(${rotate}deg)` : '',
+            transformOrigin: 'top left'
+        });
+
+        // Canvas leeren
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Neues Bild laden
+        if (url) {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.src = url;
+            await new Promise((res, rej) => {
+                img.onload = res;
+                img.onerror = rej;
+            });
+
+            // Bild auf Canvas zeichnen
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        }
+
+        console.log(payload, 'BRUSH CTX UPDATED');
+    },
+    "reset:brush-ctx": async (payload) => {
+        if (!payload) return;
+
+        // Canvas referenzieren
+        const canvas = document.getElementById(payload);
+        if (!canvas) return;
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+
+        // Canvas leeren
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        await route.emit("update:brush-layer", null);
+
+        console.log(payload, 'BRUSH CTX RESET');
     },
 });
 

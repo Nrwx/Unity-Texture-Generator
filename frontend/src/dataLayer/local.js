@@ -81,7 +81,9 @@ export const tempData = {
     app: ref(null),
     appId: ref(uuid()),
     canvasId: ref(uuid()),
+    brushCanvasId: ref(uuid()),
     keys: ref([]),
+    singleLayer: ref(null),
     heldKeys: ref(new Map()),
 }
 

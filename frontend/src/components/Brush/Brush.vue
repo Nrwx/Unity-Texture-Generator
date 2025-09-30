@@ -3,11 +3,7 @@
     <canvas
         ref="canvas"
         class="brush-canvas"
-        @pointerdown="onPointerDown"
-        @pointermove="onPointerMove"
-        @pointerup="onPointerUp"
-        @pointerleave="onPointerUp"
-        @contextmenu.prevent="openContextMenu"
+        :id="canvasId"
     />
     <Menu
         :visible="visible"
@@ -36,18 +32,12 @@ export default defineComponent({
   components: { Menu },
   props: brushProps,
   setup(props, { emit }) {
-    const { canvas, visible, menuPos, onPointerDown, onPointerMove, onPointerUp, openContextMenu, onSavePreset, onUploadBrush, emitEvent, setCursor} = brushModel(props, emit);
+    const { canvas, visible, menuPos, emitEvent, setCursor} = brushModel(props, emit);
 
     return {
       canvas,
       visible,
       menuPos,
-      onPointerDown,
-      onPointerMove,
-      onPointerUp,
-      openContextMenu,
-      onSavePreset,
-      onUploadBrush,
       emitEvent,
       setCursor
     };

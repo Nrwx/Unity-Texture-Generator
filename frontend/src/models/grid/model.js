@@ -337,6 +337,7 @@ export function gridModel(props, emit) {
 
 
     const resetSelection = async (event) => {
+        if (props.brush) return;
         event.preventDefault();
         if (!canvas.value.contains(event.target) && !event.ctrlKey
             || !props.menu && !props.transform && !event.ctrlKey
@@ -751,6 +752,10 @@ export const gridProps = {
         type: String,
         required: true,
     },
+    brushCanvasId: {
+        type: String,
+        required: true,
+    },
     fillState: {
         type: Boolean,
         required: true,
@@ -764,6 +769,10 @@ export const gridProps = {
         required: true,
     },
     brushLayer: {
+        type: Object,
+        required: true,
+    },
+    singleLayer: {
         type: Object,
         required: true,
     },

@@ -83,7 +83,7 @@
                   </template>
 
                   <template v-slot:append>
-                    <v-icon class="cursor" color="grey">
+                    <v-icon color="grey">
                       {{ windowStates.drag.value && dragId === layer.id ? 'mdi-drag-variant' : 'mdi-drag' }}</v-icon>
                   </template>
 

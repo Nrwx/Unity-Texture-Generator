@@ -162,6 +162,16 @@ export const windowStateEvent = (route) => ({
             if (!route.listener.isActive('listener:brush')) {
                 await route.emit("event:listener", {resume: true, id: 'listener:brush'})
             }
+            if(!route.tempData.singleLayer.value) {
+                if(route.localData.selectedLayer.value.length) {
+                    await route.emit("layer:select", [route.localData.selectedLayer.value[route.localData.selectedLayer.value.length - 1]]);
+                } else if(route.localData.layers.value.length) {
+                    await route.emit("layer:select", [route.localData.layers.value[route.localData.layers.value.length - 1]]);
+                }
+            }
+            if(!route.windowStates.brush.value) {
+                await route.emit("reset:brush-ctx", route.tempData.brushCanvasId.value);
+            }
         }
     },
     "drawing-state": (payload) => {

@@ -1,6 +1,7 @@
 import {computed, nextTick, onBeforeUnmount, onMounted, ref} from "vue";
 import {eventRegister} from "@/dataLayer/event";
 import {uuid} from "@/utils/uuid";
+import {getTextSize} from "@/utils/getTextSize";
 
 export function textModel(props, emit) {
     const overlay = ref(null);
@@ -41,6 +42,7 @@ export function textModel(props, emit) {
     };
 
     const confirmText = () => {
+        getTextSize(textarea.value, props.layer, overlay.value, { minWidth: 10, minHeight: 10 });
         textarea.value?.blur();
         finishEditing();
         drawn.value = false

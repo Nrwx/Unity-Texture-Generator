@@ -3,6 +3,7 @@ import createListenerManager from "@/dataLayer/listener";
 import {listenerEvent} from "@/dataLayer/event/listener";
 import {viewportEvent} from "@/dataLayer/event/viewport";
 import {
+    brushLayerEvent,
     layerEvent,
     layerModifierEvent, pathLayerEvent, pathModifierEvent,
     selectLayerEvent,
@@ -44,6 +45,7 @@ const eventHandler = (route) => ({
     ...aiEvent(route),
     ...settingEvent(route),
     ...brushEvent(route),
+    ...brushLayerEvent(route),
     ...viewportEvent(route),
     ...modifierEvent(route),
     ...fileEvent(route),

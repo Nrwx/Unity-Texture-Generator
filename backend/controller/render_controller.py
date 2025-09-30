@@ -21,6 +21,10 @@ class RenderController:
             "keys": {"id"},
             "function": RenderModel.text_to_path
         },
+        "base64": {
+            "keys": {"image_base64", "id"},
+            "function": RenderModel.upload_base64
+        }
     }
 
     @classmethod

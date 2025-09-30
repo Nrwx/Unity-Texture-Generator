@@ -108,7 +108,7 @@ class LayerModel:
         return LAYERS, 200
 
     @staticmethod
-    def update(type, name, width, height, id, a, b, c, d, x, y, rotate, order, hidden, opacity, blend_mode, color, mask):
+    def update(type, name, width, height, url, id, a, b, c, d, x, y, rotate, order, hidden, opacity, blend_mode, color, mask):
         layer = next((l for l in LAYERS if l["id"] == id), None)
         if not layer:
             return {"error": "Layer not found"}, 404
@@ -133,6 +133,8 @@ class LayerModel:
             layer["height"] = height
         if id:
             layer["id"] = id
+        if url:
+            layer["url"] = url
         if matrix:
             layer["matrix"] = matrix
         if order:
@@ -154,7 +156,7 @@ class LayerModel:
                 transformed_img, paste_x, paste_y = layer_transform(layer, img)
                 layer["thumbnail"] = generate_thumbnail_map(id, path=None, size=64, image=transformed_img)
             else:
-                print(f"[WARN] Thumbnail skipped – file not found for layer ID: {layer_id}")
+                print(f"[WARN] Thumbnail skipped – file not found for layer ID: {id}")
         layer["time"] = time('unix_ms')
 
         print(LAYERS)
@@ -412,31 +414,45 @@ class LayerModel:
     @staticmethod
     def paste(id):
         layer = next((l for l in LAYERS if l["id"] == id), None)
-
         if layer is None:
             return {"error": f"Layer with id '{id}' not found."}, 404
 
+        # Originaldatei laden
         if layer["type"] == 0:
-            img_path = os.path.join(PUBLIC_LAYER_FOLDER , f"{id}.png")
+            img_path = os.path.join(PUBLIC_LAYER_FOLDER, f"{id}.png")
             if not os.path.exists(img_path):
                 return {"error": "Original image file not found"}, 404
             img = Image.open(img_path).convert("RGBA")
 
+        elif layer["type"] == 2:
+            svg_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER, f"{id}.svg")
+            if not os.path.exists(svg_path):
+                return {"error": "Original SVG file not found"}, 404
+            with open(svg_path, "r", encoding="utf-8") as f:
+                svg_string = f.read()
+
+        # Layer kopieren (tiefe Kopie!)
         new_layer = copy.deepcopy(layer)
         new_id = str(uuid.uuid4())
         new_layer["id"] = new_id
         new_layer["time"] = time('unix_ms')
-        new_layer["order"] = layer["order"]
 
+        # Datei speichern
         if layer["type"] == 0:
-            new_img_path = os.path.join(PUBLIC_LAYER_FOLDER , f"{new_id}.png")
+            new_img_path = os.path.join(PUBLIC_LAYER_FOLDER, f"{new_id}.png")
             img.save(new_img_path)
 
-        index = LAYERS.index(layer)
-        LAYERS.insert(index, new_layer)
+        elif layer["type"] == 2:
+            new_svg_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER, f"{new_id}.svg")
+            with open(new_svg_path, "w", encoding="utf-8") as f:
+                f.write(svg_string)
+
+        # Am Ende einfügen
+        LAYERS.append(new_layer)
 
         print(f"Pasted layer with new ID {new_id}")
         return new_layer, 200
+
 
     @staticmethod
     def blend(id, blend_mode, color):

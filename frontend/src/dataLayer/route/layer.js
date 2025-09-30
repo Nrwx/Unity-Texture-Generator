@@ -112,6 +112,26 @@ export const fetchLayers = async () => {
 
 export const updateLayer = async (layer) => {
     try {
+        if (layer.base64) {
+            const base64Response = await api.post("/renderer", {
+                method: "base64",
+                id: layer.id,
+                image_base64: layer.base64
+            }, {
+                headers: { "Content-Type": "multipart/form-data" },
+            });
+
+            if (base64Response?.url) {
+                layer.url = base64Response.url;
+                console.log(layer.url)
+                delete layer.base64; // Base64-Daten entfernen, nicht erneut mitschicken
+            } else {
+                console.error("Fehler beim Konvertieren von Base64 zu URL");
+                return false;
+            }
+        }
+
+        // 2️⃣ Layer-Daten normal speichern
         const formData = new FormData();
         formData.append("method", "update");
         formData.append("type", layer.type);
@@ -132,15 +152,15 @@ export const updateLayer = async (layer) => {
         formData.append("opacity", layer.opacity);
         formData.append("color", layer.color);
         formData.append("mask", layer.mask);
-        const response = await api.post('/layer', formData, {
-            headers: {'Content-Type': 'multipart/form-data'},
+
+        const response = await api.post("/layer", formData, {
+            headers: { "Content-Type": "multipart/form-data" },
         });
 
-        if (response) {
-            return true
-        }
+        return !!response;
     } catch (error) {
         console.error("Error updating layer:", error.response?.data || error.message);
+        return false;
     }
 };
 

@@ -28,5 +28,3 @@ export const brushSettings = ref({
     flipY: false,
     rotationRandom: false
 });
-
-export const editBrush = ref(null);
