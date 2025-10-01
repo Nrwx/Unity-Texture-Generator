@@ -1,5 +1,6 @@
 import {computed, nextTick, onBeforeUnmount, onMounted, ref} from 'vue';
 import {eventRegister} from "@/dataLayer/event";
+import {inverseTransformPoint} from "@/utils/matrix";
 
 const brushCache = new Map();
 
@@ -71,9 +72,7 @@ export function brushModel(props, emit) {
 
     const setup = async () => {
         canvas.value = document.getElementById(props.canvasId);
-        if (!canvas.value) return
-        const { width, height } = props.viewport;
-        Object.assign(canvas.value, { width, height });
+        if (!canvas.value) return console.warn('BRUSH CANVAS NOT INITIALIZED')
         ctx.value = canvas.value.getContext('2d');
         Object.assign(ctx.value, { lineCap: 'round', lineJoin: 'round' });
     };
@@ -235,8 +234,14 @@ export function brushModel(props, emit) {
         register('add', canvas.value, 'pointerleave', onPointerUp);
 
         emitEvent('drawing-state', true);
+
         const rect = canvas.value.getBoundingClientRect();
-        lastPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        const rawX = e.clientX - rect.left;
+        const rawY = e.clientY - rect.top;
+
+        // In Layer-Koordinaten transformieren
+        lastPos = inverseTransformPoint(rawX, rawY, props.layer.matrix);
+
         lastTime = Date.now();
         moved = false;
         currentBrush = await prepareBrush(props.data);
@@ -249,11 +254,15 @@ export function brushModel(props, emit) {
 
         const now = Date.now();
         const rect = canvas.value.getBoundingClientRect();
-        const curr = {x: e.clientX - rect.left, y: e.clientY - rect.top};
+        const rawX = e.clientX - rect.left;
+        const rawY = e.clientY - rect.top;
+
+        // In Layer-Koordinaten transformieren
+        const curr = inverseTransformPoint(rawX, rawY, props.layer.matrix);
+        if (!curr) return;
 
         // === DRUCK / PRESSURE ===
         const rawPressure = e.pressure != null ? e.pressure : props.data.pressure;
-
         const finalPressure = Math.min(rawPressure * props.data.pressure);
 
         const dx = curr.x - lastPos.x;
@@ -297,10 +306,8 @@ export function brushModel(props, emit) {
             let size = props.data.size;
 
             if (props.data.sizeDynamics) {
-                // Größe nimmt im Verlauf der Linie zu
                 const progress = dt / steps;
                 size *= 1 + progress * finalPressure;
-                // Clamp: nicht größer als ursprüngliche Pinselgröße
                 size = Math.min(size - steps, props.data.size);
                 currentSize.value = size;
             }
@@ -333,6 +340,7 @@ export function brushModel(props, emit) {
 
         lastPos = curr;
     };
+
 
     const onPointerUp = async (e) => {
         if (!drawing) return;

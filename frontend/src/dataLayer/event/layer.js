@@ -139,7 +139,7 @@ export const brushLayerEvent = (route) => ({
         console.log(payload)
     },
     "update:brush-ctx": async (payload) => {
-        if (!payload?.id || !payload?.layer || !payload?.layer.matrix) return;
+        if (!payload?.id || !payload?.layer) return;
 
         // Canvas referenzieren
         const canvas = document.getElementById(payload.id);
@@ -148,45 +148,24 @@ export const brushLayerEvent = (route) => ({
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
 
-        const { width: layerWidth, height: layerHeight, matrix, url } = payload.layer;
-        const { a = 1, d = 1, x = 0, y = 0, rotate = 0 } = matrix;
-
-        // Canvas-Größe = transformierte Layer-Größe
-        const canvasWidth = layerWidth * a;
-        const canvasHeight = layerHeight * d;
-
-        canvas.width = canvasWidth;
-        canvas.height = canvasHeight;
-
-        // Positionierung / mittig relativ
-        const left = x - canvasWidth / 2 + route.localData.viewport.value.width / 2;
-        const top = y - canvasHeight / 2 + route.localData.viewport.value.height / 2;
-
-        Object.assign(canvas.style, {
-            position: 'absolute',
-            left: `${left}px`,
-            top: `${top}px`,
-            width: `${canvasWidth}px`,
-            height: `${canvasHeight}px`,
-            transform: rotate ? `rotate(${rotate}deg)` : '',
-            transformOrigin: 'top left'
-        });
-
         // Canvas leeren
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+        canvas.width = payload.layer.width;
+        canvas.height = payload.layer.height;
+
         // Neues Bild laden
-        if (url) {
+        if (payload.layer.url) {
             const img = new Image();
             img.crossOrigin = "anonymous";
-            img.src = url;
+            img.src = payload.layer.url;
             await new Promise((res, rej) => {
                 img.onload = res;
                 img.onerror = rej;
             });
 
             // Bild auf Canvas zeichnen
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, payload.layer.width, payload.layer.height);
         }
 
         console.log(payload, 'BRUSH CTX UPDATED');
