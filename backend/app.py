@@ -24,6 +24,11 @@ from config.app.driver.install import detect_nvcompress_or_install
 detect_nvcompress_or_install()  # ⏳
 # NV_COMPRESS Initialising
 
+# CAIRO_SVG Initialising
+from config.app.driver.install import detect_cairosvg_or_install
+detect_cairosvg_or_install()  # ⏳
+# CAIRO_SVG Initialising
+
 from generated.paths import ( PUBLIC_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER, PUBLIC_TEMP_CHANNEL_FOLDER, PUBLIC_LAYER_FOLDER )
 from config.api.parameter import PARAMETERS
 from router.index import register_router

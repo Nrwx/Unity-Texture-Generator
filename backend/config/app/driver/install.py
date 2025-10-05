@@ -7,6 +7,8 @@ import zipfile
 import logging
 import ctypes
 import ctypes.wintypes
+import cairosvg
+import logging
 
 from generated.paths import (
     ASSETS_DRIVER_AARCH64_FOLDER,
@@ -47,6 +49,14 @@ def detect_nvcompress():
             return os.path.abspath(path)
 
     return None
+
+
+def detect_cairosvg():
+    try:
+        cairosvg.svg2png(bytestring=b"<svg><rect width='100' height='100' fill='red'/></svg>", write_to="test.png")
+        logging.info("✅ CairoSVG funktioniert korrekt (test.png erstellt).")
+    except Exception as e:
+        logging.error(f"❌ CairoSVG Fehler: {e}")
 
 
 def detect_platform_driver_folder():
@@ -226,6 +236,90 @@ def detect_nvcompress_or_install():
         logging.error("❌ nvcompress konnte nicht installiert werden.")
         return False
 
+def detect_cairosvg_or_install():
+    """
+    Stellt sicher, dass CairoSVG und GTK3 Runtime korrekt installiert und in PATH registriert sind.
+    Funktioniert auf Windows, Linux und Arch.
+    """
+    system = platform.system().lower()
+
+    # --- Prüfe CairoSVG (Python-Paket)
+    try:
+        import cairosvg
+        logging.info("✅ CairoSVG ist installiert.")
+    except ImportError:
+        logging.info("📦 CairoSVG wird installiert ...")
+        subprocess.run(["pip", "install", "--upgrade", "cairosvg"], check=True)
+
+    # --- Windows: GTK3 Runtime prüfen
+    if system == "windows":
+        gtk_base = r"C:\Program Files\GTK3-Runtime Win64"
+        gtk_bin = os.path.join(gtk_base, "bin")
+        gtk_lib = os.path.join(gtk_base, "lib")
+
+        # Prüfe, ob GTK installiert ist
+        gtk_dll = os.path.join(gtk_bin, "libcairo-2.dll")
+        if not os.path.exists(gtk_dll):
+            logging.warning("⚠️ GTK3 Runtime nicht gefunden – versuche, Installer auszuführen ...")
+
+            # Suche nach Installer im Treiber-Ordner
+            from generated.paths import ASSETS_DRIVER_WINDOWS_FOLDER
+            from config.app.app_settings import run_installer_as_admin_and_wait
+
+            installer_name = "gtk3-runtime-3.24.31-2022-01-04-ts-win64.exe"
+            installer_path = os.path.join(ASSETS_DRIVER_WINDOWS_FOLDER, installer_name)
+
+            if os.path.exists(installer_path):
+                logging.info(f"🚀 Starte GTK3 Runtime Installer: {installer_path}")
+                run_installer_as_admin_and_wait(installer_path, "/S")
+            else:
+                logging.error(f"❌ GTK3 Runtime Installer nicht gefunden unter: {installer_path}")
+        else:
+            logging.info("✅ GTK3 Runtime ist bereits installiert.")
+
+        # PATH prüfen & ggf. hinzufügen
+        path_env = os.environ.get("PATH", "")
+        paths_to_add = []
+        for p in [gtk_bin, gtk_lib]:
+            if os.path.exists(p) and p not in path_env:
+                paths_to_add.append(p)
+
+        if paths_to_add:
+            new_path = os.pathsep.join(paths_to_add + [path_env])
+            os.environ["PATH"] = new_path
+            logging.info(f"🔧 GTK3-Pfade temporär zu PATH hinzugefügt: {paths_to_add}")
+
+            # Optional: dauerhaft in Windows-Systemvariablen schreiben
+            try:
+                subprocess.run(
+                    [
+                        "setx",
+                        "PATH",
+                        f"{new_path}",
+                    ],
+                    shell=True,
+                    check=False,
+                )
+                logging.info("✅ PATH dauerhaft aktualisiert (setx).")
+            except Exception as e:
+                logging.warning(f"⚠️ Konnte PATH nicht dauerhaft setzen: {e}")
+
+    # --- Linux / Arch
+    elif system == "linux":
+        logging.info("🐧 Prüfe Cairo- und GTK-Abhängigkeiten unter Linux ...")
+        # Prüfe ob libcairo2 vorhanden ist
+        if shutil.which("cairo-trace") or os.path.exists("/usr/lib/libcairo.so"):
+            logging.info("✅ Cairo ist installiert.")
+        else:
+            logging.warning("⚠️ Cairo fehlt – Installation wird versucht.")
+            try:
+                subprocess.run(["sudo", "apt", "install", "-y", "libcairo2"], check=True)
+            except Exception:
+                logging.warning("⚠️ Automatische Installation von libcairo2 fehlgeschlagen. Bitte manuell installieren.")
+
+    logging.info("🎨 CairoSVG + GTK3 Setup abgeschlossen.")
+
 
 if __name__ == "__main__":
     detect_nvcompress_or_install()
+    detect_cairosvg_or_install()
