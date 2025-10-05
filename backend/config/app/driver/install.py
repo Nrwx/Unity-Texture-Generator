@@ -317,8 +317,6 @@ def detect_cairosvg_or_install():
             except Exception:
                 logging.warning("⚠️ Automatische Installation von libcairo2 fehlgeschlagen. Bitte manuell installieren.")
 
-    logging.info("🎨 CairoSVG + GTK3 Setup abgeschlossen.")
-
 
 if __name__ == "__main__":
     detect_nvcompress_or_install()
