@@ -1,10 +1,11 @@
 import {computed, nextTick, onBeforeUnmount, onMounted, ref} from 'vue';
 import {eventRegister} from "@/dataLayer/event";
+import {nowMs} from "@/utils/dayJs";
+import {combinedMatrix} from "@/utils/matrix";
 
 const brushCache = new Map();
 
 export function brushModel(props, emit) {
-    const wrapper = ref(null);
     const canvas = ref(null);
     const ctx = ref(null);
 
@@ -15,18 +16,17 @@ export function brushModel(props, emit) {
     const currentAngle = ref( 0);
     const currentOpacity = ref( 0);
 
-    let lastPos = null;
-    let lastTime = null;
-    let moved = false;
-    let currentBrush = null;
-    let drawQueue = [];
-    let animating = false;
-    let updateTimeout = null;
+    const lastPos = ref(null);
+    const lastTime = ref(null);
+    const pointerMoved = ref(false);
+    const currentBrush = ref(null);
+    const drawQueue = ref([]);
+    const animating = ref(false);
+    const updateTimeout = ref(null);
 
     const setCursor = computed(() => {
         if (!props.cursor && !props.state && !props.mouse && !props.data.id) return {};
 
-        // Basiswerte
         let size = props.data.size;
         let angle = 0;
         let opacity = 1
@@ -79,12 +79,12 @@ export function brushModel(props, emit) {
 
     const parseColor = (() => {
         const cache = {};
-        const cctx = document.createElement('canvas').getContext('2d');
+        const context = document.createElement('canvas').getContext('2d');
         return (str) => {
             if (cache[str]) return cache[str];
-            cctx.fillStyle = str;
-            cctx.fillRect(0, 0, 1, 1);
-            const [r, g, b, a] = cctx.getImageData(0, 0, 1, 1).data;
+            context.fillStyle = str;
+            context.fillRect(0, 0, 1, 1);
+            const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data;
             cache[str] = { r, g, b, a: a / 255 };
             return cache[str];
         };
@@ -133,8 +133,8 @@ export function brushModel(props, emit) {
     };
 
     const enqueue = async ({x, y, alpha, size, angle, flipX, flipY}) => {
-        drawQueue.push({x, y, alpha, size, angle, flipX, flipY});
-        if (!animating) {
+        drawQueue.value.push({x, y, alpha, size, angle, flipX, flipY});
+        if (!animating.value) {
             drawLoop();
         }
         updateQueue();
@@ -158,8 +158,8 @@ export function brushModel(props, emit) {
         shadowCtx.clearRect(0, 0, layerWidth, layerHeight);
         shadowCtx.drawImage(
             canvas.value,
-            0, 0, canvas.value.width, canvas.value.height, // Quelle
-            0, 0, layerWidth, layerHeight                  // Ziel: exakt Layer-Größe
+            0, 0, canvas.value.width, canvas.value.height,
+            0, 0, layerWidth, layerHeight
         );
 
         const base64 = shadowCanvas.toDataURL('image/png');
@@ -175,12 +175,12 @@ export function brushModel(props, emit) {
      */
     const updateQueue = () => {
         // Timer zurücksetzen, falls noch aktiv
-        if (updateTimeout) clearTimeout(updateTimeout);
+        if (updateTimeout.value) clearTimeout(updateTimeout.value);
 
         // Neuen Timer setzen
-        updateTimeout = setTimeout(async () => {
+        updateTimeout.value = setTimeout(async () => {
             // Prüfen: nur ausführen, wenn DrawQueue leer ist
-            if (drawQueue.length > 0) return;
+            if (drawQueue.value.length > 0) return;
 
             // Neues Layer erstellen
             const render = createLayer();
@@ -193,14 +193,14 @@ export function brushModel(props, emit) {
             if (ctx.value) {
                 ctx.value.clearRect(0, 0, canvas.value.width, canvas.value.height);
             }
-        }, 2000); // 2 Sekunde Inaktivität
+        }, 1000); // 1 Sekunde Inaktivität
     };
 
     const drawLoop = () => {
-        animating = true;
+        animating.value = true;
         requestAnimationFrame(() => {
-            while (ctx.value && currentBrush && drawQueue.length) {
-                const { x, y, alpha, size, angle, flipX, flipY } = drawQueue.shift();
+            while (ctx.value && currentBrush.value && drawQueue.value.length) {
+                const { x, y, alpha, size, angle, flipX, flipY } = drawQueue.value.shift();
                 const sc = (props.data.scatter / 100) * size;
                 const sx = (Math.random() - 0.5) * sc;
                 const sy = (Math.random() - 0.5) * sc;
@@ -214,28 +214,17 @@ export function brushModel(props, emit) {
                 ctx.value.translate(x + sx, y + sy);
                 ctx.value.scale(flipX ? -1 : 1, flipY ? -1 : 1);
                 ctx.value.rotate(angle);
-                ctx.value.drawImage(currentBrush, -finalSize / 2, -finalSize / 2, finalSize, finalSize);
+                ctx.value.drawImage(currentBrush.value, -finalSize / 2, -finalSize / 2, finalSize, finalSize);
                 ctx.value.restore();
-                lastPos = { x, y };
+                lastPos.value = { x, y };
             }
-            animating = false;
+            animating.value = false;
         });
     };
 
     const buildMatrix = (m) => {
-        const rad = (m.rotate || 0) * Math.PI / 180;
-        const cos = Math.cos(rad);
-        const sin = Math.sin(rad);
-
-        // Kombiniert Translation + Rotation + Scale in einer Matrix
-        const a = (m.a ?? 1) * cos;
-        const b = (m.a ?? 1) * sin;
-        const c = (m.d ?? 1) * -sin;
-        const d = (m.d ?? 1) * cos;
-        const x = m.x ?? 0;
-        const y = m.y ?? 0;
-
-        return `matrix(${a}, ${b}, ${c}, ${d}, ${x}, ${y})`;
+        const matrix = combinedMatrix(m);
+        return `matrix(${matrix.a}, ${matrix.b}, ${matrix.c}, ${matrix.d}, ${matrix.x}, ${matrix.y})`;
     };
 
     const getTransformedPoint = () => {
@@ -283,20 +272,20 @@ export function brushModel(props, emit) {
 
         emitEvent('drawing-state', true);
 
-        lastPos = getTransformedPoint(e);
+        lastPos.value = getTransformedPoint();
 
-        lastTime = Date.now();
-        moved = false;
-        currentBrush = await prepareBrush(props.data);
+        lastTime.value = nowMs();
+        pointerMoved.value = false;
+        currentBrush.value = await prepareBrush(props.data);
     };
 
     const onPointerMove = async (e) => {
-        if (!props.drawing || !lastPos) return;
-        moved = true;
+        if (!props.drawing || !lastPos.value) return;
+        pointerMoved.value = true;
 
-        const now = Date.now();
+        const now = nowMs();
 
-        const curr = getTransformedPoint(e);
+        const curr = getTransformedPoint();
 
         if (!curr) return;
 
@@ -304,17 +293,17 @@ export function brushModel(props, emit) {
         const rawPressure = e.pressure != null ? e.pressure : props.data.pressure;
         const finalPressure = Math.min(rawPressure * props.data.pressure);
 
-        const dx = curr.x - lastPos.x;
-        const dy = curr.y - lastPos.y;
+        const dx = curr.x - lastPos.value.x;
+        const dy = curr.y - lastPos.value.y;
         const dist = Math.hypot(dx, dy);
-        const dt = now - lastTime || 16;
-        lastTime = now;
+        const dt = now - lastTime.value || 16;
+        lastTime.value = now;
 
         const steps = Math.max(1, Math.floor(dist / getSpacing()));
 
         for (let i = 1; i <= steps; i++) {
-            const x = lastPos.x + dx * (i / steps);
-            const y = lastPos.y + dy * (i / steps);
+            const x = lastPos.value.x + dx * (i / steps);
+            const y = lastPos.value.y + dy * (i / steps);
 
             // === DECKKRAFT / OPACITY ===
             let alpha = props.data.opacity;
@@ -377,16 +366,16 @@ export function brushModel(props, emit) {
             });
         }
 
-        lastPos = curr;
+        lastPos.value = curr;
     };
 
 
     const onPointerUp = async (e) => {
         if (!props.drawing) return;
-        if (!moved) await onPointerMove(e);
+        if (!pointerMoved.value) await onPointerMove(e);
         emitEvent('drawing-state', false);
-        lastPos = null;
-        moved = false;
+        lastPos.value = null;
+        pointerMoved.value = false;
         register('remove', canvas.value, 'pointerup', onPointerUp);
         register('remove', canvas.value, 'pointermove', onPointerMove);
         register('remove', canvas.value, 'pointerleave', onPointerMove);
@@ -430,7 +419,6 @@ export function brushModel(props, emit) {
 
     return {
         canvas,
-        wrapper,
         visible,
         menuPos,
 

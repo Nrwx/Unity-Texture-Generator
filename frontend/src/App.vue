@@ -66,6 +66,7 @@ import Notify from "@/components/Notify/Notify";
 import {notifyMessage} from "@/models/notify/config/model";
 import Key from "@/components/Key/Key";
 import {exportData, previewData} from "@/models/export/config/model";
+import {initLocalization} from "@/utils/dayJs";
 
 export default {
   name: 'App',
@@ -181,6 +182,8 @@ export default {
 
 
     const init = async () => {
+
+      initLocalization();
 
       tempData.app.value = document.getElementById(tempData.appId.value);
 

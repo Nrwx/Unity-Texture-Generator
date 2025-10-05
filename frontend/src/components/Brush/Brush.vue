@@ -1,5 +1,5 @@
 <template>
-  <div ref="wrapper" v-show="state" class="brush-canvas-wrapper">
+  <div v-show="state" class="brush-canvas-wrapper">
     <canvas
         ref="canvas"
         class="brush-canvas"
@@ -40,10 +40,9 @@ export default defineComponent({
   components: { Menu },
   props: brushProps,
   setup(props, { emit }) {
-    const { wrapper, canvas, canvasStyle, visible, menuPos, emitEvent, buildMatrix, setCursor} = brushModel(props, emit);
+    const { canvas, canvasStyle, visible, menuPos, emitEvent, buildMatrix, setCursor} = brushModel(props, emit);
 
     return {
-      wrapper,
       canvas,
       canvasStyle,
       visible,
