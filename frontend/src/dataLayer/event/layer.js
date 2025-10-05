@@ -4,11 +4,11 @@ export const layerEvent = (route) => ({
         if (response) {
             route.localData.layers.value = response;
             if(route.windowStates.brush.value){
-                const brushItem = route.localData.layers.value.find(x => x.id === route.tempData.singleLayer.value.id);
+                const brushItem = route.localData.layers.value.find(x => x.id === route.tempData.brushLayer.value.id);
                 if(brushItem) await route.emit("update:brush-layer", brushItem);
-                else await route.emit("update:brush-layer", null);
+                else await route.emit("reset:brush-ctx", route.tempData.brushCanvasId.value);
             } else {
-                await route.emit("update:brush-layer", null);
+                await route.emit("reset:brush-ctx", route.tempData.brushCanvasId.value);
             }
             if(route.localData.layers.value?.length) {
                 if (!route.listener.isActive('listener:layer-context')) {
@@ -132,11 +132,10 @@ export const textLayerEvent = (route) => ({
 
 export const brushLayerEvent = (route) => ({
     "update:brush-layer": async (payload) => {
-        route.tempData.singleLayer.value = payload;
-        if(payload !== null) {
-            await route.emit("update:brush-ctx", {id: route.tempData.brushCanvasId.value, layer: route.tempData.singleLayer.value});
+        route.tempData.brushLayer.value = payload;
+        if(route.tempData.brushLayer.value) {
+            await route.emit("update:brush-ctx", {id: route.tempData.brushCanvasId.value, layer: route.tempData.brushLayer.value});
         }
-        console.log(payload)
     },
     "update:brush-ctx": async (payload) => {
         if (!payload?.id || !payload?.layer) return;
@@ -151,9 +150,6 @@ export const brushLayerEvent = (route) => ({
         // Canvas leeren
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        canvas.width = payload.layer.width;
-        canvas.height = payload.layer.height;
-
         // Neues Bild laden
         if (payload.layer.url) {
             const img = new Image();
@@ -164,8 +160,13 @@ export const brushLayerEvent = (route) => ({
                 img.onerror = rej;
             });
 
+
+            // Canvas an Bildgröße anpassen
+            canvas.width = payload.layer.width;
+            canvas.height = payload.layer.height;
+
             // Bild auf Canvas zeichnen
-            ctx.drawImage(img, 0, 0, payload.layer.width, payload.layer.height);
+            ctx.drawImage(img, 0, 0);
         }
 
         console.log(payload, 'BRUSH CTX UPDATED');

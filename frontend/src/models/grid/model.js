@@ -342,7 +342,7 @@ export function gridModel(props, emit) {
         if (!canvas.value.contains(event.target) && !event.ctrlKey
             || !props.menu && !props.transform && !event.ctrlKey
             || !props.menu && !props.rotate && !event.ctrlKey
-            || !props.menu && !props.size.value && !event.ctrlKey) {
+            || !props.menu && !props.size && !event.ctrlKey) {
             stopTransform()
             props.selectedLayer.forEach(layer => {
                 updateLayer(layer)
@@ -768,11 +768,7 @@ export const gridProps = {
         type: Array,
         required: true,
     },
-    brushLayer: {
-        type: Object,
-        required: true,
-    },
-    singleLayer: {
+    brushSettings: {
         type: Object,
         required: true,
     },

@@ -1,10 +1,10 @@
 import {computed, nextTick, onBeforeUnmount, onMounted, ref} from 'vue';
 import {eventRegister} from "@/dataLayer/event";
-import {inverseTransformPoint} from "@/utils/matrix";
 
 const brushCache = new Map();
 
 export function brushModel(props, emit) {
+    const wrapper = ref(null);
     const canvas = ref(null);
     const ctx = ref(null);
 
@@ -17,7 +17,6 @@ export function brushModel(props, emit) {
 
     let lastPos = null;
     let lastTime = null;
-    let drawing = false;
     let moved = false;
     let currentBrush = null;
     let drawQueue = [];
@@ -145,9 +144,9 @@ export function brushModel(props, emit) {
      * Erstellt ein neues Layer-Objekt aus dem aktuellen Canvas
      */
     const createLayer = () => {
-        if (!canvas.value || !props.layer) return null;
+        if (!canvas.value || !props.selectedLayer) return null;
 
-        const { width: layerWidth, height: layerHeight } = props.layer;
+        const { width: layerWidth, height: layerHeight } = props.selectedLayer;
 
         // Shadow-Canvas exakt in Layer-Größe
         const shadowCanvas = document.createElement('canvas');
@@ -166,10 +165,8 @@ export function brushModel(props, emit) {
         const base64 = shadowCanvas.toDataURL('image/png');
 
         return {
-            ...props.layer,
-            base64,
-            width: layerWidth,
-            height: layerHeight
+            ...props.selectedLayer,
+            base64
         };
     };
 
@@ -186,11 +183,11 @@ export function brushModel(props, emit) {
             if (drawQueue.length > 0) return;
 
             // Neues Layer erstellen
-            const layer = createLayer();
-            if (!layer) return;
+            const render = createLayer();
+            if (!render) return;
 
             // Event feuern
-            emitEvent("update-layer", layer);
+            emitEvent("update-layer", render);
 
             // Canvas leeren
             if (ctx.value) {
@@ -225,6 +222,57 @@ export function brushModel(props, emit) {
         });
     };
 
+    const buildMatrix = (m) => {
+        const rad = (m.rotate || 0) * Math.PI / 180;
+        const cos = Math.cos(rad);
+        const sin = Math.sin(rad);
+
+        // Kombiniert Translation + Rotation + Scale in einer Matrix
+        const a = (m.a ?? 1) * cos;
+        const b = (m.a ?? 1) * sin;
+        const c = (m.d ?? 1) * -sin;
+        const d = (m.d ?? 1) * cos;
+        const x = m.x ?? 0;
+        const y = m.y ?? 0;
+
+        return `matrix(${a}, ${b}, ${c}, ${d}, ${x}, ${y})`;
+    };
+
+    const getTransformedPoint = () => {
+        const el = canvas.value;
+        if (!el) return { x: 0, y: 0 };
+
+        const x = props.mouse.x;
+        const y = props.mouse.y;
+
+        // Hole CSS-Matrix + Transform-Origin
+        const style = window.getComputedStyle(el);
+        const transform = style.transform;
+        const originStr = style.transformOrigin || '0px 0px';
+        const [originX, originY] = originStr.split(' ').map(v => parseFloat(v));
+
+        if (!transform || transform === 'none') {
+            return { x, y };
+        }
+
+        const matrix = new DOMMatrix(transform);
+
+        // Ursprungsverschiebung (wegen transform-origin)
+        // Schritt 1: zum Ursprung verschieben
+        const preTranslate = new DOMMatrix().translate(originX, originY);
+        // Schritt 2: Matrix anwenden
+        const fullMatrix = preTranslate.multiply(matrix).multiply(new DOMMatrix().translate(-originX, -originY));
+
+        // Inverse berechnen
+        const inverse = fullMatrix.inverse();
+
+        // Punkt transformieren
+        const point = new DOMPoint(x, y).matrixTransform(inverse);
+
+        return { x: point.x, y: point.y };
+    };
+
+
     const onPointerDown = async (e) => {
         if (e.pointerType === 'mouse' && e.button !== 0) return;
         if (!props.state) return;
@@ -235,30 +283,21 @@ export function brushModel(props, emit) {
 
         emitEvent('drawing-state', true);
 
-        const rect = canvas.value.getBoundingClientRect();
-        const rawX = e.clientX - rect.left;
-        const rawY = e.clientY - rect.top;
-
-        // In Layer-Koordinaten transformieren
-        lastPos = inverseTransformPoint(rawX, rawY, props.layer.matrix);
+        lastPos = getTransformedPoint(e);
 
         lastTime = Date.now();
         moved = false;
         currentBrush = await prepareBrush(props.data);
-        drawing = true;
     };
 
     const onPointerMove = async (e) => {
-        if (!drawing || !lastPos) return;
+        if (!props.drawing || !lastPos) return;
         moved = true;
 
         const now = Date.now();
-        const rect = canvas.value.getBoundingClientRect();
-        const rawX = e.clientX - rect.left;
-        const rawY = e.clientY - rect.top;
 
-        // In Layer-Koordinaten transformieren
-        const curr = inverseTransformPoint(rawX, rawY, props.layer.matrix);
+        const curr = getTransformedPoint(e);
+
         if (!curr) return;
 
         // === DRUCK / PRESSURE ===
@@ -343,10 +382,9 @@ export function brushModel(props, emit) {
 
 
     const onPointerUp = async (e) => {
-        if (!drawing) return;
+        if (!props.drawing) return;
         if (!moved) await onPointerMove(e);
         emitEvent('drawing-state', false);
-        drawing = false;
         lastPos = null;
         moved = false;
         register('remove', canvas.value, 'pointerup', onPointerUp);
@@ -392,12 +430,13 @@ export function brushModel(props, emit) {
 
     return {
         canvas,
-
+        wrapper,
         visible,
         menuPos,
 
         setCursor,
 
+        buildMatrix,
         emitEvent
     };
 }
@@ -406,7 +445,8 @@ export const brushProps = {
     state: { type: Boolean, required: true },
     drawing: { type: Boolean, required: true },
     viewport: { type: Object, required: true },
-    layer: { type: Object, required: true },
+    brushLayer: { type: Object, required: true },
+    selectedLayer: { type: Object, required: true },
     data: { type: Object, required: true },
     brushes: { type: Array, required: true },
     cursor: { type: String, required: false },

@@ -128,7 +128,7 @@ export const windowStateEvent = (route) => ({
     },
     "cursor-state": async (payload) => {
         if (typeof payload === "boolean") {
-            await route.emit("reset:window-states", false);
+            await route.emit("reset:window-states", !payload);
             route.windowStates.cursor.value = payload;
         }
     },
@@ -158,19 +158,22 @@ export const windowStateEvent = (route) => ({
     "brush-state": async (payload) => {
         if (typeof payload === "boolean") {
             await route.emit("rule:allow-form", payload);
-            route.windowStates.brush.value = payload;
-            if (!route.listener.isActive('listener:brush')) {
-                await route.emit("event:listener", {resume: true, id: 'listener:brush'})
-            }
-            if(!route.tempData.singleLayer.value) {
+            if(!route.tempData.brushLayer.value) {
                 if(route.localData.selectedLayer.value.length) {
                     await route.emit("layer:select", [route.localData.selectedLayer.value[route.localData.selectedLayer.value.length - 1]]);
                 } else if(route.localData.layers.value.length) {
                     await route.emit("layer:select", [route.localData.layers.value[route.localData.layers.value.length - 1]]);
                 }
             }
-            if(!route.windowStates.brush.value) {
-                await route.emit("reset:brush-ctx", route.tempData.brushCanvasId.value);
+            if(!payload && route.tempData.brushLayer.value) {
+                await route.emit('hide-layer', {id: route.tempData.brushLayer.value.id, hidden: 1})
+            }
+            route.windowStates.brush.value = payload;
+            if (!route.listener.isActive('listener:brush')) {
+                await route.emit("event:listener", {resume: true, id: 'listener:brush'})
+            }
+            if (route.tempData.brushLayer.value && payload) {
+                await route.emit('hide-layer', {id: route.tempData.brushLayer.value.id, hidden: 0})
             }
         }
     },

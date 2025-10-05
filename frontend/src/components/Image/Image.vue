@@ -16,8 +16,6 @@
             opacity: layer.opacity,
             zIndex: index,
             position: 'absolute',
-            top: '0',
-            left: '0',
             transform: `matrix(${layer.matrix.a}, ${layer.matrix.b}, ${layer.matrix.c}, ${layer.matrix.d}, ${layer.matrix.x}, ${layer.matrix.y}) rotate(${layer.matrix.rotate}deg)`
           }"
       />

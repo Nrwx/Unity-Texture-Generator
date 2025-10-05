@@ -37,7 +37,7 @@
             <!-- Formzeichnung -->
             <Path :viewport="viewport" :state="pathDrag" :selected="selectedPath" :mouse="cursor" @update:component-event="emitEvent"/>
             <!-- Zeichnung -->
-            <Brush :canvas-id="brushCanvasId" :layer="singleLayer" :mouse="cursor" :cursor="brushCursor" :viewport="viewport" :brushes="brushes" :state="brush" :drawing="drawing" :data="brushLayer" @update:component-event="emitEvent"/>
+            <Brush :selected-layer="selectedLayer[selectedLayer.length - 1]" :canvas-id="brushCanvasId" :mouse="cursor" :cursor="brushCursor" :viewport="viewport" :brushes="brushes" :state="brush" :drawing="drawing" :data="brushSettings" @update:component-event="emitEvent"/>
             <!-- Pfadzeichnung -->
             <Pen :mouse="cursor" :bezier="bezier" :viewport="viewport" :state="pen" :path-import="pathImport" :path-layer="pathLayer" :loading="loading" :path-state="penPathState" :theme="theme" @update:component-event="emitEvent"/>
           </div>
