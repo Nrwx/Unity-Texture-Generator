@@ -1,0 +1,21 @@
+.timeline-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.timeline-bar-wrapper {
+  overflow-x: scroll;
+  border: 1px solid #ccc;
+  position: relative;
+}
+
+.timeline-bar {
+  position: relative;
+  height: 100%;
+}
+
+.keyframe {
+  position: absolute;
+  top: 0;
+}

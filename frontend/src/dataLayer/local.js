@@ -95,3 +95,14 @@ export const screenshotData = {
     history: ref([]),
     url: ref(null)
 }
+
+export const animationData = {
+    title: '',
+    time: ref(0),
+    keyframe: ref([
+        { time: 0, transform: {}, id: 1, ease: "linear", connection: [] },
+        { time: 50, transform: {}, id: 2, ease: "linear", connection: [] },
+        { time: 100, transform: {}, id: 3, ease: "linear", connection: [] },
+    ]),
+    ease: ref("linear"),
+}

@@ -14,6 +14,7 @@ import Screenshot from "@/view/page/Screenshot/Screenshot";
 import Overview from "@/view/page/Overview/Overview";
 import Export from "@/view/page/Export/Export";
 import Form from "@/view/page/Form/Form";
+import Animation from "@/view/page/Animation/Animation";
 
 export const taskbarItemLeft = [
     {
@@ -215,6 +216,10 @@ export const taskbarItemCenter = [
         tooltip: 'Animation',
         active: false,
         hidden: false,
+        component: {
+            path: Animation,
+            props: {}
+        },
     },
     {
         position: 'center',
