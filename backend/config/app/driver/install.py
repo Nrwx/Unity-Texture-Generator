@@ -90,7 +90,7 @@ def execute_plan(plan):
 
     # Check vor Installation
     if callable(check_func) and check_func():
-        logging.info(f"✅ {plan.get('installer_name') or 'Plan'} bereits installiert, überspringe Installation.")
+        logging.info(f"✅ {plan.get('installer_name') or 'Plan'} bereits installiert und geprüft.")
         return
 
     logging.info(f"⚠️ {plan.get('installer_name') or 'Plan'} nicht gefunden – Installation wird gestartet.")
@@ -160,7 +160,7 @@ def initialize_drivers():
         logging.info(f"✅ Initialisierung abgeschlossen: {plan.get('installer_name', 'Unbekannt')}\n")
 
     if os.path.exists(__DRIVER_FOLDER):
-        retries = [10, 15, 20]  # Sekunden
+        retries = [10, 15, 20]
         for i, wait in enumerate(retries):
             try:
                 shutil.rmtree(__DRIVER_FOLDER)

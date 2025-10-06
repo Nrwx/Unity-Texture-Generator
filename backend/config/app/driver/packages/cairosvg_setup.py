@@ -3,7 +3,7 @@ import os
 def check_cairosvg():
     """Prüft, ob CairoSVG korrekt funktioniert."""
     try:
-        import cairosvg  # nur hier importieren
+        import cairosvg
         import os
 
         test_svg = b"""
