@@ -11,6 +11,11 @@ import cv2
 import uuid
 import time
 from werkzeug.utils import secure_filename
+
+# --------------------------------- #
+# START Initialising - DONT CHANGE  #
+# --------------------------------- #
+
 # PATH Initialising
 from config.setup.generate_paths import init_paths
 if os.path.exists("generated"):
@@ -19,15 +24,14 @@ if not os.path.exists("generated/paths.py"):
     init_paths()
 # PATH Initialising
 
-# NV_COMPRESS Initialising
-from config.app.driver.install import detect_nvcompress_or_install
-detect_nvcompress_or_install()  # ⏳
-# NV_COMPRESS Initialising
+# APP DRIVER Initialising
+from config.app.driver.install import initialize_drivers
+initialize_drivers()
+# APP DRIVER Initialising
 
-# CAIRO_SVG Initialising
-from config.app.driver.install import detect_cairosvg_or_install
-detect_cairosvg_or_install()  # ⏳
-# CAIRO_SVG Initialising
+# --------------------------------- #
+# END Initialising - DONT CHANGE    #
+# --------------------------------- #
 
 from generated.paths import ( PUBLIC_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER, PUBLIC_TEMP_CHANNEL_FOLDER, PUBLIC_LAYER_FOLDER )
 from config.api.parameter import PARAMETERS

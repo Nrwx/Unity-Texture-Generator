@@ -1,88 +1,24 @@
 import os
+import time
 import platform
 import shutil
-import subprocess
-import tarfile
 import zipfile
+import tarfile
 import logging
+import subprocess
 import ctypes
 import ctypes.wintypes
-import cairosvg
-import logging
-
-from generated.paths import (
-    ASSETS_DRIVER_AARCH64_FOLDER,
-    ASSETS_DRIVER_LINUX_FOLDER,
-    ASSETS_DRIVER_WINDOWS_FOLDER,
-    __DRIVER_FOLDER,
-)
-
-from config.app.app_settings import detect_gpu_with_nvidia_smi
-from config.data.constant import ( set_nvcompress )
+from generated.paths import __DRIVER_FOLDER
+from config.app.driver.packages.nvcompress_setup import plan_nvcompress
+from config.app.driver.packages.cairosvg_setup import plan_cairosvg
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-
-def detect_nvcompress():
-    # 1. Prüfe via PATH
-    path = shutil.which("nvcompress")
-    if path:
-        return os.path.abspath(path)
-
-    # 2. Bekannte Orte prüfen
-    if platform.system().lower() == "windows":
-        possible_paths = [
-            os.path.expandvars(r"%ProgramFiles%\NVIDIA Corporation\NVIDIA Texture Tools\nvcompress.exe"),
-            os.path.expandvars(r"%ProgramFiles(x86)%\NVIDIA Corporation\NVIDIA Texture Tools\nvcompress.exe"),
-            os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "nvcompress.exe"),
-        ]
-    else:
-        possible_paths = [
-            "/usr/bin/nvcompress",
-            "/usr/local/bin/nvcompress",
-            "/opt/nvidia/nvcompress",
-            os.path.expanduser("~/.local/bin/nvcompress"),
-        ]
-
-    for path in possible_paths:
-        if os.path.isfile(path) and os.access(path, os.X_OK):
-            return os.path.abspath(path)
-
-    return None
-
-
-def detect_cairosvg():
-    """Prüft, ob CairoSVG korrekt funktioniert."""
-    try:
-        import cairosvg
-
-        # ✅ Korrigiertes Test-SVG mit explizitem width/height im <svg>-Tag
-        test_svg = b"""
-        <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
-            <rect width="100" height="100" fill="red"/>
-        </svg>
-        """
-
-        output_file = "test_cairo.png"
-        cairosvg.svg2png(bytestring=test_svg, write_to=output_file)
-
-        if os.path.exists(output_file):
-            os.remove(output_file)
-
-        logging.info("✅ CairoSVG funktioniert korrekt (SVG erfolgreich gerendert).")
-        return True
-
-    except ImportError:
-        logging.warning("⚠️ CairoSVG-Paket nicht installiert.")
-        return False
-    except Exception as e:
-        logging.error(f"❌ CairoSVG-Fehler: {e}")
-        return False
 
 
 def detect_platform_driver_folder():
     system = platform.system().lower()
     arch = platform.machine().lower()
+    from generated.paths import ASSETS_DRIVER_WINDOWS_FOLDER, ASSETS_DRIVER_LINUX_FOLDER, ASSETS_DRIVER_AARCH64_FOLDER
 
     if system == "windows":
         return ASSETS_DRIVER_WINDOWS_FOLDER
@@ -91,10 +27,11 @@ def detect_platform_driver_folder():
     elif system == "linux":
         return ASSETS_DRIVER_LINUX_FOLDER
     else:
-        raise RuntimeError(f"❌ Nicht unterstütztes System: {system} ({arch})")
+        raise RuntimeError(f"❌ Unsupported system: {system} ({arch})")
 
 
-def run_installer_as_admin_and_wait(exe_path, params="/S"):
+def run_installer_as_admin(exe_path, params="/S"):
+    """Startet einen Windows-Installer mit Adminrechten und wartet auf Beendigung."""
     SEE_MASK_NOCLOSEPROCESS = 0x00000040
 
     class SHELLEXECUTEINFO(ctypes.Structure):
@@ -130,254 +67,111 @@ def run_installer_as_admin_and_wait(exe_path, params="/S"):
     if not ctypes.windll.shell32.ShellExecuteExW(ctypes.byref(sei)):
         raise ctypes.WinError()
 
-    logging.info("🟢 Installer gestartet, warte bis er beendet ist ...")
     ctypes.windll.kernel32.WaitForSingleObject(sei.hProcess, -1)
     ctypes.windll.kernel32.CloseHandle(sei.hProcess)
-    logging.info("🟢 Installer beendet.")
-    return True
 
 
-def try_register_nvcompress_windows():
-    known_dirs = [
-        os.path.expandvars(r"%ProgramFiles%\NVIDIA Corporation\NVIDIA Texture Tools\nvcompress.exe"),
-        os.path.expandvars(r"%ProgramFiles(x86)%\NVIDIA Corporation\NVIDIA Texture Tools\nvcompress.exe"),
-        os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "nvcompress.exe"),
-    ]
-    for directory in known_dirs:
-        exe_path = os.path.join(directory, "nvcompress.exe")
-        if os.path.isfile(exe_path):
-            dst_path = os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "nvcompress.exe")
-            try:
-                shutil.copy(exe_path, dst_path)
-                logging.info(f"📁 nvcompress nach {dst_path} kopiert.")
-                return True
-            except Exception as e:
-                logging.warning(f"⚠️ Konnte nvcompress nicht in PATH kopieren: {e}")
-    return False
+def execute_plan(plan):
+    platform_name = platform.system().lower()
 
-def try_register_cairosvg_windows():
-    """
-    Registriert GTK3 Runtime-Pfade unter Windows, falls sie nicht im PATH enthalten sind.
-    Entspricht try_register_nvcompress_windows() in Struktur und Verhalten.
-    """
-    gtk_base = r"C:\Program Files\GTK3-Runtime Win64"
-    gtk_bin = os.path.join(gtk_base, "bin")
-    gtk_lib = os.path.join(gtk_base, "lib")
+    # Sicherstellen, dass env_vars und installers dicts sind
+    env_vars_all = plan.get("env_vars") or {}
+    env_vars = env_vars_all.get(platform_name) or {}
 
-    if not os.path.exists(gtk_bin):
-        logging.warning(f"⚠️ GTK3 Runtime-Verzeichnis nicht gefunden: {gtk_bin}")
-        return False
+    installers_all = plan.get("installers") or {}
+    installers = installers_all.get(platform_name) or []
 
-    path_env = os.environ.get("PATH", "")
-    paths_to_add = []
+    check_func = plan.get("check")
 
-    for p in [gtk_bin, gtk_lib]:
-        if os.path.exists(p) and p not in path_env:
-            paths_to_add.append(p)
+    # Env Vars setzen
+    for key, values in (env_vars or {}).items():
+        if values is not None:
+            os.environ[key] = os.pathsep.join(values + [os.environ.get(key, "")])
 
-    if paths_to_add:
-        new_path = os.pathsep.join(paths_to_add + [path_env])
-        os.environ["PATH"] = new_path
-        logging.info(f"🔧 GTK3 Runtime-Pfade temporär zu PATH hinzugefügt: {paths_to_add}")
+    # Check vor Installation
+    if callable(check_func) and check_func():
+        logging.info(f"✅ {plan.get('installer_name') or 'Plan'} bereits installiert, überspringe Installation.")
+        return
 
-        # Optional: dauerhaft registrieren
-        try:
-            subprocess.run(["setx", "PATH", new_path], shell=True, check=False)
-            logging.info("✅ GTK3-Pfade dauerhaft in PATH geschrieben (setx).")
-        except Exception as e:
-            logging.warning(f"⚠️ Konnte PATH nicht dauerhaft setzen: {e}")
+    logging.info(f"⚠️ {plan.get('installer_name') or 'Plan'} nicht gefunden – Installation wird gestartet.")
 
-        return True
-
-    logging.info("✅ GTK3 Runtime-Pfade bereits in PATH enthalten.")
-    return True
-
-def install_nvcompress():
+    # Installer entpacken und ausführen
     driver_folder = detect_platform_driver_folder()
     os.makedirs(__DRIVER_FOLDER, exist_ok=True)
 
-    zip_files = [f for f in os.listdir(driver_folder) if f.endswith(".zip")]
-    if not zip_files:
-        logging.warning("⚠️ Keine ZIP-Datei in Treiberverzeichnis gefunden.")
-        return False
+    for installer_zip in installers:
+        if not installer_zip:
+            continue
+        zip_path = os.path.join(driver_folder, installer_zip)
+        if not os.path.exists(zip_path):
+            logging.warning(f"⚠️ Installer nicht gefunden: {zip_path}")
+            continue
 
-    for zip_name in zip_files:
-        zip_path = os.path.join(driver_folder, zip_name)
-        logging.info(f"📦 Entpacke {zip_name} ...")
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+        logging.info(f"📦 Entpacke {installer_zip}")
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
             zip_ref.extractall(__DRIVER_FOLDER)
 
-        system = platform.system().lower()
-
-        if system == "windows":
-            exe_path = next(
-                (os.path.abspath(os.path.join(__DRIVER_FOLDER, f)) for f in os.listdir(__DRIVER_FOLDER) if f.endswith(".exe")),
-                None
-            )
-            if not exe_path:
-                logging.error("❌ Keine .exe Installationsdatei gefunden.")
-                return False
-
-            logging.info(f"🚀 Starte Installer mit Administratorrechten: {exe_path}")
-            try:
-                run_installer_as_admin_and_wait(exe_path, "/S")
-                try_register_nvcompress_windows()
-            except Exception as e:
-                logging.error(f"❌ Fehler beim Starten mit Adminrechten: {e}")
-                return False
-
-        else:  # Linux / AARCH64
-            for file in os.listdir(__DRIVER_FOLDER):
-                if file.endswith(".tar.gz"):
-                    tar_path = os.path.join(__DRIVER_FOLDER, file)
-                    logging.info(f"📦 Entpacke tar.gz: {tar_path}")
-                    with tarfile.open(tar_path, "r:gz") as tar:
-                        tar.extractall(__DRIVER_FOLDER)
-
-            for root, _, files in os.walk(__DRIVER_FOLDER):
-                for name in files:
-                    if name == "nvcompress":
-                        src_path = os.path.join(root, name)
-                        dst_path = "/usr/local/bin/nvcompress"
-                        logging.info(f"📁 Kopiere nvcompress → {dst_path}")
-                        try:
-                            shutil.copy(src_path, dst_path)
-                            os.chmod(dst_path, 0o755)
-                        except PermissionError:
-                            logging.error("❌ Keine Berechtigung zum Schreiben nach /usr/local/bin – bitte mit sudo ausführen.")
-                            return False
-                        except Exception as e:
-                            logging.error(f"❌ Fehler beim Kopieren: {e}")
-                            return False
-
-    try:
-        shutil.rmtree(__DRIVER_FOLDER)
-        logging.info("🧹 Temporärer Ordner entfernt.")
-    except Exception as e:
-        logging.warning(f"Konnte __DRIVER_FOLDER nicht löschen: {e}")
-
-    return True
-
-def install_cairosvg():
-    """Installiert CairoSVG und GTK3 Runtime auf Windows oder Linux."""
-    system = platform.system().lower()
-
-    # CairoSVG via pip installieren
-    logging.info("📦 Installiere CairoSVG über pip ...")
-    try:
-        subprocess.run(["pip", "install", "--upgrade", "cairosvg"], check=True)
-    except Exception as e:
-        logging.error(f"❌ Fehler bei CairoSVG-Installation: {e}")
-        return False
-
-    # Windows: GTK3 Runtime
-    if system == "windows":
-        gtk_base = r"C:\Program Files\GTK3-Runtime Win64"
-        gtk_bin = os.path.join(gtk_base, "bin")
-        gtk_dll = os.path.join(gtk_bin, "libcairo-2.dll")
-
-        if not os.path.exists(gtk_dll):
-            logging.warning("⚠️ GTK3 Runtime nicht gefunden – versuche Installation ...")
-
-            from generated.paths import ASSETS_DRIVER_WINDOWS_FOLDER
-            installer_name = "gtk3-runtime-3.24.31-2022-01-04-ts-win64.exe"
-            installer_path = os.path.join(ASSETS_DRIVER_WINDOWS_FOLDER, installer_name)
-
-            if os.path.exists(installer_path):
+        # Führe exe oder entpackte tar.gz aus
+        for f in os.listdir(__DRIVER_FOLDER):
+            abs_path = os.path.join(__DRIVER_FOLDER, f)
+            if f.endswith(".exe") and platform.system().lower() == "windows":
+                logging.info(f"🚀 Starte Installer als Admin: {abs_path}")
                 try:
-                    run_installer_as_admin_and_wait(installer_path, "/S")
+                    run_installer_as_admin(abs_path, "/S")
                 except Exception as e:
-                    logging.error(f"❌ Fehler beim Ausführen des GTK3-Installers: {e}")
-                    return False
-            else:
-                logging.error(f"❌ GTK3 Runtime Installer nicht gefunden unter: {installer_path}")
-                return False
-        else:
-            logging.info("✅ GTK3 Runtime ist bereits installiert.")
+                    logging.error(f"❌ Fehler beim Admin-Start von {abs_path}: {e}")
+            elif f.endswith(".exe"):
+                logging.info(f"🚀 Starte Installer: {abs_path}")
+                try:
+                    subprocess.run([abs_path, "/S"], check=True)
+                except Exception as e:
+                    logging.error(f"❌ Fehler beim Ausführen von {abs_path}: {e}")
+            elif f.endswith(".tar.gz"):
+                logging.info(f"📦 Entpacke tar.gz: {abs_path}")
+                try:
+                    with tarfile.open(abs_path, "r:gz") as tar:
+                        tar.extractall(__DRIVER_FOLDER)
+                except Exception as e:
+                    logging.error(f"❌ Fehler beim Entpacken von {abs_path}: {e}")
 
-        # Pfade registrieren
-        try_register_cairosvg_windows()
-
-    # Linux / Arch
-    elif system == "linux":
-        logging.info("🐧 Prüfe Cairo- und GTK-Abhängigkeiten ...")
-
-        distro = ""
+    # Check nach Installation
+    if callable(check_func):
         try:
-            with open("/etc/os-release") as f:
-                for line in f:
-                    if line.startswith("ID="):
-                        distro = line.strip().split("=")[1].replace('"', "")
-                        break
-        except Exception:
-            pass
+            if check_func():
+                logging.info(f"✅ {plan.get('installer_name') or 'Plan'} erfolgreich installiert und geprüft.")
+            else:
+                logging.error(f"❌ {plan.get('installer_name') or 'Plan'} Installation/Check fehlgeschlagen.")
+        except Exception as e:
+            logging.error(f"❌ Fehler beim Ausführen des Checks: {e}")
 
-        if shutil.which("cairo-trace") or os.path.exists("/usr/lib/libcairo.so"):
-            logging.info("✅ Cairo ist bereits installiert.")
-        else:
-            try:
-                if "arch" in distro or "manjaro" in distro:
-                    subprocess.run(["sudo", "pacman", "-S", "--noconfirm", "cairo", "gtk3"], check=True)
-                else:
-                    subprocess.run(["sudo", "apt", "install", "-y", "libcairo2", "gtk3"], check=True)
-                logging.info("✅ Cairo / GTK3 erfolgreich installiert.")
-            except Exception as e:
-                logging.warning(f"⚠️ Automatische Installation von Cairo/GTK3 fehlgeschlagen: {e}")
 
-    logging.info("🎨 CairoSVG / GTK3 Setup abgeschlossen.")
-    return True
+def initialize_drivers():
+    """
+    Initialisiert alle installierbaren Tools / Drivers in der Reihenfolge der Plans.
+    """
+    plans = [
+        plan_nvcompress(),
+        plan_cairosvg()
+    ]
 
-def detect_nvcompress_or_install():
-    nvcompress_path = detect_nvcompress()
-    if nvcompress_path:
-        set_nvcompress(nvcompress_path)
-        logging.info(f"✅ nvcompress ist bereits installiert unter: {nvcompress_path}")
-        if os.path.exists(__DRIVER_FOLDER):
+    for plan in plans:
+        logging.info(f"🚀 Initialisierung starten: {plan.get('installer_name', 'Unbekannt')}")
+        execute_plan(plan)
+        logging.info(f"✅ Initialisierung abgeschlossen: {plan.get('installer_name', 'Unbekannt')}\n")
+
+    if os.path.exists(__DRIVER_FOLDER):
+        retries = [10, 15, 20]  # Sekunden
+        for i, wait in enumerate(retries):
             try:
                 shutil.rmtree(__DRIVER_FOLDER)
-                logging.info("🧹 Temporärer Ordner entfernt (nach Prüfung).")
+                logging.info("🧹 Temporäre Installations-Dateien entfernt.")
+                break  # erfolgreich, Abbruch der Schleife
             except Exception as e:
-                logging.warning(f"Konnte __DRIVER_FOLDER nicht löschen: {e}")
-        return True
-
-    gpu_available, gpu_name, _ = detect_gpu_with_nvidia_smi()
-    if not gpu_available:
-        logging.warning("❌ Keine NVIDIA-GPU erkannt – nvcompress wird übersprungen.")
-        return False
-
-    logging.info(f"🛠️ NVIDIA-GPU erkannt ({gpu_name}). Installation von nvcompress wird gestartet ...")
-    success = install_nvcompress()
-
-    if success:
-        nvcompress_path = detect_nvcompress()
-        if nvcompress_path:
-            set_nvcompress(nvcompress_path)
-            logging.info(f"✅ nvcompress erfolgreich installiert unter: {nvcompress_path}")
-            return True
-        else:
-            logging.error("❌ nvcompress wurde installiert, aber Pfad konnte nicht ermittelt werden.")
-            return False
-    else:
-        logging.error("❌ nvcompress konnte nicht installiert werden.")
-        return False
-
-def detect_cairosvg_or_install():
-    """Prüft CairoSVG und führt Installation aus, falls nötig."""
-    if detect_cairosvg():
-        logging.info("✅ CairoSVG ist bereits korrekt eingerichtet.")
-        return True
-
-    logging.info("🛠️ CairoSVG funktioniert nicht – Installation wird gestartet ...")
-    success = install_cairosvg()
-
-    if success and detect_cairosvg():
-        logging.info("✅ CairoSVG erfolgreich installiert und geprüft.")
-        return True
-    else:
-        logging.error("❌ CairoSVG konnte nicht erfolgreich installiert werden.")
-        return False
-
+                if i < len(retries) - 1:
+                    logging.warning(f"❌ Versuch {i+1}: Konnte temporäre Installations-Dateien nicht entfernen: {e}. Neuer Versuch in {wait} Sekunden...")
+                    time.sleep(wait)
+                else:
+                    logging.error(f"❌ Alle Versuche fehlgeschlagen: {e}")
 
 if __name__ == "__main__":
-    detect_nvcompress_or_install()
-    detect_cairosvg_or_install()
+    initialize_drivers()
