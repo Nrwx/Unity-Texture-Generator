@@ -126,6 +126,11 @@ export const windowStateEvent = (route) => ({
             await route.emit("select:mask-shape", payload.shape);
         }
     },
+    "select-state:items": async (payload) => {
+        if (typeof payload === "boolean") {
+            route.windowStates.selectItems.value = payload;
+        }
+    },
     "cursor-state": async (payload) => {
         if (typeof payload === "boolean") {
             await route.emit("reset:window-states", !payload);

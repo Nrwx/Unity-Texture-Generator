@@ -1,4 +1,4 @@
-import {computed, ref, onMounted, onBeforeUnmount} from "vue";
+import {computed, ref, onMounted, onBeforeUnmount, nextTick} from "vue";
 import { key } from "@/dataLayer/key";
 import {eventRegister} from "@/dataLayer/event";
 
@@ -112,10 +112,15 @@ export function selectionModel(props, emit) {
         return { x, y, width, height };
     };
 
-    const onMouseUp = () => {
+    const onMouseUp = async () => {
         if (!props.state || !selecting.value) return;
         selecting.value = false;
         selectionBox.value = calculateBox(start.value, end.value);
+        if (selectionBox.value && props.selectState) {
+            emitEvent("update:select-items-box", selectionBox.value);
+            await nextTick();
+            selectionBox.value = null;
+        }
     };
 
     const activeBox = computed(() => {
@@ -205,6 +210,10 @@ export const selectionProps = {
     state: {
         type: Boolean,
         required: true
+    },
+    selectState: {
+        type: Boolean,
+        required: false
     },
     shape: {
         type: String,

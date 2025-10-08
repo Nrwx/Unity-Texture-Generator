@@ -75,6 +75,7 @@ export const localData = {
     tile: ref({x: 1, y: 1}),
     selectedShape: ref('rectangle'),
     selectedBlendMode: ref(0),
+    selectItemsBox: ref(null),
 }
 
 export const tempData = {
@@ -83,6 +84,7 @@ export const tempData = {
     canvasId: ref(uuid()),
     brushCanvasId: ref(uuid()),
     brushLayer: ref(null),
+    timelineId: ref(null),
     keys: ref([]),
     heldKeys: ref(new Map()),
 }
@@ -94,15 +96,4 @@ export const screenshotData = {
     quality: ref('low'),
     history: ref([]),
     url: ref(null)
-}
-
-export const animationData = {
-    title: '',
-    time: ref(0),
-    keyframe: ref([
-        { time: 0, transform: {}, id: 1, ease: "linear", connection: [] },
-        { time: 50, transform: {}, id: 2, ease: "linear", connection: [] },
-        { time: 100, transform: {}, id: 3, ease: "linear", connection: [] },
-    ]),
-    ease: ref("linear"),
 }

@@ -218,7 +218,8 @@ export const taskbarItemCenter = [
         hidden: false,
         component: {
             path: Animation,
-            props: {}
+            props: {},
+            maxWidth: '100%'
         },
     },
     {

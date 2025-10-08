@@ -11,7 +11,7 @@
             v-if="active && active.component && active.component.props"
             variant="flat"
             color="surface"
-            max-width="585"
+            :max-width="active.component?.maxWidth || 585"
             width="100%"
             :theme="theme"
             class="px-4 py-3 mb-4 rounded-xl"

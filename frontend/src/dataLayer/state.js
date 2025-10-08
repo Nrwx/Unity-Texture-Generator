@@ -17,6 +17,7 @@ export const windowStates = {
     fullscreen: ref(false),
     drag: ref(false),
     select: ref(false),
+    selectItems: ref(false),
     text: ref(false),
     notify: ref(false),
     typing: ref(false),

@@ -27,6 +27,7 @@ import {keyEvent} from "@/dataLayer/event/key";
 import {exportEvent} from "@/dataLayer/event/export";
 import {rendererEvent} from "@/dataLayer/event/renderer";
 import {pathEvent} from "@/dataLayer/event/path";
+import {timelineEvent} from "@/dataLayer/event/timeline";
 
 
 /**
@@ -36,6 +37,7 @@ const eventHandler = (route) => ({
     ...listenerEvent(route),
     ...keyEvent(route),
     ...appEvent(route),
+    ...timelineEvent(route),
     ...fontsEvent(route),
     ...globalBackupEvent(route),
     ...cursorEvent(route),

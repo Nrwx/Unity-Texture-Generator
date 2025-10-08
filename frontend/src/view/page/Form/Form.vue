@@ -46,14 +46,13 @@ export default defineComponent({
   name: "FormPage",
   props: formProps,
   setup(props, { emit }) {
-    const {selectForm, emitSubEvent} = formModel(props, emit);
+    const {selectForm} = formModel(props, emit);
 
     return {
       appData,
       windowStates,
       localData,
-      selectForm,
-      emitSubEvent
+      selectForm
     };
   },
 });

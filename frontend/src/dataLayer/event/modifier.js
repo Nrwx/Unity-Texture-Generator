@@ -20,6 +20,10 @@ export const modifierEvent = (route) => ({
         route.localData.selectedShape.value = payload
         console.log(route.localData.selectedShape.value)
     },
+    "update:select-items-box": async (payload) => {
+        route.localData.selectItemsBox.value = payload
+        console.log(route.localData.selectItemsBox.value)
+    },
     "pen:bezier-mode": async (payload) => {
         route.localData.bezier.value = payload
         console.log(route.localData.bezier.value)

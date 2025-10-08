@@ -67,6 +67,7 @@ import {notifyMessage} from "@/models/notify/config/model";
 import Key from "@/components/Key/Key";
 import {exportData, previewData} from "@/models/export/config/model";
 import {initLocalization} from "@/utils/dayJs";
+import {timelineData} from "@/models/timeline/config/model";
 
 export default {
   name: 'App',
@@ -113,7 +114,8 @@ export default {
       tempData,
       screenshotData,
       exportData,
-      previewData
+      previewData,
+      timelineData
     });
 
     const taskbarEvent = async (side, itemId) => {
@@ -233,7 +235,8 @@ export default {
       pathLayer,
       tempData,
       transformStates,
-      backupStates
+      backupStates,
+      timelineData,
     };
   },
 };

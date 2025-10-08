@@ -433,7 +433,6 @@ export const brushProps = {
     state: { type: Boolean, required: true },
     drawing: { type: Boolean, required: true },
     viewport: { type: Object, required: true },
-    brushLayer: { type: Object, required: true },
     selectedLayer: { type: Object, required: true },
     data: { type: Object, required: true },
     brushes: { type: Array, required: true },
