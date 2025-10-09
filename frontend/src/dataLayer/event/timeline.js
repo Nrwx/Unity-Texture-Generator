@@ -5,11 +5,10 @@ export const timelineEvent = (route) => ({
     },
     "timeline:time": async (payload) => {
         route.timelineData.value.time = payload;
-        console.log(route.timelineData.value.time, 'TIMELINE TIME' )
     },
     "timeline:width": async (payload) => {
         route.timelineData.value.width = payload;
-        console.log(route.timelineData.value.width, 'TIMELINE WIDTH SETUP')
+        console.log(route.timelineData.value.width, 'TIMELINE WIDTH' )
     },
     "timeline:totalTime": async (payload) => {
         route.timelineData.value.totalTime = payload;
@@ -23,22 +22,15 @@ export const timelineEvent = (route) => ({
     },
     "timeline:keyframes": async (payload) => {
         route.timelineData.value.keyframes = payload;
-        console.log(route.timelineData.value.keyframes, 'TIMELINE KEYFRAMES')
     },
     "timeline:select-keyframes": async (payload) => {
         route.timelineData.value.selectedKeyframes = payload;
-        console.log(route.timelineData.value.selectedKeyframes, 'TIMELINE SELECTED KEYFRAMES')
+        console.log(route.timelineData.value.selectedKeyframes, 'TIMELINE SELECT KEYFRAMES')
     },
-    "timeline:recording": async (payload) => {
-        route.timelineData.value.recording = payload;
-        console.log(payload, 'TIMELINE RECORDING MODE')
+    "timeline:record": async (payload) => {
+        route.timelineStates.record.value = payload;
     },
-    "timeline:select-mode": async (payload) => {
-        route.timelineData.value.selectMode = payload;
-        console.log(payload, 'TIMELINE SELECTION MODE')
-    },
-    "timeline:playing": async (payload) => {
-        route.timelineData.value.playing = payload;
-        console.log(payload, 'TIMELINE PLAYING')
+    "timeline:play": async (payload) => {
+        route.timelineStates.play.value = payload;
     },
 })

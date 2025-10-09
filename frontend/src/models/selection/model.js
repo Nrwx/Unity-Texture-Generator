@@ -19,6 +19,9 @@ export function selectionModel(props, emit) {
     const emitEvent = (event, payload) => {
         emit("update:component-event", event, payload);
     };
+    const emitSelect = (payload) => {
+        emit("update:select-event", payload);
+    };
 
     const { register } = eventRegister('listener:select-mask', emitEvent);
 
@@ -116,10 +119,13 @@ export function selectionModel(props, emit) {
         if (!props.state || !selecting.value) return;
         selecting.value = false;
         selectionBox.value = calculateBox(start.value, end.value);
-        if (selectionBox.value && props.selectState) {
+        if (selectionBox.value && props.select) {
+            emitSelect(selectionBox.value);
             emitEvent("update:select-items-box", selectionBox.value);
             await nextTick();
             selectionBox.value = null;
+            emitEvent("select-state:items", false);
+            emitEvent("select-state", false);
         }
     };
 
@@ -211,7 +217,7 @@ export const selectionProps = {
         type: Boolean,
         required: true
     },
-    selectState: {
+    select: {
         type: Boolean,
         required: false
     },

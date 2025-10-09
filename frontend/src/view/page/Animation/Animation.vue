@@ -8,8 +8,10 @@
           <Timeline
               :config="timelineData"
               :wrapper-id="wrapperId"
-              :state="windowStates.select.value"
+              :select-menu="windowStates.select.value"
               :select-state="windowStates.selectItems.value"
+              :play-state="timelineStates.play.value"
+              :record-state="timelineStates.record.value"
               :selection-box="localData.selectItemsBox.value"
               @component-event="emitEvent"
           />
@@ -23,7 +25,7 @@
 import { defineComponent } from "vue";
 import {animationModel, animationProps} from "@/view/models/page/animation/model";
 import Timeline from "@/components/Timeline/Timeline";
-import {windowStates} from "@/dataLayer/state";
+import {timelineStates, windowStates} from "@/dataLayer/state";
 import {timelineData} from "@/models/timeline/config/model";
 import {localData} from "@/dataLayer/local";
 
@@ -37,6 +39,7 @@ export default defineComponent({
     const { wrapperRef, wrapperId, timelineBar, emitEvent,} = animationModel(props, emit);
     return {
       timelineData,
+      timelineStates,
       localData,
       windowStates,
       wrapperRef,

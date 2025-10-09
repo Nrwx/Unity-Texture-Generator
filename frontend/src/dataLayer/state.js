@@ -40,6 +40,11 @@ export const modifierStates = {
     fill: ref(false),
 };
 
+export const timelineStates = {
+    play: ref(false),
+    record: ref(false)
+};
+
 export const transformStates = {
     menu: ref(false),
     rotate: ref(false),

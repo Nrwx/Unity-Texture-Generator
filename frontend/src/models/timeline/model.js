@@ -13,17 +13,11 @@ export function timelineModel(props, emit) {
 
     const pointerId = ref(null);
 
-    const playing = ref(false);
-
     const rafId = ref(null);
 
     const playStartTimestamp = ref(0);
 
     const playOffset = ref(0);
-
-    const isRecording = ref(false);
-
-    const isSelectMode = ref(false);
 
     const emitEvent = (event, payload) => {
         emit("component-event", event, payload);
@@ -87,6 +81,11 @@ export function timelineModel(props, emit) {
         return items;
     });
 
+    const selectedKeys = computed( () => {
+        // Simply return the selected keyframes from config
+        return props.config.selectedKeyframes || [];
+    });
+
     // --- zoom handler
     const onWheel = async (e) => {
         const oldZoom = props.config.zoomLevel.current;
@@ -112,7 +111,7 @@ export function timelineModel(props, emit) {
     }
 
     const onKFPointerDown = async (frame, evt) => {
-        if (isSelectMode.value) {
+        if (frame) {
             // In select mode, toggle keyframe selection
             const data = [...props.config.selectedKeyframes];
             const idx = data.indexOf(frame.id);
@@ -161,7 +160,7 @@ export function timelineModel(props, emit) {
             k.time = Math.round(newTime); // snap to integer frames
             
             // Auto-record: if recording mode is on, update transform data
-            if (isRecording.value && props.config._current) {
+            if (props.recordState && props.config._current) {
                 k.transform = JSON.parse(JSON.stringify(props.config._current));
             }
             
@@ -261,25 +260,37 @@ export function timelineModel(props, emit) {
         await recompute();
     }
 
-    const onMultiSelect = async (box) => {
-        const rect = timeline.value.getBoundingClientRect();
+    // --- Selection Box Handler ---
+    const onMultiSelect = (box) => {
+        if (!timeline.value) return;
+
+        const scrollLeft = wrapper.value ? wrapper.value.scrollLeft : 0;
         const selectedIds = [];
 
         if(box) {
             keyframes.value.forEach(frame => {
+
                 const frameX = frame.left;
-                const frameY = props.config.height * 0.5; // zentriert
+                const frameY = props.config.height * 0.5;
+
+                const boxLeftInSvg = box.x + scrollLeft;
+                const boxRightInSvg = boxLeftInSvg + box.width;
+                const boxTopInSvg = box.y;
+                const boxBottomInSvg = boxTopInSvg + box.height;
+                
+                // Check if frame is inside the box
                 const inside =
-                    frameX >= box.x - rect.left &&
-                    frameX <= box.x - rect.left + box.width &&
-                    frameY >= box.y - rect.top &&
-                    frameY <= box.y - rect.top + box.height;
+                    frameX >= boxLeftInSvg &&
+                    frameX <= boxRightInSvg &&
+                    frameY >= boxTopInSvg &&
+                    frameY <= boxBottomInSvg;
+
 
                 if (inside) {
                     selectedIds.push(frame.id);
                 }
             });
-            
+
             emitEvent('timeline:select-keyframes', selectedIds);
         } else {
             emitEvent('timeline:select-keyframes', []);
@@ -306,11 +317,10 @@ export function timelineModel(props, emit) {
 
     // --- Toggle Modes ---
     const onToggleRecord = async () => {
-        isRecording.value = !isRecording.value;
-        emitEvent('timeline:recording', isRecording.value);
+        emitEvent('timeline:record', !props.recordState);
         
         // If turning on recording and we're on a keyframe, capture current state
-        if (isRecording.value && props.config._current) {
+        if (props.recordState && props.config._current) {
             const t = Math.round(props.config.time);
             const existingKF = keyframes.value.find(k => k.time === t);
             
@@ -322,24 +332,21 @@ export function timelineModel(props, emit) {
     }
 
     const onToggleSelectMode = async () => {
-        isSelectMode.value = !isSelectMode.value;
-        emitEvent('timeline:select-mode', isSelectMode.value);
+        emitEvent('select-state', !props.selectState);
+        emitEvent('select-state:items', !props.selectState);
         
-        // Clear selection when exiting select mode
-        if (!isSelectMode.value) {
-            emitEvent('timeline:select-keyframes', []);
-        }
+        // Clear selection
+        emitEvent('timeline:select-keyframes', null);
     }
 
     // --- Playback Controls ---
     const onPlay = async () => {
-        if (!playing.value) await startRAF();
+        if (!props.playState) await startRAF();
     }
 
     const onPause = async () => {
-        playing.value = false;
+        emitEvent('timeline:play', false);
         emitEvent('timeline:time', props.config.time);
-        emitEvent('timeline:playing', false);
         if (rafId.value) {
             cancelAnimationFrame(rafId.value);
             rafId.value = null;
@@ -356,11 +363,10 @@ export function timelineModel(props, emit) {
         if (rafId.value) cancelAnimationFrame(rafId.value);
         playStartTimestamp.value = performance.now();
         playOffset.value = props.config.time;
-        playing.value = true;
-        emitEvent('timeline:playing', true);
+        emitEvent('timeline:play', true);
         
         function step(now) {
-            if (!playing.value) return;
+            if (!props.playState) return;
             
             const elapsed = now - playStartTimestamp.value;
             const newTime = Math.round(playOffset.value + elapsed * 0.06); // map ms->frames (example: 0.06 => 60fps -> 1 frame per ~16ms)
@@ -368,8 +374,7 @@ export function timelineModel(props, emit) {
             // stop at end
             if (newTime >= totalTime.value) {
                 emitEvent('timeline:time', totalTime.value);
-                playing.value = false;
-                emitEvent('timeline:playing', false);
+                emitEvent('timeline:play', false);
                 if (rafId.value) {
                     cancelAnimationFrame(rafId.value);
                     rafId.value = null;
@@ -408,14 +413,15 @@ export function timelineModel(props, emit) {
         ticks,
         segments,
         playHead,
+        selectedKeys,
         onPlay,
         onPause,
         onStop,
         onWheel,
         onAddKey,
         onDeleteKey,
-        onKFPointerDown,
         onMultiSelect,
+        onKFPointerDown,
         onFrameForward,
         onFrameBack,
         onSkipToEnd,
@@ -426,11 +432,19 @@ export function timelineModel(props, emit) {
 }
 
 export const timelineProps = {
-    state: {
+    selectMenu: {
         type: Boolean,
         required: true,
     },
     selectState: {
+        type: Boolean,
+        required: true,
+    },
+    playState: {
+        type: Boolean,
+        required: true,
+    },
+    recordState: {
         type: Boolean,
         required: true,
     },

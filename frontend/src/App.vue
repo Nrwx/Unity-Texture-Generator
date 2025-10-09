@@ -46,7 +46,15 @@ import {taskbarItemCenter, taskbarItemLeft, taskbarItemRight} from "@/models/tas
 import {appData, localData, screenshotData, tempData} from "@/dataLayer/local";
 import DrawerNew from "@/components/Drawer/DrawerNew";
 import Layer from "@/components/Layer/Layer";
-import {backupStates, canvasStates, modifierStates, ruleStates, transformStates, windowStates} from "@/dataLayer/state";
+import {
+  backupStates,
+  canvasStates,
+  modifierStates,
+  ruleStates,
+  timelineStates,
+  transformStates,
+  windowStates
+} from "@/dataLayer/state";
 import Setting from "@/components/Setting/Setting";
 import {osSettings} from "@/dataLayer/setting";
 import Fullscreen from "@/components/Fullscreen/Fullscreen";
@@ -115,7 +123,8 @@ export default {
       screenshotData,
       exportData,
       previewData,
-      timelineData
+      timelineData,
+      timelineStates
     });
 
     const taskbarEvent = async (side, itemId) => {
@@ -237,6 +246,7 @@ export default {
       transformStates,
       backupStates,
       timelineData,
+      timelineStates
     };
   },
 };
