@@ -29,4 +29,16 @@ export const timelineEvent = (route) => ({
         route.timelineData.value.selectedKeyframes = payload;
         console.log(route.timelineData.value.selectedKeyframes, 'TIMELINE SELECTED KEYFRAMES')
     },
+    "timeline:recording": async (payload) => {
+        route.timelineData.value.recording = payload;
+        console.log(payload, 'TIMELINE RECORDING MODE')
+    },
+    "timeline:select-mode": async (payload) => {
+        route.timelineData.value.selectMode = payload;
+        console.log(payload, 'TIMELINE SELECTION MODE')
+    },
+    "timeline:playing": async (payload) => {
+        route.timelineData.value.playing = payload;
+        console.log(payload, 'TIMELINE PLAYING')
+    },
 })

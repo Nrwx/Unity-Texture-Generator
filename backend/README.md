@@ -2,6 +2,8 @@
 
 ## Project setup
 ```
+pip list --format=freeze > requirements.txt
+
 cd backend
 pip install -r requirements.txt
 ```

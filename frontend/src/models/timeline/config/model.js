@@ -15,6 +15,9 @@ export const timelineData = ref({
     padding: 40,
     keyframes: [],
     selectedKeyframes: [],
+    recording: false,
+    selectMode: false,
+    playing: false,
     pointShape: '-6,0 0,-8 6,0 0,8',
     pointColor: {
         default: '#f87171',

@@ -21,6 +21,10 @@ export function timelineModel(props, emit) {
 
     const playOffset = ref(0);
 
+    const isRecording = ref(false);
+
+    const isSelectMode = ref(false);
+
     const emitEvent = (event, payload) => {
         emit("component-event", event, payload);
     };
@@ -108,6 +112,32 @@ export function timelineModel(props, emit) {
     }
 
     const onKFPointerDown = async (frame, evt) => {
+        if (isSelectMode.value) {
+            // In select mode, toggle keyframe selection
+            const data = [...props.config.selectedKeyframes];
+            const idx = data.indexOf(frame.id);
+            
+            if (evt.shiftKey || evt.ctrlKey) {
+                // Multi-select mode
+                if (idx === -1) {
+                    data.push(frame.id);
+                } else {
+                    data.splice(idx, 1);
+                }
+            } else {
+                // Single select
+                if (idx === -1) {
+                    data.length = 0;
+                    data.push(frame.id);
+                } else {
+                    // If already selected, start dragging
+                }
+            }
+            
+            emitEvent('timeline:select-keyframes', data);
+        }
+
+        // Start dragging
         selectedId.value = frame.id;
         pointerId.value = evt.pointerId;
         dragging.value = { id: frame.id, startX: evt.clientX, origTime: frame.time };
@@ -118,19 +148,31 @@ export function timelineModel(props, emit) {
     }
 
     const onKFPointerMove = async (ev) => {
+        if (!dragging.value) return;
+
         const rect = timeline.value.getBoundingClientRect();
         const scrollLeft = wrapper.value ? wrapper.value.scrollLeft : 0;
         const xInSvg = ev.clientX - rect.left + scrollLeft;
         const newTime = Math.max(0, (xInSvg - props.config.padding) / props.config.zoomLevel.current);
+        
         // update the shared keyframe entry (find by id)
         const k = props.config.keyframes.find(kf => kf.id === dragging.value.id);
         if (k) {
             k.time = Math.round(newTime); // snap to integer frames
+            
+            // Auto-record: if recording mode is on, update transform data
+            if (isRecording.value && props.config._current) {
+                k.transform = JSON.parse(JSON.stringify(props.config._current));
+            }
+            
             // keep reactive sorting/interpolation updated
             await interpolateAtCurrentTime();
         }
     }
+
     const onKFPointerUp = async () => {
+        if (!timeline.value || !pointerId.value) return;
+        
         timeline.value.releasePointerCapture(pointerId.value);
         window.removeEventListener("pointermove", onKFPointerMove);
         window.removeEventListener("pointerup", onKFPointerUp);
@@ -221,11 +263,10 @@ export function timelineModel(props, emit) {
 
     const onMultiSelect = async (box) => {
         const rect = timeline.value.getBoundingClientRect();
-        emitEvent('timeline:select', null);
+        const selectedIds = [];
 
         if(box) {
             keyframes.value.forEach(frame => {
-                const data = [];
                 const frameX = frame.left;
                 const frameY = props.config.height * 0.5; // zentriert
                 const inside =
@@ -235,19 +276,70 @@ export function timelineModel(props, emit) {
                     frameY <= box.y - rect.top + box.height;
 
                 if (inside) {
-                    data.push(frame.id);
-                    emitEvent('timeline:select-keyframes', data);
+                    selectedIds.push(frame.id);
                 }
             });
+            
+            emitEvent('timeline:select-keyframes', selectedIds);
+        } else {
+            emitEvent('timeline:select-keyframes', []);
         }
     }
 
+    // --- Frame Navigation ---
+    const onFrameForward = async () => {
+        const newTime = Math.min(totalTime.value, props.config.time + 1);
+        emitEvent('timeline:time', newTime);
+        await interpolateAtCurrentTime();
+    }
+
+    const onFrameBack = async () => {
+        const newTime = Math.max(0, props.config.time - 1);
+        emitEvent('timeline:time', newTime);
+        await interpolateAtCurrentTime();
+    }
+
+    const onSkipToEnd = async () => {
+        emitEvent('timeline:time', totalTime.value);
+        await interpolateAtCurrentTime();
+    }
+
+    // --- Toggle Modes ---
+    const onToggleRecord = async () => {
+        isRecording.value = !isRecording.value;
+        emitEvent('timeline:recording', isRecording.value);
+        
+        // If turning on recording and we're on a keyframe, capture current state
+        if (isRecording.value && props.config._current) {
+            const t = Math.round(props.config.time);
+            const existingKF = keyframes.value.find(k => k.time === t);
+            
+            if (existingKF) {
+                existingKF.transform = JSON.parse(JSON.stringify(props.config._current));
+                emitEvent('timeline:keyframes', props.config.keyframes);
+            }
+        }
+    }
+
+    const onToggleSelectMode = async () => {
+        isSelectMode.value = !isSelectMode.value;
+        emitEvent('timeline:select-mode', isSelectMode.value);
+        
+        // Clear selection when exiting select mode
+        if (!isSelectMode.value) {
+            emitEvent('timeline:select-keyframes', []);
+        }
+    }
+
+    // --- Playback Controls ---
     const onPlay = async () => {
         if (!playing.value) await startRAF();
     }
+
     const onPause = async () => {
         playing.value = false;
-        emitEvent('timeline:time', props.config.time)
+        emitEvent('timeline:time', props.config.time);
+        emitEvent('timeline:playing', false);
         if (rafId.value) {
             cancelAnimationFrame(rafId.value);
             rafId.value = null;
@@ -256,29 +348,39 @@ export function timelineModel(props, emit) {
 
     const onStop = async () => {
         await onPause();
-        emitEvent('timeline:time', 0)
+        emitEvent('timeline:time', 0);
         await interpolateAtCurrentTime();
     }
 
-    // --- playback controls
     const startRAF = async () => {
         if (rafId.value) cancelAnimationFrame(rafId.value);
         playStartTimestamp.value = performance.now();
         playOffset.value = props.config.time;
         playing.value = true;
+        emitEvent('timeline:playing', true);
+        
         function step(now) {
+            if (!playing.value) return;
+            
             const elapsed = now - playStartTimestamp.value;
-            props.config.time = Math.round(playOffset.value + elapsed * 0.06); // map ms->frames (example: 0.06 => 60fps -> 1 frame per ~16ms). adjust to your unit
+            const newTime = Math.round(playOffset.value + elapsed * 0.06); // map ms->frames (example: 0.06 => 60fps -> 1 frame per ~16ms)
+            
             // stop at end
-            if (props.config.time >= totalTime.value) {
-                props.config.time = totalTime.value;
+            if (newTime >= totalTime.value) {
+                emitEvent('timeline:time', totalTime.value);
                 playing.value = false;
-                cancelAnimationFrame(rafId);
-                rafId.value = null;
+                emitEvent('timeline:playing', false);
+                if (rafId.value) {
+                    cancelAnimationFrame(rafId.value);
+                    rafId.value = null;
+                }
                 return;
             }
+            
+            emitEvent('timeline:time', newTime);
             rafId.value = requestAnimationFrame(step);
         }
+        
         rafId.value = requestAnimationFrame(step);
     }
 
@@ -290,7 +392,7 @@ export function timelineModel(props, emit) {
 
     const init = async () => {
         wrapper.value = document.getElementById(props.wrapperId);
-        timeline.value = document.getElementById(props.config.id)
+        timeline.value = document.getElementById(props.config.id);
     }
 
 
@@ -314,10 +416,14 @@ export function timelineModel(props, emit) {
         onDeleteKey,
         onKFPointerDown,
         onMultiSelect,
+        onFrameForward,
+        onFrameBack,
+        onSkipToEnd,
+        onToggleRecord,
+        onToggleSelectMode,
         emitEvent
     };
 }
-
 
 export const timelineProps = {
     state: {

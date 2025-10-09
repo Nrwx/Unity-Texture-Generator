@@ -1,7 +1,7 @@
 {
-    "use_gpu": true,
-    "gpu_name": "GeForce GTX 1050 Ti",
-    "gpu_memory_mb": 4096,
-    "cpu_threads": 12,
-    "preferred_unit": "GPU"
+    "use_gpu": false,
+    "gpu_name": "No GPU Available",
+    "gpu_memory_mb": 0,
+    "cpu_threads": 2,
+    "preferred_unit": "CPU"
 }
