@@ -27,21 +27,11 @@
           icon 
           size="small" 
           variant="flat"
-          class="control-btn play-btn"
-          @click="onPlay"
-          title="Play"
+          :class="['control-btn', 'play-btn', { 'playing': playState }]"
+          @click="onTogglePlay"
+          :title="playState ? 'Pause' : 'Play'"
         >
-          <v-icon size="20">mdi-play</v-icon>
-        </v-btn>
-        <v-btn 
-          icon 
-          size="small" 
-          variant="flat"
-          class="control-btn"
-          @click="onPause"
-          title="Pause"
-        >
-          <v-icon size="18">mdi-pause</v-icon>
+          <v-icon size="20">{{ playState ? 'mdi-pause' : 'mdi-play' }}</v-icon>
         </v-btn>
         <v-btn 
           icon 
@@ -79,11 +69,19 @@
         </v-btn>
       </div>
 
-      <!-- Time Display -->
+      <!-- Time Display with Input -->
       <div class="controls-group time-info">
         <div class="time-display">
           <span class="time-label">Frame:</span>
-          <span class="time-value">{{ Math.round(config?.time) }}</span>
+          <input 
+            type="number" 
+            class="time-input"
+            :value="Math.round(config?.time)" 
+            @input="onTimeInput(Number($event.target.value))"
+            @keydown.enter="$event.target.blur()"
+            min="0"
+            :max="config?.totalTime"
+          />
         </div>
         <div class="time-separator"></div>
         <div class="zoom-level">
@@ -116,6 +114,40 @@
         </v-btn>
       </div>
 
+      <!-- Ease Interpolation Select -->
+      <div class="controls-group ease-controls" v-if="selectedKeys.length > 0">
+        <v-select
+          :model-value="getSelectedEase()"
+          @update:model-value="onEaseChange"
+          :items="[
+            { title: 'Linear', value: 'linear' },
+            { title: 'Ease In', value: 'ease-in' },
+            { title: 'Ease Out', value: 'ease-out' },
+            { title: 'Ease In-Out', value: 'ease-in-out' }
+          ]"
+          density="compact"
+          variant="outlined"
+          hide-details
+          class="ease-select"
+          title="Interpolation ease"
+        >
+          <template v-slot:prepend-inner>
+            <v-icon size="16">mdi-chart-bell-curve</v-icon>
+          </template>
+        </v-select>
+        <v-btn 
+          icon 
+          size="small" 
+          variant="flat"
+          :class="['control-btn', { 'active': bezierModeEnabled }]"
+          @click="onToggleBezierMode"
+          title="Toggle bezier curve editor"
+          :disabled="selectedKeys.length < 2"
+        >
+          <v-icon size="16">mdi-vector-bezier</v-icon>
+        </v-btn>
+      </div>
+
       <!-- Selection & View Options -->
       <div class="controls-group view-options">
         <v-btn 
@@ -139,8 +171,8 @@
         </v-btn>
       </div>
     </div>
+    
     <div style="position: relative;">
-      <!-- Timeline Ruler -->
       <Selection
           :state="selectMenu"
           :select="selectState"
@@ -178,8 +210,6 @@
         </defs>
 
         <rect :width="width || config?.width" :height="config?.height" fill="url(#bgGradient)" rx="0" />
-
-        <!-- Grid overlay -->
         <rect :width="width || config?.width" :height="config?.height" fill="none" stroke="#2f2f2f" stroke-width="1" />
 
         <!-- ticks -->
@@ -215,6 +245,69 @@
               opacity="0.2"
               rx="2"
           />
+        </g>
+
+        <!-- Bezier Curves -->
+        <g v-for="curve in curveSegments" :key="curve.id" class="curve-segment">
+          <template v-if="curve.isSelected || !bezierModeEnabled">
+            <path
+                :d="getCurvePath(curve)"
+                stroke="#4a9eff"
+                :stroke-width="curve.isSelected ? 3 : 2"
+                fill="none"
+                :opacity="curve.isSelected ? 0.8 : 0.4"
+                stroke-linecap="round"
+            />
+
+            <!-- Control points and handles (only visible in bezier mode for selected non-linear curves) -->
+            <g v-if="bezierModeEnabled && curve.isSelected && !curve.isLinear && curve.cp1 && curve.cp2">
+              <!-- Control lines -->
+              <line
+                  :x1="curve.start.left"
+                  :y1="config?.height * 0.75"
+                  :x2="bezierToSVGCoords(curve.cp1).x"
+                  :y2="bezierToSVGCoords(curve.cp1).y"
+                  stroke="#666"
+                  stroke-width="1"
+                  stroke-dasharray="4,4"
+                  opacity="0.6"
+              />
+              <line
+                  :x1="curve.end.left"
+                  :y1="config?.height * 0.75"
+                  :x2="bezierToSVGCoords(curve.cp2).x"
+                  :y2="bezierToSVGCoords(curve.cp2).y"
+                  stroke="#666"
+                  stroke-width="1"
+                  stroke-dasharray="4,4"
+                  opacity="0.6"
+              />
+
+              <!-- Control point 1 -->
+              <circle
+                  :cx="bezierToSVGCoords(curve.cp1).x"
+                  :cy="bezierToSVGCoords(curve.cp1).y"
+                  r="5"
+                  fill="#f0f"
+                  stroke="#fff"
+                  stroke-width="2"
+                  style="cursor: grab;"
+                  class="control-point"
+              />
+
+              <!-- Control point 2 -->
+              <circle
+                  :cx="bezierToSVGCoords(curve.cp2).x"
+                  :cy="bezierToSVGCoords(curve.cp2).y"
+                  r="5"
+                  fill="#f0f"
+                  stroke="#fff"
+                  stroke-width="2"
+                  style="cursor: grab;"
+                  class="control-point"
+              />
+            </g>
+          </template>
         </g>
 
         <!-- keyframes -->
@@ -303,7 +396,7 @@ export default defineComponent({
     Selection
   },
   setup(props, { emit }) {
-    const { 
+    const {
       emitEvent, 
       timeline, 
       width, 
@@ -312,6 +405,9 @@ export default defineComponent({
       segments, 
       playHead,
       selectedKeys,
+      curveSegments,
+      bezierModeEnabled,
+      bezierToSVGCoords,
       onPlay, 
       onPause, 
       onStop, 
@@ -319,13 +415,20 @@ export default defineComponent({
       onAddKey, 
       onDeleteKey,
       onMultiSelect,
+      onTogglePlay,
       onKFPointerDown,
       onFrameForward,
       onFrameBack,
       onSkipToEnd,
+      onTimeInput,
       onToggleRecord,
-      onToggleSelectMode
+      onToggleSelectMode,
+      onEaseChange,
+      onToggleBezierMode,
+      getSelectedEase,
+      getCurvePath
     } = timelineModel(props, emit);
+
 
     return {
       timeline,
@@ -335,9 +438,13 @@ export default defineComponent({
       segments,
       playHead,
       selectedKeys,
+      curveSegments,
+      bezierModeEnabled,
+      bezierToSVGCoords,
       onPlay,
       onPause,
       onStop,
+      onTogglePlay,
       onWheel,
       onAddKey,
       onDeleteKey,
@@ -346,8 +453,13 @@ export default defineComponent({
       onFrameForward,
       onFrameBack,
       onSkipToEnd,
+      onTimeInput,
       onToggleRecord,
       onToggleSelectMode,
+      onEaseChange,
+      onToggleBezierMode,
+      getSelectedEase,
+      getCurvePath,
       emitEvent
     };
   },

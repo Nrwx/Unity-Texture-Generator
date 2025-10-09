@@ -40,6 +40,26 @@
   }
 }
 
+.control-point {
+  transition: r 0.15s ease;
+
+  &:hover {
+    r: 6;
+  }
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.curve-segment {
+  pointer-events: none;
+
+  .control-point {
+    pointer-events: all;
+  }
+}
+
 .control-btn {
   background: #2a2a2a !important;
   border: 1px solid #3a3a3a !important;
@@ -178,6 +198,45 @@
   font-size: 11px;
   color: #888;
   font-family: system-ui, -apple-system, sans-serif;
+}
+
+.time-input {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  color: #fff;
+  padding: 2px 8px;
+  width: 60px;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  
+  &:focus {
+    outline: none;
+    border-color: #4a9eff;
+    background: rgba(74, 158, 255, 0.1);
+  }
+  
+  &::-webkit-inner-spin-button,
+  &::-webkit-outer-spin-button {
+    opacity: 0.5;
+  }
+}
+
+.play-btn.playing {
+  background: rgba(74, 158, 255, 0.2);
+  color: #4a9eff;
+}
+
+.ease-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  
+  .ease-select {
+    width: 140px;
+    font-size: 12px;
+  }
 }
 
 .timeline-svg {
