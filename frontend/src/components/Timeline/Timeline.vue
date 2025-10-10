@@ -260,52 +260,58 @@
             />
 
             <!-- Control points and handles (only visible in bezier mode for selected non-linear curves) -->
-            <g v-if="bezierModeEnabled && curve.isSelected && !curve.isLinear && curve.cp1 && curve.cp2">
-              <!-- Control lines -->
-              <line
-                  :x1="curve.start.left"
-                  :y1="config?.height * 0.75"
-                  :x2="bezierToSVGCoords(curve.cp1).x"
-                  :y2="bezierToSVGCoords(curve.cp1).y"
-                  stroke="#666"
-                  stroke-width="1"
-                  stroke-dasharray="4,4"
-                  opacity="0.6"
-              />
-              <line
-                  :x1="curve.end.left"
-                  :y1="config?.height * 0.75"
-                  :x2="bezierToSVGCoords(curve.cp2).x"
-                  :y2="bezierToSVGCoords(curve.cp2).y"
-                  stroke="#666"
-                  stroke-width="1"
-                  stroke-dasharray="4,4"
-                  opacity="0.6"
-              />
+            <g v-if="bezierModeEnabled && curve.isSelected && !curve.isLinear">
+              <!-- Control point 1 (left handle) -->
+              <template v-if="curve.showCp1 && curve.cp1">
+                <line
+                    :x1="curve.start.left"
+                    :y1="config?.height * 0.75"
+                    :x2="bezierToSVGCoords(curve.cp1).x"
+                    :y2="bezierToSVGCoords(curve.cp1).y"
+                    stroke="#666"
+                    stroke-width="1"
+                    stroke-dasharray="4,4"
+                    opacity="0.6"
+                    style="pointer-events: none;"
+                />
+                <circle
+                    :cx="bezierToSVGCoords(curve.cp1).x"
+                    :cy="bezierToSVGCoords(curve.cp1).y"
+                    r="5"
+                    fill="#f0f"
+                    stroke="#fff"
+                    stroke-width="2"
+                    style="cursor: grab; pointer-events: all;"
+                    class="control-point"
+                    @pointerdown.prevent.stop="onKFPointerDown(null, $event)"
+                />
+              </template>
 
-              <!-- Control point 1 -->
-              <circle
-                  :cx="bezierToSVGCoords(curve.cp1).x"
-                  :cy="bezierToSVGCoords(curve.cp1).y"
-                  r="5"
-                  fill="#f0f"
-                  stroke="#fff"
-                  stroke-width="2"
-                  style="cursor: grab;"
-                  class="control-point"
-              />
-
-              <!-- Control point 2 -->
-              <circle
-                  :cx="bezierToSVGCoords(curve.cp2).x"
-                  :cy="bezierToSVGCoords(curve.cp2).y"
-                  r="5"
-                  fill="#f0f"
-                  stroke="#fff"
-                  stroke-width="2"
-                  style="cursor: grab;"
-                  class="control-point"
-              />
+              <!-- Control point 2 (right handle) -->
+              <template v-if="curve.showCp2 && curve.cp2">
+                <line
+                    :x1="curve.end.left"
+                    :y1="config?.height * 0.75"
+                    :x2="bezierToSVGCoords(curve.cp2).x"
+                    :y2="bezierToSVGCoords(curve.cp2).y"
+                    stroke="#666"
+                    stroke-width="1"
+                    stroke-dasharray="4,4"
+                    opacity="0.6"
+                    style="pointer-events: none;"
+                />
+                <circle
+                    :cx="bezierToSVGCoords(curve.cp2).x"
+                    :cy="bezierToSVGCoords(curve.cp2).y"
+                    r="5"
+                    fill="#f0f"
+                    stroke="#fff"
+                    stroke-width="2"
+                    style="cursor: grab; pointer-events: all;"
+                    class="control-point"
+                    @pointerdown.prevent.stop="onKFPointerDown(null, $event)"
+                />
+              </template>
             </g>
           </template>
         </g>

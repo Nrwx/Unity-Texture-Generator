@@ -93,14 +93,13 @@ export function timelineModel(props, emit) {
             const nextKf = arr[i + 1];
             const isLinear = kf.ease === 'linear';
 
-            // ALWAYS ensure bezier is initialized for non-linear keyframes
+            // Get the original keyframe from props.config.keyframes
+            const originalKf = props.config.keyframes.find(k => k.id === kf.id);
+            if (!originalKf) continue;
+
+            // Only initialize bezier for non-linear keyframes
             if (!isLinear) {
-                // Get the original keyframe from props.config.keyframes
-                const originalKf = props.config.keyframes.find(k => k.id === kf.id);
-
-                if (!originalKf) continue;
-
-                // If bezier doesn't exist at all, initialize it
+                // Check if bezier needs initialization
                 if (!originalKf.bezier || !originalKf.bezier.cp1 || !originalKf.bezier.cp2) {
                     initializeBezierForKeyframe(originalKf, nextKf);
                 } else if (!originalKf.bezier._relativePos) {
@@ -127,15 +126,22 @@ export function timelineModel(props, emit) {
 
             const isSelected = selectedKeys.value.includes(kf.id) || selectedKeys.value.includes(nextKf.id);
 
+            // All non-linear segments show both control points
+            // No special handling for first/last keyframes
+            const showCp1 = !isLinear;
+            const showCp2 = !isLinear;
+
             curves.push({
                 id: `curve-${kf.id}-${nextKf.id}`,
                 start: kf,
                 end: nextKf,
                 isSelected,
                 isLinear,
+                showCp1,
+                showCp2,
                 // Reference the actual bezier objects, not copies
-                cp1: isLinear ? null : kf.bezier?.cp1,
-                cp2: isLinear ? null : kf.bezier?.cp2
+                cp1: (isLinear || !showCp1) ? null : kf.bezier?.cp1,
+                cp2: (isLinear || !showCp2) ? null : kf.bezier?.cp2
             });
         }
 
@@ -176,6 +182,7 @@ export function timelineModel(props, emit) {
     };
 
 
+
     const initializeBezierForKeyframe = (kf, nextKf) => {
         if (!kf || !nextKf) return;
 
@@ -191,7 +198,7 @@ export function timelineModel(props, emit) {
 
         const preset = easePresets[ease] || easePresets['linear'];
 
-        // Always create fresh bezier data
+        // Always create bezier structure with both control points
         kf.bezier = {
             cp1: {
                 time: kf.time + dt * preset.cp1.t,
@@ -269,25 +276,31 @@ export function timelineModel(props, emit) {
         });
     }
 
+
     const findControlPointAt = (x, y, radius = 15) => {
         if (!bezierModeEnabled.value) return null;
 
         for (const curve of curveSegments.value) {
-            if (!curve.isSelected || curve.isLinear || !curve.cp1 || !curve.cp2) continue;
+            if (!curve.isSelected || curve.isLinear) continue;
 
-            const cp1Pos = bezierToSVGCoords(curve.cp1);
-            const cp2Pos = bezierToSVGCoords(curve.cp2);
-
-            const dx1 = x - cp1Pos.x;
-            const dy1 = y - cp1Pos.y;
-            if (Math.sqrt(dx1 * dx1 + dy1 * dy1) < radius) {
-                return { curve, point: 'cp1' };
+            // Check cp1 only if it should be shown
+            if (curve.showCp1 && curve.cp1) {
+                const cp1Pos = bezierToSVGCoords(curve.cp1);
+                const dx1 = x - cp1Pos.x;
+                const dy1 = y - cp1Pos.y;
+                if (Math.sqrt(dx1 * dx1 + dy1 * dy1) < radius) {
+                    return { curve, point: 'cp1' };
+                }
             }
 
-            const dx2 = x - cp2Pos.x;
-            const dy2 = y - cp2Pos.y;
-            if (Math.sqrt(dx2 * dx2 + dy2 * dy2) < radius) {
-                return { curve, point: 'cp2' };
+            // Check cp2 only if it should be shown
+            if (curve.showCp2 && curve.cp2) {
+                const cp2Pos = bezierToSVGCoords(curve.cp2);
+                const dx2 = x - cp2Pos.x;
+                const dy2 = y - cp2Pos.y;
+                if (Math.sqrt(dx2 * dx2 + dy2 * dy2) < radius) {
+                    return { curve, point: 'cp2' };
+                }
             }
         }
         return null;
@@ -306,6 +319,8 @@ export function timelineModel(props, emit) {
             const cpHit = findControlPointAt(x, y);
             if (cpHit) {
                 evt.stopPropagation();
+                evt.preventDefault();
+
                 draggedControlPoint.value = cpHit;
                 cpPointerId.value = evt.pointerId;
 
@@ -361,8 +376,13 @@ export function timelineModel(props, emit) {
     const onCPPointerMove = async (ev) => {
         if (!draggedControlPoint.value || !timeline.value) return;
 
+        ev.preventDefault();
+        ev.stopPropagation();
+
         const rect = timeline.value.getBoundingClientRect();
         const scrollLeft = wrapper.value ? wrapper.value.scrollLeft : 0;
+
+        // Direct calculation without offset - simpler and more reliable
         const x = ev.clientX - rect.left + scrollLeft;
         const y = ev.clientY - rect.top;
 
@@ -372,14 +392,31 @@ export function timelineModel(props, emit) {
         const curveHeight = props.config.height * 0.25;
         const baseY = props.config.height * 0.75;
 
-        // Convert to time/value - allow full freedom of movement
+        // Convert to time/value - constrain to segment boundaries
         const time = Math.max(start.time, Math.min(end.time, (x - props.config.padding) / props.config.zoomLevel.current));
         const value = Math.max(0, Math.min(1, (baseY - y) / curveHeight));
 
         // CRITICAL: Find and update the ORIGINAL keyframe in props.config.keyframes
         const originalKf = props.config.keyframes.find(k => k.id === start.id);
 
-        if (originalKf && originalKf.bezier && originalKf.bezier[point]) {
+        if (originalKf) {
+            // Ensure bezier structure exists
+            if (!originalKf.bezier) {
+                originalKf.bezier = {
+                    cp1: { time: start.time, value: 0 },
+                    cp2: { time: end.time, value: 1 },
+                    _relativePos: {
+                        cp1: { t: 0.33, v: 0.33 },
+                        cp2: { t: 0.66, v: 0.66 }
+                    }
+                };
+            }
+
+            // Ensure the control point exists
+            if (!originalKf.bezier[point]) {
+                originalKf.bezier[point] = { time: start.time, value: 0 };
+            }
+
             // Update the actual keyframe bezier data
             originalKf.bezier[point].time = time;
             originalKf.bezier[point].value = value;
@@ -397,7 +434,7 @@ export function timelineModel(props, emit) {
 
             originalKf.bezier._relativePos[point] = { t: relT, v: value };
 
-            // Also update the curve reference for immediate visual feedback
+            // Force update the curve reference for immediate visual feedback
             if (curve[point]) {
                 curve[point].time = time;
                 curve[point].value = value;
@@ -405,8 +442,11 @@ export function timelineModel(props, emit) {
         }
     };
 
-    const onCPPointerUp = async () => {
+    const onCPPointerUp = async (ev) => {
         if (!timeline.value || !cpPointerId.value) return;
+
+        ev.preventDefault();
+        ev.stopPropagation();
 
         try {
             timeline.value.releasePointerCapture(cpPointerId.value);
@@ -417,10 +457,14 @@ export function timelineModel(props, emit) {
         window.removeEventListener("pointermove", onCPPointerMove);
         window.removeEventListener("pointerup", onCPPointerUp);
 
+        // Emit the updated keyframes to persist changes
+        emitEvent('timeline:keyframes', props.config.keyframes);
+
         draggedControlPoint.value = null;
         cpPointerId.value = null;
 
-        emitEvent('timeline:keyframes', props.config.keyframes);
+        // Recalculate interpolation
+        await nextTick();
         await interpolateAtCurrentTime();
     };
 
