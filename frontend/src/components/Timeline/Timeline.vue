@@ -80,7 +80,7 @@
             @input="onTimeInput(Number($event.target.value))"
             @keydown.enter="$event.target.blur()"
             min="0"
-            :max="config?.totalTime"
+            :max="config?.endTime"
           />
         </div>
         <div class="time-separator"></div>

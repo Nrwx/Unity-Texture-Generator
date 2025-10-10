@@ -10,9 +10,9 @@ export const timelineEvent = (route) => ({
         route.timelineData.value.width = payload;
         console.log(route.timelineData.value.width, 'TIMELINE WIDTH' )
     },
-    "timeline:totalTime": async (payload) => {
-        route.timelineData.value.totalTime = payload;
-        console.log(route.timelineData.totalTime)
+    "timeline:endTime": async (payload) => {
+        route.timelineData.value.endTime = payload;
+        console.log(route.timelineData.endTime)
     },
     "timeline:zoom": async (payload) => {
         route.timelineData.value.zoomLevel.current = payload;

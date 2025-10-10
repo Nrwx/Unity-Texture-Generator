@@ -5,7 +5,7 @@ export const timelineData = ref({
     width: 0,
     height: 200,
     time: 0,
-    totalTime: 200,
+    endTime: 200,
     zoomLevel: {
         current: 1,
         min: 0.2,
@@ -23,7 +23,7 @@ export const timelineData = ref({
     },
     ticks: {
         candidates: [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200],
-        targetPx: 50,
+        targetPx: 25,
         color: '#444'
     }
 })

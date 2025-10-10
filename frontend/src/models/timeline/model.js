@@ -24,7 +24,7 @@ export function timelineModel(props, emit) {
     };
 
     const width = computed(() => {
-        // Always use the full visible width, don't extend based on keyframes
+        // Always use the full visible width as maxTime
         return props.config.width;
     });
 
@@ -40,16 +40,16 @@ export function timelineModel(props, emit) {
         return arr;
     });
 
-    const totalTime = computed(() => {
+    const endTime = computed(() => {
         const last = keyframes.value[keyframes.value.length - 1];
         const maxKeyframeTime = last ? last.time : 0;
 
-        // Dynamic totalTime based on zoom level and available width
+        // Dynamic endTime based on zoom level and available width
         const visibleWidth = props.config.width - (props.config.padding * 2);
         const timeFromWidth = visibleWidth / props.config.zoomLevel.current;
 
-        // Use the larger of: visible width time span, keyframes extent, or minimum totalTime
-        return Math.max(timeFromWidth, maxKeyframeTime + 50, props.config.totalTime);
+        // Use the larger of: visible width time span, keyframes extent, or minimum endTime
+        return Math.max(timeFromWidth, maxKeyframeTime + 50, props.config.endTime);
     });
 
     const ticks = computed(() => {
@@ -82,7 +82,7 @@ export function timelineModel(props, emit) {
 
         // Round to tick boundaries
         const tickStart = Math.floor(startTime / chosen) * chosen;
-        const tickEnd = Math.ceil(Math.min(endTime, totalTime.value) / chosen) * chosen;
+        const tickEnd = Math.ceil(Math.min(endTime, endTime.value) / chosen) * chosen;
 
         // Generate ticks only for visible range
         for (let t = tickStart; t <= tickEnd; t += chosen) {
@@ -394,7 +394,7 @@ export function timelineModel(props, emit) {
 
         // Convert x position to time
         const newTime = Math.max(0, Math.min(
-            totalTime.value,
+            endTime.value,
             Math.round((x - props.config.padding) / props.config.zoomLevel.current)
         ));
 
@@ -773,7 +773,7 @@ export function timelineModel(props, emit) {
     }
 
     const onFrameForward = async () => {
-        const newTime = Math.min(totalTime.value, props.config.time + 1);
+        const newTime = Math.min(endTime.value, props.config.time + 1);
         emitEvent('timeline:time', newTime);
         await interpolateAtCurrentTime();
     }
@@ -785,12 +785,12 @@ export function timelineModel(props, emit) {
     }
 
     const onSkipToEnd = async () => {
-        emitEvent('timeline:time', totalTime.value);
+        emitEvent('timeline:time', endTime.value);
         await interpolateAtCurrentTime();
     }
 
     const onTimeInput = async (newTime) => {
-        const time = Math.max(0, Math.min(totalTime.value, Math.round(newTime)));
+        const time = Math.max(0, Math.min(endTime.value, Math.round(newTime)));
         emitEvent('timeline:time', time);
         await interpolateAtCurrentTime();
     }
@@ -854,8 +854,8 @@ export function timelineModel(props, emit) {
             const elapsed = now - playStartTimestamp.value;
             const newTime = Math.round(playOffset.value + elapsed * 0.06);
 
-            if (newTime >= totalTime.value) {
-                emitEvent('timeline:time', totalTime.value);
+            if (newTime >= endTime.value) {
+                emitEvent('timeline:time', endTime.value);
                 emitEvent('timeline:play', false);
                 if (rafId.value) {
                     cancelAnimationFrame(rafId.value);
