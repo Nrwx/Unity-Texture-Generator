@@ -358,7 +358,7 @@
         </g>
 
         <!-- playHead -->
-        <g class="playhead-group">
+        <g class="playhead-group" style="cursor: ew-resize;">
           <!-- Playhead line -->
           <line
               :x1="playHead"
@@ -367,9 +367,14 @@
               :y2="config?.height"
               stroke="#4a9eff"
               stroke-width="2"
+              style="pointer-events: none;"
           />
           <!-- Playhead handle -->
-          <g :transform="`translate(${playHead}, 12)`">
+          <g
+              :transform="`translate(${playHead}, 12)`"
+              @pointerdown.prevent.stop="onPlayheadPointerDown"
+              style="cursor: ew-resize; pointer-events: all;"
+          >
             <rect
                 x="-8"
                 y="0"
@@ -431,6 +436,7 @@ export default defineComponent({
       onToggleSelectMode,
       onEaseChange,
       onToggleBezierMode,
+      onPlayheadPointerDown,
       getSelectedEase,
       getCurvePath
     } = timelineModel(props, emit);
@@ -464,6 +470,7 @@ export default defineComponent({
       onToggleSelectMode,
       onEaseChange,
       onToggleBezierMode,
+      onPlayheadPointerDown,
       getSelectedEase,
       getCurvePath,
       emitEvent

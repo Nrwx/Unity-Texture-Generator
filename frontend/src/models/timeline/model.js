@@ -16,16 +16,20 @@ export function timelineModel(props, emit) {
     const draggedControlPoint = ref(null);
     const cpPointerId = ref(null);
 
+    const draggingPlayhead = ref(false);
+    const playheadPointerId = ref(null);
+
     const emitEvent = (event, payload) => {
         emit("component-event", event, payload);
     };
 
     const width = computed(() => {
-        return Math.max(props.config.width, totalTime.value * props.config.zoomLevel.current + props.config.padding * 2)
+        // Always use the full visible width, don't extend based on keyframes
+        return props.config.width;
     });
 
     const playHead = computed(() => {
-        return (props.config.time) + props.config.padding
+        return (props.config.time * props.config.zoomLevel.current) + props.config.padding
     });
 
     const keyframes = computed(() => {
@@ -38,26 +42,66 @@ export function timelineModel(props, emit) {
 
     const totalTime = computed(() => {
         const last = keyframes.value[keyframes.value.length - 1];
-        return Math.max(props.config.totalTime, last ? last.time + 50 : props.config.totalTime);
+        const maxKeyframeTime = last ? last.time : 0;
+
+        // Dynamic totalTime based on zoom level and available width
+        const visibleWidth = props.config.width - (props.config.padding * 2);
+        const timeFromWidth = visibleWidth / props.config.zoomLevel.current;
+
+        // Use the larger of: visible width time span, keyframes extent, or minimum totalTime
+        return Math.max(timeFromWidth, maxKeyframeTime + 50, props.config.totalTime);
     });
 
     const ticks = computed(() => {
         const candidates = props.config.ticks.candidates;
         const targetPx = props.config.ticks.targetPx;
 
+        // Find appropriate tick interval based on current zoom
         let chosen = 1;
         for (const c of candidates) {
-            if (c * props.config.zoomLevel.current >= targetPx) { chosen = c; break; }
+            if (c * props.config.zoomLevel.current >= targetPx) {
+                chosen = c;
+                break;
+            }
         }
-        if (chosen === 1 && candidates[candidates.length-1] * props.config.zoomLevel.current < targetPx) chosen = candidates[candidates.length-1];
+
+        // If no candidate found, use largest
+        if (chosen === 1 && candidates[candidates.length-1] * props.config.zoomLevel.current < targetPx) {
+            chosen = candidates[candidates.length-1];
+        }
 
         const ticksArr = [];
-        const tMax = Math.ceil(totalTime.value / chosen) * chosen;
-        for (let t = 0; t <= tMax; t += chosen) {
+
+        // Calculate visible time range based on scroll position
+        const scrollLeft = wrapper.value ? wrapper.value.scrollLeft : 0;
+        const visibleWidth = props.config.width;
+
+        // Convert scroll position to time
+        const startTime = Math.max(0, (scrollLeft - props.config.padding) / props.config.zoomLevel.current);
+        const endTime = (scrollLeft + visibleWidth - props.config.padding) / props.config.zoomLevel.current;
+
+        // Round to tick boundaries
+        const tickStart = Math.floor(startTime / chosen) * chosen;
+        const tickEnd = Math.ceil(Math.min(endTime, totalTime.value) / chosen) * chosen;
+
+        // Generate ticks only for visible range
+        for (let t = tickStart; t <= tickEnd; t += chosen) {
+            if (t < 0) continue;
+
             const left = (t * props.config.zoomLevel.current) + props.config.padding;
-            const major = (Math.round(t / chosen) % (chosen >= 10 ? 1 : (chosen >= 1 ? 5 : 10)) ) === 0;
+
+            // Determine major tick frequency based on chosen interval
+            let majorInterval = 5;
+            if (chosen >= 100) majorInterval = 1;
+            else if (chosen >= 10) majorInterval = 2;
+            else if (chosen >= 1) majorInterval = 5;
+            else majorInterval = 10;
+
+            const major = (Math.round(t / chosen) % majorInterval) === 0;
+
             ticksArr.push({ time: t, left, major });
         }
+
         return ticksArr;
     });
 
@@ -65,11 +109,29 @@ export function timelineModel(props, emit) {
         const items = [];
         const arr = keyframes.value;
         if (!arr?.length) return [];
+
+        // Extend segments to fill the full timeline width
         for (let i = 0; i < arr.length - 1; i++) {
             const left = arr[i].left;
             const width = Math.max(2, arr[i+1].left - arr[i].left);
             items.push({ left, width, color: i % 2 === 0 ? '#9153a1' : '#2b8cff' });
         }
+
+        // Add final segment from last keyframe to end of visible timeline
+        if (arr.length > 0) {
+            const lastKf = arr[arr.length - 1];
+            const timelineEnd = props.config.width;
+            const width = Math.max(2, timelineEnd - lastKf.left);
+
+            if (width > 2) {
+                items.push({
+                    left: lastKf.left,
+                    width,
+                    color: arr.length % 2 === 0 ? '#9153a1' : '#2b8cff'
+                });
+            }
+        }
+
         return items;
     });
 
@@ -257,24 +319,108 @@ export function timelineModel(props, emit) {
     };
 
     const onWheel = async (e) => {
+        e.preventDefault();
+
+        if (!timeline.value || !wrapper.value) return;
+
         const oldZoom = props.config.zoomLevel.current;
         const delta = e.deltaY;
         const factor = Math.exp(-delta * 0.0025);
 
-        const newZoom = Math.min(props.config.zoomLevel.max, Math.max(props.config.zoomLevel.min, props.config.zoomLevel.current * factor));
+        const newZoom = Math.min(
+            props.config.zoomLevel.max,
+            Math.max(props.config.zoomLevel.min, oldZoom * factor)
+        );
 
+        // Get mouse position relative to the timeline
+        const rect = timeline.value.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const scrollLeft = wrapper.value.scrollLeft;
+
+        // Calculate the time value at mouse position (before zoom)
+        const mouseTimeBeforeZoom = (mouseX + scrollLeft - props.config.padding) / oldZoom;
+
+        // Update zoom level
         emitEvent('timeline:zoom', newZoom);
 
-        await nextTick(() => {
-            if (!wrapper.value || !timeline.value) return;
-            const rect = timeline.value.getBoundingClientRect();
-            const pointerX = e.clientX - rect.left;
-            const logicalTime = (pointerX - props.config.padding) / oldZoom;
-            const newPointerX = (logicalTime * props.config.zoomLevel.current) + props.config.padding;
-            const scrollDelta = newPointerX - pointerX;
-            wrapper.value.scrollLeft += scrollDelta;
+        await nextTick(async () => {
+            if (!wrapper.value) return;
+
+            // Calculate new scroll position to keep mouse over same time
+            const newScrollLeft = (mouseTimeBeforeZoom * newZoom) + props.config.padding - mouseX;
+
+            wrapper.value.scrollLeft = Math.max(0, newScrollLeft);
         });
     }
+
+
+    const onPlayheadPointerDown = (evt) => {
+        if (!timeline.value) return;
+
+        evt.preventDefault();
+        evt.stopPropagation();
+
+        draggingPlayhead.value = true;
+        playheadPointerId.value = evt.pointerId;
+
+        try {
+            timeline.value.setPointerCapture(evt.pointerId);
+        } catch (e) {
+            console.warn('Failed to capture pointer:', e);
+        }
+
+        window.addEventListener("pointermove", onPlayheadPointerMove);
+        window.addEventListener("pointerup", onPlayheadPointerUp);
+
+        // Immediately update time to clicked position
+        updatePlayheadFromEvent(evt);
+    };
+
+    const onPlayheadPointerMove = async (evt) => {
+        if (!draggingPlayhead.value || !timeline.value) return;
+
+        evt.preventDefault();
+        evt.stopPropagation();
+
+        updatePlayheadFromEvent(evt);
+    };
+
+    const updatePlayheadFromEvent = (evt) => {
+        if (!timeline.value || !wrapper.value) return;
+
+        const rect = timeline.value.getBoundingClientRect();
+        const scrollLeft = wrapper.value.scrollLeft;
+        const x = evt.clientX - rect.left + scrollLeft;
+
+        // Convert x position to time
+        const newTime = Math.max(0, Math.min(
+            totalTime.value,
+            Math.round((x - props.config.padding) / props.config.zoomLevel.current)
+        ));
+
+        emitEvent('timeline:time', newTime);
+    };
+
+    const onPlayheadPointerUp = async (evt) => {
+        if (!timeline.value || !playheadPointerId.value) return;
+
+        evt.preventDefault();
+        evt.stopPropagation();
+
+        try {
+            timeline.value.releasePointerCapture(playheadPointerId.value);
+        } catch (e) {
+            // Ignore if not captured
+        }
+
+        window.removeEventListener("pointermove", onPlayheadPointerMove);
+        window.removeEventListener("pointerup", onPlayheadPointerUp);
+
+        draggingPlayhead.value = false;
+        playheadPointerId.value = null;
+
+        await interpolateAtCurrentTime();
+    };
 
 
     const findControlPointAt = (x, y, radius = 15) => {
@@ -831,6 +977,7 @@ export function timelineModel(props, emit) {
         onToggleSelectMode,
         onEaseChange,
         onToggleBezierMode,
+        onPlayheadPointerDown,
         emitEvent
     };
 }
