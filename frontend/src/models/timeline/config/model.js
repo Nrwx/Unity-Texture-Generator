@@ -5,7 +5,9 @@ export const timelineData = ref({
     width: 0,
     height: 200,
     time: 0,
+    startTime: 0,
     endTime: 200,
+    loop: true,
     zoomLevel: {
         current: 1,
         min: 0.2,

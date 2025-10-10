@@ -28,28 +28,53 @@ export function timelineModel(props, emit) {
         return props.config.width;
     });
 
+    const endTime = computed(() => {
+        return props.config.endTime;
+    });
+
+    // Computed totalTime that can be negative
+    const totalTime = computed(() => {
+        return props.config.endTime - props.config.startTime;
+    });
+
+    // Helper to normalize time to range [startTime, endTime]
+    const normalizeTime = (time) => {
+        const start = props.config.startTime;
+        const end = props.config.endTime;
+        const total = end - start;
+
+        if (total === 0) return start;
+
+        // Handle negative range
+        if (total < 0) {
+            // For negative ranges, clamp to [end, start]
+            return Math.max(end, Math.min(start, time));
+        }
+
+        // For positive ranges, clamp to [start, end]
+        return Math.max(start, Math.min(end, time));
+    };
+
+    // Helper to convert time to position
+    const timeToPosition = (time) => {
+        return ((time - props.config.startTime) * props.config.zoomLevel.current) + props.config.padding;
+    };
+
+    // Helper to convert position to time
+    const positionToTime = (position) => {
+        return ((position - props.config.padding) / props.config.zoomLevel.current) + props.config.startTime;
+    };
+
     const playHead = computed(() => {
-        return (props.config.time * props.config.zoomLevel.current) + props.config.padding
+        return timeToPosition(props.config.time);
     });
 
     const keyframes = computed(() => {
         const arr = props.config.keyframes.map(k => Object.assign({}, k));
         arr.sort((a,b) => a.time - b.time);
-        arr.forEach(k => { k.left = (k.time * props.config.zoomLevel.current) + props.config.padding; });
+        arr.forEach(k => { k.left = timeToPosition(k.time); });
         for (let i=0;i<arr.length-1;i++) arr[i]._next = arr[i+1];
         return arr;
-    });
-
-    const endTime = computed(() => {
-        const last = keyframes.value[keyframes.value.length - 1];
-        const maxKeyframeTime = last ? last.time : 0;
-
-        // Dynamic endTime based on zoom level and available width
-        const visibleWidth = props.config.width - (props.config.padding * 2);
-        const timeFromWidth = visibleWidth / props.config.zoomLevel.current;
-
-        // Use the larger of: visible width time span, keyframes extent, or minimum endTime
-        return Math.max(timeFromWidth, maxKeyframeTime + 50, props.config.endTime);
     });
 
     const ticks = computed(() => {
@@ -77,18 +102,20 @@ export function timelineModel(props, emit) {
         const visibleWidth = props.config.width;
 
         // Convert scroll position to time
-        const startTime = Math.max(0, (scrollLeft - props.config.padding) / props.config.zoomLevel.current);
-        const endTime = (scrollLeft + visibleWidth - props.config.padding) / props.config.zoomLevel.current;
+        const startTime = positionToTime(scrollLeft);
+        const endTime = positionToTime(scrollLeft + visibleWidth);
+
+        // For negative ranges, swap if needed
+        const minTime = Math.min(props.config.startTime, props.config.endTime);
+        const maxTime = Math.max(props.config.startTime, props.config.endTime);
 
         // Round to tick boundaries
-        const tickStart = Math.floor(startTime / chosen) * chosen;
-        const tickEnd = Math.ceil(Math.min(endTime, endTime.value) / chosen) * chosen;
+        const tickStart = Math.floor(Math.max(minTime, startTime) / chosen) * chosen;
+        const tickEnd = Math.ceil(Math.min(maxTime, endTime) / chosen) * chosen;
 
         // Generate ticks only for visible range
         for (let t = tickStart; t <= tickEnd; t += chosen) {
-            if (t < 0) continue;
-
-            const left = (t * props.config.zoomLevel.current) + props.config.padding;
+            const left = timeToPosition(t);
 
             // Determine major tick frequency based on chosen interval
             let majorInterval = 5;
@@ -216,7 +243,9 @@ export function timelineModel(props, emit) {
 
         // If _relativePos is missing, calculate it from current positions
         if (!kf.bezier._relativePos) {
-            const dt = nextKf.time - kf.time || 1;
+            const dt = nextKf.time - kf.time;
+            if (dt === 0) return; // Skip if keyframes at same time
+
             kf.bezier._relativePos = {
                 cp1: {
                     t: kf.bezier.cp1 ? (kf.bezier.cp1.time - kf.time) / dt : 0.33,
@@ -229,7 +258,8 @@ export function timelineModel(props, emit) {
             };
         }
 
-        const dt = nextKf.time - kf.time || 1;
+        const dt = nextKf.time - kf.time;
+        if (dt === 0) return; // Skip if keyframes at same time
 
         // Apply saved relative positions
         if (kf.bezier.cp1) {
@@ -248,7 +278,9 @@ export function timelineModel(props, emit) {
     const initializeBezierForKeyframe = (kf, nextKf) => {
         if (!kf || !nextKf) return;
 
-        const dt = nextKf.time - kf.time || 1;
+        const dt = nextKf.time - kf.time;
+        if (dt === 0) return; // Skip if keyframes at same time
+
         const ease = kf.ease || 'linear';
 
         const easePresets = {
@@ -338,7 +370,7 @@ export function timelineModel(props, emit) {
         const scrollLeft = wrapper.value.scrollLeft;
 
         // Calculate the time value at mouse position (before zoom)
-        const mouseTimeBeforeZoom = (mouseX + scrollLeft - props.config.padding) / oldZoom;
+        const mouseTimeBeforeZoom = positionToTime(mouseX + scrollLeft);
 
         // Update zoom level
         emitEvent('timeline:zoom', newZoom);
@@ -347,7 +379,7 @@ export function timelineModel(props, emit) {
             if (!wrapper.value) return;
 
             // Calculate new scroll position to keep mouse over same time
-            const newScrollLeft = (mouseTimeBeforeZoom * newZoom) + props.config.padding - mouseX;
+            const newScrollLeft = timeToPosition(mouseTimeBeforeZoom) - mouseX;
 
             wrapper.value.scrollLeft = Math.max(0, newScrollLeft);
         });
@@ -620,7 +652,7 @@ export function timelineModel(props, emit) {
         const rect = timeline.value.getBoundingClientRect();
         const scrollLeft = wrapper.value ? wrapper.value.scrollLeft : 0;
         const xInSvg = ev.clientX - rect.left + scrollLeft;
-        const newTime = Math.max(0, (xInSvg - props.config.padding) / props.config.zoomLevel.current);
+        const newTime = normalizeTime(positionToTime(xInSvg));
 
         const k = props.config.keyframes.find(kf => kf.id === dragging.value.id);
         if (k) {
@@ -681,7 +713,13 @@ export function timelineModel(props, emit) {
             return;
         }
 
-        const dt = right.time - left.time || 1;
+        const dt = right.time - left.time;
+        if (dt === 0) {
+            // If keyframes are at same time, use left
+            props.config._current = JSON.parse(JSON.stringify(left.transform || {}));
+            return;
+        }
+
         let factor = (t - left.time) / dt;
 
         const easeType = left.ease || 'linear';
@@ -773,24 +811,56 @@ export function timelineModel(props, emit) {
     }
 
     const onFrameForward = async () => {
-        const newTime = Math.min(endTime.value, props.config.time + 1);
+        let newTime = props.config.time + 1;
+
+        // Handle looping
+        if (props.config.loop) {
+            const start = props.config.startTime;
+            const end = props.config.endTime;
+            const total = end - start;
+
+            if (total > 0 && newTime > end) {
+                newTime = start;
+            } else if (total < 0 && newTime < end) {
+                newTime = start;
+            }
+        } else {
+            newTime = normalizeTime(newTime);
+        }
+
         emitEvent('timeline:time', newTime);
         await interpolateAtCurrentTime();
     }
 
     const onFrameBack = async () => {
-        const newTime = Math.max(0, props.config.time - 1);
+        let newTime = props.config.time - 1;
+
+        // Handle looping
+        if (props.config.loop) {
+            const start = props.config.startTime;
+            const end = props.config.endTime;
+            const total = end - start;
+
+            if (total > 0 && newTime < start) {
+                newTime = end;
+            } else if (total < 0 && newTime > start) {
+                newTime = end;
+            }
+        } else {
+            newTime = normalizeTime(newTime);
+        }
+
         emitEvent('timeline:time', newTime);
         await interpolateAtCurrentTime();
     }
 
     const onSkipToEnd = async () => {
-        emitEvent('timeline:time', endTime.value);
+        emitEvent('timeline:time', props.config.endTime);
         await interpolateAtCurrentTime();
     }
 
     const onTimeInput = async (newTime) => {
-        const time = Math.max(0, Math.min(endTime.value, Math.round(newTime)));
+        const time = normalizeTime(Math.round(newTime));
         emitEvent('timeline:time', time);
         await interpolateAtCurrentTime();
     }
@@ -838,7 +908,7 @@ export function timelineModel(props, emit) {
 
     const onStop = async () => {
         await onPause();
-        emitEvent('timeline:time', 0);
+        emitEvent('timeline:time', props.config.startTime);
         await interpolateAtCurrentTime();
     }
 
@@ -852,16 +922,51 @@ export function timelineModel(props, emit) {
             if (!props.playState) return;
 
             const elapsed = now - playStartTimestamp.value;
-            const newTime = Math.round(playOffset.value + elapsed * 0.06);
+            let newTime = Math.round(playOffset.value + elapsed * 0.06);
 
-            if (newTime >= endTime.value) {
-                emitEvent('timeline:time', endTime.value);
-                emitEvent('timeline:play', false);
-                if (rafId.value) {
-                    cancelAnimationFrame(rafId.value);
-                    rafId.value = null;
+            const start = props.config.startTime;
+            const end = props.config.endTime;
+            const total = end - start;
+
+            // Handle end of timeline
+            if (total > 0) {
+                // Positive range
+                if (newTime >= end) {
+                    if (props.config.loop) {
+                        // Loop back to start
+                        playStartTimestamp.value = now;
+                        playOffset.value = start;
+                        newTime = start;
+                    } else {
+                        // Stop at end
+                        emitEvent('timeline:time', end);
+                        emitEvent('timeline:play', false);
+                        if (rafId.value) {
+                            cancelAnimationFrame(rafId.value);
+                            rafId.value = null;
+                        }
+                        return;
+                    }
                 }
-                return;
+            } else if (total < 0) {
+                // Negative range - play backwards
+                if (newTime <= end) {
+                    if (props.config.loop) {
+                        // Loop back to start
+                        playStartTimestamp.value = now;
+                        playOffset.value = start;
+                        newTime = start;
+                    } else {
+                        // Stop at end
+                        emitEvent('timeline:time', end);
+                        emitEvent('timeline:play', false);
+                        if (rafId.value) {
+                            cancelAnimationFrame(rafId.value);
+                            rafId.value = null;
+                        }
+                        return;
+                    }
+                }
             }
 
             emitEvent('timeline:time', newTime);
@@ -952,6 +1057,7 @@ export function timelineModel(props, emit) {
         width,
         keyframes,
         ticks,
+        totalTime,
         segments,
         playHead,
         selectedKeys,
