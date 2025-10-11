@@ -1,6 +1,5 @@
 import os
 import time
-import platform
 import shutil
 import zipfile
 import tarfile
@@ -11,23 +10,24 @@ import ctypes.wintypes
 from generated.paths import __DRIVER_FOLDER
 from config.app.driver.packages.nvcompress_setup import plan_nvcompress
 from config.app.driver.packages.cairosvg_setup import plan_cairosvg
+from config.app.manager.global_manager import GlobalManager
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+GLOBAL_MANAGER = GlobalManager()
+OS_TYPE = GLOBAL_MANAGER.get("OS_TYPE")
+OS_ARCH = GLOBAL_MANAGER.get("OS_ARCH")
 
 def detect_platform_driver_folder():
-    system = platform.system().lower()
-    arch = platform.machine().lower()
-    from generated.paths import ASSETS_DRIVER_WINDOWS_FOLDER, ASSETS_DRIVER_LINUX_FOLDER, ASSETS_DRIVER_AARCH64_FOLDER
-
-    if system == "windows":
+    # Plattformabhängige Pfade
+    if OS_TYPE == "windows":
+        from generated.paths import ASSETS_DRIVER_WINDOWS_FOLDER
         return ASSETS_DRIVER_WINDOWS_FOLDER
-    elif "arm" in arch or "aarch64" in arch:
-        return ASSETS_DRIVER_AARCH64_FOLDER
-    elif system == "linux":
+    elif OS_TYPE == "linux":
+        from generated.paths import ASSETS_DRIVER_LINUX_FOLDER
         return ASSETS_DRIVER_LINUX_FOLDER
     else:
-        raise RuntimeError(f"❌ Unsupported system: {system} ({arch})")
+        raise RuntimeError(f"❌ Unsupported system: {OS_TYPE} ({OS_ARCH})")
 
 
 def run_installer_as_admin(exe_path, params="/S"):
@@ -72,14 +72,12 @@ def run_installer_as_admin(exe_path, params="/S"):
 
 
 def execute_plan(plan):
-    platform_name = platform.system().lower()
-
     # Sicherstellen, dass env_vars und installers dicts sind
     env_vars_all = plan.get("env_vars") or {}
-    env_vars = env_vars_all.get(platform_name) or {}
+    env_vars = env_vars_all.get(OS_TYPE) or {}
 
     installers_all = plan.get("installers") or {}
-    installers = installers_all.get(platform_name) or []
+    installers = installers_all.get(OS_TYPE) or []
 
     check_func = plan.get("check")
 
@@ -114,7 +112,7 @@ def execute_plan(plan):
         # Führe exe oder entpackte tar.gz aus
         for f in os.listdir(__DRIVER_FOLDER):
             abs_path = os.path.join(__DRIVER_FOLDER, f)
-            if f.endswith(".exe") and platform.system().lower() == "windows":
+            if f.endswith(".exe") and OS_TYPE == "windows":
                 logging.info(f"🚀 Starte Installer als Admin: {abs_path}")
                 try:
                     run_installer_as_admin(abs_path, "/S")
@@ -145,7 +143,7 @@ def execute_plan(plan):
             logging.error(f"❌ Fehler beim Ausführen des Checks: {e}")
 
 
-def initialize_drivers():
+def init_drivers():
     """
     Initialisiert alle installierbaren Tools / Drivers in der Reihenfolge der Plans.
     """
@@ -174,4 +172,4 @@ def initialize_drivers():
                     logging.error(f"❌ Alle Versuche fehlgeschlagen: {e}")
 
 if __name__ == "__main__":
-    initialize_drivers()
+    init_drivers()

@@ -24,9 +24,14 @@ if not os.path.exists("generated/paths.py"):
     init_paths()
 # PATH Initialising
 
+# APP_ROOT Initialising
+from config.setup.tasks import init_setup
+init_setup()
+# APP_ROOT Initialising
+
 # APP DRIVER Initialising
-from config.app.driver.install import initialize_drivers
-initialize_drivers()
+from config.app.driver.install import init_drivers
+init_drivers()
 # APP DRIVER Initialising
 
 # --------------------------------- #

@@ -2,7 +2,8 @@ import os
 import json
 import logging
 import subprocess
-
+from config.app.manager.global_manager import GlobalManager
+from utils.api.time import time
 # Optional für dxdiag (AMD unter Windows)
 try:
     import chardet
@@ -10,14 +11,15 @@ except ImportError:
     chardet = None
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-CPU_THREADS = os.cpu_count()
+GLOBAL_MANAGER = GlobalManager()  # Singleton
+CPU_THREADS = GLOBAL_MANAGER.get("OS_THREADS")
 DEFAULT_ANIMATION_SETTINGS = {
     "use_gpu": False,
     "gpu_name": "None",
     "gpu_memory_mb": 0,
     "cpu_threads": CPU_THREADS,
     "preferred_unit": "CPU",
+    "time": time('unix_ms')
 }
 
 SETTINGS_FILE_PATH = os.path.join(os.getenv("APP_CONFIG_PATH", "config/app"), "app_settings.json")
