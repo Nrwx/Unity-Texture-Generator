@@ -28,49 +28,40 @@ export function timelineModel(props, emit) {
         return props.config.width;
     });
 
-    const endTime = computed(() => {
-        return props.config.endTime;
-    });
-
     // Computed totalTime that can be negative
     const totalTime = computed(() => {
         return props.config.endTime - props.config.startTime;
     });
 
-    // Helper to normalize time to range [startTime, endTime]
     const normalizeTime = (time) => {
         const start = props.config.startTime;
         const end = props.config.endTime;
-        const total = end - start;
-
-        if (total === 0) return start;
-
-        // Handle negative range
-        if (total < 0) {
-            // For negative ranges, clamp to [end, start]
-            return Math.max(end, Math.min(start, time));
-        }
-
-        // For positive ranges, clamp to [start, end]
-        return Math.max(start, Math.min(end, time));
+        const minT = Math.min(start, end);
+        const maxT = Math.max(start, end);
+        if (minT === maxT) return start;
+        return Math.max(minT, Math.min(maxT, time));
     };
 
-    // Helper to convert time to position
+
     const timeToPosition = (time) => {
-        return ((time - props.config.startTime) * props.config.zoomLevel.current) + props.config.padding;
+        const range = props.config.endTime - props.config.startTime;
+        const t = range >= 0 ? (time - props.config.startTime) : (props.config.startTime - time);
+        return t * props.config.zoomLevel.current + props.config.padding;
     };
 
-    // Helper to convert position to time
     const positionToTime = (position) => {
-        return ((position - props.config.padding) / props.config.zoomLevel.current) + props.config.startTime;
+        const range = props.config.endTime - props.config.startTime;
+        const offset = (position - props.config.padding) / props.config.zoomLevel.current;
+        return range >= 0 ? props.config.startTime + offset : props.config.startTime - offset;
     };
+
 
     const playHead = computed(() => {
         return timeToPosition(props.config.time);
     });
 
     const keyframes = computed(() => {
-        const arr = props.config.keyframes.map(k => Object.assign({}, k));
+        const arr = props.config.keyframes; // direkt benutzen, keine Kopie
         arr.sort((a,b) => a.time - b.time);
         arr.forEach(k => { k.left = timeToPosition(k.time); });
         for (let i=0;i<arr.length-1;i++) arr[i]._next = arr[i+1];
@@ -238,39 +229,29 @@ export function timelineModel(props, emit) {
     });
 
     const updateBezierAfterKeyframeMove = (kf, nextKf) => {
-        if (!kf || !nextKf) return;
-        if (!kf.bezier) return;
-
-        // If _relativePos is missing, calculate it from current positions
-        if (!kf.bezier._relativePos) {
-            const dt = nextKf.time - kf.time;
-            if (dt === 0) return; // Skip if keyframes at same time
-
-            kf.bezier._relativePos = {
-                cp1: {
-                    t: kf.bezier.cp1 ? (kf.bezier.cp1.time - kf.time) / dt : 0.33,
-                    v: kf.bezier.cp1 ? kf.bezier.cp1.value : 0.33
-                },
-                cp2: {
-                    t: kf.bezier.cp2 ? (kf.bezier.cp2.time - kf.time) / dt : 0.66,
-                    v: kf.bezier.cp2 ? kf.bezier.cp2.value : 0.66
-                }
-            };
-        }
+        if (!kf || !nextKf || !kf.bezier) return;
 
         const dt = nextKf.time - kf.time;
-        if (dt === 0) return; // Skip if keyframes at same time
+        if (dt === 0) return;
 
-        // Apply saved relative positions
-        if (kf.bezier.cp1) {
-            kf.bezier.cp1.time = kf.time + dt * kf.bezier._relativePos.cp1.t;
-            kf.bezier.cp1.value = kf.bezier._relativePos.cp1.v;
-        }
+        const rel = kf.bezier._relativePos;
+        if (!rel) return;
 
-        if (kf.bezier.cp2) {
-            kf.bezier.cp2.time = kf.time + dt * kf.bezier._relativePos.cp2.t;
-            kf.bezier.cp2.value = kf.bezier._relativePos.cp2.v;
-        }
+        // berechne absolute Zeiten basierend auf relativen t-Werten (rel kann <0 oder >1 sein)
+        let cp1Time = kf.time + dt * rel.cp1.t;
+        let cp2Time = kf.time + dt * rel.cp2.t;
+
+        // clamp auf die Keyframe-Range
+        const minT = Math.min(kf.time, nextKf.time);
+        const maxT = Math.max(kf.time, nextKf.time);
+        cp1Time = Math.max(minT, Math.min(maxT, cp1Time));
+        cp2Time = Math.max(minT, Math.min(maxT, cp2Time));
+
+        // Übernehme absolute Werte, Wert bleibt aus rel.v
+        kf.bezier.cp1.time = cp1Time;
+        kf.bezier.cp2.time = cp2Time;
+        kf.bezier.cp1.value = rel.cp1.v;
+        kf.bezier.cp2.value = rel.cp2.v;
     };
 
 
@@ -279,29 +260,40 @@ export function timelineModel(props, emit) {
         if (!kf || !nextKf) return;
 
         const dt = nextKf.time - kf.time;
-        if (dt === 0) return; // Skip if keyframes at same time
+        if (dt === 0) return;
 
         const ease = kf.ease || 'linear';
-
         const easePresets = {
-            'linear': { cp1: { t: 0.33, v: 0.33 }, cp2: { t: 0.66, v: 0.66 } },
-            'ease-in': { cp1: { t: 0.42, v: 0 }, cp2: { t: 1.0, v: 1.0 } },
-            'ease-out': { cp1: { t: 0, v: 0 }, cp2: { t: 0.58, v: 1.0 } },
-            'ease-in-out': { cp1: { t: 0.42, v: 0 }, cp2: { t: 0.58, v: 1.0 } }
+            'linear':     { cp1: { t: 0.33, v: 0.33 }, cp2: { t: 0.66, v: 0.66 } },
+            'ease-in':    { cp1: { t: 0.42, v: 0 },    cp2: { t: 1.0,  v: 1.0  } },
+            'ease-out':   { cp1: { t: 0,    v: 0 },    cp2: { t: 0.58, v: 1.0  } },
+            'ease-in-out':{ cp1: { t: 0.42, v: 0 },    cp2: { t: 0.58, v: 1.0  } }
         };
 
-        const preset = easePresets[ease] || easePresets['linear'];
+        // copy so wir das preset sicher mutieren können
+        const preset = JSON.parse(JSON.stringify(easePresets[ease] || easePresets['linear']));
 
-        // Always create bezier structure with both control points
+        // Optional: spiegel das Preset wenn die Strecke rückwärts läuft
+        if (Math.sign(dt) < 0) {
+            // spiegel t-Werte — behalte v-Werte (vertical easing) wie definiert
+            const cp1t = preset.cp1.t, cp2t = preset.cp2.t;
+            preset.cp1.t = 1 - cp2t;
+            preset.cp2.t = 1 - cp1t;
+        }
+
+        // absolute CP Zeiten (signiertes dt berücksichtigt automatisch)
+        let cp1Time = kf.time + dt * preset.cp1.t;
+        let cp2Time = kf.time + dt * preset.cp2.t;
+
+        // clamp auf die Keyframe-Range (unabhängig von dt sign)
+        const minT = Math.min(kf.time, nextKf.time);
+        const maxT = Math.max(kf.time, nextKf.time);
+        cp1Time = Math.max(minT, Math.min(maxT, cp1Time));
+        cp2Time = Math.max(minT, Math.min(maxT, cp2Time));
+
         kf.bezier = {
-            cp1: {
-                time: kf.time + dt * preset.cp1.t,
-                value: preset.cp1.v
-            },
-            cp2: {
-                time: kf.time + dt * preset.cp2.t,
-                value: preset.cp2.v
-            },
+            cp1: { time: cp1Time, value: preset.cp1.v },
+            cp2: { time: cp2Time, value: preset.cp2.v },
             _relativePos: {
                 cp1: { t: preset.cp1.t, v: preset.cp1.v },
                 cp2: { t: preset.cp2.t, v: preset.cp2.v }
@@ -309,17 +301,21 @@ export function timelineModel(props, emit) {
         };
     };
 
+
+
+
     const bezierToSVGCoords = (cp) => {
         if (!cp) return { x: 0, y: 0 };
 
         const curveHeight = props.config.height * 0.25;
         const baseY = props.config.height * 0.75;
 
-        const x = (cp.time * props.config.zoomLevel.current) + props.config.padding;
+        const x = timeToPosition(cp.time);
         const y = baseY - (cp.value * curveHeight);
 
         return { x, y };
     };
+
 
     const easingFunctions = {
         linear: (t) => t,
@@ -425,13 +421,13 @@ export function timelineModel(props, emit) {
         const x = evt.clientX - rect.left + scrollLeft;
 
         // Convert x position to time
-        const newTime = Math.max(0, Math.min(
-            endTime.value,
-            Math.round((x - props.config.padding) / props.config.zoomLevel.current)
-        ));
+        const rawTime = positionToTime(x);
+        // Verwende normalizeTime damit wir zwischen startTime und endTime clampen (funktioniert auch bei negativen/umgekehrten ranges)
+        const newTime = normalizeTime(Math.round(rawTime));
 
         emitEvent('timeline:time', newTime);
     };
+
 
     const onPlayheadPointerUp = async (evt) => {
         if (!timeline.value || !playheadPointerId.value) return;
@@ -559,8 +555,6 @@ export function timelineModel(props, emit) {
 
         const rect = timeline.value.getBoundingClientRect();
         const scrollLeft = wrapper.value ? wrapper.value.scrollLeft : 0;
-
-        // Direct calculation without offset - simpler and more reliable
         const x = ev.clientX - rect.left + scrollLeft;
         const y = ev.clientY - rect.top;
 
@@ -570,55 +564,45 @@ export function timelineModel(props, emit) {
         const curveHeight = props.config.height * 0.25;
         const baseY = props.config.height * 0.75;
 
-        // Convert to time/value - constrain to segment boundaries
-        const time = Math.max(start.time, Math.min(end.time, (x - props.config.padding) / props.config.zoomLevel.current));
-        const value = Math.max(0, Math.min(1, (baseY - y) / curveHeight));
+        const range = props.config.endTime - props.config.startTime;
+        let time;
+        if (range >= 0) {
+            time = props.config.startTime + (x - props.config.padding) / props.config.zoomLevel.current;
+        } else {
+            time = props.config.startTime - (x - props.config.padding) / props.config.zoomLevel.current;
+        }
 
-        // CRITICAL: Find and update the ORIGINAL keyframe in props.config.keyframes
+        const value = (baseY - y) / curveHeight; // allow overshoot
+
         const originalKf = props.config.keyframes.find(k => k.id === start.id);
+        if (!originalKf) return;
 
-        if (originalKf) {
-            // Ensure bezier structure exists
-            if (!originalKf.bezier) {
-                originalKf.bezier = {
-                    cp1: { time: start.time, value: 0 },
-                    cp2: { time: end.time, value: 1 },
-                    _relativePos: {
-                        cp1: { t: 0.33, v: 0.33 },
-                        cp2: { t: 0.66, v: 0.66 }
-                    }
-                };
-            }
+        if (!originalKf.bezier) {
+            originalKf.bezier = {
+                cp1: { time: start.time, value: 0 },
+                cp2: { time: end.time, value: 1 },
+                _relativePos: { cp1: { t: 0.33, v: 0.33 }, cp2: { t: 0.66, v: 0.66 } }
+            };
+        }
 
-            // Ensure the control point exists
-            if (!originalKf.bezier[point]) {
-                originalKf.bezier[point] = { time: start.time, value: 0 };
-            }
+        if (!originalKf.bezier[point]) {
+            originalKf.bezier[point] = { time, value };
+        }
 
-            // Update the actual keyframe bezier data
-            originalKf.bezier[point].time = time;
-            originalKf.bezier[point].value = value;
+        originalKf.bezier[point].time = time;
+        originalKf.bezier[point].value = value;
 
-            // Update relative position for when keyframes move
-            const dt = end.time - start.time || 1;
-            const relT = (time - start.time) / dt;
+        const dt = end.time - start.time || 1;
+        const relT = (time - start.time) / dt;
+        originalKf.bezier._relativePos[point] = { t: relT, v: value };
 
-            if (!originalKf.bezier._relativePos) {
-                originalKf.bezier._relativePos = {
-                    cp1: { t: 0.33, v: 0.33 },
-                    cp2: { t: 0.66, v: 0.66 }
-                };
-            }
-
-            originalKf.bezier._relativePos[point] = { t: relT, v: value };
-
-            // Force update the curve reference for immediate visual feedback
-            if (curve[point]) {
-                curve[point].time = time;
-                curve[point].value = value;
-            }
+        // Referenziere das Originalobjekt für die sofortige Visualisierung
+        if (curve[point]) {
+            curve[point] = originalKf.bezier[point];
         }
     };
+
+
 
     const onCPPointerUp = async (ev) => {
         if (!timeline.value || !cpPointerId.value) return;

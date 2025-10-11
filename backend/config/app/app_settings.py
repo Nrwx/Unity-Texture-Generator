@@ -22,6 +22,75 @@ DEFAULT_ANIMATION_SETTINGS = {
 
 SETTINGS_FILE_PATH = os.path.join(os.getenv("APP_CONFIG_PATH", "config/app"), "app_settings.json")
 
+def detect_intel_gpu_windows():
+    try:
+        import tempfile
+        if not chardet:
+            logging.error("chardet not installed. Run 'pip install chardet'")
+            return False, "chardet not installed", 0
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".txt") as temp_file:
+            temp_path = temp_file.name
+
+        subprocess.run(["dxdiag", "/t", temp_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        with open(temp_path, 'rb') as raw_file:
+            raw_data = raw_file.read()
+            detected = chardet.detect(raw_data)
+            encoding = detected['encoding'] or 'utf-8'
+            text = raw_data.decode(encoding)
+        os.remove(temp_path)
+
+        gpu_name = None
+        gpu_memory_mb = 0
+
+        for line in text.splitlines():
+            if "Card name" in line and "Intel" in line:
+                gpu_name = line.split(":")[1].strip()
+            if "Display Memory" in line and "MB" in line:
+                mem_str = ''.join(filter(str.isdigit, line))
+                if mem_str.isdigit():
+                    gpu_memory_mb = int(mem_str)
+
+        if gpu_name:
+            if gpu_memory_mb == 0:
+                gpu_memory_mb = 1024  # typische Onboard-GPU RAM-Größe als Fallback
+            logging.info(f"dxdiag detected Intel GPU: {gpu_name} with approx. {gpu_memory_mb} MB.")
+            return True, gpu_name, gpu_memory_mb
+
+        # Alternative mit WMIC
+        result = subprocess.run(["wmic", "path", "win32_videocontroller", "get", "name,adapterram"],
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        for line in result.stdout.splitlines():
+            if "Intel" in line:
+                parts = line.split()
+                gpu_name = " ".join(parts[:-1])
+                gpu_memory_mb = int(parts[-1]) // (1024**2)
+                return True, gpu_name, gpu_memory_mb
+
+        return False, "No Intel GPU Available", 0
+    except Exception as e:
+        logging.error(f"Error detecting Intel GPU: {e}")
+        return False, "Error", 0
+
+
+def detect_intel_gpu_linux():
+    try:
+        result = subprocess.run(["lspci"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        for line in result.stdout.splitlines():
+            if "VGA compatible controller" in line and "Intel" in line:
+                gpu_name = line.split(":")[2].strip()
+                gpu_memory_mb = 1024  # typischer Wert für Intel Onboard GPU
+                logging.info(f"lspci detected Intel GPU: {gpu_name}")
+                return True, gpu_name, gpu_memory_mb
+        return False, "No Intel GPU Available", 0
+    except FileNotFoundError:
+        logging.warning("lspci not found, skipping Intel GPU detection.")
+        return False, "lspci not found", 0
+    except Exception as e:
+        logging.error(f"Error detecting Intel GPU: {e}")
+        return False, "Error", 0
+
+
 def detect_gpu_with_rocm_smi():
     try:
         result = subprocess.run(["rocm-smi", "--showproductname", "--showmeminfo", "vram"],
@@ -157,16 +226,37 @@ def detect_gpu_with_pycuda():
 
 def detect_gpu():
     """
-    Optimierte GPU-Erkennungsfunktion, die nacheinander Methoden ausprobiert,
-    bis eine GPU gefunden wird.
+    Optimierte GPU-Erkennung:
+    - Platformbasiert
+    - Prüft zuerst Intel Onboard GPUs, da diese meist langsamer sind
+    - Danach dedizierte GPUs (NVIDIA/AMD) für schnellere Detection
     """
-    detection_methods = [
-        detect_gpu_with_nvidia_smi,
-        detect_gpu_with_pytorch,
-        detect_gpu_with_pycuda,
-        detect_gpu_with_rocm_smi,  # Linux
-        detect_amd_gpu_with_dxdiag,  # Windows
-    ]
+    import platform
+    system = platform.system()
+
+    detection_methods = []
+
+    if system == "Windows":
+        # Intel Onboard zuerst prüfen
+        detection_methods.append(detect_intel_gpu_windows)
+        detection_methods.append(detect_amd_gpu_with_dxdiag)
+        detection_methods.append(detect_gpu_with_nvidia_smi)
+        detection_methods.append(detect_gpu_with_pytorch)
+        detection_methods.append(detect_gpu_with_pycuda)
+    elif system == "Linux":
+        # Intel Onboard zuerst prüfen
+        detection_methods.append(detect_intel_gpu_linux)
+        detection_methods.append(detect_gpu_with_rocm_smi)
+        detection_methods.append(detect_gpu_with_nvidia_smi)
+        detection_methods.append(detect_gpu_with_pytorch)
+        detection_methods.append(detect_gpu_with_pycuda)
+    else:
+        # Fallback für andere Plattformen
+        detection_methods.extend([
+            detect_gpu_with_nvidia_smi,
+            detect_gpu_with_pytorch,
+            detect_gpu_with_pycuda
+        ])
 
     for method in detection_methods:
         gpu_available, gpu_name, gpu_memory_mb = method()
@@ -176,6 +266,7 @@ def detect_gpu():
 
     logging.info("No GPU detected after trying all available methods.")
     return False, "No GPU Available", 0
+
 
 
 def load_app_settings():

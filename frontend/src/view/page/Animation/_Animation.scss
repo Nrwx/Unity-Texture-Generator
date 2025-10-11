@@ -1,12 +1,10 @@
 .timeline-container {
   display: flex;
   flex-direction: column;
-  gap: 10px;
 }
 
 .timeline-bar-wrapper {
   overflow-x: scroll;
-  border: 1px solid #ccc;
   position: relative;
 }
 
