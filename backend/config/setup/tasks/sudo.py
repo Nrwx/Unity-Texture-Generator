@@ -1,4 +1,4 @@
-def sudo(development: bool = True, log_level: int = 3):
+def sudo(development, log_level):
     """
     Initialisiert die SUDO-/Debug-Konfiguration und gibt sie im Set-Format zurück.
 
@@ -28,5 +28,5 @@ def sudo(development: bool = True, log_level: int = 3):
 
     return config_set
 
-def main():
-    return sudo(development=True, log_level=3)
+def main(development: bool, log_level: int):
+    return sudo(development, log_level)

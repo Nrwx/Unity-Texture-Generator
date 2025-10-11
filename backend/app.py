@@ -14,15 +14,7 @@ from werkzeug.utils import secure_filename
 
 # --------------------------------- #
 # START Initialising - DONT CHANGE  #
-# --------------------------------- #
-
-# PATH Initialising
-from config.setup.generate_paths import init_paths
-if os.path.exists("generated"):
-    shutil.rmtree("generated")
-if not os.path.exists("generated/paths.py"):
-    init_paths()
-# PATH Initialising
+# --------------------------------- #@
 
 # APP_ROOT Initialising
 from config.setup.tasks import init_setup

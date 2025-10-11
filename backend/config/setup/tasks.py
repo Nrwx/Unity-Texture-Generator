@@ -14,16 +14,29 @@ GLOBAL_MANAGER = GlobalManager()  # Singleton
 SETUP_MODULES = [
     "sudo.py",
     "system.py",
+    "project.py",
+    "path.py"
 ]
 
 # Modul-spezifische Pre-Actions
-PRE_ACTIONS = {}
+PRE_ACTIONS = {
+    "generate_paths": lambda name, path: (
+        shutil.rmtree("generated") if os.path.exists("generated") else None
+     )
+}
 
 # Modul-spezifische Parameter für main(**kwargs)
 MODULE_PARAMS = {
+    "sudo": lambda: {
+        "development": True,
+        "log_level": 3
+    },
     "system": lambda: {
         "development": GLOBAL_MANAGER.get("DEVELOPMENT"),
         "log_level": GLOBAL_MANAGER.get("LOG_LEVEL")
+    },
+    "path": lambda: {
+        "backend_path": GLOBAL_MANAGER.get("BACKEND_PATH")
     }
 }
 

@@ -1,13 +1,42 @@
 import os
 import shutil
 from typing import Any, Dict
-from config.setup.folder_structure import FOLDER_STRUCTURE, FOLDERS_TO_RESET
 
-ROOT_PATH = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-OUTPUT_DIR = os.path.join(ROOT_PATH, "generated")
-OUTPUT_MODULE = os.path.join(OUTPUT_DIR, "paths.py")
+FOLDER_STRUCTURE = {
+    "public": {
+        "temp": ["upload", "channel", "mask", "cursor", "render"],
+        "layer": None,
+        "font": None,
+        "brush": None,
+        "static": None,
+        "backup": None,
+        "path": None
+    },
+    "assets": {
+        "brush": None,
+        "font": None,
+        "path": None,
+        "driver": ["windows", "linux", "aarch64"],
+    },
+    "__DRIVER": {
+    }
+}
+
+FOLDERS_TO_RESET = ["public", "__DRIVER"]
+
+ROOT_PATH = None
+OUTPUT_DIR = None
+OUTPUT_MODULE = None
+
+def set_paths(backend_path):
+    global ROOT_PATH, OUTPUT_DIR, OUTPUT_MODULE
+    ROOT_PATH = os.path.abspath(backend_path)
+    OUTPUT_DIR = os.path.join(ROOT_PATH, "generated")
+    OUTPUT_MODULE = os.path.join(OUTPUT_DIR, "paths.py")
+
 
 def clean_folders(folders):
+    global ROOT_PATH
     for folder in folders:
         abs_path = os.path.join(ROOT_PATH, folder)
         if os.path.exists(abs_path):
@@ -76,10 +105,14 @@ def write_paths_module(paths: Dict[str, str]):
         f.writelines(lines)
     print(f"✅ Pfadmodul geschrieben: {OUTPUT_MODULE}")
 
-def init_paths():
+def init_paths(backend_path):
+    set_paths(backend_path)
     clean_folders(FOLDERS_TO_RESET)
     if os.path.exists(OUTPUT_DIR):
         shutil.rmtree(OUTPUT_DIR)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     created = create_structure(FOLDER_STRUCTURE)
     write_paths_module(created)
+
+def main(backend_path):
+    init_paths(backend_path)
