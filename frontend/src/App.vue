@@ -2,7 +2,7 @@
   <v-app :id="tempData.appId.value">
     <template v-if="windowStates.viewport.value">
       <!-- Grid Dialog -->
-      <Viewport @component-event="componentEvent" :state="windowStates.viewport.value" :settings="localData.viewport.value"  v-model:theme="appData.theme.value"/>
+      <Viewport @component-event="componentEvent" :state="windowStates.viewport.value" :settings="localData.viewport.value" v-model:theme="appData.theme.value"/>
     </template>
     <template v-else>
       <!-- Settings Dialog -->
@@ -208,7 +208,7 @@ export default {
       if(!localData.brush.value.length) {
         await componentEvent('fetch-brush');
       }
-      if(!osSettings.use_gpu) {
+      if(!osSettings.value) {
         await componentEvent('fetch-setting');
       }
       if(!localData.paths.value.length) {

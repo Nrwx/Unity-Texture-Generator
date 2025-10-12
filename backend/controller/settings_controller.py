@@ -15,7 +15,32 @@ class SettingsController:
             "function": SettingsModel.get_settings
         },
         "update": {
-            "keys": {"use_gpu", "gpu_name", "gpu_memory_mb", "cpu_threads", "preferred_unit"},
+            "keys": {
+                # === System ===
+                "os_type",
+                "os_arch",
+                "os_cpu",
+                "os_memory",
+
+                # === GPU ===
+                "use_gpu",
+                "gpu_name",
+                "gpu_memory_mb",
+                "preferred_unit",
+
+                # === CPU ===
+                "cpu_threads",
+
+                # === Performance ===
+                "system_score",
+                "system_rating",
+                "recommended_ram_gb",
+                "recommended_cpu_threads",
+                "recommended_gpu_gb",
+
+                # === Meta ===
+                "last_update"
+            },
             "function": SettingsModel.update_settings
         }
     }

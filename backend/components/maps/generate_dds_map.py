@@ -2,9 +2,11 @@ import os
 import subprocess
 import uuid
 from PIL import Image
-
-from config.data.constant import NV_COMPRESS
+from config.app.manager.global_manager import GlobalManager
 from generated.paths import PUBLIC_TEMP_RENDER_FOLDER
+
+GLOBAL_MANAGER = GlobalManager()
+NV_COMPRESS = GLOBAL_MANAGER.get("NVCOMPRESS_PATH")
 
 # Unterstützte nvcompress-Formate (Mapping von Klartext → CLI-Flag)
 _NV_COMPRESS_FORMATS = {

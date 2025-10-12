@@ -223,6 +223,7 @@ def driver(os_type, os_arch):
         plan_id = plan.get("id", None)
         installer_name = plan.get("installer_name", "Unbekannt")
         check_func = plan.get("check")
+        plan_return = plan.get("return", None)
 
         logging.info(f"🚀 Initialisierung starten: {installer_name}")
 
@@ -242,6 +243,12 @@ def driver(os_type, os_arch):
         if plan_id:
             config_set[plan_id] = {"value": status, "type": bool}
 
+        if plan_return:
+            config_set[plan_return["id"]] = {
+                "value": plan_return["value"],
+                "type": plan_return["type"]
+            }
+
         logging.info(f"✅ Initialisierung abgeschlossen: {installer_name}")
 
     # Temporäre Treiber-Dateien entfernen
@@ -260,7 +267,7 @@ def driver(os_type, os_arch):
                     logging.error(f"❌ Alle Versuche fehlgeschlagen: {e}")
 
     # Saubere Ausgabe des Config-Sets am Ende
-    print("=== Build Tools Detection Initialisiert ===")
+    print("=== Build Tools ===")
     for plan_id, data in config_set.items():
         print(f"{plan_id:<20} : {data['value']}")
     print("===================================")

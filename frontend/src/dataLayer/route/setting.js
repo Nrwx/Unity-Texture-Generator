@@ -1,5 +1,4 @@
 import api from "@/dataLayer/api";
-import {osSettings} from "@/dataLayer/setting";
 
 export const fetchOsSettings = async () => {
     try {
@@ -14,7 +13,7 @@ export const fetchOsSettings = async () => {
     }
 };
 
-export const saveOsSettings = async (settings = osSettings) => {
+export const saveOsSettings = async (settings) => {
     try {
         const formData = new FormData();
         formData.append("method", "update");

@@ -13,11 +13,20 @@ PARAMETERS = {
     },
     "settings": {
         "method": {"type": str, "required": True},
+        "os_type": {"type": str, "default": "Unknown"},
+        "os_arch": {"type": str, "default": "x64"},
+        "os_cpu": {"type": str, "default": "Unknown CPU"},
+        "os_memory": {"type": int, "default": 0},  # in GB
         "use_gpu": {"type": bool, "default": False},
         "gpu_name": {"type": str, "default": "None"},
         "gpu_memory_mb": {"type": int, "default": 0},
-        "cpu_threads": {"type": int, "default": 1},
         "preferred_unit": {"type": str, "default": "CPU"},
+        "cpu_threads": {"type": int, "default": 1},
+        "system_score": {"type": float, "default": 0.0},
+        "system_rating": {"type": str, "default": "Unknown"},
+        "recommended_ram_gb": {"type": int, "default": 0},
+        "recommended_cpu_threads": {"type": int, "default": 0},
+        "recommended_gpu_gb": {"type": int, "default": 0},
     },
     "viewport": {
         "mode": {"type": int, "default": 1},

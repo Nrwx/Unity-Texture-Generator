@@ -1,7 +1,12 @@
 import os
 import platform
 import shutil
-from config.data.constant import set_nvcompress
+
+NVCOMPRESS_PATH = {
+    "id": "NVCOMPRESS_PATH",
+    "value": None,
+    "type": str,
+}
 
 def detect_nvcompress():
     """Versucht nvcompress zu finden: zuerst PATH, dann bekannte Pfade."""
@@ -33,6 +38,8 @@ def detect_nvcompress():
 
     return None
 
+def set_nvcompress(path):
+    NVCOMPRESS_PATH["value"] = path
 
 def check_nvcompress():
     """Prüft, ob nvcompress verfügbar ist und setzt den Pfad."""
@@ -55,5 +62,6 @@ def plan_nvcompress():
             "linux": ["NVIDIA_Texture_Tools_Linux_x86_64_3.2.5.zip"],
             "arch": ["NVIDIA_Texture_Tools_aarch64_3.2.5.zip"]
         },
-        "env_vars": None
+        "env_vars": None,
+        "return": NVCOMPRESS_PATH
     }

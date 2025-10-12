@@ -1,0 +1,58 @@
+.setting-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.v-row.h-100 {
+  flex: 1;
+  min-height: 0; // fixes overflow behavior
+}
+
+.sidebar {
+  background: #1e1e1e;
+  border-right: 1px solid #2a2a2a;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+}
+
+.sidebar-header {
+  background: linear-gradient(180deg, #2d2d2d 0%, #262626 100%);
+  border-bottom: 1px solid #1a1a1a;
+}
+
+.sidebar-icons-only {
+  background: #1e1e1e;
+  border-right: 1px solid #2a2a2a;
+
+  .v-icon {
+    color: #b0b0b0;
+    transition: color 0.2s;
+
+    &:hover {
+      color: #4a9eff;
+    }
+  }
+}
+
+.content {
+  background: #202020;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.v-card {
+  background: #1e1e1e;
+  border-color: #3a3a3a;
+}
+
+.v-card-title {
+  color: #e0e0e0;
+}
+
+.v-list-item--active {
+  background: rgba(74, 158, 255, 0.15) !important;
+  color: #4a9eff !important;
+}
