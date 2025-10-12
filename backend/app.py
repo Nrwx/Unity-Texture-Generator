@@ -21,11 +21,6 @@ from config.setup.tasks import init_setup
 init_setup()
 # APP_ROOT Initialising
 
-# APP DRIVER Initialising
-from config.app.driver.install import init_drivers
-init_drivers()
-# APP DRIVER Initialising
-
 # --------------------------------- #
 # END Initialising - DONT CHANGE    #
 # --------------------------------- #
@@ -35,6 +30,7 @@ from config.api.parameter import PARAMETERS
 from router.index import register_router
 from model.fonts_model import FontsModel
 from model.brush_model import BrushModel
+from model.settings_model import SettingsModel
 from model.layer_model import LayerModel
 from model.path_model import PathModel
 from model.queue_model import QueueModel
@@ -383,8 +379,10 @@ def apply_beauty_adjustments(img, color_lookup):
 def apply_motion_projection(img, simulate_mode, frame_count, amplitude, frequency, phase_shift, amplitude_multiplier, wave_type):
     width, height = img.size
     img_array = np.array(img)
+    settings = SettingsModel.get_settings()
+    print(settings)
     if simulate_mode > 0:  # Überprüft, ob das Rauschlevel größer als 0 ist
-        img_array = texture_projection(img, simulate_mode, frame_count, amplitude, frequency, phase_shift, amplitude_multiplier, wave_type)
+        img_array = texture_projection(settings, img, simulate_mode, frame_count, amplitude, frequency, phase_shift, amplitude_multiplier, wave_type)
 
     if frame_count > 1:
         return img_array

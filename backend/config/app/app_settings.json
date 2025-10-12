@@ -1,7 +1,0 @@
-{
-    "use_gpu": true,
-    "gpu_name": "Intel(R) UHD Graphics 600",
-    "gpu_memory_mb": 2013,
-    "cpu_threads": 2,
-    "preferred_unit": "GPU"
-}

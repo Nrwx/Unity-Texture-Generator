@@ -1,7 +1,7 @@
 import api from "@/dataLayer/api";
 import {osSettings} from "@/dataLayer/setting";
 
-const fetchOsSettings = async () => {
+export const fetchOsSettings = async () => {
     try {
         // Daten über die `api.get`-Methode abrufen
         const data = await api.get('/settings');
@@ -14,16 +14,26 @@ const fetchOsSettings = async () => {
     }
 };
 
-const saveOsSettings = async () => {
+export const saveOsSettings = async (settings = osSettings) => {
     try {
-        // Einstellungen mit der `api.post`-Methode speichern
-        const data = await api.post('/settings', { ...osSettings });
-        if(data) {
-            return data
+        const formData = new FormData();
+        formData.append("method", "update");
+
+        // Settings-Felder dynamisch anhängen
+        Object.entries(settings).forEach(([key, value]) => {
+            if (value !== undefined && value !== null) {
+                formData.append(key, value);
+            }
+        });
+
+        const response = await api.post("/settings", formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+        });
+
+        if (response) {
+            return response;
         }
-    } catch (err) {
-        console.error('Fehler beim Speichern der Einstellungen:', err);
+    } catch (error) {
+        console.error("Fehler beim Speichern der Einstellungen:", error.response?.data || error.message);
     }
 };
-
-export { fetchOsSettings, saveOsSettings };

@@ -3,7 +3,6 @@ import numpy as np
 import torch
 import multiprocessing
 import time
-from config.app.app_settings import get_app_settings
 
 
 def process_frame_gpu(t, img_tensor, height_map_tensor, frame_count, frequency, phase_shift, amplitude_multiplier, wave_type, device):
@@ -105,15 +104,17 @@ def process_frame_cpu(t, img_array, height_map, frame_count, frequency, phase_sh
     return distorted_img
 
 
-def create_wave_animation(img_array, height_map, frame_count, frequency=1.0, phase_shift=0.0, amplitude_multiplier=1.0, wave_type=0):
+def create_wave_animation(settings, img_array, height_map, frame_count, frequency=1.0, phase_shift=0.0, amplitude_multiplier=1.0, wave_type=0):
     start_time = time.time()
     print("Starte Berechnung der Wellenanimation...")
 
-    animation_settings = get_app_settings()
+    use_gpu = settings.get("use_gpu", False)
+    cpu_threads = settings.get("cpu_threads", multiprocessing.cpu_count())
+
     frames = []
 
     if frame_count > 1:
-        if animation_settings["use_gpu"]:
+        if use_gpu:
             print("Verwenden der GPU für Berechnungen.")
             device = torch.device("cuda")
 
@@ -127,7 +128,7 @@ def create_wave_animation(img_array, height_map, frame_count, frequency=1.0, pha
                 frames.append(frame.cpu().numpy().astype(np.uint8).transpose(1, 2, 0))  # CHW -> HWC
         else:
             print("Verwenden der CPU für Berechnungen.")
-            with multiprocessing.Pool(processes=animation_settings["cpu_threads"]) as pool:
+            with multiprocessing.Pool(processes=cpu_threads) as pool:
                 frames = pool.starmap(process_frame_cpu, [
                     (t, img_array, height_map, frame_count, frequency, phase_shift, amplitude_multiplier, wave_type)
                     for t in range(frame_count)
@@ -138,7 +139,7 @@ def create_wave_animation(img_array, height_map, frame_count, frequency=1.0, pha
 
         return [Image.fromarray(frame) for frame in frames]
     else:
-        if animation_settings["use_gpu"]:
+        if use_gpu:
             print("Verwenden der GPU für 1 Frame.")
             device = torch.device("cuda")
             img_tensor = torch.tensor(img_array, device=device).permute(2, 0, 1).float()  # HWC -> CHW

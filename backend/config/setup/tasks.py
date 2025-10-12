@@ -1,4 +1,5 @@
 import importlib.util
+import subprocess
 import sys
 import os
 import shutil
@@ -15,14 +16,24 @@ SETUP_MODULES = [
     "sudo.py",
     "system.py",
     "project.py",
-    "path.py"
+    "path.py",
+    "driver.py",
+    "gpu.py",
+    "measure.py"
 ]
 
 # Modul-spezifische Pre-Actions
 PRE_ACTIONS = {
-    "generate_paths": lambda name, path: (
+    "path": lambda name, path: (
         shutil.rmtree("generated") if os.path.exists("generated") else None
-     )
+    ),
+    "driver": lambda name, path: (
+        shutil.rmtree("__DRIVER") if os.path.exists("__DRIVER") else None
+    )
+#    "gpu": lambda name, path: (
+#        subprocess.run([sys.executable, "-m", "pip", "install", "pycuda"], check=True)
+#        if GLOBAL_MANAGER.get("MS_BUILD_TOOLS") else None
+#    )
 }
 
 # Modul-spezifische Parameter für main(**kwargs)
@@ -37,7 +48,26 @@ MODULE_PARAMS = {
     },
     "path": lambda: {
         "backend_path": GLOBAL_MANAGER.get("BACKEND_PATH")
-    }
+    },
+    "driver": lambda: {
+        "os_type": GLOBAL_MANAGER.get("OS_TYPE"),
+        "os_arch": GLOBAL_MANAGER.get("OS_ARCH")
+    },
+    "gpu": lambda: {
+        "os_type": GLOBAL_MANAGER.get("OS_TYPE"),
+        "ms_build_tools": GLOBAL_MANAGER.get("MS_BUILD_TOOLS")
+    },
+    "measure": lambda: {
+        "os_type": GLOBAL_MANAGER.get("OS_TYPE"),
+        "os_arch": GLOBAL_MANAGER.get("OS_ARCH"),
+        "os_cpu": GLOBAL_MANAGER.get("OS_CPU"),
+        "os_threads": GLOBAL_MANAGER.get("OS_THREADS"),
+        "os_memory": GLOBAL_MANAGER.get("OS_MEMORY"),
+        "gpu_name": GLOBAL_MANAGER.get("GPU_NAME"),
+        "gpu_memory_mb": GLOBAL_MANAGER.get("GPU_MEMORY_MB"),
+        "development": GLOBAL_MANAGER.get("DEVELOPMENT"),
+        "log_level": GLOBAL_MANAGER.get("LOG_LEVEL")
+    },
 }
 
 # Helper für Zeitstempel

@@ -11,6 +11,14 @@ PARAMETERS = {
         "rotation": {"type": float, "required": True},
         "opacity": {"type": float, "required": True},
     },
+    "settings": {
+        "method": {"type": str, "required": True},
+        "use_gpu": {"type": bool, "default": False},
+        "gpu_name": {"type": str, "default": "None"},
+        "gpu_memory_mb": {"type": int, "default": 0},
+        "cpu_threads": {"type": int, "default": 1},
+        "preferred_unit": {"type": str, "default": "CPU"},
+    },
     "viewport": {
         "mode": {"type": int, "default": 1},
         "width": {"type": int, "default": 2048},

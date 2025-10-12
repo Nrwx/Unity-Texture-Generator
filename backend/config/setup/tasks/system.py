@@ -42,7 +42,3 @@ def generate_system_data(development=True, log_level=1):
 
 def main(development=True, log_level=1):
     return generate_system_data(development=development, log_level=log_level)
-
-
-if __name__ == "__main__":
-    main(development=True, log_level=3)
