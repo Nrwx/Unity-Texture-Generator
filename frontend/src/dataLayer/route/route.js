@@ -15,7 +15,9 @@ export { fileUpload } from "./upload";
 
 export { generateImage  } from "./ai";
 
-export { fetchOsSettings, saveOsSettings } from "./setting";
+export {fetchTask, stopTask, deleteTask, runTask, updateTask, createTask, scheduleTask } from "./task";
+
+export { fetchOsSettings, saveOsSettings, clearCache } from "./setting";
 
 export { generateTileLayout } from "./tile";
 
@@ -25,7 +27,7 @@ export { fetchFont } from "./font";
 
 export { fillModifier } from  "./modifier";
 
-export { viewportSetup } from "./viewport";
+export { viewportSetup, fetchViewport } from "./viewport";
 
 export { updateExport } from "./export";
 

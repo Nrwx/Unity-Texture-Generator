@@ -1,8 +1,8 @@
 <template>
   <!-- Wrapper zentriert -->
   <div
-      class="d-flex flex-column align-center"
-      style="position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 10; max-width: 1200px; width: 100%;"
+      class="taskbar-center d-flex flex-column align-center"
+      style="position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); z-index: 10; max-width: 1200px; width: 100%;"
   >
     <!-- Expanded Content separat über der Taskbar -->
     <v-expand-transition>
@@ -94,11 +94,12 @@ export default defineComponent({
     TaskbarItem
   },
   setup(props, { emit }) {
-    const { leftItems, centerItems, rightItems, emitEvent, handleComponentEvent } = taskbarCenterModel(props, emit);
+    const { leftItems, centerItems, rightItems, taskbarUp, emitEvent, handleComponentEvent } = taskbarCenterModel(props, emit);
     return {
       leftItems,
       centerItems,
       rightItems,
+      taskbarUp,
       emitEvent,
       handleComponentEvent
     };

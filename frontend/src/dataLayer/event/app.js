@@ -1,8 +1,53 @@
 import dayjs from "dayjs";
 import {screenshot} from "@/utils/screenshot";
 import {uuid} from "@/utils/uuid";
+import {useTheme} from 'vuetify';
+import {nextTick} from "vue";
 
 export const appEvent = (route) => ({
+    "app:boot-state": (payload) => {
+        if (typeof payload === "boolean") {
+            route.windowStates.boot.value = payload;
+        }
+    },
+    "app:clear-cache": async (payload) => {
+        if (payload === route.localData.viewport.value.id) {
+            const response = await route.api.clearCache(payload);
+            if (response) {
+                const task = route.localData.tasks.value.find(x => x.module === 'storage');
+                if (task) {
+                    const res = await route.api.runTask({id: task.id});
+                    if (res) {
+                        await route.emit('fetch-setting');
+                        console.log('Cache clear erfolgreich');
+                    }
+                }
+            }
+        }
+    },
+    "app:refresh-cache": async (payload) => {
+        if (payload === route.localData.viewport.value.id) {
+            const task = route.localData.tasks.value.find(x => x.module === 'storage');
+            if (task) {
+                const res = await route.api.runTask({id: task.id});
+                if (res) {
+                    await route.emit('fetch-setting');
+                    console.log('Cache Refresh erfolgreich');
+                }
+            } else {
+                console.log('Task not found')
+            }
+        }
+    },
+    "app:apply-theme": async (payload) => {
+        const theme = await useTheme();
+        if (theme) {
+            theme.global.name.value = payload;
+            await nextTick();
+            const mode = theme.global.name.value;
+            console.log(`Current Theme: ${mode}`)
+        }
+    },
     "app:viewport-ref": async (payload) => {
         route.localData.viewportRef.value = payload;
     },

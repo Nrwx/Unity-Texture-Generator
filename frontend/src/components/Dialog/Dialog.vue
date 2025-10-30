@@ -4,11 +4,11 @@
       :width="data.width"
       :height="data.height"
       :max-width="data.maxWidth"
-      :max-height="data.maxHeight"
       :fullscreen="data.fullscreen"
       :theme="theme"
+      :scrim="'#000000'"
   >
-      <v-card :class="data.class">
+      <v-card :class="!data?.fullscreen ? `px-6 pt-3 pb-2 elevation-1 ${data?.variant === 'rounded' ?  'rounded-xl' : data?.variant === 'shaped' ?  'rounded-shaped' : ''}` : data?.class || ''" style="background: linear-gradient(180deg, #1f2129 0%, #1b1e27 60%) !important;">
         <LoadingComponent v-if="loading"/>
         <template v-else>
           <template v-if="data.fullscreen">
@@ -17,18 +17,48 @@
             </v-btn>
             <slot name="absolute"/>
           </template>
-          <v-card-title>
-            <template v-if="!$slots.header && data.title">{{data.title}}</template>
+          <v-card-title :class="!data.fullscreen ? 'pa-0' : ''">
+            <template v-if="!$slots.header && data.title">
+              <div class="d-flex justify-space-between align-center mb-2">
+                <h6 v-if="data?.textVariant === 'id'" style="min-width: 60%;">
+                  {{data.title}}
+                </h6>
+                <h5 v-else style="min-width: 60%;">
+                  {{data.title}}
+                </h5>
+                <template
+                    v-if="!$slots.header && data.subtitle !== ''"
+                >
+                  <div class="text-caption text-id-color text-truncate" :style="data?.textVariant === 'id' ? 'font-size: .6rem !important;' : ''">
+                    {{data.subtitle}}
+                  </div>
+                </template>
+              </div>
+            </template>
             <slot v-if="$slots.header" name="header"/>
           </v-card-title>
-          <v-card-text :class="data.fullscreen ? 'mt-6' : ''">
-            <slot name="content"/>
+
+          <v-card-text :style="data.maxHeight ? `max-height: ${data.maxHeight}px; overflow: hidden; overflow-y: auto;` : ''" :class="data.fullscreen ? 'mt-6' : 'pa-0'">
+            <template v-if="!data.fullscreen">
+              <div class="detail-container">
+                <div class="detail-card">
+                  <slot name="content"/>
+                </div>
+              </div>
+            </template>
+            <template v-else>
+              <slot name="content"/>
+            </template>
           </v-card-text>
-          <v-card-actions v-if="$slots.action || !data.fullscreen">
-            <v-btn v-if="!data.hideClose" @click="emitEvent(data.emit, false)">Schließen</v-btn>
+
+          <v-card-actions class="mt-2 pa-0" style="width: 100%;" v-if="$slots.action || !data.fullscreen">
+
+            <v-btn v-if="!data.hideClose" class="secondary" @click="emitEvent(data.emit, false)">Schließen</v-btn>
             <v-spacer v-if="!data.hideClose" />
+
             <slot name="action"/>
           </v-card-actions>
+
         </template>
       </v-card>
   </v-dialog>
@@ -51,3 +81,7 @@ export default defineComponent({
   },
 });
 </script>
+
+<style scoped lang="scss">
+@import "./_Dialog";
+</style>

@@ -1,0 +1,39 @@
+@import "./_Shared";
+
+.fragment.summary {
+  .header { margin-bottom:12px; h3{color:#fff} .sub{color:rgba(255,255,255,0.6)} }
+
+  .layout {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-gap: 12px;
+    .left { flex:1;
+      .cards { display:flex; flex-direction:column; gap:12px;
+        .card.large { height: 250px; padding:14px; border-radius:10px; background: linear-gradient(180deg,#141417,#0c0c0f);
+          .card-head { display:flex; justify-content:space-between; align-items:center;
+            .big { font-size:30px; color:#6dd3ff; font-weight:900 }
+          }
+          .pill-row { display:flex; gap:10px; margin-top:12px;
+            .pill { background: rgba(255,255,255,0.02); padding:10px; border-radius:8px; flex:1;
+              .k { color:rgba(255,255,255,0.6); font-size:12px } .v{ color:#fff; font-weight:800; font-size:18px }
+            }
+          }
+        }
+      }
+    }
+    .right {
+      .insights { display:flex; gap:12px;
+        .insight-card { flex:1; padding:12px; border-radius:10px; background: linear-gradient(180deg,#111113,#08080a);
+          h4 { color:#fff } p { color:rgba(255,255,255,0.7); font-size:13px }
+        }
+      }
+      .card.grid2 { display:grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap:12px; padding:10px; border-radius:10px; background: linear-gradient(180deg,#141416,#0b0b0e);
+        .mini-card { background: rgba(255,255,255,0.02); padding:12px; border-radius:8px; text-align:center;
+          .label { color: rgba(255,255,255,0.6) } .val { font-weight:800; color:#6dd3ff; font-size:18px }
+        }
+      }
+    }
+
+    .relations-card { padding:6px }
+  }
+}

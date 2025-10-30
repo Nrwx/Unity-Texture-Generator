@@ -1,9 +1,14 @@
-@import './../_Var';
+@use './../_Var' as v;
+@use './Color/_Color';
 
 :root {
-  --app-primary-bg: #{$app_primary_bg};
-  --app-secondary-bg: #{$app_secondary_bg};
-  --app-third-bg: #{$app_third_bg};
+  --app-primary-bg: v.$app_primary_bg;
+  --app-secondary-bg: v.$app_secondary_bg;
+  --app-third-bg: v.$app_third_bg;
+}
+
+html, body {
+  font-family: v.$app_font_default;
 }
 
 .scrollbar-hidden {

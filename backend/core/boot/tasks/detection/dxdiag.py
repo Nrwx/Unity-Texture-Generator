@@ -1,0 +1,60 @@
+import os
+import subprocess
+from typing import Callable, Dict, Optional
+
+def dxdiag(log):
+    """
+    AMD GPU Detection unter Windows via dxdiag.
+    """
+    try:
+        import tempfile
+        try:
+            import chardet
+        except ImportError:
+            chardet = None
+
+        if not chardet:
+            log("Modul 'chardet' ist nicht installiert!", "PROCESS", "WARNING", "⚠️")
+            return False, "chardet not installed", 0
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".txt") as temp_file:
+            temp_path = temp_file.name
+
+        result = subprocess.run(["dxdiag", "/t", temp_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if result.returncode == 0:
+            with open(temp_path, 'rb') as raw_file:
+                raw_data = raw_file.read()
+                detected = chardet.detect(raw_data)
+                encoding = detected['encoding'] or 'utf-8'
+                text = raw_data.decode(encoding)
+
+            os.remove(temp_path)
+
+            gpu_name = None
+            gpu_memory_mb = 0
+
+            for line in text.splitlines():
+                if "Card name" in line and ("Radeon" in line or "AMD" in line):
+                    gpu_name = line.split(":")[1].strip()
+                if "Display Memory" in line and "MB" in line:
+                    mem_str = ''.join(filter(str.isdigit, line))
+                    if mem_str.isdigit():
+                        gpu_memory_mb = int(mem_str)
+
+            if gpu_name:
+                gpu_memory_mb = gpu_memory_mb or 4096
+                log(f"AMD-GPU erfolgreich über dxdiag erkannt: {gpu_name} ({gpu_memory_mb} MB)", "PROCESS", "INFO", "🔔")
+                return True, gpu_name, gpu_memory_mb
+            else:
+                log("Keine AMD-GPU über dxdiag gefunden!", "PROCESS", "WARNING", "⚠️")
+                return False, "No AMD GPU Available", 0
+
+        log("dxdiag konnte nicht ausgeführt werden!", "PROCESS", "ERROR", "📛")
+        return False, "dxdiag failed", 0
+
+    except Exception as e:
+        log(f"Während der AMD-GPU-Erkennung ist ein Fehler aufgetreten: {e}", "PROCESS", "ERROR", "📛")
+        return False, "Error", 0
+
+def main(log: Callable[[str, str, str, Optional[str]], None]):
+    return dxdiag(log)

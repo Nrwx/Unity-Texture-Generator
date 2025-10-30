@@ -3,8 +3,15 @@ export const viewportEvent = (route) => ({
         const data = {...payload}
         const response = await route.api.viewportSetup(data);
         if (response) {
-            route.localData.viewport.value = data;
+            await route.emit('fetch-viewport')
             route.windowStates.viewport = false;
+        }
+    },
+    "fetch-viewport": async () => {
+        const response = await route.api.fetchViewport();
+        if (response) {
+            route.localData.viewport.value = response
+            console.log(response, 'VIEWPORT')
         }
     },
     "viewport:title": (payload) => {

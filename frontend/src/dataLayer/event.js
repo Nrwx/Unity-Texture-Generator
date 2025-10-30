@@ -28,12 +28,16 @@ import {exportEvent} from "@/dataLayer/event/export";
 import {rendererEvent} from "@/dataLayer/event/renderer";
 import {pathEvent} from "@/dataLayer/event/path";
 import {timelineEvent} from "@/dataLayer/event/timeline";
+import {taskEvent} from "@/dataLayer/event/task";
+import {canvasEvent} from "@/dataLayer/event/canvas";
+import {createCanvasEnvironment} from "@/dataLayer/canvas";
 
 
 /**
  * Kombiniert alle Events zu einem Handler-Objekt
  */
 const eventHandler = (route) => ({
+    ...canvasEvent(route),
     ...listenerEvent(route),
     ...keyEvent(route),
     ...appEvent(route),
@@ -46,6 +50,7 @@ const eventHandler = (route) => ({
     ...selectLayerEvent(route),
     ...aiEvent(route),
     ...settingEvent(route),
+    ...taskEvent(route),
     ...brushEvent(route),
     ...brushLayerEvent(route),
     ...viewportEvent(route),
@@ -96,6 +101,7 @@ export const createEventSystem = (deps) => {
     };
 
     route.listener = createListenerManager();
+    route.canvas = createCanvasEnvironment();
 
     const emit = eventManager(eventHandler(route));
     route.emit = emit;
@@ -103,10 +109,10 @@ export const createEventSystem = (deps) => {
 };
 
 /**
- * @param id
- * @param emitEvent
+ * @param {string} id - eindeutige Listener ID
+ * @param {function} emitEvent - Vue emit Funktion
  */
-export const eventRegister = (id='', emitEvent=null) => {
+export const eventRegister = (id= '', emitEvent = null) => {
     if (!id || id === '' || typeof id !== 'string') {
         console.warn(`[eventRegister] ⚠️ id ist nicht definiert oder kein String!`);
     }
@@ -120,7 +126,7 @@ export const eventRegister = (id='', emitEvent=null) => {
      * @param handler
      * @param options
      */
-    const register = (mode, target, type, handler, options = false) => {
+    const register = (mode, target=null, type=null, handler=null, options = {}) => {
 
         switch (mode) {
             case 'add':
@@ -167,3 +173,127 @@ export const eventRegister = (id='', emitEvent=null) => {
     return { register };
 };
 
+/**
+ * Canvas Register Helper
+ * @param {string} id - eindeutige Canvas ID
+ * @param {function} emitEvent - Vue emit Funktion
+ */
+export const canvasRegister = (id = '', emitEvent = null) => {
+    if (!id || typeof id !== 'string') {
+        console.warn(`[canvasRegister] ⚠️ id ist nicht definiert oder kein String!`);
+    }
+    if (!emitEvent || typeof emitEvent !== 'function') {
+        console.warn(`[canvasRegister] ⚠️ emitEvent ist nicht definiert oder keine Funktion!`);
+    }
+
+    /**
+     * @param {string} mode
+     * 'register' | 'update' | 'pause' | 'resume' | 'export' | 'destroy' | 'pause-all' | 'resume-all'
+     * 'add-segment' | 'update-segment' | 'remove-segment' | 'fullscreen-segment' | 'add-layer'
+     * | 'update-layer' | 'remove-layer'
+     * @param {Object} config - optional, bei 'register'
+     * @param {Object} payload - optional, bei 'update' oder Segment-Operation
+     * @param {boolean} loop - optional, bei 'update'
+     */
+    const environment = (mode, config = {}, payload = {}, loop = false) => {
+        switch (mode) {
+            case 'register':
+
+                if (!config?.canvas || !(config?.canvas instanceof HTMLCanvasElement)) {
+                    console.warn(`[canvasRegister:register] Ungültiges Canvas Element:`, config.canvas);
+                    return;
+                }
+                emitEvent('canvas:register', {
+                    id: payload?.id || id,
+                    config: config
+                });
+                break;
+
+            case 'update':
+                emitEvent('canvas:update', {
+                    id: id,
+                    payload: {
+                        ...config,
+                        ...payload
+                    },
+                    loop: loop
+                });
+                break;
+
+            case 'select':
+                emitEvent('canvas:select', {
+                    x: payload?.x,
+                    y: payload?.y,
+                    id: payload?.id || id,
+                });
+                break;
+
+            case 'export':
+                emitEvent('canvas:export', {
+                    id: payload?.id || id,
+                });
+                break;
+
+            case 'pause':
+                emitEvent('canvas:pause', {
+                    id: payload?.id || id,
+                });
+                break;
+
+            case 'resume':
+                emitEvent('canvas:resume', {
+                    id: payload?.id || id,
+                });
+                break;
+
+            case 'remove':
+                emitEvent('canvas:remove', payload?.id || id);
+                break;
+
+            case 'remove-all':
+                emitEvent('remove-all');
+                break;
+
+            case 'pause-all':
+                emitEvent('canvas:pause-all');
+                break;
+
+            case 'resume-all':
+                emitEvent('canvas:resume-all');
+                break;
+
+            case 'add-segment':
+                emitEvent('canvas:add-segment', { id, ...payload });
+                break;
+
+            case 'update-segment':
+                emitEvent('canvas:update-segment', { id, ...payload });
+                break;
+
+            case 'remove-segment':
+                emitEvent('canvas:remove-segment', { id, ...payload });
+                break;
+
+            case 'fullscreen-segment':
+                emitEvent('canvas:fullscreen-segment', { id, ...payload });
+                break;
+
+            case 'add-layer':
+                emitEvent('canvas:add-layer', { id, ...payload });
+                break;
+
+            case 'update-layer':
+                emitEvent('canvas:update-layer', { id, ...payload });
+                break;
+
+            case 'remove-layer':
+                emitEvent('canvas:remove-layer', { id, ...payload });
+                break;
+
+            default:
+                console.warn(`[canvasRegister] Unbekannter Modus: ${mode}`);
+        }
+    };
+
+    return { environment };
+};

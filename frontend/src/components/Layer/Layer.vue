@@ -17,7 +17,6 @@
           dark
           grow
           height="32"
-          align="center"
       >
         <v-tab min-width="16" min-height="16" height="24" width="16" max-width="16" max-height="24" v-for="(tab, index) in tabs" :key="tab.index" @click="handleTabEmit(index)">
           <v-icon size="16">{{ tab.icon }}</v-icon>
@@ -140,7 +139,9 @@
               </template>
             </Drag>
           </v-list>
-          <Channel v-show="tabIndex === 1 && channel.length > 0" :data="channel" @update:componentEvent="emitEvent"/>
+
+          <Channel v-show="tabIndex === 1 && channel.length > 0" :data="channel" :theme="theme" @update:componentEvent="emitEvent"/>
+
           <Path v-show="tabIndex === 2 && paths.length > 0" :data="paths" @update:componentEvent="emitEvent"/>
         </div>
       </v-card>
@@ -216,33 +217,10 @@ export default defineComponent({
     Channel
   },
   setup(props, { emit }) {
-    const {
-      groupCollapse,
-      shouldShowLayer,
-      toggleGroupCollapse,
-      groupAble,
-      allInSameGroup, emitEvent, validRule, toggleLayerSelection, handleDrop, dragId, hiddenState, tabs, tabIndex, handleTabEmit, globalOpacity, updateOpacity, methods, config, updateBlend } = layerModel(props, emit);
+    const model = layerModel(props, emit);
     return {
-      groupCollapse,
-      shouldShowLayer,
-      toggleGroupCollapse,
-      groupAble,
-      allInSameGroup,
-      emitEvent,
-      validRule,
-      toggleLayerSelection,
-      handleDrop,
-      dragId,
-      hiddenState,
-      tabs,
-      tabIndex,
-      handleTabEmit,
-      globalOpacity,
-      updateOpacity,
-      windowStates,
-      methods,
-      config,
-      updateBlend,
+      ...model,
+      windowStates
     };
   },
 });

@@ -107,7 +107,7 @@ export function layerModel(props, emit) {
         });
     };
 
-    const handleTabEmit =  (index) => {
+    const handleTabEmit = (index) => {
         tabIndex.value = index
         if(index === 0) {
             emitEvent('layer:select', [])
@@ -198,12 +198,12 @@ export const layerProps = {
     layers: {
         type: Array,
         required: true,
-        default: () => [],
+        default: () => []
     },
     paths: {
         type: Array,
         required: true,
-        default: () => [],
+        default: () => []
     },
     selectedLayer: {
         type: Array,
@@ -212,10 +212,10 @@ export const layerProps = {
     channel: {
         type: Array,
         required: true,
-        default: () => [],
+        default: () => []
     },
     theme: {
         type: String,
-        required: true,
+        required: true
     },
 };

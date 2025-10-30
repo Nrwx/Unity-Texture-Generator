@@ -1,0 +1,52 @@
+@use "../../view/scss/_Var" as v;
+
+.fragment {
+  font-family: v.$app_font_secondary;
+  color: v.$app_font_color_default;
+}
+
+/* subtle glass highlight used everywhere */
+.glow {
+  box-shadow: 0 10px 30px v.$app_text_shadow_00_default, inset 0 1px 0 v.$app_text_shadow_00_default;
+}
+
+/* small helper button style */
+.btn {
+  cursor: pointer;
+  border: none;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: v.$app_bg_dimmer_01;
+  color: v.$app_font_color_default;
+  transition: transform 160ms, box-shadow 160ms;
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 24px v.$app_btn_shadow_00_default;
+  }
+}
+
+/* strong primary */
+.btn.primary {
+  background: linear-gradient(90deg, v.$app_highlight_00, v.$app_highlight_01);
+  color: #07101a;
+}
+
+/* danger */
+.btn.danger {
+  background: linear-gradient(90deg, v.$app_state_danger, v.$app_state_failed);
+  color: #fff;
+}
+
+/* small helper */
+.card-title {
+  font-weight: 700;
+  color: v.$app_font_color_default;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+/* minimal reset for components */
+.fragment {
+  padding: 12px;
+}

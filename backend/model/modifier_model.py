@@ -6,62 +6,66 @@ import numpy as np
 from datetime import datetime
 from generated.paths import ( PUBLIC_LAYER_FOLDER, PUBLIC_BACKUP_FOLDER )
 from config.data.constant import ( LAYERS )
+from model.base.main import BaseModel
 from components import ( apply_color_fill, generate_thumbnail_map )
 from utils import ( apply_rgb_rgba, apply_alpha, time )
 
-class ModifierModel:
-    @staticmethod
-    def fill(id, x, y, color, tolerance=0):
-        layer = next((l for l in LAYERS if l["id"] == id), None)
-        if not layer:
-            return {"error": f"Layer with id '{id}' not found."}, 404
-
-        image_path = os.path.join(PUBLIC_LAYER_FOLDER, f"{id}.png")
-        if not os.path.exists(image_path):
-            return {"error": "Image file not found."}, 404
-
+class ModifierModel(BaseModel):
+    @classmethod
+    def fill(cls, id, x, y, color, tolerance=0):
         try:
-            if not os.path.exists(PUBLIC_BACKUP_FOLDER):
-                os.makedirs(PUBLIC_BACKUP_FOLDER)
+            layer = next((l for l in LAYERS if l["id"] == id), None)
+            if not layer:
+                return {"error": f"Layer with id '{id}' not found."}, 404
 
-            backup_path = os.path.join(PUBLIC_BACKUP_FOLDER, f"{id}.png")
-            shutil.copy2(image_path, backup_path)
+            image_path = os.path.join(PUBLIC_LAYER_FOLDER, f"{id}.png")
+            if not os.path.exists(image_path):
+                return {"error": "Image file not found."}, 404
 
-            image = Image.open(image_path).convert("RGBA")
-            original_array = np.array(image)
-            click_x, click_y = int(x), int(y)
+            try:
+                if not os.path.exists(PUBLIC_BACKUP_FOLDER):
+                    os.makedirs(PUBLIC_BACKUP_FOLDER)
 
-            mask = None
-            if layer.get("mask"):
-                mask_path = os.path.join(PUBLIC_LAYER_FOLDER, f"{layer['mask']}.png")
-                if os.path.exists(mask_path):
-                    mask = Image.open(mask_path)
+                backup_path = os.path.join(PUBLIC_BACKUP_FOLDER, f"{id}.png")
+                shutil.copy2(image_path, backup_path)
 
-            result_array, info = apply_color_fill(
-                original_array, click_x, click_y, color, mask, tolerance
-            )
+                image = Image.open(image_path).convert("RGBA")
+                original_array = np.array(image)
+                click_x, click_y = int(x), int(y)
 
-            changed_pixels = np.any(result_array[:, :, :3] != original_array[:, :, :3], axis=-1)
-            result_array[changed_pixels, 3] = 255
+                mask = None
+                if layer.get("mask"):
+                    mask_path = os.path.join(PUBLIC_LAYER_FOLDER, f"{layer['mask']}.png")
+                    if os.path.exists(mask_path):
+                        mask = Image.open(mask_path)
 
-            result_image = Image.fromarray(result_array.astype(np.uint8))
+                result_array, info = apply_color_fill(
+                    original_array, click_x, click_y, color, mask, tolerance
+                )
 
-            new_id = str(uuid.uuid4())
-            new_filename = f"{new_id}.png"
-            new_save_path = os.path.join(PUBLIC_LAYER_FOLDER, new_filename)
-            result_image.save(new_save_path)
+                changed_pixels = np.any(result_array[:, :, :3] != original_array[:, :, :3], axis=-1)
+                result_array[changed_pixels, 3] = 255
 
-            os.remove(image_path)
+                result_image = Image.fromarray(result_array.astype(np.uint8))
 
-            layer["url"] = f"/download/{new_filename}"
-            layer["id"] = new_id
-            layer["source"] = id
-            layer["thumbnail"] = generate_thumbnail_map(new_id, path=new_save_path, size=64, image=None)
-            layer["time"] = time('unix_ms')
-            return {
-                "message": "Farbfüllung erfolgreich angewendet.",
-                "url": layer["url"]
-            }, 200
+                new_id = str(uuid.uuid4())
+                new_filename = f"{new_id}.png"
+                new_save_path = os.path.join(PUBLIC_LAYER_FOLDER, new_filename)
+                result_image.save(new_save_path)
 
+                os.remove(image_path)
+
+                layer["url"] = f"/download/{new_filename}"
+                layer["id"] = new_id
+                layer["source"] = id
+                layer["thumbnail"] = generate_thumbnail_map(new_id, path=new_save_path, size=64, image=None)
+                layer["time"] = time('unix_ms')
+                return {
+                    "message": "Farbfüllung erfolgreich angewendet.",
+                    "url": layer["url"]
+                }, 200
+
+            except Exception as e:
+                return cls.handle_error(e)
         except Exception as e:
-            return {"error": str(e)}, 500
+            return cls.handle_error(e)

@@ -1,3 +1,5 @@
+@use "../../view/scss/_Var" as v;
+
 .transition-fast {
   transition: all 0.3s ease;
 }
@@ -23,7 +25,7 @@
 
 .route-bg-icon {
   font-size: 60px;
-  color: var(--app-primary-bg);
+  color: v.$app_highlight_10;
 }
 
 .queue-wait {

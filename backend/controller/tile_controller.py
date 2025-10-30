@@ -1,10 +1,5 @@
-from model.tile_model import TileModel
-from config.api.parameter import PARAMETERS
-from utils import parse_parameters
+# controller/tile_controller.py
+from controller.base.main import BaseController
 
-class TileController:
-    @staticmethod
-    def handle(form_data):
-        params = parse_parameters(PARAMETERS['tile'], form_data)
-        model = TileModel(**params)
-        return model.generate()
+class TileController(BaseController):
+    pass

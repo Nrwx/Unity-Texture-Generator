@@ -1,41 +1,5 @@
-from model.render_model import RenderModel
-from utils.api.parser import parse_parameters
-from config.api.parameter import PARAMETERS
+# controller/render_controller.py
+from controller.base.main import BaseController
 
-class RenderController:
-
-    METHOD_MAP = {
-        "channel": {
-            'keys': {},
-            'function': RenderModel.channel
-        },
-        "preview": {
-            'keys': {},
-            'function': RenderModel.preview
-        },
-        "thumbnail": {
-            "keys": {"id", "size"},
-            "function": RenderModel.thumbnail
-        },
-        "text-path": {
-            "keys": {"id"},
-            "function": RenderModel.text_to_path
-        },
-        "base64": {
-            "keys": {"image_base64", "id"},
-            "function": RenderModel.upload_base64
-        }
-    }
-
-    @classmethod
-    def handle(cls, form):
-        params = parse_parameters(PARAMETERS['renderer'], form)
-        method = params.get('method')
-        if method not in cls.METHOD_MAP:
-            return {"error": "Invalid method"}, 400
-
-        method_info = cls.METHOD_MAP[method]
-        method_keys = method_info['keys']
-        method_function = method_info['function']
-        method_params = {key: params[key] for key in method_keys if key in params}
-        return method_function(**method_params)
+class RenderController(BaseController):
+    pass

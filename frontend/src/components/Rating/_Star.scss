@@ -1,0 +1,100 @@
+/* Photoshop-inspiriertes, hochwertiges dunkles Design */
+.star-rating {
+  color: #e6eef8;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  padding: 12px;
+  border-radius: 12px;
+}
+
+.top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stars {
+  display: flex;
+  align-items: center;
+}
+
+.star-svg {
+  margin-right: 8px;
+  overflow: visible;
+}
+
+.star-fill {
+  fill: #ffd74d; /* gold */
+  transition: all 280ms cubic-bezier(0.2, 0.9, 0.2, 1);
+}
+
+.star-outline {
+  fill: none;
+  stroke: rgba(230, 230, 240, 0.18);
+  stroke-width: 0.9;
+}
+
+.score-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.percent {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #dfe7f3;
+}
+
+.rating-badge {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.78rem;
+  color: #0b1220;
+}
+.rating-high { background: #9fe99f; }
+.rating-medium { background: #ffd76b; }
+.rating-low { background: #ff9b8a; }
+
+.below-stars { margin-top: 8px; }
+.compat { color: #9fe99f; font-weight: 700; }
+.warning { color: #ffb3a7; font-weight: 800; }
+
+/* details styling */
+.minreq {
+  margin-top: 12px;
+  background: rgba(255,255,255,0.02);
+  border-radius: 8px;
+  padding: 8px;
+  border: 1px solid rgba(255,255,255,0.02);
+}
+
+.summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #dfe7f3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  list-style: none;
+  outline: none;
+  padding: 6px 8px;
+}
+.summary-note { font-weight: 500; color: #9aa7c3; margin-left: 10px; font-size: 0.8rem; }
+
+.minreq-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 10px;
+}
+.minreq-item { background: rgba(255,255,255,0.01); padding: 10px; border-radius: 6px; }
+.label { color: #9aa7c3; font-size: 0.83rem; }
+.value { font-weight: 800; font-size: 1.05rem; color: #f3f7ff; margin-top: 6px; }
+
+.minreq-note { margin-top: 10px; color: #ffb3a7; font-weight: 700; }
+
+/* small responsive */
+@media (max-width: 520px) {
+  .minreq-grid { grid-template-columns: 1fr; }
+}

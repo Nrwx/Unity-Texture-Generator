@@ -1,0 +1,150 @@
+// ---------------------------
+// Task Manager Component
+// ---------------------------
+
+.detail-container {
+  background: #20222a;
+  padding: 16px;
+  border-radius: 20px;
+  overflow-y: auto;
+
+  .detail-card {
+    background: #1d1f25;
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+
+    .detail-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+
+      h4 {
+        color: #fff;
+        margin: 0;
+      }
+
+      .detail-sub {
+        font-size: 0.8rem;
+        color: #888;
+        .id {
+          color: #ccc;
+        }
+      }
+    }
+
+    .form {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+
+      label {
+        font-size: 0.85rem;
+        color: #aaa;
+      }
+
+      input,
+      select {
+        background: #14161b;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #ddd;
+        padding: 6px 8px;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        outline: none;
+
+        &:focus {
+          border-color: #2979ff;
+        }
+      }
+
+      .row-2 {
+        display: flex;
+        gap: 20px;
+        div {
+          flex: 1;
+        }
+      }
+
+      .progress-wrap.small {
+        height: 6px;
+        background: #333;
+        border-radius: 4px;
+        .progress-bar {
+          height: 100%;
+          background: #2979ff;
+        }
+      }
+
+      .chain-editor {
+        background: #15171d;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 6px;
+        padding: 10px;
+
+        .chain-controls {
+          display: flex;
+          gap: 8px;
+          margin-bottom: 10px;
+
+          input {
+            flex: 1;
+          }
+
+          button {
+            background: #282b34;
+            color: #ccc;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            padding: 4px 8px;
+            &:hover {
+              background: #323542;
+            }
+          }
+        }
+
+        .chain-list {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+
+          .chain-item {
+            display: flex;
+            justify-content: space-between;
+            background: #1f222b;
+            border-radius: 5px;
+            padding: 6px 10px;
+            color: #ddd;
+            font-size: 0.85rem;
+
+            .cmeta {
+              font-size: 0.75rem;
+              color: #888;
+            }
+
+            .chain-actions button {
+              background: transparent;
+              border: none;
+              color: #aaa;
+              cursor: pointer;
+              margin-left: 4px;
+
+              &:hover {
+                color: #fff;
+              }
+            }
+          }
+
+          .chain-empty {
+            text-align: center;
+            font-size: 0.8rem;
+            color: #666;
+            padding: 10px;
+          }
+        }
+      }
+    }
+  }
+}

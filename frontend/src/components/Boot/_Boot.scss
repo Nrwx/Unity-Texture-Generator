@@ -1,0 +1,250 @@
+@use "../../view/scss/_Var" as v;
+
+.boot-loader {
+  z-index: v.$outer_index;
+  background: linear-gradient(135deg, v.$app_highlight_09, v.$app_highlight_10, v.$app_highlight_11 60%, v.$app_third_bg);
+  .boot-container{
+    max-height: 580px;
+    .boot-left-panel {
+      max-width: 800px;
+      .boot-console {
+        .boot-terminal {
+          max-height: 200px;
+          background: linear-gradient(180deg, v.$app_bg_dimmer_02, v.$app_bg_dimmer_01);
+          border-radius: 8px;
+          border: 1px solid v.$app_border_default;
+          box-shadow: inset 0 1px 0 v.$app_shadow_05_default;
+          .term-line {
+            font-size: 13px;
+            line-height: 1.4;
+            color: v.$app_font_color_primary;
+            padding: 2px 0;
+            animation: fadeIn .2s ease-in;
+            .time {
+              color: v.$app_font_color_secondary;
+              min-width: 72px;
+              font-size: 12px;
+            }
+            .content {
+              .hl {
+                color: v.$app_font_color_default;
+                background: v.$app_bg_dimmer_00;
+                padding: 0 6px;
+                border-radius: 4px;
+              }
+            }
+          }
+        }
+      }
+      .boot-taskbar-collapsed {
+        background: linear-gradient(180deg, v.$app_bg_dimmer_02, v.$app_bg_dimmer_03);
+        border-radius: 12px;
+        padding: 10px 14px;
+        box-shadow: 0 12px 40px v.$app_shadow_00_default;
+        border: 1px solid v.$app_border_default;
+        .boot-taskbar-left {
+          min-width: 0;
+          .logo {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            font-weight: 800;
+            background: linear-gradient(135deg, v.$app_highlight_07, v.$app_highlight_08);
+            color: v.$app_font_color_default_black;
+            box-shadow: 0 8px 28px v.$app_shadow_00_default;
+          }
+          .bar-wrap {
+            min-width: 300px;
+            max-width: 30vw;
+            .bar-track {
+              height: 10px;
+              background: v.$app_bg_dimmer_04;
+              box-shadow: inset 0 1px 0 v.$app_shadow_05_default;
+              .bar-fill {
+                background: linear-gradient(90deg, v.$app_highlight_07, v.$app_highlight_08);
+                transition: width 320ms cubic-bezier(.25, .9, .3, 1);
+                box-shadow: 0 6px 28px v.$app_shadow_04_default;
+                filter: drop-shadow(0 6px 18px v.$app_shadow_03_default);
+              }
+            }
+            .bar-meta {
+              font-size: 13px;
+              color: v.$app_highlight_00;
+              width: 100%;
+              .bar-pct {
+                font-weight: 800;
+              }
+            }
+          }
+        }
+        .boot-taskbar-center {
+          width: 64px;
+          .spinner {
+            width: 48px;
+            height: 48px;
+            svg {
+              width: 42px;
+              height: 42px;
+              transform-origin: center;
+              opacity: 0.98;
+            }
+          }
+          .spinner.spinning {
+            svg {
+              animation: ps-spin 1.2s linear infinite;
+            }
+          }
+        }
+        .boot-taskbar-right {
+          .timeline-mini {
+            .tmini-item {
+              font-size: 13px;
+              color: v.$app_font_color_primary;
+              opacity: 0.98;
+              .dot {
+                width: 12px;
+                height: 12px;
+              }
+              .dot.ok {
+                background: v.$app_state_ok;
+                box-shadow: 0 6px 18px v.$app_shadow_03_default;
+              }
+              .dot.fail {
+                background: v.$app_state_failed;
+                box-shadow: 0 6px 18px v.$app_shadow_04_default;
+              }
+              .dot.wait {
+                background: #ffd86b;
+                box-shadow: 0 6px 18px v.$app_shadow_03_default;
+              }
+            }
+            .toggle {
+              background: v.$app_transparence;
+              border: 1px solid v.$app_border_default;
+              padding: 6px 8px;
+              border-radius: 8px;
+              color: v.$app_font_color_primary;
+            }
+          }
+        }
+      }
+    }
+    .boot-right-panel {
+      .timeline {
+        background: linear-gradient(180deg, v.$app_bg_dimmer_02, v.$app_bg_dimmer_03);
+        border-radius: 8px;
+        border: 1px solid v.$app_border_default;
+        max-height: 420px;
+        .node {
+          padding: 8px 6px;
+          border-bottom: 1px dashed v.$app_bg_dimmer_01;
+          .mark {
+            width: 16px;
+            height: 16px;
+          }
+          .mark.ok {
+            background: linear-gradient(90deg, v.$app_state_good, v.$app_state_ok);
+            color: #001b13;
+            box-shadow: 0 10px 30px v.$app_shadow_03_default;
+          }
+
+          .mark.fail {
+            background: linear-gradient(90deg, v.$app_state_danger, v.$app_state_failed);
+            color: v.$app_state_text_failed;
+            box-shadow: 0 10px 30px v.$app_shadow_04_default;
+          }
+
+          .mark.wait {
+            background: linear-gradient(90deg, v.$app_state_pending, v.$app_state_wait);
+            color: v.$app_state_text_pending;
+            box-shadow: 0 10px 30px v.$app_shadow_03_default;
+          }
+          .node-body {
+            flex: 1;
+            .node-title {
+              font-weight: 800;
+              color: v.$app_font_color_primary;
+              font-size: 12px;
+            }
+
+            .node-sub {
+              font-size: 10px;
+              color: v.$app_font_color_secondary;
+            }
+          }
+        }
+      }
+    }
+    .boot-progress-large {
+      .progress-track {
+        height: 12px;
+        background: rgba(255, 255, 255, 0.03);
+        .progress-fill {
+          background: linear-gradient(90deg, v.$app_highlight_07, v.$app_highlight_08);
+          transition: width 320ms cubic-bezier(.25, .9, .3, 1);
+          box-shadow: 0 10px 30px v.$app_shadow_03_default;
+        }
+      }
+    }
+  }
+}
+
+
+.ps-btn {
+  background: v.$app_bg_dimmer_00;
+  border: 1px solid v.$app_border_default;
+  color: v.$app_font_primary;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.ps-btn.ghost {
+  background: transparent;
+  border-color: v.$app_shadow_05_default;
+  color: v.$app_font_primary;
+}
+
+.ps-mut {
+  color: v.$app_highlight_00;
+  font-weight: 700;
+}
+
+.ps-ok {
+  color: v.$app_state_ok;
+  font-weight: 700;
+}
+
+.ps-err {
+  color: v.$app_state_failed;
+  font-weight: 700;
+}
+
+@keyframes ps-spin {
+  from {
+    transform: rotate(0deg)
+  }
+  to {
+    transform: rotate(360deg)
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ps-expand-enter-active, .ps-expand-leave-active {
+  transition: all 260ms cubic-bezier(.25, .9, .3, 1);
+}
+
+.ps-expand-enter-from, .ps-expand-leave-to {
+  opacity: 0;
+  transform: translateY(-6px) scale(0.995);
+}

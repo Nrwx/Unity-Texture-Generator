@@ -1,7 +1,7 @@
 import {computed, nextTick, onBeforeUnmount, onMounted, ref} from 'vue';
 import {eventRegister} from "@/dataLayer/event";
 import {nowMs} from "@/utils/dayJs";
-import {combinedMatrix} from "@/utils/matrix";
+import {matrixCombine} from "@/utils/matrix";
 
 const brushCache = new Map();
 
@@ -223,7 +223,7 @@ export function brushModel(props, emit) {
     };
 
     const buildMatrix = (m) => {
-        const matrix = combinedMatrix(m);
+        const matrix = matrixCombine(m);
         return `matrix(${matrix.a}, ${matrix.b}, ${matrix.c}, ${matrix.d}, ${matrix.x}, ${matrix.y})`;
     };
 

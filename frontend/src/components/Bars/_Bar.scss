@@ -1,0 +1,37 @@
+@use "../Task/_Shared";
+@use "../../view/scss/_Var" as v;
+
+.abar {
+  .abar-head {
+    .title { color: v.$app_font_color_default; font-weight:600; font-size:13px; }
+    .right {
+      .suffix { color: v.$app_font_desc_color_default; font-size:12px; }
+      .percent { font-weight:700; color: v.$app_highlight_00; }
+    }
+  }
+
+  .abar-track {
+    height:12px;
+    background: linear-gradient(90deg, v.$app_bg_dimmer_00, v.$app_bg_dimmer_01);
+    border-radius:8px;
+    .abar-fill {
+      background: linear-gradient(90deg, v.$app_highlight_00, v.$app_highlight_01);
+      border-radius:8px;
+      box-shadow: 0 6px 18px v.$app_shadow_highlight_00;
+    }
+    .spark {
+      width:14px;
+      height:14px;
+      border-radius:50%;
+      background: radial-gradient(circle at 30% 30%, v.$app_highlight_02, transparent 40%), linear-gradient(180deg, v.$app_highlight_03, v.$app_highlight_04);
+      top:50%;
+      transform: translate(-50%,-50%);
+      box-shadow: 0 6px 14px v.$app_shadow_01_default;
+    }
+  }
+
+  .abar-meta {
+    .desc { color: v.$app_font_desc_color_default; font-size:12px; }
+    .meta-right { color: v.$app_font_desc_color_default; font-size:12px; }
+  }
+}

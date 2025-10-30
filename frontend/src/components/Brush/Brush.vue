@@ -1,15 +1,14 @@
 <template>
-  <div v-show="state" class="brush-canvas-wrapper">
+  <div v-show="state" class="brush-canvas-wrapper absolute inset w-h">
     <canvas
         ref="canvas"
-        class="brush-canvas"
+        class="brush-canvas absolute"
         :id="canvasId"
         :width="selectedLayer?.width || 0"
         :height="selectedLayer?.height || 0"
         :style="{
             opacity: selectedLayer?.opacity || 0,
             zIndex: selectedLayer?.order || 0,
-            position: 'absolute',
             transform: buildMatrix(selectedLayer?.matrix || {})
           }"
     />
@@ -24,7 +23,7 @@
         v-if="cursor !== ''"
         :src="cursor"
         alt="Maskierter Pinsel"
-        class="custom-cursor"
+        class="brush-cursor absolute cursor-none"
         :style="setCursor"
     />
   </div>
@@ -56,5 +55,5 @@ export default defineComponent({
 </script>
 
 <style scoped lang="scss">
-@import "./_Brush";
+@use "./_Brush";
 </style>

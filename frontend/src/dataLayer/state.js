@@ -6,18 +6,22 @@ export const ruleStates = {
 };
 
 export const windowStates = {
-    viewport: ref(true),
+    boot: ref(true),
+    viewport: ref(false),
     drawerLeft: ref(false),
     drawerRight: ref(false),
     drawerCenter: ref(false),
     export: ref(false),
     layer: ref(false),
+    mixer: ref(false),
+    canvas: ref(false),
     setting: ref(false),
     dialog: ref(false),
     fullscreen: ref(false),
     drag: ref(false),
     select: ref(false),
     selectItems: ref(false),
+    taskEdit: ref(false),
     text: ref(false),
     notify: ref(false),
     typing: ref(false),
@@ -34,6 +38,11 @@ export const windowStates = {
     color: ref(false),
     drawing: ref(false),
     queue: ref(false)
+};
+
+export const loadingStates = {
+    taskEdit: ref(false),
+    mixer: ref(false)
 };
 
 export const modifierStates = {

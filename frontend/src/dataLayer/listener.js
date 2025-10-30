@@ -1,5 +1,5 @@
 const createListenerManager = () => {
-    const listeners = new Map(); // id → Array von Listener-Objekten
+    const listeners = new Map();
 
     const add = (id, target, type, handler, options) => {
         let list = listeners.get(id);
@@ -47,7 +47,7 @@ const createListenerManager = () => {
 
         if (!type && !handler) {
             for (const l of list) {
-                if (l.active) l.target.removeEventListener(l.type, l.handler, l.options);
+                if (l?.active) l.target.removeEventListener(l.type, l.handler, l.options);
             }
             listeners.delete(id);
             return;
@@ -112,7 +112,7 @@ const createListenerManager = () => {
                 }
             }
             if (match && !l.active) {
-                l.target.addEventListener(l.type, l.handler, l.options);
+                l?.target.addEventListener(l?.type, l?.handler, l?.options);
                 l.active = true;
             }
         }
@@ -133,7 +133,7 @@ const createListenerManager = () => {
         for (const list of listeners.values()) {
             for (const l of list) {
                 if (!l.active) {
-                    l.target.addEventListener(l.type, l.handler, l.options);
+                    l?.target.addEventListener(l?.type, l?.handler, l?.options);
                     l.active = true;
                 }
             }

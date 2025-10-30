@@ -1,5 +1,9 @@
 QUEUE = None
+
 class QueueController:
+    _model = None
+    _parser = None
+
     @staticmethod
     def enqueue_request(func, args=None, kwargs=None, info=None):
         done_event, result_container = QUEUE.add_request(func, args, kwargs, info)
@@ -9,6 +13,7 @@ class QueueController:
     @staticmethod
     def get_queue_status():
         return QUEUE.get_status()
+
 
 def set_queue(queue_instance):
     global QUEUE

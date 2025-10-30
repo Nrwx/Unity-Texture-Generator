@@ -1,3 +1,5 @@
-@import './_Var';
-@import './App/_App';
-@import "./Grid/Grid";
+@use './_Var';
+@use './App/_App';
+@use "./Grid/Grid";
+@use "./Vuetify/_Vuetify";
+@use "./Scrollbar/_Scrollbar";

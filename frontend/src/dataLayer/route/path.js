@@ -64,16 +64,20 @@ export const deletePath = async (payload) => {
     }
 };
 
-// ✅ Fetch Path
 export const fetchPath = async (payload) => {
     try {
-        const formData = payload ? buildFormData({ id: payload.id }, "fetch") : buildFormData({}, "fetch");
-        const response = await api.post("/path", formData, {
-            headers: { "Content-Type": "multipart/form-data" },
+        const id = payload?.id;
+
+        const response = await api.get("/path", {
+            params: { id }
         });
+
         return response;
     } catch (error) {
-        console.error("Fehler beim Abrufen eines Pfads:", error.response?.data || error.message);
+        console.error(
+            "Fehler beim Abrufen eines Pfads:",
+            error.response?.data || error.message
+        );
         throw error;
     }
 };

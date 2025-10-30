@@ -1,8 +1,26 @@
 # Definition der Eingabeparameter und deren Standardwerte
 PARAMETERS = {
     "ai": {
+        "method": {"type": str, "required": True},
         "prompt": {"type": str, "required": True},
         "model": {"type": str, "required": True},
+    },
+    "task": {
+        "method": {"type": str, "required": True},
+        "meta": {"type": bool, "default": False},
+        "id": {"type": str, "default": None},
+        "active": {"type": bool, "default": False},
+        "state": {"type": str, "default": None},
+        "time_val": {"type": int, "default": 0},
+        "type": {"type": str, "default": None},
+        "delay": {"type": int, "default": None},
+        "progress": {"type": int, "default": 0},
+        "default": {"type": bool, "default": False},
+        "module": {"type": str, "default": None},
+        "custom": {"type": list, "default": []},
+        "customId": {"type": str, "default": None},
+        "created": {"type": int, "default": None},
+        "updated": {"type": int, "default": None}
     },
     "cursor": {
         "method": {"type": str, "required": True},
@@ -13,6 +31,7 @@ PARAMETERS = {
     },
     "settings": {
         "method": {"type": str, "required": True},
+        "id": {"type": str, "default": "Unknown"},
         "os_type": {"type": str, "default": "Unknown"},
         "os_arch": {"type": str, "default": "x64"},
         "os_cpu": {"type": str, "default": "Unknown CPU"},
@@ -29,27 +48,31 @@ PARAMETERS = {
         "recommended_gpu_gb": {"type": int, "default": 0},
     },
     "viewport": {
+        "method": {"type": str, "required": True},
         "mode": {"type": int, "default": 1},
         "width": {"type": int, "default": 2048},
         "height": {"type": int, "default": 2048},
+        "unit": {"type": str, "default": "px"},
         "dpi": {"type": int, "default": 70},
+        "sync": {"type": bool, "default": False},
         "title": {"type": str, "default": "Unknown"},
         "layer": {"type": str, "default": "Layer"},
     },
     "backup": {
+        "method": {"type": str, "required": True},
         "title": {"type": str},
         "state": {"type": str},
         "index": {"type": int},
         "id": {"type": str}
     },
     "upload": {
+        "method": {"type": str, "required": True},
         # STANDARD METHODS PARAMS START
         "selectedMaps": {"type": list, "default": []},
         "cropLeft": {"type": int, "default": 0},
         "cropTop": {"type": int, "default": 0},
         "cropRight": {"type": int, "default": 0},
         "cropBottom": {"type": int, "default": 0},
-        "method": {"type": int, "default": 0},
         "output_format": {"type": str, "default": "PNG"},
         "quality": {"type": int, "default": 80},
         "editFile": {"type": str, "default": ""},
@@ -236,7 +259,7 @@ PARAMETERS = {
         "landscape": {"type": bool, "default": False},
         "margin": {"type": int, "default": 10},
     },
-    "renderer": {
+    "render": {
         "method": {"type": str, "required": True},
         "id": {"type": str, "default": ""},
         "image_base64": {"type": str, "default": ""},

@@ -1,0 +1,604 @@
+[2025-10-17 03:00:50] [INFO] Flask App startet im development Mode...
+[2025-10-17 03:00:50] [INFO] Backend gestartet.
+[2025-10-17 03:01:01] [ERROR] Fehler beim Starten des Backends: "Key 'LOG' nicht gefunden."
+[2025-10-17 03:29:35] [ERROR] Build module import failed: invalid syntax (build.py, line 1)
+[2025-10-17 03:34:05] [ERROR] Build module import failed: invalid syntax (build.py, line 1)
+[2025-10-17 03:38:19] [INFO] [init_writer] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core
+[2025-10-17 03:38:19] [INFO] [init_writer] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log
+[2025-10-17 03:38:19] [INFO] [init_writer] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\syslink
+[2025-10-17 03:38:19] [INFO] [init_writer] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\utils
+[2025-10-17 03:38:19] [INFO] [init_writer] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\debugger
+[2025-10-17 03:38:19] [INFO] [init_writer] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\logger
+[2025-10-17 03:38:19] [INFO] [init_writer] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\syslink\__pycache__
+[2025-10-17 03:38:19] [INFO] [init_writer] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\utils\__pycache__
+[2025-10-17 03:38:19] [INFO] [BUILD] Wrote __init__ files under: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core -> 8 packages initialized
+[2025-10-17 03:38:19] [INFO] Build completed: 8 modules initialized
+[2025-10-17 03:44:58] [INFO] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core
+[2025-10-17 03:44:58] [INFO] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log
+[2025-10-17 03:44:58] [INFO] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\syslink
+[2025-10-17 03:44:58] [INFO] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\utils
+[2025-10-17 03:44:58] [INFO] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\__pycache__
+[2025-10-17 03:44:58] [INFO] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\debugger
+[2025-10-17 03:44:58] [INFO] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\logger
+[2025-10-17 03:44:58] [INFO] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\syslink\__pycache__
+[2025-10-17 03:44:58] [INFO] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\utils\__pycache__
+[2025-10-17 03:44:58] [INFO] [BUILD] Wrote __init__ files under: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core -> 9 packages initialized
+[2025-10-17 03:44:58] [INFO] Build completed: 9 modules initialized
+[2025-10-17 03:45:07] [INFO] [BUILD] Wrote __init__ files under: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core -> 0 packages initialized
+[2025-10-17 03:45:07] [INFO] Build completed: 0 modules initialized
+[2025-10-17 08:12:56]-🔔 -[FLASK]-[INFO] App startet im: 'development'
+[2025-10-17 08:24:08]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-17 08:24:08]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-17 08:24:16]-❌ -[BACKEND]-[FLASK] Fehler beim Starten der Flask-App: "Key 'LOG' nicht gefunden."
+[2025-10-17 08:25:39]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-17 08:25:39]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-17 08:25:44]-❌ -[BACKEND]-[FLASK] Fehler beim Starten der Flask-App: "Key 'LOG' nicht gefunden."
+[2025-10-17 08:28:48]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-17 08:28:48]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-17 08:28:54]-❌️ -[BACKEND]-[FLASK] Fehler beim Starten der Flask-App: "Key 'LOG' nicht gefunden."
+[2025-10-17 08:30:22]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-17 08:30:22]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-17 08:30:34]-❌️ -[BACKEND]-[FLASK] Fehler beim Starten der Flask-App: No module named 'generated'
+[2025-10-17 09:12:26]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-17 09:12:26]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-17 09:12:58]-❌️ -[BACKEND]-[FLASK] Fehler beim Starten der Flask-App: No module named 'generated'
+[2025-10-17 09:16:03]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-17 09:16:03]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-17 09:16:09]-❌️ -[BACKEND]-[FLASK] Fehler beim Starten der Flask-App: No module named 'generated'
+[2025-10-17 10:59:39]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-17 10:59:39]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-17 10:59:49]-❌️ -[BACKEND]-[FLASK] Fehler beim Starten der Flask-App: "Key 'NVCOMPRESS_PATH' nicht gefunden."
+[2025-10-17 11:00:32]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-17 11:00:32]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-17 11:14:13]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-17 11:14:13]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-17 11:38:11]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-17 11:38:11]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-17 11:39:46]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-17 11:39:46]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-17 11:40:49]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-17 11:40:49]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-17 11:47:23]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-17 11:47:24]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-17 17:27:51]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-17 17:27:51]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-17 17:28:01]-❌️ -[BACKEND]-[FLASK] Fehler beim Starten der Flask-App: "Key 'NVCOMPRESS_PATH' nicht gefunden."
+[2025-10-17 17:30:14]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-17 17:30:14]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-17 18:12:08]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-17 18:12:09]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-17 18:35:34]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-17 18:35:34]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-17 18:36:41]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-17 18:36:41]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-17 20:54:13]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-17 20:54:13]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-17 20:54:48]-❌️ -[BACKEND]-[FLASK] Fehler beim Starten der Flask-App: "Key 'NVCOMPRESS_PATH' nicht gefunden."
+[2025-10-17 20:56:08]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-17 20:56:08]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-17 21:20:26]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-17 21:20:26]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-17 21:34:05]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-17 21:34:05]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-17 23:03:15]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-17 23:03:15]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-17 23:23:04]-🪟 -[BACKEND]-[FLASK] Flask-App extern gestartet (windows, wait=False)
+[2025-10-17 23:29:29]-🔄 -[BACKEND]-[SYSTEM] Backend wird neu gestartet...
+[2025-10-17 23:29:29]-⚙️ -[BACKEND]-[FLASK] Kein aktiver Flask-Prozess gefunden.
+[2025-10-17 23:29:30]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-17 23:29:30]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-17 23:55:48]-🪟 -[BACKEND]-[FLASK] Flask-App extern gestartet (windows, wait=False)
+[2025-10-18 00:33:56]-🪟 -[BACKEND]-[FLASK] Flask-App extern gestartet (windows, wait=False)
+[2025-10-18 00:34:11]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-18 00:34:11]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-18 00:34:16]-❌️ -[BACKEND]-[FLASK] Fehler beim Starten der Flask-App: SystemLinkManager.link() takes 3 positional arguments but 4 were given
+[2025-10-18 00:35:50]-🪟 -[BACKEND]-[FLASK] Flask-App extern gestartet (windows, wait=False)
+[2025-10-18 00:36:04]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-18 00:36:04]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-18 00:36:04]-❌️ -[BACKEND]-[FLASK] Fehler beim Starten der Flask-App: SystemLinkManager.link() takes 3 positional arguments but 4 were given
+[2025-10-18 00:37:36]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-18 00:37:36]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-18 00:37:41]-❌️ -[BACKEND]-[FLASK] Fehler beim Starten der Flask-App: SystemLinkManager.link() takes 3 positional arguments but 4 were given
+[2025-10-18 00:40:46]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-18 00:40:46]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-18 00:40:51]-❌️ -[BACKEND]-[FLASK] Fehler beim Starten der Flask-App: SystemLinkManager.link() takes 3 positional arguments but 4 were given
+[2025-10-18 00:42:04]-🪟 -[BACKEND]-[FLASK] Flask-App extern gestartet (windows, wait=False)
+[2025-10-18 00:42:17]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-18 00:42:17]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-18 00:42:21]-❌️ -[BACKEND]-[FLASK] Fehler beim Starten der Flask-App: SystemLinkManager.link() takes 3 positional arguments but 4 were given
+[2025-10-18 00:43:44]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-18 00:43:44]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-18 00:43:44]-❌️ -[BACKEND]-[FLASK] Fehler beim Starten der Flask-App: SystemLinkManager.link() takes 3 positional arguments but 4 were given
+[2025-10-18 00:43:53]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-18 00:43:53]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-18 00:43:53]-❌️ -[BACKEND]-[FLASK] Fehler beim Starten der Flask-App: SystemLinkManager.link() takes 3 positional arguments but 4 were given
+[2025-10-18 00:45:58]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-18 00:45:58]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-18 00:45:58]-❌️ -[BACKEND]-[FLASK] Fehler beim Starten der Flask-App: SystemLinkManager.link() takes 3 positional arguments but 4 were given
+[2025-10-18 00:46:31]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-18 00:46:31]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-18 00:46:36]-❌️ -[BACKEND]-[FLASK] Fehler beim Starten der Flask-App: SystemLinkManager.link() takes 3 positional arguments but 4 were given
+[2025-10-18 00:51:02]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-18 00:51:02]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-18 00:51:09]-❌️ -[BACKEND]-[FLASK] Fehler beim Starten der Flask-App: SystemLinkManager.link() takes 3 positional arguments but 4 were given
+[2025-10-18 00:51:40]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-18 00:51:40]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-18 00:51:40]-❌️ -[BACKEND]-[FLASK] Fehler beim Starten der Flask-App: SystemLinkManager.link() takes 3 positional arguments but 4 were given
+[2025-10-18 00:51:54]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-18 00:51:54]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-18 00:51:54]-❌️ -[BACKEND]-[FLASK] Fehler beim Starten der Flask-App: SystemLinkManager.link() takes 3 positional arguments but 4 were given
+[2025-10-18 00:56:11]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-18 00:56:11]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-18 00:56:19]-❌️ -[BACKEND]-[FLASK] Fehler beim Starten der Flask-App: SystemLinkManager.link() takes 3 positional arguments but 4 were given
+[2025-10-18 00:57:12]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-18 00:57:12]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-18 00:57:12]-❌️ -[BACKEND]-[FLASK] Fehler beim Starten der Flask-App: positional argument follows keyword argument (tasks.py, line 137)
+[2025-10-18 01:56:27]-📦 -[BACKEND]-[BUILD] Build-Konfiguration 'build.json' nicht gefunden.
+[2025-10-18 01:56:27]-✅ -[BACKEND]-[BUILD] Build erfolgreich abgeschlossen — 0 Module initialisiert.
+[2025-10-18 01:56:47]-📦 -[BACKEND]-[BUILD] Build-Konfiguration 'build.json' nicht gefunden.
+[2025-10-18 01:56:47]-✅ -[BACKEND]-[BUILD] Build erfolgreich abgeschlossen — 0 Module initialisiert.
+[2025-10-18 02:04:32]-📦 -[BACKEND]-[BUILD] Build-Konfiguration 'build.json' nicht gefunden.
+[2025-10-18 02:04:32]-✅ -[BACKEND]-[BUILD] Build erfolgreich abgeschlossen — 0 Module initialisiert.
+[2025-10-18 02:08:21]-📦 -[BACKEND]-[BUILD] Build-Konfiguration 'build.json' nicht gefunden.
+[2025-10-18 02:08:21]-✅ -[BACKEND]-[BUILD] Build erfolgreich abgeschlossen — 0 Module initialisiert.
+[2025-10-18 02:14:37]-📦 -[BACKEND]-[BUILD] Build-Konfiguration 'build.json' nicht gefunden.
+[2025-10-18 02:14:37]-✅ -[BACKEND]-[BUILD] Build erfolgreich abgeschlossen — 0 Module initialisiert.
+[2025-10-18 02:14:47]-📦 -[BACKEND]-[BUILD] Build-Konfiguration 'build.json' nicht gefunden.
+[2025-10-18 02:14:47]-✅ -[BACKEND]-[BUILD] Build erfolgreich abgeschlossen — 0 Module initialisiert.
+[2025-10-18 02:16:18]-📦 -[BACKEND]-[BUILD] Build-Konfiguration 'build.json' nicht gefunden.
+[2025-10-18 02:16:18]-✅ -[BACKEND]-[BUILD] Build erfolgreich abgeschlossen — 0 Module initialisiert.
+[2025-10-18 02:20:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core
+[2025-10-18 02:20:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot
+[2025-10-18 02:20:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log
+[2025-10-18 02:20:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\registry
+[2025-10-18 02:20:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\syslink
+[2025-10-18 02:20:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\task
+[2025-10-18 02:20:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\utils
+[2025-10-18 02:20:06]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\__pycache__
+[2025-10-18 02:20:06]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks
+[2025-10-18 02:20:06]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\debugger
+[2025-10-18 02:20:06]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\logger
+[2025-10-18 02:20:06]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\syslink\__pycache__
+[2025-10-18 02:20:06]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\utils\__pycache__
+[2025-10-18 02:20:06]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\detection
+[2025-10-18 02:20:06]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\packages
+[2025-10-18 02:20:06]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\register
+[2025-10-18 02:20:06]-💥 -[BACKEND]-[BUILD] Build-Fehler: unsupported operand type(s) for +=: 'int' and 'tuple'
+[2025-10-18 02:49:50]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-18 02:49:50]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-18 02:51:27]-🚫 -[BACKEND]-[BUILD] Konnte Build-Modul nicht importieren: name 'Any' is not defined
+[2025-10-18 02:51:54]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core
+[2025-10-18 02:51:54]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot
+[2025-10-18 02:51:54]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log
+[2025-10-18 02:51:54]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\registry
+[2025-10-18 02:51:54]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\syslink
+[2025-10-18 02:51:54]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\task
+[2025-10-18 02:51:54]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\utils
+[2025-10-18 02:51:54]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\__pycache__
+[2025-10-18 02:51:54]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks
+[2025-10-18 02:51:54]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\debugger
+[2025-10-18 02:51:54]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\logger
+[2025-10-18 02:51:54]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\syslink\__pycache__
+[2025-10-18 02:51:54]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\utils\__pycache__
+[2025-10-18 02:51:54]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\detection
+[2025-10-18 02:51:54]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\packages
+[2025-10-18 02:51:54]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\register
+[2025-10-18 02:51:54]-💥 -[BACKEND]-[BUILD] Build-Fehler: name 'result' is not defined
+[2025-10-18 02:52:45]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core
+[2025-10-18 02:52:45]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot
+[2025-10-18 02:52:45]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log
+[2025-10-18 02:52:46]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\registry
+[2025-10-18 02:52:46]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\syslink
+[2025-10-18 02:52:46]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\task
+[2025-10-18 02:52:46]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\utils
+[2025-10-18 02:52:46]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\__pycache__
+[2025-10-18 02:52:46]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks
+[2025-10-18 02:52:46]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\debugger
+[2025-10-18 02:52:46]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\logger
+[2025-10-18 02:52:46]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\syslink\__pycache__
+[2025-10-18 02:52:46]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\utils\__pycache__
+[2025-10-18 02:52:46]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\detection
+[2025-10-18 02:52:46]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\packages
+[2025-10-18 02:52:46]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\register
+[2025-10-18 02:52:46]-💥 -[BACKEND]-[BUILD] Build-Fehler: name 'result' is not defined
+[2025-10-18 02:53:01]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core
+[2025-10-18 02:53:01]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot
+[2025-10-18 02:53:01]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log
+[2025-10-18 02:53:01]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\registry
+[2025-10-18 02:53:01]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\syslink
+[2025-10-18 02:53:01]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\task
+[2025-10-18 02:53:01]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\utils
+[2025-10-18 02:53:01]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\__pycache__
+[2025-10-18 02:53:01]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks
+[2025-10-18 02:53:01]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\debugger
+[2025-10-18 02:53:01]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\logger
+[2025-10-18 02:53:01]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\syslink\__pycache__
+[2025-10-18 02:53:01]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\utils\__pycache__
+[2025-10-18 02:53:01]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\detection
+[2025-10-18 02:53:01]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\packages
+[2025-10-18 02:53:01]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\register
+[2025-10-18 02:53:01]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\utils
+[2025-10-18 02:53:01]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\utils\__pycache__
+[2025-10-18 02:53:01]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Pfad existiert nicht: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\modules
+[2025-10-18 02:53:01]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Pfad existiert nicht: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\blueprints
+[2025-10-18 02:53:01]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Pfad existiert nicht: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\extensions
+[2025-10-18 02:53:01]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Pfad existiert nicht: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\models
+[2025-10-18 02:53:03]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend
+[2025-10-18 02:53:03]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\assets
+[2025-10-18 02:53:03]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\cli
+[2025-10-18 02:53:03]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\components
+[2025-10-18 02:53:03]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\config
+[2025-10-18 02:53:03]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\controller
+[2025-10-18 02:53:03]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core
+[2025-10-18 02:53:03]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\generated
+[2025-10-18 02:53:03]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\model
+[2025-10-18 02:53:03]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\public
+[2025-10-18 02:53:03]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\router
+[2025-10-18 02:53:03]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\utils
+[2025-10-18 02:53:03]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\view
+[2025-10-18 02:53:03]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\__pycache__
+[2025-10-18 02:53:03]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\assets\brush
+[2025-10-18 02:53:03]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\assets\driver
+[2025-10-18 02:53:03]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\assets\font
+[2025-10-18 02:53:03]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\assets\path
+[2025-10-18 02:53:03]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\assets\wave
+[2025-10-18 02:53:03]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\cli\__pycache__
+[2025-10-18 02:53:03]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\components\animation
+[2025-10-18 02:53:03]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\components\maps
+[2025-10-18 02:53:04]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\components\modifiers
+[2025-10-18 02:53:04]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\components\simulate
+[2025-10-18 02:53:04]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\components\__pycache__
+[2025-10-18 02:53:04]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\config\api
+[2025-10-18 02:53:04]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\config\app
+[2025-10-18 02:53:04]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\config\data
+[2025-10-18 02:53:04]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\config\setup
+[2025-10-18 02:53:04]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\controller\__pycache__
+[2025-10-18 02:53:04]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot
+[2025-10-18 02:53:04]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log
+[2025-10-18 02:53:04]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\registry
+[2025-10-18 02:53:04]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\syslink
+[2025-10-18 02:53:04]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\task
+[2025-10-18 02:53:04]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\utils
+[2025-10-18 02:53:04]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\__pycache__
+[2025-10-18 02:53:04]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\generated\__pycache__
+[2025-10-18 02:53:04]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\model\__pycache__
+[2025-10-18 02:53:04]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\public\backup
+[2025-10-18 02:53:04]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\public\brush
+[2025-10-18 02:53:04]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\public\font
+[2025-10-18 02:53:04]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\public\layer
+[2025-10-18 02:53:04]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\public\path
+[2025-10-18 02:53:04]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\public\static
+[2025-10-18 02:53:04]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\public\temp
+[2025-10-18 02:53:04]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\router\__pycache__
+[2025-10-18 02:53:04]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\utils\api
+[2025-10-18 02:53:04]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\utils\rgba
+[2025-10-18 02:53:04]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\utils\__pycache__
+[2025-10-18 02:53:04]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\view\__pycache__
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\utils\api\__pycache__
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\utils\rgba\__pycache__
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\public\temp\channel
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\public\temp\cursor
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\public\temp\mask
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\public\temp\render
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\public\temp\upload
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\debugger
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\logger
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\syslink\__pycache__
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\utils\__pycache__
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\detection
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\packages
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\register
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\config\api\__pycache__
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\config\app\manager
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\config\app\__pycache__
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\config\data\__pycache__
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\config\setup\tasks
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\config\setup\__pycache__
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\config\setup\tasks\detection
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\config\setup\tasks\packages
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\config\setup\tasks\register
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\config\setup\tasks\__pycache__
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\config\setup\tasks\detection\__pycache__
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\config\setup\tasks\packages\__pycache__
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\config\setup\tasks\register\__pycache__
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\config\app\manager\__pycache__
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\components\animation\__pycache__
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\components\maps\__pycache__
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\components\modifiers\__pycache__
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\components\simulate\__pycache__
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\assets\driver\aarch64
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\assets\driver\linux
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\assets\driver\windows
+[2025-10-18 02:53:05]-📦 -[BACKEND]-[BUILD] [BUILD] Build abgeschlossen. Insgesamt 89 Module/Ordner initialisiert.
+[2025-10-18 02:53:05]-✅ -[BACKEND]-[BUILD] Build erfolgreich abgeschlossen — 89 Module initialisiert.
+[2025-10-18 03:04:42]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core
+[2025-10-18 03:04:42]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot
+[2025-10-18 03:04:42]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log
+[2025-10-18 03:04:42]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\registry
+[2025-10-18 03:04:42]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\syslink
+[2025-10-18 03:04:42]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\task
+[2025-10-18 03:04:42]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\utils
+[2025-10-18 03:04:42]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\__pycache__
+[2025-10-18 03:04:42]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks
+[2025-10-18 03:04:42]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\debugger
+[2025-10-18 03:04:42]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\logger
+[2025-10-18 03:04:42]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\syslink\__pycache__
+[2025-10-18 03:04:42]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\utils\__pycache__
+[2025-10-18 03:04:42]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\detection
+[2025-10-18 03:04:42]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\packages
+[2025-10-18 03:04:42]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\register
+[2025-10-18 03:04:42]-📦 -[BACKEND]-[BUILD] [BUILD] Build abgeschlossen. Insgesamt 16 Module/Ordner initialisiert.
+[2025-10-18 03:04:42]-✅ -[BACKEND]-[BUILD] Build erfolgreich abgeschlossen — 16 Module initialisiert.
+[2025-10-18 03:16:19]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core
+[2025-10-18 03:16:19]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot
+[2025-10-18 03:16:19]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log
+[2025-10-18 03:16:19]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\registry
+[2025-10-18 03:16:19]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\syslink
+[2025-10-18 03:16:19]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\task
+[2025-10-18 03:16:19]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\utils
+[2025-10-18 03:16:19]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\__pycache__
+[2025-10-18 03:16:19]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks
+[2025-10-18 03:16:19]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\debugger
+[2025-10-18 03:16:19]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\logger
+[2025-10-18 03:16:19]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\syslink\__pycache__
+[2025-10-18 03:16:19]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Skipped (no changes): C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\utils\__pycache__
+[2025-10-18 03:16:19]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\detection
+[2025-10-18 03:16:20]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\packages
+[2025-10-18 03:16:20]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\register
+[2025-10-18 03:16:20]-📦 -[BACKEND]-[BUILD] [BUILD] Build abgeschlossen. Insgesamt 13 Module/Ordner initialisiert.
+[2025-10-18 03:16:20]-✅ -[BACKEND]-[BUILD] Build erfolgreich abgeschlossen — 13 Module initialisiert.
+[2025-10-18 03:22:02]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core
+[2025-10-18 03:22:02]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot
+[2025-10-18 03:22:02]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks
+[2025-10-18 03:22:02]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\detection
+[2025-10-18 03:22:02]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\packages
+[2025-10-18 03:22:02]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\register
+[2025-10-18 03:22:02]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log
+[2025-10-18 03:22:02]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\debugger
+[2025-10-18 03:22:02]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\logger
+[2025-10-18 03:22:03]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\registry
+[2025-10-18 03:22:03]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\syslink
+[2025-10-18 03:22:03]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\task
+[2025-10-18 03:22:03]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\utils
+[2025-10-18 03:22:03]-📦 -[BACKEND]-[BUILD] [BUILD] Build abgeschlossen. Insgesamt 13 Module/Ordner initialisiert.
+[2025-10-18 03:22:03]-✅ -[BACKEND]-[BUILD] Build erfolgreich abgeschlossen — 13 Module initialisiert.
+[2025-10-18 04:40:30]-💥 -[BACKEND]-[BUILD] Build-Fehler: cannot import name 'SystemLinkManager' from 'core.syslink.main' (C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\syslink\main.py)
+[2025-10-18 04:45:21]-💥 -[BACKEND]-[BUILD] Build-Fehler: cannot import name 'Core' from 'core' (consider renaming 'C:\\Users\\nrwxb\\Documents\\GitHub\\Unity-Texture-Generator\\backend\\core\\__init__.py' if it has the same name as a library you intended to import)
+[2025-10-18 04:46:19]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'core.boot.boot'
+[2025-10-18 04:46:36]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'Core'
+[2025-10-18 04:47:36]-💥 -[BACKEND]-[BUILD] Build-Fehler: invalid syntax (app.py, line 20)
+[2025-10-18 04:47:52]-💥 -[BACKEND]-[BUILD] Build-Fehler: invalid syntax (app.py, line 20)
+[2025-10-18 04:48:52]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'core.boot.boot'
+[2025-10-18 04:49:12]-💥 -[BACKEND]-[BUILD] Build-Fehler: cannot import name 'CoreManager' from 'core' (consider renaming 'C:\\Users\\nrwxb\\Documents\\GitHub\\Unity-Texture-Generator\\backend\\core\\__init__.py' if it has the same name as a library you intended to import)
+[2025-10-18 05:20:25]-💥 -[BACKEND]-[BUILD] Build-Fehler: invalid syntax (app.py, line 498)
+[2025-10-18 05:24:02]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'core.boot.boot'
+[2025-10-18 05:24:54]-💥 -[BACKEND]-[BUILD] Build-Fehler: name 'Path' is not defined
+[2025-10-18 05:26:52]-💥 -[BACKEND]-[BUILD] Build-Fehler: name 'log' is not defined
+[2025-10-18 05:29:40]-💥 -[BACKEND]-[BUILD] Build-Fehler: name 'log' is not defined
+[2025-10-18 05:30:29]-💥 -[BACKEND]-[BUILD] Build-Fehler: "Key 'NVCOMPRESS_PATH' nicht gefunden."
+[2025-10-18 05:38:06]-💥 -[BACKEND]-[BUILD] Build-Fehler: TaskManager.__init__() got an unexpected keyword argument 'global_manager'
+[2025-10-18 05:40:09]-💥 -[BACKEND]-[BUILD] Build-Fehler: TaskManager.__init__() got an unexpected keyword argument 'global_manager'
+[2025-10-18 05:42:59]-💥 -[BACKEND]-[BUILD] Build-Fehler: name 'datetime' is not defined
+[2025-10-18 05:43:41]-💥 -[BACKEND]-[BUILD] Build-Fehler: name 'datetime' is not defined
+[2025-10-18 05:43:58]-💥 -[BACKEND]-[BUILD] Build-Fehler: module 'datetime' has no attribute 'now'
+[2025-10-18 05:44:40]-💥 -[BACKEND]-[BUILD] Build-Fehler: module 'datetime' has no attribute 'now'
+[2025-10-18 05:44:50]-💥 -[BACKEND]-[BUILD] Build-Fehler: Boot.__init__() missing 6 required keyword-only arguments: 'setup_modules', 'pre_actions', 'module_params', 'module_threads', 'base_dir', and 'tasks_dir'
+[2025-10-19 04:32:54]-💥 -[BACKEND]-[BUILD] Build-Fehler: Boot.__init__() missing 6 required keyword-only arguments: 'setup_modules', 'pre_actions', 'module_params', 'module_threads', 'base_dir', and 'tasks_dir'
+[2025-10-19 04:45:32]-💥 -[BACKEND]-[BUILD] Build-Fehler: _log() missing 2 required positional arguments: 'instance' and 'level'
+[2025-10-19 04:50:37]-💥 -[BACKEND]-[BUILD] Build-Fehler: "[Data] dataKey 'SETUP_MODULES' unbekannt."
+[2025-10-19 04:51:42]-💥 -[BACKEND]-[BUILD] Build-Fehler: "[Data] dataKey 'SETUP_MODULES' unbekannt."
+[2025-10-19 04:53:12]-💥 -[BACKEND]-[BUILD] Build-Fehler: "[Data] dataKey 'SETUP_MODULES' unbekannt."
+[2025-10-19 04:53:30]-🪟 -[BACKEND]-[FLASK] Flask-App extern gestartet (windows, wait=False)
+[2025-10-19 04:54:05]-💥 -[BACKEND]-[BUILD] Build-Fehler: "Key 'NVCOMPRESS_PATH' nicht gefunden."
+[2025-10-19 04:55:28]-💥 -[BACKEND]-[BUILD] Build-Fehler: "Key 'NVCOMPRESS_PATH' nicht gefunden."
+[2025-10-19 05:00:40]-💥 -[BACKEND]-[BUILD] Build-Fehler: "Key 'NVCOMPRESS_PATH' nicht gefunden."
+[2025-10-19 05:01:30]-💥 -[BACKEND]-[BUILD] Build-Fehler: "Key 'NVCOMPRESS_PATH' nicht gefunden."
+[2025-10-19 05:02:59]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core
+[2025-10-19 05:02:59]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\__pycache__
+[2025-10-19 05:02:59]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\__pycache__
+[2025-10-19 05:02:59]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\detection\__pycache__
+[2025-10-19 05:02:59]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\packages\__pycache__
+[2025-10-19 05:02:59]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\register\__pycache__
+[2025-10-19 05:02:59]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\config
+[2025-10-19 05:02:59]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\config\boot
+[2025-10-19 05:02:59]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\data
+[2025-10-19 05:02:59]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\data\__pycache__
+[2025-10-19 05:02:59]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\__pycache__
+[2025-10-19 05:02:59]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\debugger\__pycache__
+[2025-10-19 05:02:59]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\logger\__pycache__
+[2025-10-19 05:02:59]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\registry\__pycache__
+[2025-10-19 05:02:59]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\task\__pycache__
+[2025-10-19 05:02:59]-📦 -[BACKEND]-[BUILD] [BUILD] Build abgeschlossen. Insgesamt 15 Module/Ordner initialisiert.
+[2025-10-19 05:02:59]-✅ -[BACKEND]-[BUILD] Build erfolgreich abgeschlossen — 15 Module initialisiert.
+[2025-10-19 05:05:10]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-19 05:05:10]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-19 05:05:10]-❌️ -[BACKEND]-[FLASK] Fehler beim Starten der Flask-App: "Key 'NVCOMPRESS_PATH' nicht gefunden."
+[2025-10-19 05:05:39]-💥 -[BACKEND]-[BUILD] Build-Fehler: "Key 'NVCOMPRESS_PATH' nicht gefunden."
+[2025-10-19 05:05:48]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core
+[2025-10-19 05:05:48]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\config\boot\__pycache__
+[2025-10-19 05:05:48]-📦 -[BACKEND]-[BUILD] [BUILD] Build abgeschlossen. Insgesamt 2 Module/Ordner initialisiert.
+[2025-10-19 05:05:48]-✅ -[BACKEND]-[BUILD] Build erfolgreich abgeschlossen — 2 Module initialisiert.
+[2025-10-19 05:06:02]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\config
+[2025-10-19 05:06:02]-📦 -[BACKEND]-[BUILD] [BUILD] Build abgeschlossen. Insgesamt 1 Module/Ordner initialisiert.
+[2025-10-19 05:06:02]-✅ -[BACKEND]-[BUILD] Build erfolgreich abgeschlossen — 1 Module initialisiert.
+[2025-10-19 05:07:08]-💥 -[BACKEND]-[BUILD] Build-Fehler: "Key 'NVCOMPRESS_PATH' nicht gefunden."
+[2025-10-19 05:10:28]-💥 -[BACKEND]-[BUILD] Build-Fehler: invalid syntax (main.py, line 57)
+[2025-10-19 05:11:04]-💥 -[BACKEND]-[BUILD] Build-Fehler: "Key 'NVCOMPRESS_PATH' nicht gefunden."
+[2025-10-19 05:12:10]-💥 -[BACKEND]-[BUILD] Build-Fehler: "Key 'NVCOMPRESS_PATH' nicht gefunden."
+[2025-10-19 05:13:40]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\config\__pycache__
+[2025-10-19 05:13:40]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\config\boot\__pycache__\__pycache__
+[2025-10-19 05:13:40]-📦 -[BACKEND]-[BUILD] [BUILD] Build abgeschlossen. Insgesamt 2 Module/Ordner initialisiert.
+[2025-10-19 05:13:40]-✅ -[BACKEND]-[BUILD] Build erfolgreich abgeschlossen — 2 Module initialisiert.
+[2025-10-19 05:13:55]-💥 -[BACKEND]-[BUILD] Build-Fehler: "Key 'NVCOMPRESS_PATH' nicht gefunden."
+[2025-10-19 05:15:54]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\config\boot
+[2025-10-19 05:15:54]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\config\boot\__pycache__\__pycache__\__pycache__
+[2025-10-19 05:15:54]-📦 -[BACKEND]-[BUILD] [BUILD] Build abgeschlossen. Insgesamt 2 Module/Ordner initialisiert.
+[2025-10-19 05:15:54]-✅ -[BACKEND]-[BUILD] Build erfolgreich abgeschlossen — 2 Module initialisiert.
+[2025-10-19 05:16:08]-💥 -[BACKEND]-[BUILD] Build-Fehler: "Key 'NVCOMPRESS_PATH' nicht gefunden."
+[2025-10-19 05:22:02]-💥 -[BACKEND]-[BUILD] Build-Fehler: TaskManager.__init__() got an unexpected keyword argument 'base_dir'. Did you mean 'tasks_dir'?
+[2025-10-19 05:23:05]-💥 -[BACKEND]-[BUILD] Build-Fehler: TaskManager.__init__() got an unexpected keyword argument 'base_dir'. Did you mean 'tasks_dir'?
+[2025-10-19 05:23:25]-💥 -[BACKEND]-[BUILD] Build-Fehler: TaskManager.__init__() got an unexpected keyword argument 'base_dir'. Did you mean 'tasks_dir'?
+[2025-10-19 05:23:38]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-19 05:23:38]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-19 05:23:38]-❌️ -[BACKEND]-[FLASK] Fehler beim Starten der Flask-App: DLL load failed while importing _sycl_device: Das angegebene Modul wurde nicht gefunden.
+[2025-10-19 05:23:58]-💥 -[BACKEND]-[BUILD] Build-Fehler: "Key 'NVCOMPRESS_PATH' nicht gefunden."
+[2025-10-19 05:29:40]-💥 -[BACKEND]-[BUILD] Build-Fehler: "Key 'NVCOMPRESS_PATH' nicht gefunden."
+[2025-10-19 05:36:36]-💥 -[BACKEND]-[BUILD] Build-Fehler: "Key 'NVCOMPRESS_PATH' nicht gefunden."
+[2025-10-19 05:37:30]-💥 -[BACKEND]-[BUILD] Build-Fehler: "Key 'NVCOMPRESS_PATH' nicht gefunden."
+[2025-10-19 05:42:23]-💥 -[BACKEND]-[BUILD] Build-Fehler: "Key 'NVCOMPRESS_PATH' nicht gefunden."
+[2025-10-19 05:50:17]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 05:50:35]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 05:50:37]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 05:52:34]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 05:59:04]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 05:59:08]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 05:59:10]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 06:01:50]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 06:04:09]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 06:07:28]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 06:08:25]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 06:08:58]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 06:11:55]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 06:12:53]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 06:15:11]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 06:16:34]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 06:16:36]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 06:20:59]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 06:21:01]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 06:21:04]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 06:21:06]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 06:25:27]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 06:25:29]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 06:32:29]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 06:33:04]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 06:43:30]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 06:45:40]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core
+[2025-10-19 06:45:40]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot
+[2025-10-19 06:45:40]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks
+[2025-10-19 06:45:40]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\detection
+[2025-10-19 06:45:40]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\packages
+[2025-10-19 06:45:40]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\register
+[2025-10-19 06:45:40]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\config\boot
+[2025-10-19 06:45:40]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\config\boot\__pycache__
+[2025-10-19 06:45:40]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\config\boot\__pycache__\__pycache__\__pycache__\__pycache__
+[2025-10-19 06:45:40]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\data
+[2025-10-19 06:45:40]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log
+[2025-10-19 06:45:40]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\debugger
+[2025-10-19 06:45:40]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\logger
+[2025-10-19 06:45:40]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\registry
+[2025-10-19 06:45:40]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\syslink
+[2025-10-19 06:45:40]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\task
+[2025-10-19 06:45:40]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\utils
+[2025-10-19 06:45:40]-📦 -[BACKEND]-[BUILD] [BUILD] Build abgeschlossen. Insgesamt 17 Module/Ordner initialisiert.
+[2025-10-19 06:45:40]-✅ -[BACKEND]-[BUILD] Build erfolgreich abgeschlossen — 17 Module initialisiert.
+[2025-10-19 06:45:51]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\config\boot\__pycache__\__pycache__
+[2025-10-19 06:45:51]-📦 -[BACKEND]-[BUILD] [BUILD] Build abgeschlossen. Insgesamt 1 Module/Ordner initialisiert.
+[2025-10-19 06:45:51]-✅ -[BACKEND]-[BUILD] Build erfolgreich abgeschlossen — 1 Module initialisiert.
+[2025-10-19 06:46:22]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 06:48:18]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 06:48:25]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-19 06:48:25]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-19 06:48:26]-❌️ -[BACKEND]-[FLASK] Fehler beim Starten der Flask-App: No module named 'generated'
+[2025-10-19 06:49:44]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 06:50:00]-🚀 -[BACKEND]-[FLASK] Flask-App startet im Modus: 'development'
+[2025-10-19 06:50:00]-✅ -[BACKEND]-[FLASK] Flask-App erfolgreich im Hintergrund gestartet.
+[2025-10-19 06:50:00]-❌️ -[BACKEND]-[FLASK] Fehler beim Starten der Flask-App: No module named 'generated'
+[2025-10-19 06:50:14]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 06:50:43]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 06:50:50]-💥 -[BACKEND]-[BUILD] Build-Fehler: No module named 'generated'
+[2025-10-19 06:52:32]-💥 -[BACKEND]-[BUILD] Build-Fehler: DLL load failed while importing _sycl_device: Das angegebene Modul wurde nicht gefunden.
+[2025-10-19 06:53:43]-💥 -[BACKEND]-[BUILD] Build-Fehler: DLL load failed while importing _sycl_device: Das angegebene Modul wurde nicht gefunden.
+[2025-10-19 06:54:28]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core
+[2025-10-19 06:54:28]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot
+[2025-10-19 06:54:28]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks
+[2025-10-19 06:54:28]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\detection
+[2025-10-19 06:54:28]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\packages
+[2025-10-19 06:54:28]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\register
+[2025-10-19 06:54:28]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\config\boot
+[2025-10-19 06:54:28]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\config\boot\__pycache__
+[2025-10-19 06:54:28]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\config\boot\__pycache__\__pycache__
+[2025-10-19 06:54:28]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\data
+[2025-10-19 06:54:28]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log
+[2025-10-19 06:54:28]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\debugger
+[2025-10-19 06:54:28]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\logger
+[2025-10-19 06:54:28]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\registry
+[2025-10-19 06:54:28]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\syslink
+[2025-10-19 06:54:28]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\task
+[2025-10-19 06:54:28]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\utils
+[2025-10-19 06:54:28]-📦 -[BACKEND]-[BUILD] [BUILD] Build abgeschlossen. Insgesamt 17 Module/Ordner initialisiert.
+[2025-10-19 06:54:28]-✅ -[BACKEND]-[BUILD] Build erfolgreich abgeschlossen — 17 Module initialisiert.
+[2025-10-20 02:59:12]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core
+[2025-10-20 02:59:12]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot
+[2025-10-20 02:59:12]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks
+[2025-10-20 02:59:12]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\detection
+[2025-10-20 02:59:12]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\packages
+[2025-10-20 02:59:12]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\register
+[2025-10-20 02:59:12]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\config\__pycache__
+[2025-10-20 02:59:12]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log
+[2025-10-20 02:59:12]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\debugger
+[2025-10-20 02:59:12]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\logger
+[2025-10-20 02:59:12]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\registry
+[2025-10-20 02:59:12]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\syslink
+[2025-10-20 02:59:12]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\task
+[2025-10-20 02:59:12]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\utils
+[2025-10-20 02:59:12]-📦 -[BACKEND]-[BUILD] [BUILD] Build abgeschlossen. Insgesamt 14 Module/Ordner initialisiert.
+[2025-10-20 02:59:12]-✅ -[BACKEND]-[BUILD] Build erfolgreich abgeschlossen — 14 Module initialisiert.
+[2025-10-20 02:59:57]-💥 -[BACKEND]-[BUILD] Build-Fehler: DLL load failed while importing _sycl_device: Das angegebene Modul wurde nicht gefunden.
+[2025-10-20 03:02:04]-💥 -[BACKEND]-[BUILD] Build-Fehler: DLL load failed while importing _sycl_device: Das angegebene Modul wurde nicht gefunden.
+[2025-10-20 03:05:06]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core
+[2025-10-20 03:05:06]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot
+[2025-10-20 03:05:06]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks
+[2025-10-20 03:05:06]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\detection
+[2025-10-20 03:05:06]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\packages
+[2025-10-20 03:05:06]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\register
+[2025-10-20 03:05:06]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\config
+[2025-10-20 03:05:06]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log
+[2025-10-20 03:05:06]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\debugger
+[2025-10-20 03:05:06]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\logger
+[2025-10-20 03:05:06]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\registry
+[2025-10-20 03:05:06]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\syslink
+[2025-10-20 03:05:06]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\task
+[2025-10-20 03:05:06]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\utils
+[2025-10-20 03:05:06]-📦 -[BACKEND]-[BUILD] [BUILD] Build abgeschlossen. Insgesamt 14 Module/Ordner initialisiert.
+[2025-10-20 03:05:06]-✅ -[BACKEND]-[BUILD] Build erfolgreich abgeschlossen — 14 Module initialisiert.
+[2025-10-20 03:08:21]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core
+[2025-10-20 03:08:21]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks
+[2025-10-20 03:08:21]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\detection
+[2025-10-20 03:08:21]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\packages
+[2025-10-20 03:08:21]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks\register
+[2025-10-20 03:08:21]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\config
+[2025-10-20 03:08:21]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log
+[2025-10-20 03:08:21]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\debugger
+[2025-10-20 03:08:21]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\logger
+[2025-10-20 03:08:21]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\registry
+[2025-10-20 03:08:21]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\syslink
+[2025-10-20 03:08:21]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\task
+[2025-10-20 03:08:21]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\utils
+[2025-10-20 03:08:21]-📦 -[BACKEND]-[BUILD] [BUILD] Build abgeschlossen. Insgesamt 13 Module/Ordner initialisiert.
+[2025-10-20 03:08:21]-✅ -[BACKEND]-[BUILD] Build erfolgreich abgeschlossen — 13 Module initialisiert.
+[2025-10-20 03:10:39]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core
+[2025-10-20 03:10:39]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot
+[2025-10-20 03:10:39]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot\tasks
+[2025-10-20 03:10:39]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\config
+[2025-10-20 03:10:39]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log
+[2025-10-20 03:10:39]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\debugger
+[2025-10-20 03:10:39]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\logger
+[2025-10-20 03:10:39]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\registry
+[2025-10-20 03:10:39]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\syslink
+[2025-10-20 03:10:39]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\task
+[2025-10-20 03:10:39]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\utils
+[2025-10-20 03:10:39]-📦 -[BACKEND]-[BUILD] [BUILD] Build abgeschlossen. Insgesamt 11 Module/Ordner initialisiert.
+[2025-10-20 03:10:39]-✅ -[BACKEND]-[BUILD] Build erfolgreich abgeschlossen — 11 Module initialisiert.
+[2025-10-20 03:12:36]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core
+[2025-10-20 03:12:36]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\boot
+[2025-10-20 03:12:36]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\config
+[2025-10-20 03:12:36]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log
+[2025-10-20 03:12:36]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\debugger
+[2025-10-20 03:12:36]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\log\logger
+[2025-10-20 03:12:36]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\registry
+[2025-10-20 03:12:36]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\syslink
+[2025-10-20 03:12:36]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\task
+[2025-10-20 03:12:36]-📦 -[BACKEND]-[BUILD] [GENERATE-INIT] Wrote __init__.py in: C:\Users\nrwxb\Documents\GitHub\Unity-Texture-Generator\backend\core\utils
+[2025-10-20 03:12:36]-📦 -[BACKEND]-[BUILD] [BUILD] Build abgeschlossen. Insgesamt 10 Module/Ordner initialisiert.
+[2025-10-20 03:12:36]-✅ -[BACKEND]-[BUILD] Build erfolgreich abgeschlossen — 10 Module initialisiert.

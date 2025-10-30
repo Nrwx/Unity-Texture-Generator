@@ -1,16 +1,39 @@
-from flask import Blueprint
-from controller.app_controller import AppController
+#SOURCE: view/{{blueprint}}_view.py
+from flask import Blueprint, jsonify
+from view.base.main import BaseView
 
-router_app = Blueprint('app', __name__)
+router_{{blueprint}} = Blueprint("{{blueprint}}", __name__)
 
-@router_app.route('/')
-def frontend_index():
-    return AppController.serve_index()
+class {{blueprint|capitalize}}View(BaseView):
+    @property
+    def _controller(self):
+        return getattr(router_{{blueprint}}, "_controller", None)
+    @property
+    def _parser(self):
+        return getattr(router_{{blueprint}}, "_parser", None)
+    @property
+    def _route(self) -> str:
+        return {{blueprint|json}}
+    # --- Routen ---
+    {% for i, data in routes %}
+    def {{ data.function }}(self{% if data?.keys %},{% endif %}{{ data?.keys ?? "" }}):
+        if not self._controller:
+            return jsonify({"error": "Kein Controller registriert"}), 500
+        try:
+            {% if data?.value %}
+                result = self._controller.{{ data.value }}({{ data?.keys ?? "" }})
+            {% endif %}
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+        return result
+{% endfor %}
 
-@router_app.route('/<path:path>')
-def static_file(path):
-    return AppController.serve_static(path)
+{{blueprint}}_view = {{blueprint|capitalize}}View()
 
-@router_app.route('/download/<filename>', methods=['GET'])
-def download(filename):
-    return AppController.download(filename)
+# --- Routen ---
+{% for i, data in routes %}
+@router_{{blueprint}}.route("{{ data?.url ?? url }}"{% if data?.methods %}, methods={{ data?.methods|json }}{% endif %})
+def {{ data.function }}({{ data?.keys ?? "" }}):
+    return {{blueprint}}_view.{{ data.function }}({{ data?.keys ?? "" }})
+{% endfor %}
+

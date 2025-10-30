@@ -2,14 +2,10 @@ import os
 import subprocess
 import uuid
 from PIL import Image
-from config.app.manager.global_manager import GlobalManager
 from generated.paths import PUBLIC_TEMP_RENDER_FOLDER
 
-GLOBAL_MANAGER = GlobalManager()
-NV_COMPRESS = GLOBAL_MANAGER.get("NVCOMPRESS_PATH")
-
 # Unterstützte nvcompress-Formate (Mapping von Klartext → CLI-Flag)
-_NV_COMPRESS_FORMATS = {
+_nvcompress_FORMATS = {
     "DXT1": "-bc1",
     "DXT3": "-bc2",
     "DXT5": "-bc3",
@@ -24,17 +20,17 @@ _NV_COMPRESS_FORMATS = {
 }
 
 
-def generate_dds_map(image, export_path, generate_mipmaps, compression):
+def generate_dds_map(nvcompress, image, export_path, generate_mipmaps, compression):
     """
     Erzeugt eine komprimierte DDS-Textur ausschließlich über nvcompress.
     """
 
-    if not NV_COMPRESS or not os.path.isfile(NV_COMPRESS):
-        raise RuntimeError("❌ nvcompress wurde nicht gefunden. Bitte sicherstellen, dass NV_COMPRESS korrekt gesetzt ist.")
+    if not nvcompress or not os.path.isfile(nvcompress):
+        raise RuntimeError("❌ nvcompress wurde nicht gefunden. Bitte sicherstellen, dass nvcompress korrekt gesetzt ist.")
 
     # Format-Flag validieren
     compression = compression.upper()
-    nvcompress_flag = _NV_COMPRESS_FORMATS.get(compression)
+    nvcompress_flag = _nvcompress_FORMATS.get(compression)
     if not nvcompress_flag:
         raise ValueError(f"❌ Nicht unterstütztes Kompressionsformat: '{compression}'")
 
@@ -53,7 +49,7 @@ def generate_dds_map(image, export_path, generate_mipmaps, compression):
         image.save(tga_path, format="TGA")
 
         cmd = [
-            NV_COMPRESS,
+            nvcompress,
             nvcompress_flag,
             "-nomips" if not generate_mipmaps else "",
             tga_path,
@@ -72,3 +68,6 @@ def generate_dds_map(image, export_path, generate_mipmaps, compression):
         # Temporäre TGA-Datei löschen
         if os.path.exists(tga_path):
             os.remove(tga_path)
+
+def main(nvcompress:str, image:Image, export_path:str, generate_mipmaps:bool, compression:bool):
+    return generate_dds_map(nvcompress, image, export_path, generate_mipmaps, compression)

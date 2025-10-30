@@ -2,7 +2,7 @@ import {reactive, ref} from "vue";
 import {uuid} from "@/utils/uuid";
 
 export const appData = {
-    theme: ref('dark')
+    theme: ref('darkTheme')
 }
 
 export const localData = {
@@ -17,6 +17,8 @@ export const localData = {
     selectedPath: ref(null),
     messageTimers: ref(new Map()),
     messages: ref([]),
+    tasks: ref([]),
+    tasksMeta: ref(null),
     queuePending: ref(null),
     queueWait: ref(false),
     lastPercent : ref(0),
@@ -26,7 +28,7 @@ export const localData = {
     queuePollTimer: ref(null),
     loading: ref(false),
     viewport: ref({
-        id: uuid(),
+        id: '',
         width: 1024,
         height: 1024,
         mode: 1,
@@ -60,6 +62,7 @@ export const localData = {
     dimension: ref({width: 1024, height: 1024}),
     layers: ref([]),
     channel: ref([]),
+    selectedChannel: ref(null),
     selectedLayer: ref([]),
     selectedMaps: ref(["Diffuse Map"]),
     selectedTargetResize: ref(0),

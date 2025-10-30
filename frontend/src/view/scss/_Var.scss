@@ -1,8 +1,103 @@
+$outer_index: 99999;
 $mouse_index: 10000;
 $window_index: 9999;
 $modify_index: 8888;
+
+// FONT //
+$app_font_default: "Inter", "Segoe UI", Roboto, Arial, sans-serif;
+$app_font_primary: Inter, "Segoe UI", Roboto, system-ui, sans-serif;
+$app_font_secondary: Inter, "Segoe UI", Roboto, system-ui, -apple-system, "Helvetica Neue", Arial;
+
+// FONT COLOR //
+$app_font_color_default: #ffffff;
+$app_font_color_default_black: #001218;
+$app_font_color_primary: #DFF8FFFF;
+$app_font_color_secondary: #FFFFFFB2;
+$app_font_desc_color_default: #FFFFFF99;
+
+// VECTOR COLOR //
+$app_svg_fill_default: #ffffff;
+$app_svg_fill_00: #FFFFFF03;
+$app_svg_stroke_default: #FFFFFF0F;
 
 // COLOR //
 $app_primary_bg: #1c1c1c;
 $app_secondary_bg: #212121;
 $app_third_bg: #2c2c2c;
+
+$app_bg_dimmer_00: #FFFFFF07;
+$app_bg_dimmer_01: #FFFFFF05;
+$app_bg_dimmer_02: #0A0C10C6;
+$app_bg_dimmer_03: #06080A89;
+$app_bg_dimmer_04: #FFFFFF06;
+
+
+$app_bg_card_00: #121216;
+$app_bg_card_hover_00: #FFFFFF11;
+$app_bg_card_01: #191923;
+
+$app_highlight_00: #6dd3ff;
+$app_highlight_01: #6a5cff;
+$app_highlight_02: #ffffff;
+$app_highlight_03: #ffd36d;
+$app_highlight_04: #ff7a7a;
+$app_highlight_05: #99f6ff;
+$app_highlight_06: #b4a7ff;
+$app_highlight_07: #00ffd5;
+$app_highlight_08: #ff59d6;
+$app_highlight_09: #651E65FF;
+$app_highlight_10: #351335;
+$app_highlight_11: #00163b;
+$app_highlight_12: #5a1b5a;
+$app_highlight_13: #182850;
+$app_highlight_14: #411541;
+$app_highlight_15: #3C4EFFF2;
+$app_highlight_16: #7C5CFFF2;
+$app_highlight_17: #5A78FFF2;
+
+$app_border_default: #FFFFFF07;
+
+// BUTTON COLOR //
+$app_btn_transparent_hover: #FFFFFF22;
+$app_btn_transparent_active: #FFFFFF22;
+
+// COLOR STATES //
+$app_state_running: #6dd3ff;
+$app_state_wait: #fff2c4;
+$app_state_pending: #FFD773E5;
+$app_state_complete: #7AD66EE5;
+$app_state_good: #16c98a;
+$app_state_ok: #62f1a1;
+$app_state_danger: #ff7070;
+$app_state_failed: #FF6363E5;
+
+
+$app_state_text_pending: #4a390a;
+$app_state_text_failed: #3b0b0b;
+
+// TRANSPARENCE //
+$app_total_transparence: transparent;
+$app_transparence: transparent;
+
+// SHADOWS //
+$app_shadow_00_default: #0000007F;
+$app_shadow_01_default: #FF7A7A2D;
+$app_shadow_02_default: #FFD77314;
+$app_shadow_03_default: #7AD66E14;
+$app_shadow_04_default: #FF636314;
+$app_shadow_05_default: #FFFFFF05;
+
+$app_text_shadow_00_default: #FFFFFF05;
+
+$app_btn_shadow_00_default: #0608148C;
+
+$app_shadow_highlight_00: #6A5CFF1E;
+$app_shadow_highlight_01: #07081499;
+$app_shadow_highlight_02: #7C5CFF2D;
+
+
+// SETTINGS //
+$app_scrollbar_width: 12px;
+$app_scrollbar_radius: 999px;
+$app_scrollbar_inset: 6px;
+$app_scrollbar_right: 0;

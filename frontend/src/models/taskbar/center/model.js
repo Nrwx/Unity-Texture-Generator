@@ -1,10 +1,12 @@
-import {computed} from "vue";
+import {computed, ref} from "vue";
 
 export function taskbarCenterModel(props, emit) {
 
     const leftItems = computed(() => props.items.filter(i => i.position === 'left'));
     const centerItems = computed(() => props.items.filter(i => i.position === 'center'));
     const rightItems = computed(() => props.items.filter(i => i.position === 'right'));
+
+    const taskbarUp = ref(false)
 
     const emitEvent = (id) => {
         emit("taskbar-event", id);
@@ -18,6 +20,7 @@ export function taskbarCenterModel(props, emit) {
         leftItems,
         centerItems,
         rightItems,
+        taskbarUp,
         emitEvent,
         handleComponentEvent
     };

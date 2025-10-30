@@ -69,5 +69,5 @@ export default defineComponent({
 </script>
 
 <style scoped lang="scss">
-@import './_Radial';
+@use './_Radial';
 </style>

@@ -1,12 +1,16 @@
 <template>
   <v-app :id="tempData.appId.value">
+    <template v-if="windowStates.boot.value">
+      <!-- App Loader -->
+      <Boot :state="windowStates.boot.value" :auto-start="true" @component-event="componentEvent"/>
+    </template>
     <template v-if="windowStates.viewport.value">
-      <!-- Grid Dialog -->
+      <!-- Viewport Setup -->
       <Viewport @component-event="componentEvent" :state="windowStates.viewport.value" :settings="localData.viewport.value" v-model:theme="appData.theme.value"/>
     </template>
-    <template v-else>
+    <template v-if="!windowStates.boot.value && !windowStates.viewport.value">
       <!-- Settings Dialog -->
-      <Setting @component-event="componentEvent" v-model:state="windowStates.setting.value" v-model:settings="osSettings" :loading="localData.loading.value" v-model:theme="appData.theme.value"/>
+      <Setting @component-event="componentEvent" v-model:project-id="localData.viewport.value.id" v-model:state="windowStates.setting.value" v-model:setting="osSettings" v-model:category="settingCategory" v-model:meta="osSettings.meta" v-model:tasks="localData.tasks.value" v-model:tasks-meta="localData.tasksMeta.value" v-model:task-edit="windowStates.taskEdit.value" v-model:task-edit-loading="loadingStates.taskEdit.value" :loading="localData.loading.value" v-model:theme="appData.theme.value"/>
       <!-- Fullscreen Dialog -->
       <Fullscreen @component-event="componentEvent" v-model:state="windowStates.fullscreen.value" v-model:data="localData.fullscreenData" :loading="localData.loading.value" v-model:theme="appData.theme.value"/>
       <!-- Linke Taskbar -->
@@ -25,12 +29,16 @@
           <Key v-model:keys="tempData.keys.value" v-model:held-keys="tempData.heldKeys.value"/>
         </Grid>
       </v-main>
+      <!-- Layer -->
       <Layer style="position: absolute; top: 40px; right: 70px;" :state="windowStates.layer.value" v-model:layers="localData.layers.value" v-model:paths="localData.paths.value" v-model:selected-layer="localData.selectedLayer.value" v-model:channel="localData.channel.value" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
+      <!-- Channel Mixer -->
+      <Mixer v-model:viewport="localData.viewport.value" v-model:data="mixerConfig" :blend-mode="blendMode" v-model:channel="localData.channel.value" v-model:state="windowStates.mixer.value" v-model:loading="loadingStates.mixer.value" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
       <!-- Rechte Taskbar -->
       <Taskbar @taskbar-event="taskbarEvent('right', $event)" align="right"  @component-event="componentEvent" v-model:items="itemsRight" v-model:theme="appData.theme.value" />
       <!-- Rechter Drawer -->
       <DrawerNew v-model:taskbar-menu="windowStates.drawerRight.value" v-model:item="activeItemRight" align="right" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
     </template>
+
     <!-- Message System -->
     <Notify v-model:data="localData.messages.value" v-model:state="windowStates.notify.value" @component-event="componentEvent" v-model:theme="appData.theme.value" v-model:wait="windowStates.queue.value" />
     <!-- Response Message System -->
@@ -48,7 +56,7 @@ import DrawerNew from "@/components/Drawer/DrawerNew";
 import Layer from "@/components/Layer/Layer";
 import {
   backupStates,
-  canvasStates,
+  canvasStates, loadingStates,
   modifierStates,
   ruleStates,
   timelineStates,
@@ -76,10 +84,17 @@ import Key from "@/components/Key/Key";
 import {exportData, previewData} from "@/models/export/config/model";
 import {initLocalization} from "@/utils/dayJs";
 import {timelineData} from "@/models/timeline/config/model";
+import {settingCategory, settingMeta} from "@/models/setting/config/model";
+import Boot from "@/components/Boot/Boot.vue";
+import Mixer from "@/components/Channel/Mixer.vue";
+import {mixerConfig} from "@/models/channel/config/model";
+import {blendMode} from "@/models/canvas/blend/model";
 
 export default {
   name: 'App',
   components: {
+    Mixer,
+    Boot,
     Notify,
     TaskbarCenter,
     Queue,
@@ -124,7 +139,9 @@ export default {
       exportData,
       previewData,
       timelineData,
-      timelineStates
+      timelineStates,
+      loadingStates,
+      mixerConfig
     });
 
     const taskbarEvent = async (side, itemId) => {
@@ -193,23 +210,25 @@ export default {
 
 
     const init = async () => {
-
       initLocalization();
-
       tempData.app.value = document.getElementById(tempData.appId.value);
-
       if (tempData.app.value) {
-        console.log('AppRef initialised')
+        await componentEvent('app:apply-theme', appData.theme.value);
       }
-
       if(!localData.fonts.value.length) {
         await componentEvent('fetch-fonts');
       }
       if(!localData.brush.value.length) {
         await componentEvent('fetch-brush');
       }
-      if(!osSettings.value) {
+      if(!osSettings.value.init) {
         await componentEvent('fetch-setting');
+      }
+      if(!localData.tasks.value.length) {
+        await componentEvent('task:fetch-list');
+      }
+      if(!localData.tasksMeta.value) {
+        await componentEvent('task:fetch-meta', {meta: true});
       }
       if(!localData.paths.value.length) {
         await componentEvent("path:fetch")
@@ -246,7 +265,12 @@ export default {
       transformStates,
       backupStates,
       timelineData,
-      timelineStates
+      timelineStates,
+      settingCategory,
+      settingMeta,
+      loadingStates,
+      mixerConfig,
+      blendMode
     };
   },
 };

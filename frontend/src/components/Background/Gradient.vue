@@ -1,7 +1,7 @@
 <template>
-  <div class="gradient-container">
+  <div class="gradient-container relative w-h overflow-hidden">
     <!-- SVG-Farbverlauf -->
-    <svg class="gradient-svg" viewBox="0 0 50 50" preserveAspectRatio="none">
+    <svg class="gradient-svg absolute w-h cursor-none" viewBox="0 0 50 50" preserveAspectRatio="none">
       <defs>
         <linearGradient
             :id="gradientId"
@@ -61,10 +61,10 @@
     </svg>
 
     <!-- Overlay (Deckkraftverlauf) -->
-    <div class="overlay-gradient"></div>
+    <div class="overlay-gradient absolute"></div>
 
     <!-- Slot für Card-Inhalt -->
-    <div class="card-content">
+    <div class="card-content relative">
       <slot />
     </div>
   </div>
@@ -89,38 +89,6 @@ export default defineComponent({
 });
 </script>
 
-<style scoped>
-.gradient-container {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-}
-
-.gradient-svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 1;
-  opacity: 0.4;
-  pointer-events: none;
-}
-
-.gradient-svg.dark {
-  animation-direction: reverse;
-  opacity: 0.5;
-}
-
-.overlay-gradient {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  background: linear-gradient(185deg,#212121,rgba(33,33,33,.7) 45%,rgba(33,33,33,0));
-}
-
-.card-content {
-  position: relative;
-  z-index: 3;
-}
+<style scoped lang="scss">
+@use "./_Gradient";
 </style>

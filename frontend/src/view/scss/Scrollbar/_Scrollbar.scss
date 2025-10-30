@@ -1,0 +1,120 @@
+@use "../_Var" as v;
+
+$width: v.$app_scrollbar_width;
+$radius: v.$app_scrollbar_radius;
+$inset: v.$app_scrollbar_inset;
+$right: v.$app_scrollbar_right;
+
+.menu-scrollbar, .page-scrollbar {
+  scroll-behavior: smooth;
+}
+
+.menu-scrollbar, .page-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.menu-scrollbar::-webkit-scrollbar, .page-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+
+.scrollbar-track {
+  position: absolute;
+  z-index: 999;
+  top: $inset;
+  right: $right !important;
+  bottom: $inset;
+  width: $width;
+  border-radius: calc($width / 2);
+  pointer-events: none;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 260ms ease;
+}
+.scrollbar-track[data-active="true"] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.scrollbar-thumb {
+  position: absolute;
+  width: calc($width - 4px);
+  border-radius: $radius;
+  background: linear-gradient(180deg, v.$app_highlight_15, v.$app_highlight_16, v.$app_highlight_17);
+  box-shadow: 0 8px 30px rgba(2, 6, 23, 0.6);
+  pointer-events: all;
+  cursor: default;
+  transition: transform 180ms, box-shadow 180ms, background 220ms;
+}
+
+.scrollbar-thumb:hover {
+  transform: scaleX(1.08);
+  box-shadow: v.$app_shadow_highlight_02;
+}
+
+/* wave pulse (on stop) - expands like a ripple */
+.scrollbar-thumb.wave {
+  position: relative;
+  transition: none;
+}
+.scrollbar-thumb.wave::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%) scale(0);
+  width: calc($width * 2);
+  height: calc($width * 2);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(124, 92, 255, 0.51) 0%, rgba(124, 92, 255, 0) 60%);
+  opacity: 0;
+  pointer-events: none;
+}
+.scrollbar-thumb.waveActive::after {
+  animation: wave 520ms ease-out;
+}
+
+@keyframes wave {
+  0% { transform: translateX(-50%) scale(0.1); opacity: 0.8; }
+  60% { transform: translateX(-50%) scale(1.05); opacity: 0.28; }
+  100% { transform: translateX(-50%) scale(1.6); opacity: 0; }
+}
+
+/* pulse active while scrolling */
+.scrollbar-thumb.pulse-active {
+  animation: sb-pulse 0.9s ease-in-out infinite alternate;
+}
+
+@keyframes sb-pulse {
+  from {
+    transform: translateY(0) scaleX(1);
+  }
+  to {
+    transform: translateY(2px) scaleX(1.03);
+    box-shadow: 0 14px 44px rgba(124, 92, 255, 0.44);
+  }
+}
+
+.scrollbar-grabbing {
+  cursor: grabbing !important;
+}
+
+.menu-scrollbar {
+  position: static !important;
+  overflow: auto;
+
+  .scrollbar-track {
+    width: calc($width / 3) !important;
+    .scrollbar-thumb { width: calc($width / 3) !important; }
+  }
+}
+
+.page-scrollbar {
+  position: static !important;
+  overflow: auto;
+
+  .scrollbar-track {
+    width: calc($width / 2) !important;
+    .scrollbar-thumb { width: calc($width / 2) !important; }
+  }
+}

@@ -7,10 +7,10 @@ const client = axios.create({
 });
 
 const api = {
-    async get(route, params = {}) {
-        if(windowStates.queue.value === false) windowStates.queue.value = true;
+    async get(route, config = {}) {
+        if (windowStates.queue.value === false) windowStates.queue.value = true;
         try {
-            const response = await client.get(route, { params });
+            const response = await client.get(route, config);
             return response.data;
         } catch (error) {
             console.error(`GET ${route} failed:`, error.response?.data || error.message);

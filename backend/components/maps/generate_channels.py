@@ -20,4 +20,6 @@ def generate_channels(image: Image.Image):
         "A": Image.fromarray(a)
     }
 
+    print(len(channels))
+
     return channels

@@ -1,23 +1,24 @@
 <template>
-  <div v-if="visible" class="brush-context-menu overflow-hidden" :style="menuStyle">
-    <div class="menu-container d-flex">
-      <nav class="side-nav d-flex flex-column">
+  <div v-if="visible" class="brush-context-menu absolute overflow-hidden" :style="menuStyle">
+    <div class="menu-container w-100 d-flex">
+      <nav class="side-nav pa-1 d-flex flex-column">
         <button
             v-for="tab in tabs"
             :key="tab.id"
+            class="pa-2 mb-1 cursor-pointer"
             :class="['nav-button', { active: activeTab === tab.id }]"
             @click="activeTab = tab.id"
         >
           <i :class="['mdi', tab.icon]" class="icon" />
         </button>
       </nav>
-      <div class="content">
+      <div class="content flex-1-1 pa-2">
         <!-- Settings Tab -->
-        <div v-if="activeTab === 'settings'" class="tab-content">
-          <div class="brush-list-container">
-            <div class="brush-list d-flex flex-wrap">
+        <div v-if="activeTab === 'settings'" class="tab-content d-flex flex-column ga-2">
+          <div class="brush-list-container overflow-y-auto">
+            <div class="brush-list d-flex flex-wrap ga-2">
               <div
-                  class="brush-item d-flex flex-wrap align-center justify-center"
+                  class="brush-item d-flex flex-wrap align-center justify-center flex-grow-1 ga-2 cursor-pointer pa-1"
                   v-for="(brush, index) in brushItems"
                   :key="index"
                   @click="emitEvent('update:selected-brush', brush)"
@@ -90,5 +91,5 @@ export default defineComponent({
 
 
 <style lang="scss" scoped>
-@import "./_Menu";
+@use "./_Menu";
 </style>

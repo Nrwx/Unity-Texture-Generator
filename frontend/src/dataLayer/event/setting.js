@@ -1,3 +1,4 @@
+
 export const settingEvent = (route) => ({
     "fetch-setting": async () => {
         route.localData.loading.value = true;

@@ -1,0 +1,1232 @@
+{
+  "project_name": "unity-texture-generator",
+  "base": ".",
+  "auto_sequence": [
+    "setup",
+    "build-backend",
+    "start-backend"
+  ],
+  "flask_mode": "development",
+  "log_file": "cli.log",
+  "secure": {
+    "service_name": "unity-texture-generator",
+    "account_name": "nrwxb",
+    "use_keyring": false,
+    "storage_path": "C:\\Users\\nrwxb\\. unity-texture-generator\\secure_store.json",
+    "key_path": "C:\\Users\\nrwxb\\. unity-texture-generator\\.secure_key",
+    "project_name": "unity-texture-generator"
+  },
+  "dependencies": {
+    "last_build": "2025-10-28T14:00:10.679136Z",
+    "config": {
+      "library_policy": {
+        "auto_update": true,
+        "enable_cache": false,
+        "use_cache": false,
+        "auto_fix_requirements": true,
+        "fix_with_requirements": false,
+        "freeze_strict": true,
+        "on_conflict": "restore_freeze",
+        "exclude_from_auto_update": [],
+        "work_path": ".",
+        "require_info": "requirements.txt",
+        "report_persist": true,
+        "report_path": "library_report.json",
+        "reconcile_before_integrity": true,
+        "always_persist": true
+      }
+    },
+    "libraries": {
+      "flask": {
+        "version": "3.0.3",
+        "freeze": false
+      },
+      "python-dotenv": {
+        "version": "1.1.1",
+        "freeze": false
+      },
+      "cairosvg": {
+        "version": "2.8.2",
+        "freeze": false
+      },
+      "chardet": {
+        "version": "5.2.0",
+        "freeze": false
+      },
+      "cryptography": {
+        "version": "46.0.3",
+        "freeze": false
+      },
+      "dpnp": {
+        "version": "0.18.1",
+        "freeze": false
+      },
+      "fastapi": {
+        "version": "0.115.0",
+        "freeze": false
+      },
+      "flask-cors": {
+        "version": "6.0.1",
+        "freeze": false
+      },
+      "keyring": {
+        "version": "25.6.0",
+        "freeze": false
+      },
+      "matplotlib": {
+        "version": "3.10.0",
+        "freeze": false
+      },
+      "nvidia-ml-py": {
+        "version": "13.580.82",
+        "freeze": false
+      },
+      "openai": {
+        "version": "1.97.0",
+        "freeze": false
+      },
+      "opencv-python": {
+        "version": "4.10.0.84",
+        "freeze": false
+      },
+      "pandas": {
+        "version": "2.2.3",
+        "freeze": false
+      },
+      "psutil": {
+        "version": "7.1.0",
+        "freeze": false
+      },
+      "pydantic-settings": {
+        "version": "2.5.2",
+        "freeze": false
+      },
+      "reportlab": {
+        "version": "4.4.3",
+        "freeze": false
+      },
+      "requests": {
+        "version": "2.32.3",
+        "freeze": false
+      },
+      "scipy": {
+        "version": "1.15.2",
+        "freeze": false
+      },
+      "svgwrite": {
+        "version": "1.4.3",
+        "freeze": false
+      },
+      "torchaudio": {
+        "version": "2.6.0",
+        "freeze": false
+      },
+      "torchvision": {
+        "version": "0.21.0",
+        "freeze": false
+      },
+      "tzlocal": {
+        "version": "5.3.1",
+        "freeze": false
+      },
+      "uvicorn": {
+        "version": "0.32.0",
+        "freeze": false
+      }
+    }
+  },
+  "ignore": [
+    "__pycache__",
+    ".git",
+    "venv",
+    "env",
+    "tests",
+    "build.json"
+  ],
+  "modules": [
+    {
+      "path": "core",
+      "lazy": false,
+      "direct_imports": [],
+      "ignore": [
+        "tasks",
+        "register",
+        "detection",
+        "packages",
+        "api",
+        "view",
+        "controller",
+        "model"
+      ]
+    }
+  ],
+  "router": [
+    {
+      "blueprint": "app",
+      "view_module": "view.app_view",
+      "controller": "controller.app_controller",
+      "url": "/",
+      "strict_slashes": false,
+      "active": true,
+      "routes": {
+        "0": {
+          "function": "frontend_index",
+          "value": "serve_index",
+          "url": "/"
+        },
+        "1": {
+          "url": "/<path:path>",
+          "function": "static_file",
+          "keys": "path",
+          "value": "serve_static"
+        },
+        "2": {
+          "url": "/download/<filename>",
+          "methods": [
+            "GET"
+          ],
+          "function": "download",
+          "keys": "filename",
+          "value": "download"
+        }
+      },
+      "api": {
+        "dependency": {
+          "view": [
+            "log"
+          ],
+          "controller": [
+            "log"
+          ],
+          "model": [
+            "syslink",
+            "log"
+          ]
+        }
+      }
+    },
+    {
+      "blueprint": "ai",
+      "view_module": "view.ai_view",
+      "controller": "controller.ai_controller",
+      "model": "model.ai_model",
+      "url": "/ai/generateImage/",
+      "strict_slashes": false,
+      "active": true,
+      "routes": {
+        "0": {
+          "methods": [
+            "POST"
+          ],
+          "url": "",
+          "function": "handle_ai",
+          "value": "dispatch"
+        }
+      },
+      "method_map": {
+        "prompt_img": {
+          "keys": [
+            "prompt",
+            "model",
+            "size",
+            "layer_type"
+          ],
+          "function": "generate_image"
+        }
+      },
+      "api": {
+        "dependency": {
+          "view": [
+            "log"
+          ],
+          "controller": [
+            "log"
+          ],
+          "model": [
+            "syslink",
+            "log"
+          ]
+        }
+      }
+    },
+    {
+      "blueprint": "backup",
+      "view_module": "view.backup_view",
+      "controller": "controller.backup_controller",
+      "model": "model.backup_model",
+      "url": "/backup",
+      "strict_slashes": false,
+      "active": true,
+      "routes": {
+        "0": {
+          "methods": [
+            "GET",
+            "POST"
+          ],
+          "url": "",
+          "function": "handle_backup",
+          "value": "dispatch"
+        }
+      },
+      "method_map": {
+        "create": {
+          "keys": [
+            "state",
+            "id",
+            "title"
+          ],
+          "function": "create"
+        },
+        "jump": {
+          "keys": [
+            "index",
+            "id"
+          ],
+          "function": "jump"
+        }
+      },
+      "api": {
+        "dependency": {
+          "view": [
+            "log"
+          ],
+          "controller": [
+            "log"
+          ],
+          "model": [
+            "syslink",
+            "log"
+          ]
+        }
+      }
+    },
+    {
+      "blueprint": "brush",
+      "view_module": "view.brush_view",
+      "controller": "controller.brush_controller",
+      "model": "model.brush_model",
+      "url": "/brush",
+      "strict_slashes": false,
+      "initialize": true,
+      "active": true,
+      "routes": {
+        "0": {
+          "methods": [
+            "GET",
+            "POST"
+          ],
+          "url": "",
+          "function": "handle_brushes",
+          "value": "dispatch"
+        },
+        "1": {
+          "url": "/<folder>/<filename>",
+          "methods": [
+            "GET"
+          ],
+          "function": "serve_brush_style",
+          "value": "_controller._serve_brush",
+          "keys": "folder, filename"
+        }
+      },
+      "method_map": {
+        "upload": {
+          "keys": [],
+          "function": "upload"
+        },
+        "delete": {
+          "keys": [
+            "id"
+          ],
+          "function": "delete"
+        }
+      },
+      "api": {
+        "dependency": {
+          "view": [
+            "log"
+          ],
+          "controller": [
+            "log"
+          ],
+          "model": [
+            "syslink",
+            "log"
+          ]
+        }
+      }
+    },
+    {
+      "blueprint": "cursor",
+      "view_module": "view.cursor_view",
+      "controller": "controller.cursor_controller",
+      "model": "model.cursor_model",
+      "url": "/cursor",
+      "strict_slashes": false,
+      "active": true,
+      "routes": {
+        "0": {
+          "methods": [
+            "POST"
+          ],
+          "url": "",
+          "function": "handle_cursor",
+          "value": "dispatch"
+        }
+      },
+      "method_map": {
+        "create": {
+          "keys": [
+            "id",
+            "size",
+            "rotation",
+            "opacity"
+          ],
+          "function": "create"
+        }
+      },
+      "api": {
+        "dependency": {
+          "view": [
+            "log"
+          ],
+          "controller": [
+            "log"
+          ],
+          "model": [
+            "syslink",
+            "log"
+          ]
+        }
+      }
+    },
+    {
+      "blueprint": "export",
+      "view_module": "view.export_view",
+      "controller": "controller.export_controller",
+      "model": "model.export_model",
+      "url": "/export",
+      "strict_slashes": false,
+      "active": true,
+      "routes": {
+        "0": {
+          "methods": [
+            "POST"
+          ],
+          "url": "",
+          "function": "handle_export",
+          "value": "dispatch"
+        }
+      },
+      "method_map": {
+        "update": {
+          "keys": [
+            "mode",
+            "quality",
+            "type",
+            "dpi",
+            "title",
+            "compress",
+            "inlineCss",
+            "paperSize",
+            "landscape",
+            "margin",
+            "mipmap",
+            "ddsCompress"
+          ],
+          "function": "update"
+        }
+      },
+      "api": {
+        "dependency": {
+          "view": [
+            "log"
+          ],
+          "controller": [
+            "log"
+          ],
+          "model": [
+            "syslink",
+            "log"
+          ]
+        }
+      }
+    },
+    {
+      "blueprint": "fonts",
+      "view_module": "view.fonts_view",
+      "controller": "controller.fonts_controller",
+      "model": "model.fonts_model",
+      "url": "/fonts",
+      "strict_slashes": false,
+      "initialize": true,
+      "active": true,
+      "routes": {
+        "0": {
+          "url": "",
+          "methods": [
+            "GET",
+            "POST"
+          ],
+          "function": "handle_fonts",
+          "value": "dispatch"
+        },
+        "1": {
+          "url": "/font/<folder>/<filename>",
+          "methods": [
+            "GET"
+          ],
+          "function": "get_fonts",
+          "keys": "folder, filename",
+          "value": "_controller._serve_font"
+        }
+      },
+      "method_map": {
+        "upload": {
+          "keys": [],
+          "function": "upload"
+        },
+        "update": {
+          "keys": [],
+          "function": "update"
+        },
+        "delete": {
+          "keys": [
+            "id"
+          ],
+          "function": "delete"
+        }
+      },
+      "api": {
+        "dependency": {
+          "view": [
+            "log"
+          ],
+          "controller": [
+            "log"
+          ],
+          "model": [
+            "syslink",
+            "log"
+          ]
+        }
+      }
+    },
+    {
+      "blueprint": "layer",
+      "view_module": "view.layer_view",
+      "controller": "controller.layer_controller",
+      "model": "model.layer_model",
+      "url": "/layer",
+      "strict_slashes": false,
+      "active": true,
+      "routes": {
+        "0": {
+          "methods": [
+            "GET",
+            "POST"
+          ],
+          "url": "",
+          "function": "handle_layer",
+          "value": "dispatch"
+        }
+      },
+      "method_map": {
+        "add": {
+          "keys": [
+            "name",
+            "type",
+            "width",
+            "height",
+            "id"
+          ],
+          "function": "add"
+        },
+        "addText": {
+          "keys": [
+            "type",
+            "order",
+            "name",
+            "hidden",
+            "opacity",
+            "color",
+            "font",
+            "fontFamily",
+            "fontSize",
+            "fontWeight",
+            "initFontSize",
+            "initHeight",
+            "initWidth",
+            "letterSpacing",
+            "lineHeight",
+            "text",
+            "textAlign",
+            "textDecoration",
+            "textTransform",
+            "width",
+            "height",
+            "x",
+            "y",
+            "mask"
+          ],
+          "function": "addText"
+        },
+        "addPath": {
+          "keys": [
+            "name",
+            "closed",
+            "points",
+            "connections",
+            "gradient",
+            "stroke",
+            "strokeWidth",
+            "strokeDash",
+            "strokeDashArray",
+            "strokeDashType",
+            "fill",
+            "fillOpacity"
+          ],
+          "function": "addPath"
+        },
+        "delete": {
+          "keys": [
+            "id"
+          ],
+          "function": "delete"
+        },
+        "group": {
+          "keys": [
+            "ids",
+            "group",
+            "reset"
+          ],
+          "function": "group"
+        },
+        "update": {
+          "keys": [
+            "type",
+            "name",
+            "width",
+            "height",
+            "id",
+            "url",
+            "a",
+            "b",
+            "c",
+            "d",
+            "x",
+            "y",
+            "rotate",
+            "order",
+            "hidden",
+            "opacity",
+            "blend_mode",
+            "color",
+            "mask"
+          ],
+          "function": "update"
+        },
+        "order": {
+          "keys": [
+            "id",
+            "order"
+          ],
+          "function": "order"
+        },
+        "hide": {
+          "keys": [
+            "id",
+            "hidden"
+          ],
+          "function": "hide"
+        },
+        "blend": {
+          "keys": [
+            "id",
+            "blend_mode",
+            "color"
+          ],
+          "function": "blend"
+        },
+        "paste": {
+          "keys": [
+            "id"
+          ],
+          "function": "paste"
+        },
+        "mask": {
+          "keys": [
+            "id",
+            "id2"
+          ],
+          "function": "mask"
+        },
+        "masked": {
+          "keys": [
+            "id",
+            "id2"
+          ],
+          "function": "masked"
+        }
+      },
+      "api": {
+        "dependency": {
+          "view": [
+            "log"
+          ],
+          "controller": [
+            "log"
+          ],
+          "model": [
+            "syslink",
+            "log"
+          ]
+        }
+      }
+    },
+    {
+      "blueprint": "modifier",
+      "view_module": "view.modifier_view",
+      "controller": "controller.modifier_controller",
+      "model": "model.modifier_model",
+      "url": "/modifier",
+      "strict_slashes": false,
+      "active": true,
+      "routes": {
+        "0": {
+          "methods": [
+            "POST"
+          ],
+          "url": "",
+          "function": "handle_modifier",
+          "value": "dispatch"
+        }
+      },
+      "method_map": {
+        "fill": {
+          "keys": [
+            "id",
+            "x",
+            "y",
+            "color",
+            "tolerance"
+          ],
+          "function": "fill"
+        }
+      },
+      "api": {
+        "dependency": {
+          "view": [
+            "log"
+          ],
+          "controller": [
+            "log"
+          ],
+          "model": [
+            "syslink",
+            "log"
+          ]
+        }
+      }
+    },
+    {
+      "blueprint": "path",
+      "view_module": "view.path_view",
+      "controller": "controller.path_controller",
+      "model": "model.path_model",
+      "url": "/path",
+      "strict_slashes": false,
+      "initialize": true,
+      "active": true,
+      "routes": {
+        "0": {
+          "methods": [
+            "GET",
+            "POST"
+          ],
+          "url": "",
+          "function": "handle_path",
+          "value": "dispatch"
+        }
+      },
+      "method_map": {
+        "add": {
+          "keys": [
+            "name",
+            "width",
+            "height",
+            "edit",
+            "id",
+            "stroke",
+            "strokeWidth",
+            "strokeDash",
+            "strokeDashType",
+            "strokeDashArray",
+            "fill",
+            "fillOpacity",
+            "points",
+            "connections",
+            "gradient",
+            "closed"
+          ],
+          "function": "add"
+        },
+        "update": {
+          "keys": [
+            "name",
+            "width",
+            "height",
+            "edit",
+            "id",
+            "stroke",
+            "strokeWidth",
+            "strokeDash",
+            "strokeDashType",
+            "strokeDashArray",
+            "fill",
+            "fillOpacity",
+            "points",
+            "connections",
+            "gradient",
+            "closed"
+          ],
+          "function": "update"
+        },
+        "delete": {
+          "keys": [
+            "id"
+          ],
+          "function": "delete"
+        }
+      },
+      "api": {
+        "dependency": {
+          "view": [
+            "log"
+          ],
+          "controller": [
+            "log"
+          ],
+          "model": [
+            "syslink",
+            "log"
+          ]
+        }
+      }
+    },
+    {
+      "blueprint": "queue",
+      "view_module": "view.queue_view",
+      "controller": "controller.queue_controller",
+      "model": "model.queue_model",
+      "strict_slashes": false,
+      "router_parameter": [
+        "app"
+      ],
+      "url": "/queue",
+      "active": true,
+      "routes": {
+        "0": {
+          "url": "",
+          "methods": [
+            "GET"
+          ],
+          "function": "queue_status",
+          "value": "get_queue_status"
+        }
+      },
+      "api": {
+        "dependency": {
+          "view": [
+            "log"
+          ],
+          "controller": [
+            "log"
+          ],
+          "model": [
+            "syslink",
+            "log"
+          ]
+        }
+      }
+    },
+    {
+      "blueprint": "render",
+      "view_module": "view.render_view",
+      "controller": "controller.render_controller",
+      "model": "model.render_model",
+      "url": "/renderer",
+      "strict_slashes": false,
+      "active": true,
+      "routes": {
+        "0": {
+          "methods": [
+            "POST"
+          ],
+          "url": "",
+          "function": "handle_renderer",
+          "value": "dispatch"
+        }
+      },
+      "method_map": {
+        "channel": {
+          "keys": [],
+          "function": "channel"
+        },
+        "preview": {
+          "keys": [],
+          "function": "preview"
+        },
+        "thumbnail": {
+          "keys": [
+            "id",
+            "size"
+          ],
+          "function": "_thumbnail"
+        },
+        "text-path": {
+          "keys": [
+            "id"
+          ],
+          "function": "text_to_path"
+        },
+        "base64": {
+          "keys": [
+            "image_base64",
+            "id"
+          ],
+          "function": "upload_base64"
+        }
+      },
+      "api": {
+        "dependency": {
+          "view": [
+            "log"
+          ],
+          "controller": [
+            "log"
+          ],
+          "model": [
+            "syslink",
+            "log"
+          ]
+        }
+      }
+    },
+    {
+      "blueprint": "settings",
+      "view_module": "view.settings_view",
+      "controller": "controller.settings_controller",
+      "model": "model.settings_model",
+      "url": "/settings",
+      "strict_slashes": false,
+      "active": true,
+      "routes": {
+        "0": {
+          "methods": [
+            "GET",
+            "POST"
+          ],
+          "url": "",
+          "function": "handle_settings",
+          "value": "dispatch"
+        }
+      },
+      "method_map": {
+        "update": {
+          "keys": [
+            "os_type",
+            "os_arch",
+            "os_cpu",
+            "os_memory",
+            "use_gpu",
+            "gpu_name",
+            "gpu_memory_mb",
+            "preferred_unit",
+            "cpu_threads",
+            "system_score",
+            "system_rating",
+            "recommended_ram_gb",
+            "recommended_cpu_threads",
+            "recommended_gpu_gb",
+            "last_update"
+          ],
+          "function": "update"
+        },
+        "clear": {
+          "keys": [
+            "id"
+          ],
+          "function": "clear"
+        }
+      },
+      "api": {
+        "dependency": {
+          "view": [
+            "log"
+          ],
+          "controller": [
+            "log"
+          ],
+          "model": [
+            "syslink",
+            "log"
+          ]
+        }
+      }
+    },
+    {
+      "blueprint": "task",
+      "view_module": "view.task_view",
+      "controller": "controller.task_controller",
+      "model": "model.task_model",
+      "url": "/task",
+      "strict_slashes": false,
+      "active": true,
+      "initialize": true,
+      "routes": {
+        "0": {
+          "methods": [
+            "GET",
+            "POST"
+          ],
+          "url": "",
+          "function": "handle_task",
+          "value": "dispatch"
+        },
+        "1": {
+          "methods": [
+            "GET"
+          ],
+          "url": "/meta",
+          "function": "handle_meta",
+          "value": "_controller._serve_meta"
+        },
+        "2": {
+          "methods": [
+            "GET"
+          ],
+          "url": "/<id>",
+          "function": "handle_single_task",
+          "value": "_controller._fetch_single_task",
+          "keys": "id"
+        }
+      },
+      "method_map": {
+        "create": {
+          "keys": [
+            "active",
+            "state",
+            "time_val",
+            "type",
+            "module",
+            "custom"
+          ],
+          "function": "create"
+        },
+        "update": {
+          "keys": [
+            "id",
+            "active",
+            "state",
+            "time_val",
+            "type",
+            "progress",
+            "default",
+            "custom",
+            "customId",
+            "created",
+            "updated"
+          ],
+          "function": "update"
+        },
+        "delete": {
+          "keys": [
+            "id"
+          ],
+          "function": "delete"
+        },
+        "run": {
+          "keys": [
+            "id"
+          ],
+          "function": "run"
+        },
+        "schedule": {
+          "keys": [
+            "id",
+            "delay"
+          ],
+          "function": "schedule"
+        },
+        "stop": {
+          "keys": [
+            "id"
+          ],
+          "function": "stop"
+        }
+      },
+      "api": {
+        "dependency": {
+          "view": [
+            "log"
+          ],
+          "controller": [
+            "log"
+          ],
+          "model": [
+            "syslink",
+            "log"
+          ]
+        }
+      }
+    },
+    {
+      "blueprint": "tile",
+      "view_module": "view.tile_view",
+      "controller": "controller.tile_controller",
+      "model": "model.tile_model",
+      "url": "/tile",
+      "strict_slashes": false,
+      "active": true,
+      "routes": {
+        "0": {
+          "methods": [
+            "POST"
+          ],
+          "url": "",
+          "function": "handle_tile",
+          "value": "dispatch"
+        }
+      },
+      "method_map": {
+        "generate": {
+          "keys": [
+            "diffuse_image_url",
+            "tile_x",
+            "tile_y"
+          ],
+          "function": "generate"
+        }
+      },
+      "api": {
+        "dependency": {
+          "view": [
+            "log"
+          ],
+          "controller": [
+            "log"
+          ],
+          "model": [
+            "syslink",
+            "log"
+          ]
+        }
+      }
+    },
+    {
+      "blueprint": "upload",
+      "view_module": "view.upload_view",
+      "controller": "controller.upload_controller",
+      "model": "model.upload_model",
+      "url": "/upload",
+      "strict_slashes": false,
+      "active": true,
+      "routes": {
+        "0": {
+          "methods": [
+            "POST"
+          ],
+          "url": "",
+          "function": "handle_upload",
+          "value": "dispatch"
+        }
+      },
+      "method_map": {
+        "0": {
+          "keys": [
+            "selectedMaps",
+            "cropLeft",
+            "cropTop",
+            "cropRight",
+            "cropBottom",
+            "output_format",
+            "quality",
+            "editFile",
+            "edge_detection",
+            "invert_colors",
+            "resize_index",
+            "resize_mode",
+            "upscale_method",
+            "rgb_mode",
+            "rgba_mode"
+          ],
+          "function": "upload"
+        }
+      },
+      "api": {
+        "dependency": {
+          "view": [
+            "log"
+          ],
+          "controller": [
+            "log"
+          ],
+          "model": [
+            "syslink",
+            "log"
+          ]
+        }
+      }
+    },
+    {
+      "blueprint": "viewport",
+      "view_module": "view.viewport_view",
+      "controller": "controller.viewport_controller",
+      "model": "model.viewport_model",
+      "url": "/viewport",
+      "strict_slashes": false,
+      "active": true,
+      "routes": {
+        "0": {
+          "methods": [
+            "GET",
+            "POST"
+          ],
+          "url": "",
+          "function": "handle_viewport",
+          "value": "dispatch"
+        }
+      },
+      "method_map": {
+        "set": {
+          "keys": [
+            "mode",
+            "width",
+            "height",
+            "title",
+            "unit",
+            "dpi",
+            "sync",
+            "layer"
+          ],
+          "function": "set_viewport"
+        }
+      },
+      "api": {
+        "dependency": {
+          "view": [
+            "log"
+          ],
+          "controller": [
+            "log"
+          ],
+          "model": [
+            "syslink",
+            "log"
+          ]
+        }
+      }
+    }
+  ]
+}

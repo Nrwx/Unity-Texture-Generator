@@ -13,6 +13,25 @@ export const fetchOsSettings = async () => {
     }
 };
 
+export const clearCache = async (payload) => {
+    try {
+        const formData = new FormData();
+        formData.append("method", "clear");
+        formData.append("id", payload);
+
+
+        const response = await api.post("/settings", formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+        });
+
+        if (response) {
+            return response;
+        }
+    } catch (error) {
+        console.error("Fehler beim löschen des Caches:", error.response?.data || error.message);
+    }
+};
+
 export const saveOsSettings = async (settings) => {
     try {
         const formData = new FormData();

@@ -1,8 +1,53 @@
 .absolute{
-  position: absolute;
+  position: absolute !important;
+}
+
+.static {
+  position: static !important;
+}
+
+.inset{
+  inset: 0 !important;
+}
+
+.grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  grid-gap: 12px;
+  position: relative;
+}
+
+.grid-center{
+  display: grid !important;
+  place-items: center !important;
+}
+
+.relative{
+  position: relative !important;
 }
 
 .w-h {
-  width: 100%;
-  height: 100%;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.vw-vh {
+  width: 100vw !important;
+  height: 100vh !important;
+}
+
+.cursor-none {
+  pointer-events: none !important;
+  user-select: none !important;
+}
+
+.cursor-auto {
+  pointer-events: auto !important;
+  user-select: none !important;
+}
+
+.cursor-pointer {
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  user-select: none !important;
 }

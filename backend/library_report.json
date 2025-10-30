@@ -1,0 +1,120 @@
+{
+  "steps": [
+    {
+      "pre_update_latest": "starting"
+    },
+    {
+      "pre_update_result": {
+        "flask": {
+          "status": "up-to-date",
+          "version": "3.0.3"
+        },
+        "python-dotenv": {
+          "status": "up-to-date",
+          "version": "1.1.1"
+        },
+        "cairosvg": {
+          "status": "up-to-date",
+          "version": "2.8.2"
+        },
+        "chardet": {
+          "status": "up-to-date",
+          "version": "5.2.0"
+        },
+        "cryptography": {
+          "status": "up-to-date",
+          "version": "46.0.3"
+        },
+        "dpnp": {
+          "status": "up-to-date",
+          "version": "0.18.1"
+        },
+        "fastapi": {
+          "status": "up-to-date",
+          "version": "0.115.0"
+        },
+        "flask-cors": {
+          "status": "up-to-date",
+          "version": "6.0.1"
+        },
+        "keyring": {
+          "status": "up-to-date",
+          "version": "25.6.0"
+        },
+        "matplotlib": {
+          "status": "up-to-date",
+          "version": "3.10.0"
+        },
+        "nvidia-ml-py": {
+          "status": "up-to-date",
+          "version": "13.580.82"
+        },
+        "openai": {
+          "status": "up-to-date",
+          "version": "1.97.0"
+        },
+        "opencv-python": {
+          "status": "up-to-date",
+          "version": "4.10.0.84"
+        },
+        "pandas": {
+          "status": "up-to-date",
+          "version": "2.2.3"
+        },
+        "psutil": {
+          "status": "up-to-date",
+          "version": "7.1.0"
+        },
+        "pydantic-settings": {
+          "status": "up-to-date",
+          "version": "2.5.2"
+        },
+        "reportlab": {
+          "status": "up-to-date",
+          "version": "4.4.3"
+        },
+        "requests": {
+          "status": "up-to-date",
+          "version": "2.32.3"
+        },
+        "scipy": {
+          "status": "up-to-date",
+          "version": "1.15.2"
+        },
+        "svgwrite": {
+          "status": "up-to-date",
+          "version": "1.4.3"
+        },
+        "torchaudio": {
+          "status": "up-to-date",
+          "version": "2.6.0"
+        },
+        "torchvision": {
+          "status": "up-to-date",
+          "version": "0.21.0"
+        },
+        "tzlocal": {
+          "status": "up-to-date",
+          "version": "5.3.1"
+        },
+        "uvicorn": {
+          "status": "up-to-date",
+          "version": "0.32.0"
+        }
+      }
+    },
+    {
+      "create_requirements": "C:\\Users\\nrwxb\\Documents\\GitHub\\Unity-Texture-Generator\\backend\\requirements.txt"
+    },
+    {
+      "reconcile_conflicts": {}
+    },
+    {
+      "integrity_conflicts": {}
+    },
+    {
+      "update_result": "no action"
+    }
+  ],
+  "status": "ok"
+}

@@ -1,5 +1,5 @@
 <template>
-  <div v-for="item in items" :key="item.key" class="control d-flex align-center">
+  <div v-for="item in items" :key="item.key" class="control d-flex align-center justify-space-between">
     <label class="text-truncate">{{ item.label }}</label>
 
     <!-- Slider -->
@@ -13,7 +13,7 @@
         hide-details
         @click.stop="emitEvent(item.key)"
     />
-    <span v-if="item.unit">{{ formattedValue(item) }}</span>
+    <span class="text-right" v-if="item.unit">{{ formattedValue(item) }}</span>
 
     <!-- Toggle -->
     <input
@@ -63,13 +63,6 @@ export default defineComponent({
 });
 </script>
 
-<style scoped>
-.control > label {
-  width: 6rem;
-}
-.control > span {
-  margin-left: 0.5rem;
-  width: 4rem;
-  text-align: right;
-}
+<style lang="scss" scoped>
+@use "./_MenuItem";
 </style>

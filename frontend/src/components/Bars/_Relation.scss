@@ -1,0 +1,79 @@
+@use "../Task/_Shared";
+@use "../../view/scss/_Var" as v;
+
+.relations {
+  background: linear-gradient(180deg, v.$app_bg_card_00, v.$app_bg_card_01);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px v.$app_shadow_highlight_01;
+
+  .node-body {
+    fill: v.$app_svg_fill_00;
+    stroke: v.$app_svg_stroke_default;
+    transition: transform 350ms;
+  }
+
+  .node-body.running {
+    fill: linear-gradient(v.$app_highlight_00, v.$app_highlight_01);
+    filter: drop-shadow(0 8px 20px v.$app_shadow_highlight_00);
+  }
+
+  .node-body.pending {
+    fill: v.$app_shadow_02_default
+  }
+
+  .node-body.complete {
+    fill: v.$app_shadow_03_default
+  }
+
+  .node-body.failed {
+    fill: v.$app_shadow_04_default;
+  }
+
+  .node-body.total {
+    fill: linear-gradient(v.$app_highlight_05, v.$app_highlight_06);
+    stroke: v.$app_svg_stroke_default;
+  }
+
+  .nlabel {
+    fill: v.$app_font_color_primary;
+    font-weight: 700;
+    font-size: 12px;
+  }
+
+  .nval {
+    fill: v.$app_font_desc_color_default;
+    font-weight: 800;
+    font-size: 14px;
+  }
+
+  .legend {
+    color: v.$app_font_color_secondary;
+
+    .legend-item {
+      font-size: 13px;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .dot.running {
+      background: linear-gradient(v.$app_highlight_00, v.$app_highlight_01);
+      box-shadow: 0 6px 14px v.$app_shadow_highlight_00;
+    }
+
+    .dot.pending {
+      background: v.$app_state_pending
+    }
+
+    .dot.complete {
+      background: v.$app_state_complete
+    }
+
+    .dot.failed {
+      background: v.$app_state_failed
+    }
+  }
+}

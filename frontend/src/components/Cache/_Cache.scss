@@ -1,0 +1,179 @@
+@use "../../view/scss/_Var" as v;
+
+$asset_00: v.$app_highlight_03;
+$asset_01: v.$app_highlight_04;
+$session_00: v.$app_highlight_00;
+$session_01: v.$app_highlight_01;
+$cache_00: v.$app_highlight_08;
+$cache_01: v.$app_highlight_09;
+
+$asset_gradient: linear-gradient(90deg, $asset_00, $asset_01);
+$session_gradient: linear-gradient(90deg, $session_00, $session_01);
+$cache_gradient: linear-gradient(90deg, $cache_00, $cache_01);
+
+.asset-background {
+  background: v.$app_highlight_12 !important;
+}
+.session-background {
+  background: v.$app_highlight_13 !important;
+}
+.cache-background {
+  background: v.$app_highlight_14 !important;
+}
+
+.asset-gradient {
+  background: $asset_gradient !important;
+}
+.session-gradient {
+  background: $session_gradient !important;
+}
+.cache-gradient {
+  background: $cache_gradient !important;
+}
+
+.cache-component {
+  .left-col{
+    max-width: 50%;
+    .radial-wrap {
+      width: 200px;
+      height: 200px;
+      .radial-svg {
+        width: 180px;
+        height: 180px;
+        .ring-bg {
+          fill: none;
+          stroke: v.$app_svg_stroke_default;
+          stroke-width: 10;
+        }
+        .arc {
+          fill: none;
+          stroke-linecap: butt;
+          transition: stroke-dasharray 900ms cubic-bezier(.22, .9, .32, 1), stroke-dashoffset 900ms cubic-bezier(.22, .9, .32, 1), opacity 600ms;
+          opacity: 0.98;
+        }
+        .asset-arc {
+          stroke: $asset_00;
+        }
+        .cache-arc {
+          stroke: $cache_00;
+        }
+        .session-arc {
+          stroke: $session_00;
+        }
+      }
+      .radial-center {
+        width: 140px;
+        height: 140px;
+        background: linear-gradient(180deg, v.$app_highlight_10, v.$app_highlight_09);
+        box-shadow: 0 6px 20px v.$app_shadow_05_default;
+        .files-count {
+          font-weight: 800;
+          font-size: 22px;
+        }
+        .files-sub {
+          font-size: 12px;
+        }
+      }
+    }
+    .total-gauge {
+      height: 20px;
+      border-radius: 14px;
+      box-shadow: 0 10px 30px v.$app_shadow_05_default;
+      background: linear-gradient(90deg, v.$app_bg_dimmer_02, v.$app_bg_dimmer_03);
+      .segment {
+        transition: width 900ms cubic-bezier(.22, .9, .32, 1);
+        box-shadow: inset 0 4px 18px v.$app_shadow_05_default;
+        &:after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background-image: repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.06) 0 6px, rgba(255, 255, 255, 0.02) 6px 14px);
+          mix-blend-mode: overlay;
+          animation: dash-move 2.4s linear infinite;
+          background-repeat: repeat;
+          opacity: 1;
+          background-size: 20px;
+          pointer-events: none;
+        }
+      }
+    }
+    .legend {
+      .legend-item {
+        .legend-swatch {
+          width: 12px;
+          height: 12px;
+          border-radius: 3px;
+        }
+      }
+    }
+  }
+
+  .right-col{
+    max-width: 50%;
+    .pill-list {
+      .pill-item {
+        border-radius: 12px;
+        border: 1px solid v.$app_border_default;
+        .pill-meta {
+          width: 260px;
+          max-width: 50%;
+          .pill-title {
+            font-weight: 700;
+          }
+        }
+        .pill-stats {
+          max-width: 50%;
+          width: 120px;
+          .pct {
+            font-weight: 800;
+            font-size: 16px;
+          }
+          .files-pct {
+            font-size: 12px;
+          }
+        }
+        .pill-gauge {
+          max-width: 100%;
+          .pill-bg {
+            height: 18px;
+            background: v.$app_bg_dimmer_01;
+            .pill-fill {
+              transition: width 900ms cubic-bezier(.22, .9, .32, 1);
+              box-shadow: 0 8px 24px v.$app_shadow_05_default;
+            }
+            .pill-pattern {
+              background-image: linear-gradient(45deg, rgba(255, 255, 255, 0.06) 25%, rgba(0, 0, 0, 0.0) 25%, rgba(0, 0, 0, 0.0) 50%, rgba(255, 255, 255, 0.03) 50%);
+              background-size: 16px 16px;
+              animation: pattern-move 3s linear infinite;
+              background-repeat: repeat;
+              mix-blend-mode: overlay;
+              opacity: 1;
+            }
+          }
+          .pill-sub {
+            font-size: 13px;
+          }
+
+        }
+      }
+    }
+  }
+
+  @keyframes pattern-move {
+    from {
+      background-position: 0 0;
+    }
+    to {
+      background-position: 64px 0;
+    }
+  }
+
+  @keyframes dash-move {
+    from {
+      background-position: 0 0;
+    }
+    to {
+      background-position: 20px 20px;
+    }
+  }
+}

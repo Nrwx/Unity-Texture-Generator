@@ -1,0 +1,48 @@
+@import "./_Shared";
+
+.fragment.overview {
+  .header { margin-bottom:12px; h3{color:#fff} .sub{color:rgba(255,255,255,0.6)} }
+
+  .grid {
+    .card {
+      background: linear-gradient(180deg, #18181b, #131217);
+      border-radius: 10px;
+      padding: 14px;
+      color: #fff;
+    }
+
+    .card.big {
+      .radial-wrap {
+        height: 250px !important;
+      }
+    }
+
+    .card.stats {
+      .small-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+        grid-gap: 12px;
+        max-width: 100%;
+
+        .mini {
+          background: rgba(255,255,255,0.03);
+          padding:8px;
+          border-radius:8px;
+          text-align:center;
+          .num { font-weight:800; color:#6dd3ff; font-size:18px; }
+          .label { color:rgba(255,255,255,0.6); font-size:11px; margin-top:6px; }
+        }
+      }
+    }
+
+    .card.list {
+      .card-title { font-weight:700; margin-bottom:8px; color:#fff}
+      .chips { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;
+        .chip { background: rgba(255,255,255,0.03); padding:6px 10px; border-radius:999px; color:#fff; font-size:12px }
+      }
+      .meta-row { display:flex; justify-content:space-between; padding:8px 0; border-top:1px dashed rgba(255,255,255,0.03);
+        .bold { font-weight:700; color:#6dd3ff}
+      }
+    }
+  }
+}

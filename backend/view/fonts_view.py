@@ -1,33 +1,39 @@
-from flask import Blueprint, request, jsonify
-from controller.fonts_controller import FontsController
-from utils import parse_response
-from config.data.constant import ( REDIRECT_ROUTE )
+#SOURCE: view/{{blueprint}}_view.py
+from flask import Blueprint, jsonify
+from view.base.main import BaseView
 
-router_fonts = Blueprint('fonts', __name__)
-@router_fonts.route('/', methods=['GET', 'POST'], strict_slashes=REDIRECT_ROUTE)
-def handle_fonts():
-    if request.method == 'GET':
+router_{{blueprint}} = Blueprint("{{blueprint}}", __name__)
+
+class {{blueprint|capitalize}}View(BaseView):
+    @property
+    def _controller(self):
+        return getattr(router_{{blueprint}}, "_controller", None)
+    @property
+    def _parser(self):
+        return getattr(router_{{blueprint}}, "_parser", None)
+    @property
+    def _route(self) -> str:
+        return {{blueprint|json}}
+    # --- Routen ---
+    {% for i, data in routes %}
+    def {{ data.function }}(self{% if data?.keys %},{% endif %}{{ data?.keys ?? '' }}):
+        if not self._controller:
+            return jsonify({"error": "Kein Controller registriert"}), 500
         try:
-            result = FontsController.fetch()
-
+            {% if data?.value %}
+                result = self.{{ data.value }}({{ data?.keys ?? '' }})
+            {% endif %}
         except Exception as e:
             return jsonify({"error": str(e)}), 500
+        return result
+{% endfor %}
 
-    elif request.method == 'POST':
-        try:
-            result = FontsController.handle(request.form)
+{{blueprint}}_view = {{blueprint|capitalize}}View()
 
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
+# --- Routen ---
+{% for i, data in routes %}
+@router_{{blueprint}}.route("{{ data?.url ?? url }}"{% if data?.methods %}, methods={{ data?.methods|json }}, {% endif %}strict_slashes={{ strict_slashes }})
+def {{ data.function }}({{ data?.keys ?? '' }}):
+    return {{blueprint}}_view.{{ data.function }}({{ data?.keys ?? '' }})
+{% endfor %}
 
-    else:
-        return jsonify({"error": str(e)}), 500
-
-    response, status = parse_response(result)
-
-    return jsonify(response), status
-
-
-@router_fonts.route('font/<folder>/<filename>', methods=['GET'], strict_slashes=REDIRECT_ROUTE)
-def serve_font(folder, filename):
-    return FontsController.serve_font(folder, filename)

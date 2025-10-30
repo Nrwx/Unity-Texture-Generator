@@ -1,0 +1,37 @@
+@use "../Task/_Shared";
+@use "../../view/scss/_Var" as v;
+
+.radial-wrap {
+  font-family: v.$app_font_primary;
+  .bg {
+    fill: none;
+    stroke: v.$app_svg_stroke_default;
+    stroke-width: 12;
+  }
+  .progress {
+    fill: none;
+    stroke-width: 12;
+    stroke-linecap: round;
+    transform: rotate(-90deg);
+    transform-origin: 50% 50%;
+    filter: drop-shadow(0 6px 10px v.$app_shadow_00_default);
+  }
+  .value {
+    font-size: 14px;
+    font-weight: 700;
+    fill: v.$app_svg_fill_default;
+    letter-spacing: -0.5px;
+  }
+  .label {
+    font-size: 10px;
+    fill: rgba(255,255,255,0.7);
+  }
+
+  .radial-caption {
+    .title {
+      color: v.$app_font_color_default;
+      font-weight: 600;
+      font-size: 13px; }
+    .desc { color: v.$app_font_desc_color_default; font-size: 11px; }
+  }
+}
