@@ -54,18 +54,35 @@ export async function applyViewTransform(ctx, canvas, wrapper, viewport, transfo
     try {
         if (transform && transform?.matrix) {
             const dpr = getDpr();
+            canvas.width = Math.round(viewport?.width * dpr);
+            canvas.height = Math.round(viewport?.height * dpr);
+
             if (wrapper) {
                 const zoom = transform.matrix.a || 1;
                 wrapper = canvas.parentElement;
+
                 const scale = zoom * Math.min(
                     wrapper.clientWidth / viewport.width || dpr,
                     wrapper.clientHeight / viewport.height || dpr
                 );
-                canvas.width = Math.round(viewport?.width * dpr);
-                canvas.height = Math.round(viewport?.height * dpr);
 
-                canvas.style.width = Math.round(viewport.width * scale) + "px";
-                canvas.style.height = Math.round(viewport.height * scale) + "px";
+                const newWidth = viewport.width * scale;
+                const newHeight = viewport.height * scale;
+
+                // Basis-Zentrierung im Wrapper
+                const baseCenterX = (wrapper.clientWidth - newWidth) / 2;
+                const baseCenterY = (wrapper.clientHeight - newHeight) / 2;
+
+                // transform.matrix.x / y werden korrekt addiert!
+                const finalX = baseCenterX + transform.matrix.x;
+                const finalY = baseCenterY + transform.matrix.y;
+
+                canvas.style.position = "absolute";
+                canvas.style.left = `${finalX}px`;
+                canvas.style.top = `${finalY}px`;
+                canvas.style.width = Math.round(newWidth) + "px";
+                canvas.style.height = Math.round(newHeight) + "px";
+
                 transform.matrix.d = zoom;
             }
 
@@ -73,7 +90,9 @@ export async function applyViewTransform(ctx, canvas, wrapper, viewport, transfo
             await resetViewportTransform(ctx);
             await drawBackground(ctx, canvas, background);
 
-            await applyTransformMatrix(ctx, canvas, transform);
+            if (!wrapper) {
+                await applyTransformMatrix(ctx, canvas, transform);
+            }
         }
     } catch (e) {
         console.warn('Fehler beim vorbereiten der viewport transformation;', e);
