@@ -39,7 +39,7 @@
         },
         "keyring": {
           "status": "up-to-date",
-          "version": "25.6.0"
+          "version": "25.7.0"
         },
         "matplotlib": {
           "status": "up-to-date",
@@ -59,7 +59,7 @@
         },
         "pandas": {
           "status": "up-to-date",
-          "version": "2.2.3"
+          "version": "2.3.3"
         },
         "psutil": {
           "status": "up-to-date",
@@ -75,7 +75,7 @@
         },
         "requests": {
           "status": "up-to-date",
-          "version": "2.32.3"
+          "version": "2.32.5"
         },
         "scipy": {
           "status": "up-to-date",
@@ -104,7 +104,7 @@
       }
     },
     {
-      "create_requirements": "C:\\Users\\nrwxb\\Documents\\GitHub\\Unity-Texture-Generator\\backend\\requirements.txt"
+      "create_requirements": "C:\\Users\\Eric\\PhpstormProjects\\Unity-Texture-Generator\\backend\\requirements.txt"
     },
     {
       "reconcile_conflicts": {}

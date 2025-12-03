@@ -10,14 +10,14 @@
   "log_file": "cli.log",
   "secure": {
     "service_name": "unity-texture-generator",
-    "account_name": "nrwxb",
+    "account_name": "Eric",
     "use_keyring": false,
-    "storage_path": "C:\\Users\\nrwxb\\. unity-texture-generator\\secure_store.json",
-    "key_path": "C:\\Users\\nrwxb\\. unity-texture-generator\\.secure_key",
+    "storage_path": "C:\\Users\\Eric\\.unity-texture-generator\\secure_store.json",
+    "key_path": "C:\\Users\\Eric\\.unity-texture-generator\\.secure_key",
     "project_name": "unity-texture-generator"
   },
   "dependencies": {
-    "last_build": "2025-10-28T14:00:10.679136Z",
+    "last_build": "2025-12-03T03:04:28.676372Z",
     "config": {
       "library_policy": {
         "auto_update": true,
@@ -70,7 +70,7 @@
         "freeze": false
       },
       "keyring": {
-        "version": "25.6.0",
+        "version": "25.7.0",
         "freeze": false
       },
       "matplotlib": {
@@ -90,7 +90,7 @@
         "freeze": false
       },
       "pandas": {
-        "version": "2.2.3",
+        "version": "2.3.3",
         "freeze": false
       },
       "psutil": {
@@ -106,7 +106,7 @@
         "freeze": false
       },
       "requests": {
-        "version": "2.32.3",
+        "version": "2.32.5",
         "freeze": false
       },
       "scipy": {

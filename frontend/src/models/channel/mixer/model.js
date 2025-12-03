@@ -130,6 +130,8 @@ export function channelMixerModel(props, emit) {
                 viewport: {
                     width: props.viewport.width,
                     height: props.viewport.height,
+                    rows: 1,
+                    columns: 1
                 },
                 event: {
                     pointerDown : {
