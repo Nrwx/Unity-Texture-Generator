@@ -1,145 +1,79 @@
-// -----------------------------------------------------------
-// MAIN HIT TESTING
-// -----------------------------------------------------------
 import {getCanvasCoords, sortFilter} from "@/models/canvas/core/utils/model";
-import {computeLayout} from "@/models/canvas/core/layout/model";
 import {
-    matrixAffineCombine,
-    matrixCombine,
-    matrixDefault,
     matrixMultiply,
-    matrixTranslate,
     rayCast
 } from "@/utils/matrix";
-import {combinedSegmentMatrix, transformedCorners} from "@/models/canvas/core/matrix/model";
+import {transformedCorners} from "@/models/canvas/core/matrix/model";
 
 export const selectEntity = async (model, x = null, y = null) => {
-    const {
-        canvas,
-        segments,
-        layers,
-        rows,
-        columns,
-        viewport,
-        hook,
-        _fullscreen
-    } = model;
+    if (!model?.canvas) return;
 
-    if (!canvas) return;
+    const { x: wx, y: wy } = getCanvasCoords(model, x, y);
 
-    const {x: wx, y: wy} = getCanvasCoords(canvas, x, y);
+    // -------------------
+    // Global Layers
+    // -------------------
+    if (model.layers?.length) {
+        for (const layer of await sortFilter(model.layers)) {
+            const corners = transformedCorners(layer.matrix, 0, 0, layer.width, layer.height);
 
-    const layout = computeLayout(canvas, rows, columns, viewport);
-    // -------------------------------------------------------
-    // 1) global canvas layers (non-segment layers)
-    // -------------------------------------------------------
-    if (layers.length > 0) {
-        for (const layer of await sortFilter(layers)) {
-            const lw = layer?.width || canvas?.width;
-            const lh = layer?.height || canvas?.height;
-
-            const lcm = matrixCombine(layer.matrix || matrixDefault());
-            const Mlayer = matrixAffineCombine(lcm);
-
-            const cx = lw / 2;
-            const cy = lh / 2;
-
-            const Tneg = matrixTranslate(-cx, -cy);
-            const step1 = matrixMultiply(Mlayer, Tneg);
-            const Mfull = matrixMultiply(matrixTranslate(cx, cy), step1);
-
-            const corners = transformedCorners(Mfull, 0, 0, lw, lh);
             if (rayCast(wx, wy, corners)) {
                 model.selectedSegmentId = null;
-                model.selectedLayer = {segId: null, layerId: layer.id};
-
-                if (typeof hook?.selectLayer === "function") {
-                    hook.selectLayer(model, null, {
-                        layerId: layer.id,
-                        x: wx,
-                        y: wy
-                    });
-                }
-
-                console.log({segId: null, layerId: layer.id}, 'select rycst init pss')
+                model.selectedLayer = { segId: null, layerId: layer.id };
                 return;
             }
         }
     }
 
-    // -------------------------------------------------------
-    // 2) segments (fullscreen or normal list)
-    // -------------------------------------------------------
-    const segArray = _fullscreen && segments.has(_fullscreen) ? [[_fullscreen, segments.get(_fullscreen)]] : await sortFilter(segments.entries())
-
-    for (const [segId, seg] of segArray) {
-        const sx = layout?.colOffset[seg.col] ?? 0;
-        const sy = layout?.rowOffset[seg.row] ?? 0;
-        const sw = layout.colWidths[seg.col] ?? canvas.width;
-        const sh = layout.rowHeights[seg.row] ?? canvas.height;
-
-        const MsegFull = combinedSegmentMatrix(sx, sy, sw, sh, seg.matrix);
-
-        // ---------------------------------------------------
-        // segment layers
-        // ---------------------------------------------------
-        const segLayers = seg.layers ? await sortFilter(seg.layers) : [];
-
-        for (const layer of segLayers) {
-            const lw = layer.width || sw;
-            const lh = layer.height || sh;
-
-            const lcm = matrixCombine(layer.matrix || matrixDefault());
-            const Mlayer = matrixAffineCombine(lcm);
-
-            const cxL = sx + lw / 2;
-            const cyL = sy + lh / 2;
-
-            const TnegL = matrixTranslate(-cxL, -cyL);
-            const MlayerFull = matrixMultiply(
-                matrixTranslate(cxL, cyL),
-                matrixMultiply(Mlayer, TnegL)
-            );
-
-            const Mtotal = matrixMultiply(MsegFull, MlayerFull);
-
-            const corners = transformedCorners(Mtotal, sx, sy, lw, lh);
+    // -------------------
+    // Base Layers
+    // -------------------
+    if (model.base?.length) {
+        for (const base of await sortFilter(model.base)) {
+            const corners = transformedCorners(base?.matrix, 0, 0, base.width, base.height);
 
             if (rayCast(wx, wy, corners)) {
-                model.selectedSegmentId = segId;
-                model.selectedLayer = {segId, layerId: layer.id};
-
-                if (typeof hook?.select === "function") {
-                    hook.select(model, segId, {
-                        layerId: layer.id,
-                        x: wx,
-                        y: wy
-                    });
-                }
-
-                console.log({segId, layerId: layer.id})
-                return
+                model.selectedSegmentId = null;
+                model.selectedLayer = { segId: null, layerId: base.id };
+                return;
             }
-        }
-
-        // ---------------------------------------------------
-        // segment bounding box (fallback)
-        // ---------------------------------------------------
-        const segCorners = transformedCorners(MsegFull, sx, sy, sw, sh);
-        if (rayCast(wx, wy, segCorners)) {
-            model.selectedSegmentId = segId;
-            model.selectedLayer = {segId, layerId: null};
-
-            if (typeof hook?.select === "function") {
-                hook.select(model, segId);
-            }
-            console.log('select fllbck init pss')
-            return;
         }
     }
 
-    // nothing hit
+    // -------------------
+    // Segments
+    // -------------------
+    if (model.segments?.length) {
+        const segArray = model._fullscreen
+            ? model.segments.filter(s => s.id === model._fullscreen)
+            : await sortFilter(model.segments);
+
+        for (const seg of segArray) {
+            const sw = seg.width;
+            const sh = seg.height;
+
+            const segLayers = seg.layers ? await sortFilter(seg.layers) : [];
+            for (const layer of segLayers) {
+                const Mtotal = matrixMultiply(seg.matrix, layer.matrix);
+                const corners = transformedCorners(Mtotal, 0, 0, layer.width, layer.height);
+
+                if (rayCast(wx, wy, corners)) {
+                    model.selectedSegmentId = seg.id;
+                    model.selectedLayer = { segId: seg.id, layerId: layer.id };
+                    return;
+                }
+            }
+
+            const segCorners = transformedCorners(seg.matrix, 0, 0, sw, sh);
+            if (rayCast(wx, wy, segCorners)) {
+                model.selectedSegmentId = seg.id;
+                model.selectedLayer = { segId: seg.id, layerId: null };
+                return;
+            }
+        }
+    }
+
+    // Nothing selected
     model.selectedSegmentId = null;
-    model.selectedLayer = {segId: null, layerId: null};
-    return null;
+    model.selectedLayer = { segId: null, layerId: null };
 }

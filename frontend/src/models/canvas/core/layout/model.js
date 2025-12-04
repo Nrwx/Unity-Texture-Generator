@@ -1,6 +1,4 @@
-// Layout / Grid utilities for the canvas environment
-// Exports:
-//  - computeLayout(canvas, rows, columns, viewport = {})  -> { isSingle, colWidths, rowHeights, colOffset, rowOffset }
+import {makeDefaultSegment} from "@/models/canvas/core/utils/model";
 
 /**
  * Compute segment layout for canvas and map global base/layers into segments
@@ -53,4 +51,62 @@ export const computeLayout = async (canvas, viewport = {}) => {
         colOffset,
         rowOffset
     };
+};
+
+export const ensure_segments = async (model, layout) => {
+    if (!model?.viewport?.rows || !model?.viewport?.columns) return;
+
+    const rows = model.viewport.rows;
+    const cols = model.viewport.columns;
+
+    if (!Array.isArray(model.segments)) {
+        model.segments = [];
+    }
+
+    const neededCount = rows * cols;
+
+    while (model.segments.length < neededCount) {
+        model.segments.push(makeDefaultSegment());
+    }
+
+    if (model.segments.length > neededCount) {
+        model.segments.length = neededCount;
+    }
+
+    let i = 0;
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+
+            const seg = model.segments[i];
+            seg.id = `${r}-${c}`;
+            seg.row = r;
+            seg.col = c;
+
+            seg.width = layout.colWidths[c];
+            seg.height = layout.rowHeights[r];
+
+            // important: write into matrix.x / matrix.y
+            seg.matrix.x = layout.colOffset[c];
+            seg.matrix.y = layout.rowOffset[r];
+
+            i++;
+        }
+    }
+};
+
+export const updateSegmentGridData = async (model, layout) => {
+    if (!model?.segments) return;
+
+    for (const seg of model.segments) {
+        const c = seg.col;
+        const r = seg.row;
+
+        // set grid size
+        seg.width = layout.colWidths[c];
+        seg.height = layout.rowHeights[r];
+
+        // write offset into matrix
+        seg.matrix.x = layout.colOffset[c];
+        seg.matrix.y = layout.rowOffset[r];
+    }
 };

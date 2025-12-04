@@ -22,29 +22,33 @@ export function canvasModel(props, emit) {
 
     const onPointerDown = async (e) => {
         if (!canvas.value) return;
+
         flags.value.pointerDown = true;
-        flags.value.matrix.x =  e.clientX - props.config.transform.matrix.x;
-        flags.value.matrix.y =  e.clientY - props.config.transform.matrix.y;
-        let rect;
-        if (wrapper.value) rect = wrapper.value.getBoundingClientRect();
-        else rect = canvas.value.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        await environment('select', {}, {x, y});
+
+        flags.value.matrix.x = e.clientX - props.config.matrix.x;
+        flags.value.matrix.y = e.clientY - props.config.matrix.y;
+
+        await environment('select', {}, { x: e.clientX, y: e.clientY });
+
         if (props.config?.event?.pointerDown?.handler) {
-            if (typeof props.config?.event?.pointerDown?.handler !== "function") return;
-            await nextTick();
-            await props.config.event.pointerDown.handler(e);
+            if (typeof props.config.event.pointerDown.handler === "function") {
+                await nextTick();
+                await props.config.event.pointerDown.handler(e);
+            }
         }
+
         register('add', window, 'pointermove', onPointerMove);
         register('add', window, 'pointerup', onPointerUp);
+
         if (props.config?.event?.pointerDown?.emit) props.config.update = true;
     };
 
+
+
     const onPointerMove = async (e) => {
         if (!flags.value.pointerDown) return;
-        props.config.transform.matrix.x = e.clientX - flags.value?.matrix?.x;
-        props.config.transform.matrix.y = e.clientY - flags.value?.matrix?.y;
+        props.config.matrix.x = e.clientX - flags.value?.matrix?.x;
+        props.config.matrix.y = e.clientY - flags.value?.matrix?.y;
         if (props.config?.event?.pointerMove?.handler) {
             if (typeof props.config?.event?.pointerMove?.handler !== "function") return;
             await nextTick();
@@ -113,13 +117,13 @@ export function canvasModel(props, emit) {
         e.preventDefault();
 
         const delta = -e.deltaY / 500;
-        const oldZoom = props.config.transform.matrix.a;
+        const oldZoom = props.config.matrix.a;
         const newZoom = Math.min(4, Math.max(0.25, oldZoom + delta));
 
         flags.value.matrix.a = newZoom;
         flags.value.matrix.d = newZoom;
-        props.config.transform.matrix.a = newZoom;
-        props.config.transform.matrix.d = newZoom;
+        props.config.matrix.a = newZoom;
+        props.config.matrix.d = newZoom;
 
         if (props.config?.event?.wheel?.handler) {
             if (typeof props.config?.event?.wheel?.handler === "function") {

@@ -37,11 +37,8 @@ export function channelMixerModel(props, emit) {
             id: uuid(),
             width: c.width,
             height: c.height,
-            matrix: matrixDefault(),
             order: i,
             url: c.url,
-            opacity: 1,
-            hidden: 0,
             value: c.id,
             label: c.name || `Channel ${c.id}`
         }))
@@ -51,7 +48,7 @@ export function channelMixerModel(props, emit) {
         if (mode === 'base') {
             const item = props.channel.find(x => x.id === layerId);
             if (item) {
-                return emitEvent('channel:mixer-base', item);
+                return emitEvent('channel:mixer-base', {...item, matrix: matrixDefault()});
             }
         } else if (mode === 'overlay') {
             const layer = props.data.layers.find(l => l.id === layerId);
@@ -82,6 +79,7 @@ export function channelMixerModel(props, emit) {
             id: uuid(),
             ref: null,
             blend_mode: 'multiply',
+            matrix: matrixDefault(),
             opacity: 0.5,
             url: null,
             width: props.viewport.width,

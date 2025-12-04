@@ -11,6 +11,76 @@ import {drawBackground} from "@/models/canvas/background/model";
 
 export const ensureModel = (id, ref) => ref.get(id);
 
+export const ensureCanvasModel = async (m) => {
+    if (!m) return;
+
+    // ensure canvas + ctx
+    if (!(m.canvas instanceof HTMLCanvasElement)) return;
+    if (!m.ctx) m.ctx = m.canvas.getContext("2d");
+
+    // ensure basic objects
+    if (!m.background) m.background = "checker";
+
+    if (!m.viewport) {
+        m.viewport = {width: 256, height: 256, rows: 1, columns: 1};
+    }
+
+    if (!m.matrix) m.matrix = matrixDefault();
+
+    if (!Array.isArray(m.base)) m.base = [];
+    if (!Array.isArray(m.layers)) m.layers = [];
+    if (!Array.isArray(m.segments)) m.segments = [];
+
+    // ensure each base has matrix
+    for (const b of m.base) {
+        if (!b.matrix) b.matrix = matrixDefault();
+    }
+
+    // ensure each layer has matrix
+    for (const l of m.layers) {
+        if (!l.matrix) l.matrix = matrixDefault();
+    }
+
+    // ensure segments
+    for (const seg of m.segments) {
+        if (!seg.matrix) seg.matrix = matrixDefault();
+
+        if (!Array.isArray(seg.layers)) seg.layers = [];
+        if (!Array.isArray(seg.base)) seg.base = [];
+
+        // ensure sub layers have matrix
+        for (const l of seg.layers) {
+            if (!l.matrix) l.matrix = matrixDefault();
+        }
+    }
+
+    // selection guard
+    if (!m.selectedLayer) {
+        m.selectedLayer = {segId: null, layerId: null};
+    }
+    if (!m.selectedSegmentId) m.selectedSegmentId = null;
+    if (!m._fullscreen) m._fullscreen = null;
+
+    return m;
+};
+
+
+export const makeDefaultSegment = () => {
+    return {
+        id: "",
+        row: 0,
+        col: 0,
+        width: 100,
+        height: 100,
+        opacity: 1,
+        background: null,
+        matrix: matrixDefault(),
+        base: [],
+        layers: []
+    };
+}
+
+
 export function safeCall(fn) {
     try {
         return fn();
@@ -50,15 +120,15 @@ export function clamp(n, min, max) {
 // Generic transform before rendering, used by renderer & export
 // transform = { mode: 'none'|'panzoom', x, y, scaleX, scaleY }
 // -----------------------------------------------------------
-export async function applyViewTransform(ctx, canvas, wrapper, viewport, transform, background) {
+export async function applyViewTransform(ctx, canvas, wrapper, viewport, matrix, background) {
     try {
-        if (transform && transform?.matrix) {
+        if (matrix) {
             const dpr = getDpr();
             canvas.width = Math.round(viewport?.width * dpr);
             canvas.height = Math.round(viewport?.height * dpr);
 
             if (wrapper) {
-                const zoom = transform.matrix.a || 1;
+                const zoom = matrix.a || 1;
                 wrapper = canvas.parentElement;
 
                 const scale = zoom * Math.min(
@@ -74,8 +144,8 @@ export async function applyViewTransform(ctx, canvas, wrapper, viewport, transfo
                 const baseCenterY = (wrapper.clientHeight - newHeight) / 2;
 
                 // transform.matrix.x / y werden korrekt addiert!
-                const finalX = baseCenterX + transform.matrix.x;
-                const finalY = baseCenterY + transform.matrix.y;
+                const finalX = baseCenterX + matrix.x;
+                const finalY = baseCenterY + matrix.y;
 
                 canvas.style.position = "absolute";
                 canvas.style.left = `${finalX}px`;
@@ -83,7 +153,7 @@ export async function applyViewTransform(ctx, canvas, wrapper, viewport, transfo
                 canvas.style.width = Math.round(newWidth) + "px";
                 canvas.style.height = Math.round(newHeight) + "px";
 
-                transform.matrix.d = zoom;
+                matrix.d = zoom;
             }
 
             await clearCanvas(ctx, canvas);
@@ -91,7 +161,7 @@ export async function applyViewTransform(ctx, canvas, wrapper, viewport, transfo
             await drawBackground(ctx, canvas, background);
 
             if (!wrapper) {
-                await applyTransformMatrix(ctx, canvas, transform);
+                await applyTransformMatrix(ctx, canvas, matrix);
             }
         }
     } catch (e) {
@@ -102,22 +172,22 @@ export async function applyViewTransform(ctx, canvas, wrapper, viewport, transfo
 // -----------------------------------------------------------
 // applyTransformMatrix(ctx, canvas, transform)
 // -----------------------------------------------------------
-export async function applyTransformMatrix(ctx, el, transform) {
+export async function applyTransformMatrix(ctx, el, matrix) {
     try {
         const dpr = getDpr();
         const cx = (el.width / dpr) / 2;
         const cy = (el.height / dpr) / 2;
-        ctx.translate(transform.matrix.x, transform.matrix.y);
-        if (transform.matrix.rotate) {
+        ctx.translate(matrix.x, matrix.y);
+        if (matrix.rotate) {
             ctx.translate(cx, cy);
-            ctx.rotate(deg2rad(transform.matrix.rotate));
+            ctx.rotate(deg2rad(matrix.rotate));
             ctx.translate(-cx, -cy);
         }
         ctx.transform(
-            transform.matrix.a,
-            transform.matrix.b,
-            transform.matrix.c,
-            transform.matrix.d,
+            matrix.a,
+            matrix.b,
+            matrix.c,
+            matrix.d,
             0, 0
         );
     } catch (e) {
@@ -173,9 +243,45 @@ export function rectCorners(x, y, w, h) {
 // getCanvasCoords(canvas, clientX, clientY)
 // maps mouse to canvas space
 // -----------------------------------------------------------
-export function getCanvasCoords(canvas, clientX, clientY) {
+export function getCanvasCoords(model, clientX, clientY) {
+    const canvas = model.canvas;
+    const dpr = getDpr();
+
+    if (model.wrapper) {
+        const wrapper = canvas.parentElement;
+        const rect = wrapper.getBoundingClientRect();
+
+        // client -> wrapper space
+        const rx = clientX - rect.left;
+        const ry = clientY - rect.top;
+
+        // zoom (aus matrix) und scale (wie in applyViewTransform)
+        const zoom = model.matrix?.a ?? 1;
+        const scale = Math.min(
+            wrapper.clientWidth / model.viewport.width,
+            wrapper.clientHeight / model.viewport.height
+        ) * zoom;
+
+        const newWidth = model.viewport.width * scale;
+        const newHeight = model.viewport.height * scale;
+
+        const baseCenterX = (wrapper.clientWidth - newWidth) / 2;
+        const baseCenterY = (wrapper.clientHeight - newHeight) / 2;
+
+        const finalX = baseCenterX + (model.matrix?.x || 0);
+        const finalY = baseCenterY + (model.matrix?.y || 0);
+
+        return {
+            x: ((rx - finalX) / scale) * dpr,
+            y: ((ry - finalY) / scale) * dpr
+        };
+    }
+
+    // CASE 2 — Canvas ohne Wrapper
     const rect = canvas.getBoundingClientRect();
-    const x = (clientX - rect.left) * (canvas.width / rect.width);
-    const y = (clientY - rect.top) * (canvas.height / rect.height);
-    return { x, y };
+    return {
+        x: (clientX - rect.left) * (canvas.width / rect.width),
+        y: (clientY - rect.top) * (canvas.height / rect.height)
+    };
 }
+

@@ -6,7 +6,8 @@ import {exportAllSegmentsToBase64} from "@/models/canvas/core/export/model";
 import {selectEntity} from "@/models/canvas/core/event/model";
 import {render} from "@/models/canvas/core/render/model";
 import {nextTick} from "vue";
-import {ensureModel} from "@/models/canvas/core/utils/model";
+import {ensureCanvasModel, ensureModel} from "@/models/canvas/core/utils/model";
+import {computeLayout, ensure_segments} from "@/models/canvas/core/layout/model";
 
 /**
  * createCanvasEnvironment - Canvas manager
@@ -48,12 +49,12 @@ export const createCanvasEnvironment = () => {
                         columns: 1
                     },
                     ctx: config.canvas.getContext("2d"),
-                    base: config?.base?.length || [],
-                    layers: config?.layers?.length || [],
-                    segments: new Map(),
+                    base: config?.base || [],
+                    layers: config?.layers || [],
+                    segments: config?.segments || [],
                     selectedSegmentId: null,
                     selectedLayer: {segId: null, layerId: null},
-                    transform: config?.transform || {matrix: matrixDefault()},
+                    matrix: config?.matrix || matrixDefault(),
                     hook: config?.hook || {},
                     _paused: false,
                     _fullscreen: null
@@ -61,6 +62,11 @@ export const createCanvasEnvironment = () => {
                 await nextTick();
                 const m = ensureModel(id, canvasEnvironment.value.models);
                 if (!m) return;
+                await ensureCanvasModel(m);
+                if (m.viewport) {
+                    const layout = await computeLayout(m.canvas, m.viewport);
+                    await ensure_segments(m, layout);
+                }
                 if (typeof config?.hook?.register === 'function') {
                     try {
                         await nextTick();
@@ -73,6 +79,45 @@ export const createCanvasEnvironment = () => {
             }
         } catch (e) {
             console.error('Fehler beim registrieren des Canvas: ', id)
+        }
+    };
+
+    /**
+     * | API | Instanz-Updaten
+     *  -> Erfordert die Canvas-Register-ID.
+     *  -> Erfordert eine Update-Konfiguration.
+     * @param {string} [id=null]
+     * @param {object} [config=null]
+     * @param {boolean} [loop=false]
+     */
+    const update = async (id, config, loop= false) => {
+        try {
+            const m = ensureModel(id, canvasEnvironment.value.models);
+            if (!m) return;
+            for (const key in config) {
+                let back = null;
+                try {
+                    back = m[key];
+                    m[key] = config[key];
+                } catch (e){
+                    m[key] = back;
+                    console.log('Canvas springt auf vorherigen wert:', back, e)
+                }
+            }
+            const step = async () => {
+                await render(m);
+                if(m?.emit && m?.update){
+                    await m.emit.handler(m.emit.event, {...m, update: false})
+                    console.log('UPDATE M', m.emit.event, m)
+                }
+                if (loop) {
+                    const ref = requestAnimationFrame(step);
+                    canvasEnvironment.value.rafIds.set(id, ref);
+                }
+            };
+            await step();
+        } catch (e) {
+            console.error('Fehler beim updaten der Canvas-Instanz!', e)
         }
     };
 
@@ -153,64 +198,25 @@ export const createCanvasEnvironment = () => {
     };
 
 
-    /**
-     * | API | Instanz-Updaten
-     *  -> Erfordert die Canvas-Register-ID.
-     *  -> Erfordert eine Update-Konfiguration.
-     * @param {string} [id=null]
-     * @param {object} [config=null]
-     * @param {boolean} [loop=false]
-     */
-    const update = async (id, config, loop= false) => {
-        try {
-            const m = ensureModel(id, canvasEnvironment.value.models);
-            if (!m) return;
-            for (const key in config) {
-                let back = null;
-                try {
-                    back = m[key];
-                    m[key] = config[key];
-                } catch (e){
-                    m[key] = back;
-                    console.log('Canvas springt auf vorherigen wert:', back, e)
-                }
-            }
-            const step = async () => {
-                await render(m);
-                if(m?.emit && m?.update){
-                    await m.emit.handler(m.emit.event, {...m, update: false})
-                    console.log('UPDATE M', m.emit.event, m)
-                }
-                if (loop) {
-                    const ref = requestAnimationFrame(step);
-                    canvasEnvironment.value.rafIds.set(id, ref);
-                }
-            };
-            await step();
-        } catch (e) {
-            console.error('Fehler beim updaten der Canvas-Instanz!', e)
-        }
-    };
-
     // -----------------------------------------------------------
     // SEGMENTS API
     // -----------------------------------------------------------
-    const addSegment = async (canvasId, segmentId, row, col, data = {}) => {
+    const addSegment = async (canvasId, segmentId, data = {}) => {
         const m = ensureModel(canvasId, canvasEnvironment.value.models);
         if (!m) return;
 
         m?.segments.set(segmentId, {
-            row, col,
-            data: data,
+            row: data.row,
+            col: data.col,
             matrix: data.matrix || matrixDefault(),
             order: data.order ?? 0,
             hidden: data.hidden ?? 0,
             opacity: data.opacity ?? 1,
             blend_mode: data.blend_mode ?? 0,
-            url: data.url ?? null,
             width: data.width ?? null,
             height: data.height ?? null,
-            layers: new Map(),
+            base: [],
+            layers: [],
             hook: {renderer: data.hook?.renderer ?? null}
         });
 

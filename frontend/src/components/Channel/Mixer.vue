@@ -21,7 +21,7 @@
 
               <div class="control d-flex flex-column ga-1">
                 <label>Zoom</label>
-                <input type="range" min="0.25" max="2" step="0.25" v-model.number="data.transform.matrix.a"/>
+                <input type="range" min="0.25" max="2" step="0.25" v-model.number="data.matrix.a"/>
               </div>
 
               <div class="control">

@@ -30,7 +30,7 @@ export const channelEvent = (route) => ({
         route.mixerConfig.value.base = [payload];
     },
     "channel:mixer-reset": async (payload) => {
-        route.mixerConfig.value.transform.matrix = matrixDefault();
+        route.mixerConfig.value.matrix = matrixDefault();
         if(payload === true) {
             route.mixerConfig.value.background = 'checker';
             route.mixerConfig.value.active = false;

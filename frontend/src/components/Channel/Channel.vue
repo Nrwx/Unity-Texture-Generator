@@ -30,7 +30,6 @@
 
         <div class="channel-controls d-flex align-center ga-2 ml-2">
           <button type="button" class="btn" @click="handleChannel(channel.id)">Mix</button>
-          <button type="button" class="btn" @click="handleChannel(channel.id)">Export</button>
         </div>
       </div>
     </v-list-item>

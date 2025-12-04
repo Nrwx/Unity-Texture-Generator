@@ -6,7 +6,7 @@ export const mixerConfig = ref({
     active: false,
     event: null,
     target: '',
-    transform: {matrix: matrixDefault()},
+    matrix: matrixDefault(),
     slots: 3,
     base: [],
     layers: []

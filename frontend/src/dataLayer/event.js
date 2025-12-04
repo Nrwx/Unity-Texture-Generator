@@ -222,8 +222,7 @@ export const canvasRegister = (id = '', emitEvent = null) => {
 
             case 'select':
                 emitEvent('canvas:select', {
-                    x: payload?.x,
-                    y: payload?.y,
+                    ...payload,
                     id: payload?.id || id,
                 });
                 break;
