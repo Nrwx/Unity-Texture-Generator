@@ -2,92 +2,16 @@ import os
 import uuid
 import shutil
 import base64
-from config.data.constant import LAYERS, VIEWPORT_CONFIG, CHANNELS
+from config.data.constant import LAYERS, VIEWPORT_CONFIG
 from model.base.main import BaseModel
 from model.layer_model import LayerModel
 from model.fonts_model import FontsModel
-from components import generate_channels, generate_text_path_map, render_svg, generate_thumbnail_map
-from generated.paths import PUBLIC_TEMP_RENDER_FOLDER, PUBLIC_LAYER_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER, PUBLIC_TEMP_CHANNEL_FOLDER
+from components import (apply_channel, generate_text_path_map, render_svg, generate_thumbnail_map)
+from generated.paths import PUBLIC_TEMP_RENDER_FOLDER, PUBLIC_LAYER_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER
 from PIL import Image
 from utils import (layer_transform, time)
 
 class RenderModel(BaseModel):
-
-    @classmethod
-    def channel(cls):
-        try:
-            # cleanup temp folder
-            if os.path.exists(PUBLIC_TEMP_CHANNEL_FOLDER):
-                shutil.rmtree(PUBLIC_TEMP_CHANNEL_FOLDER)
-
-            # get full preview image from asset
-            result = cls.preview(return_image=True)
-            if isinstance(result, tuple) and "error" in result[0]:
-                return result
-
-            composite_image = result  # RGBA base image
-            temp_channels = generate_channels(composite_image)  # R/G/B/A
-
-            channel_titles = {
-                "R": "Red",
-                "G": "Green",
-                "B": "Blue",
-                "A": "Alpha",
-                "COMBINED": "Combined"
-            }
-
-            # clear old global list
-            CHANNELS.clear()
-
-            # recreate output folder
-            os.makedirs(PUBLIC_TEMP_CHANNEL_FOLDER, exist_ok=True)
-
-            # ---- Save individual R,G,B,A channels ----
-            for key, img in temp_channels.items():
-                map_id = str(uuid.uuid4())
-                filename = f"{map_id}.png"
-                path = os.path.join(PUBLIC_TEMP_CHANNEL_FOLDER, filename)
-
-                img.save(path, format="PNG", quality=100)
-                thumbnail_url = cls._thumbnail(map_id, path, size=64)
-
-                CHANNELS.append({
-                    "time": time('unix_ms'),
-                    "id": map_id,
-                    "name": channel_titles.get(key, key),
-                    "url": f"/download/{filename}",
-                    "thumbnail": thumbnail_url,
-                    "width": img.width,
-                    "height": img.height
-                })
-
-            # ---- NEW: Create + append Combined channel ----
-            combined_id = str(uuid.uuid4())
-            combined_filename = f"{combined_id}.png"
-            combined_path = os.path.join(PUBLIC_TEMP_CHANNEL_FOLDER, combined_filename)
-
-            combined_image = composite_image.copy()
-            combined_image.save(combined_path, format="PNG", quality=100)
-
-            combined_thumb = cls._thumbnail(combined_id, combined_path, size=64)
-
-            CHANNELS.append({
-                "time": time('unix_ms'),
-                "id": combined_id,
-                "combined": True,
-                "name": channel_titles["COMBINED"],
-                "url": f"/download/{combined_filename}",
-                "thumbnail": combined_thumb,
-                "width": combined_image.width,
-                "height": combined_image.height
-            })
-
-            return CHANNELS, 200
-
-        except Exception as e:
-            return cls.handle_error(e)
-
-
     @classmethod
     def preview(cls, return_image=False, layer_id=None):
         try:
@@ -98,16 +22,18 @@ class RenderModel(BaseModel):
             viewport_height = VIEWPORT_CONFIG[0]["height"]
             composite_image = Image.new('RGBA', (viewport_width, viewport_height), (0, 0, 0, 0))
 
-            render_layers = []
-            if layer_id:
-                single_layer = next((l for l in LAYERS if l["id"] == layer_id), None)
-                if single_layer is None:
-                    return {"error": f"Layer with id '{layer_id}' not found."}, 404
-                render_layers.append(single_layer)
+            # --- layer_id immer als Liste behandeln ---
+            layer_ids = layer_id if isinstance(layer_id, list) else [layer_id] if layer_id else None
+
+            if layer_ids:
+                render_layers = [l for l in LAYERS if l["id"] in layer_ids]
+                if not render_layers:
+                    return {"error": "None of the specified layer_ids found."}, 404
             else:
                 render_layers = [l for l in LAYERS if l.get("hidden", 0) != 1]
 
             for layer in render_layers:
+                # Bild laden
                 if layer.get("type") == 2:  # Path Layer
                     layer_img = render_svg(layer['id'])
                     if not layer_img:
@@ -121,6 +47,9 @@ class RenderModel(BaseModel):
                     if not os.path.exists(layer_path):
                         continue
                     layer_img = Image.open(layer_path).convert('RGBA')
+
+                channel_config = layer.get("channel", {})
+                layer_img = apply_channel(layer_img, channel_config)
 
                 # Transformation anwenden
                 transformed_img, paste_x, paste_y = layer_transform(
@@ -146,8 +75,10 @@ class RenderModel(BaseModel):
                 "title": "preview",
                 "src": f"/download/{map_filename}"
             }, 200
+
         except Exception as e:
             return cls.handle_error(e)
+
 
     @classmethod
     def text_to_path(cls, id):

@@ -113,7 +113,8 @@ export function layerModel(props, emit) {
             emitEvent('layer:select', [])
         }
         if(index === 1) {
-            emitEvent('renderer:channel')
+            const payload = props.selectedLayer.map(x => x.id);
+            emitEvent('channel:fetch', payload)
         }
         if(index === 2) {
             emitEvent('path:fetch')
@@ -213,6 +214,10 @@ export const layerProps = {
         type: Array,
         required: true,
         default: () => []
+    },
+    channelSettings: {
+        type: Object,
+        required: true
     },
     theme: {
         type: String,

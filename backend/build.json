@@ -17,7 +17,7 @@
     "project_name": "unity-texture-generator"
   },
   "dependencies": {
-    "last_build": "2025-12-04T03:32:36.591452Z",
+    "last_build": "2025-12-05T04:24:47.022255Z",
     "config": {
       "library_policy": {
         "auto_update": true,
@@ -357,6 +357,61 @@
       }
     },
     {
+      "blueprint": "channel",
+      "view_module": "view.channel_view",
+      "controller": "controller.channel_controller",
+      "model": "model.channel_model",
+      "url": "/channel",
+      "strict_slashes": false,
+      "active": true,
+      "routes": {
+        "0": {
+          "methods": [
+            "POST"
+          ],
+          "url": "",
+          "function": "handle_channel",
+          "value": "dispatch"
+        }
+      },
+      "method_map": {
+        "fetch": {
+          "keys": [
+            "ids"
+          ],
+          "function": "fetch"
+        },
+        "setting": {
+          "keys": [
+            "ids"
+          ],
+          "function": "setting"
+        },
+        "toggle": {
+          "keys": [
+            "state",
+            "channel",
+            "ids"
+          ],
+          "function": "toggle"
+        }
+      },
+      "api": {
+        "dependency": {
+          "view": [
+            "log"
+          ],
+          "controller": [
+            "log"
+          ],
+          "model": [
+            "syslink",
+            "log"
+          ]
+        }
+      }
+    },
+    {
       "blueprint": "cursor",
       "view_module": "view.cursor_view",
       "controller": "controller.cursor_controller",
@@ -617,6 +672,7 @@
             "x",
             "y",
             "rotate",
+            "channel",
             "order",
             "hidden",
             "opacity",
@@ -869,10 +925,6 @@
         }
       },
       "method_map": {
-        "channel": {
-          "keys": [],
-          "function": "channel"
-        },
         "preview": {
           "keys": [],
           "function": "preview"

@@ -62,6 +62,14 @@ export const localData = {
     dimension: ref({width: 1024, height: 1024}),
     layers: ref([]),
     channel: ref([]),
+    channelSettings: ref({
+        alpha :true,
+        blue: true,
+        cyan: false,
+        green: true,
+        grey: false,
+        red: true
+    }),
     selectedChannel: ref(null),
     selectedLayer: ref([]),
     selectedMaps: ref(["Diffuse Map"]),

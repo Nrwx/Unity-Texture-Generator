@@ -1,4 +1,5 @@
 from .apply_color_fill import apply_color_fill
+from .apply_channel import apply_channel
 from .apply_mask import apply_mask
 from .apply_rgb_mode import apply_rgb_mode
 from .apply_rgba_mode import apply_rgba_mode

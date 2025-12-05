@@ -19,6 +19,7 @@ from .maps.generate_alpha_map import generate_alpha_map
 from .maps.generate_stone_map import generate_stone_map
 from .maps.generate_grass_map import generate_grass_map
 
+from .modifiers.apply_channel import apply_channel
 from .modifiers.apply_color_fill import apply_color_fill
 from .modifiers.apply_mask import apply_mask
 from .modifiers.apply_rgb_mode import apply_rgb_mode

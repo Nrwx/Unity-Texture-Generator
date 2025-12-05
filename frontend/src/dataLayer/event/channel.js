@@ -1,11 +1,39 @@
 import {matrixDefault} from "@/utils/matrix";
+import {nextTick} from "vue";
 
 export const channelEvent = (route) => ({
-    "renderer:channel": async () => {
-        const response = await route.api.renderer({mode: 'channel'})
+    "channel:fetch": async (payload) => {
+        try {
+            // Channel-Daten holen
+            const response = await route.api.fetchChannel({ ids: payload });
+            if (response) {
+                route.localData.channel.value = response;
+
+                // Channel-Settings abrufen
+                const settings = await route.api.channelSettings({ ids: payload });
+                if (settings) route.localData.channelSettings.value = settings;
+
+                // Ausgewählte Layer anhand der IDs ermitteln
+                const selectedLayers = [];
+                if (payload?.length) {
+                    selectedLayers.push(
+                        ...route.localData.layers.value.filter(layer => payload.includes(layer.id))
+                    );
+                }
+
+                // Event senden
+                await route.emit('fetch-layer');
+                await nextTick();
+                await route.emit('layer:select', selectedLayers);
+            }
+        } catch (error) {
+            console.error("Fehler beim Abrufen der Channels:", error);
+        }
+    },
+    "channel:toggle": async (payload) => {
+        const response = await route.api.toggleChannel(payload)
         if (response) {
-            route.localData.channel.value = response
-            console.log(response)
+            await route.emit("channel:fetch", payload.ids);
         }
     },
     "channel:mixer-state": async (payload) => {

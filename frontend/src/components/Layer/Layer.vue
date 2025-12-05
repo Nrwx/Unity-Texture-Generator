@@ -65,7 +65,7 @@
                 <v-list-item
                     v-for="(layer) in layers"
                     v-show="shouldShowLayer(layer)"
-                    :key="layer.id"
+                    :key="layer.time"
                     :disabled="windowStates.drag.value && dragId === layer.id"
                     :data-id="layer.id"
                     class="layer-item"
@@ -140,7 +140,7 @@
             </Drag>
           </v-list>
 
-          <Channel v-show="tabIndex === 1 && channel.length > 0" :data="channel" :theme="theme" @update:componentEvent="emitEvent"/>
+          <Channel v-show="tabIndex === 1 && channel.length > 0" :data="channel" :settings="channelSettings" :theme="theme" @update:componentEvent="emitEvent"/>
 
           <Path v-show="tabIndex === 2 && paths.length > 0" :data="paths" @update:componentEvent="emitEvent"/>
         </div>

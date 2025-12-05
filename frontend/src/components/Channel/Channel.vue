@@ -5,9 +5,21 @@
         v-for="(channel) in data.filter(x => !x?.combined)"
         :key="channel.id"
         :data-id="channel.id"
-        class="channel-item d-flex align-center ga-2 py-2"
+        class="layer-item"
     >
-      <div class="channel-row w-100 d-flex center justify-space-between">
+      <template v-slot:prepend>
+        <v-checkbox
+            v-model="channelChecked[channel.name.toLowerCase()]"
+            @click.stop="toggleChannel(channel)"
+            hide-details
+            dense
+        ></v-checkbox>
+      </template>
+
+      <template v-slot:append>
+        <v-icon color="grey" @click="handleChannel(channel.id)">mdi-tune-vertical</v-icon>
+      </template>
+      <div class="d-flex align-baseline">
         <v-text-field
             v-model="channel.name"
             variant="outlined"
@@ -27,10 +39,6 @@
             </v-tooltip>
           </template>
         </v-text-field>
-
-        <div class="channel-controls d-flex align-center ga-2 ml-2">
-          <button type="button" class="btn" @click="handleChannel(channel.id)">Mix</button>
-        </div>
       </div>
     </v-list-item>
   </v-list>

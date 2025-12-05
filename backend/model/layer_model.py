@@ -10,7 +10,7 @@ from generated.paths import ( PUBLIC_BACKUP_FOLDER, PUBLIC_LAYER_FOLDER, PUBLIC_
 from model.base.main import BaseModel
 from config.data.constant import ( VIEWPORT_CONFIG, LAYERS, CHANNELS, PATHS, GROUPS )
 from model.backup_model import BackupModel
-from components import ( generate_channels, apply_color, apply_mask, apply_blend_layer, get_svg_box, generate_svg_map, generate_thumbnail_map, render_svg)
+from components import ( apply_channel, generate_channels, apply_color, apply_mask, apply_blend_layer, get_svg_box, generate_svg_map, generate_thumbnail_map, render_svg)
 from utils import get_path, apply_rgb_rgba, apply_alpha, time, layer_transform
 
 class LayerModel(BaseModel):
@@ -65,6 +65,16 @@ class LayerModel(BaseModel):
                 "rotate": 0,
             }
 
+            channel = {
+                "red": True,
+                "green": True,
+                "blue": True,
+                "alpha": True,
+                "cyan": False,
+                "grey": False,
+                "combined": False
+            }
+
             layer = {
                 "time": time('unix_ms'),
                 "type": type,
@@ -80,6 +90,7 @@ class LayerModel(BaseModel):
                 "hidden": 0,
                 "group": None,
                 "opacity": 1,
+                "channel": channel,
                 "blend_mode": 0,
                 "color": "#ffffff",
                 "mask": ""
@@ -119,7 +130,7 @@ class LayerModel(BaseModel):
             return cls.handle_error(e)
 
     @classmethod
-    def update(cls, type, name, width, height, url, id, a, b, c, d, x, y, rotate, order, hidden, opacity, blend_mode, color, mask):
+    def update(cls, type, name, width, height, url, id, a, b, c, d, x, y, rotate, order, hidden, channel, opacity, blend_mode, color, mask):
         try:
             layer = next((l for l in LAYERS if l["id"] == id), None)
             if not layer:
@@ -161,6 +172,14 @@ class LayerModel(BaseModel):
                 layer["color"] = color
             if mask:
                 layer["mask"] = mask
+            if channel:
+                layer["channel"] = channel
+                image_path = os.path.join(PUBLIC_LAYER_FOLDER, f"{id}.png")
+                if os.path.exists(image_path):
+                    layer_img = Image.open(image_path).convert("RGBA")
+                    layer_img = apply_channel(layer_img, channel)
+                    layer_img.save(image_path, "PNG", quality=100)
+                    layer["url"] = f"/download/{id}.png"
             if type != 4:
                 image_path = os.path.join(PUBLIC_LAYER_FOLDER, f"{id}.png")
                 if os.path.exists(image_path):

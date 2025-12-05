@@ -14,10 +14,10 @@ def generate_channels(image: Image.Image):
 
     # Optional: zu PIL zurückwandeln
     channels = {
-        "R": Image.fromarray(r),
-        "G": Image.fromarray(g),
-        "B": Image.fromarray(b),
-        "A": Image.fromarray(a)
+        "red": Image.fromarray(r),
+        "green": Image.fromarray(g),
+        "blue": Image.fromarray(b),
+        "alpha": Image.fromarray(a)
     }
 
     print(len(channels))

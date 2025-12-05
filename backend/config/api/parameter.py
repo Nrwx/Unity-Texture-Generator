@@ -29,6 +29,13 @@ PARAMETERS = {
         "rotation": {"type": float, "required": True},
         "opacity": {"type": float, "required": True},
     },
+    "channel": {
+        "method": {"type": str, "required": True},
+        "id": {"type": str, "required": False},
+        "ids": {"type": list, "required": False},
+        "state": {"type": bool, "required": False},
+        "channel": {"type": str, "required": False}
+    },
     "settings": {
         "method": {"type": str, "required": True},
         "id": {"type": str, "default": "Unknown"},
@@ -206,6 +213,7 @@ PARAMETERS = {
         "ids": {"type": list, "default": []},
         "group": {"type": str, "default": None},
         "reset": {"type": bool, "default": False},
+        "channel": {"type": dict, "default": {}},
 
         # TextLayer spezifisch
         "font": {"type": str, "default": ""},
