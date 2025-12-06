@@ -12,7 +12,7 @@ from generated.paths import (
     PUBLIC_TEMP_MASK_FOLDER,
     PUBLIC_TEMP_CURSOR_FOLDER,
 )
-from config.data.constant import FRONTEND_PATH
+from config.data.constant import FRONTEND_PATH, HEADER_NO_CACHE
 
 
 class AppController(BaseController):
@@ -38,6 +38,8 @@ class AppController(BaseController):
             return jsonify({"error": f"Datei '{path}' nicht gefunden"}), 404
         return send_from_directory(FRONTEND_PATH[0], path)
 
+
+
     @staticmethod
     def download(filename: str):
         """
@@ -57,6 +59,14 @@ class AppController(BaseController):
             file_path = os.path.join(folder, filename)
             if os.path.exists(file_path):
                 mimetype, _ = mimetypes.guess_type(file_path)
-                return send_file(file_path, mimetype=mimetype or "application/octet-stream")
+
+                response = send_file(file_path, mimetype=mimetype or "application/octet-stream")
+
+                if HEADER_NO_CACHE:
+                    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+                    response.headers["Pragma"] = "no-cache"
+                    response.headers["Expires"] = "0"
+
+                return response
 
         return jsonify({"error": "Datei nicht gefunden"}), 404

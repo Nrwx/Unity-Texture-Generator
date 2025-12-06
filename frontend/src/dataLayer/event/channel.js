@@ -4,7 +4,6 @@ import {nextTick} from "vue";
 export const channelEvent = (route) => ({
     "channel:fetch": async (payload) => {
         try {
-            // Channel-Daten holen
             const response = await route.api.fetchChannel({ ids: payload });
             if (response) {
                 route.localData.channel.value = response;
@@ -12,28 +11,88 @@ export const channelEvent = (route) => ({
                 // Channel-Settings abrufen
                 const settings = await route.api.channelSettings({ ids: payload });
                 if (settings) route.localData.channelSettings.value = settings;
-
-                // Ausgewählte Layer anhand der IDs ermitteln
-                const selectedLayers = [];
                 if (payload?.length) {
+                    const selectedLayers = [];
                     selectedLayers.push(
                         ...route.localData.layers.value.filter(layer => payload.includes(layer.id))
                     );
+                    await route.emit('layer:select', selectedLayers);
                 }
-
-                // Event senden
-                await route.emit('fetch-layer');
-                await nextTick();
-                await route.emit('layer:select', selectedLayers);
             }
         } catch (error) {
             console.error("Fehler beim Abrufen der Channels:", error);
         }
     },
+    "channel:update": async (payload) => {
+        await route.emit('fetch-layer');
+        await nextTick();
+
+        const selectedLayers = [];
+        if (payload?.length) {
+            selectedLayers.push(
+                ...route.localData.layers.value.filter(layer => payload.includes(layer.id))
+            );
+        }
+        if (selectedLayers.length){
+            selectedLayers.forEach(layer => {
+                route.emit('update-layer', {id: layer.id, width: layer.width, height: layer.height, channel: layer.channel, matrix: layer.matrix})
+            })
+        } else {
+            route.localData.layers.value.forEach(layer => {
+                route.emit('update-layer', {id: layer.id,  width: layer.width, height: layer.height, channel: layer.channel, matrix: layer.matrix})
+            })
+        }
+        await nextTick();
+        await route.emit('layer:select', selectedLayers);
+    },
+    "channel:create": async (payload) => {
+        try {
+            const response = await route.api.createChannel(payload);
+            if (response?.id) {
+                await route.emit('channel:fetch', payload.ids || []);
+            }
+        } catch (error) {
+            console.error("Fehler beim Erstellen des Channels:", error);
+        }
+    },
+
+    "channel:activate": async (payload) => {
+        try {
+            const response = await route.api.activateChannel(payload);
+            if (response) {
+                await route.emit('channel:fetch', payload.ids || []);
+                route.localData.selectedChannel.value = route.localData.channel.value.find(c => c.id === payload.id);
+            }
+        } catch (error) {
+            console.error("Fehler beim Aktivieren des Channels:", error);
+        }
+    },
+
+    "channel:delete": async (payload) => {
+        try {
+            const response = await route.api.deleteChannel(payload);
+            if (response) {
+                await route.emit('channel:fetch', payload.ids || []);
+                if (route.localData.selectedChannel.value?.id === payload.id) {
+                    route.localData.selectedChannel.value = null;
+                }
+            }
+        } catch (error) {
+            console.error("Fehler beim Löschen des Channels:", error);
+        }
+    },
+
+    "channel:selected": async (payload) => {
+        route.localData.selectedChannel.value = payload;
+        console.log(route.localData.selectedChannel.value)
+    },
     "channel:toggle": async (payload) => {
         const response = await route.api.toggleChannel(payload)
+        console.log(payload);
         if (response) {
             await route.emit("channel:fetch", payload.ids);
+            await nextTick();
+            await route.emit("channel:update", payload.ids);
         }
     },
     "channel:mixer-state": async (payload) => {

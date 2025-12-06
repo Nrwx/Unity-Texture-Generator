@@ -102,7 +102,6 @@ export const fetchLayers = async () => {
     try {
         const data = await api.get('/layer');
         if(data) {
-            console.log(data)
             return data
         }
     } catch (err) {
@@ -133,32 +132,34 @@ export const updateLayer = async (layer) => {
 
         // 2️⃣ Layer-Daten normal speichern
         const formData = new FormData();
+
         formData.append("method", "update");
-        formData.append("type", layer.type);
-        formData.append("name", layer.name);
-        formData.append("width", layer.width);
-        formData.append("height", layer.height);
         formData.append("id", layer.id);
-        formData.append("url", layer.url);
-        formData.append("channel", JSON.stringify(layer.channel));
-        formData.append("a", layer.matrix.a);
-        formData.append("b", layer.matrix.b);
-        formData.append("c", layer.matrix.c);
-        formData.append("d", layer.matrix.d);
-        formData.append("x", layer.matrix.x);
-        formData.append("y", layer.matrix.y);
-        formData.append("rotate", layer.matrix.rotate);
-        formData.append("order", layer.order);
-        formData.append("hidden", layer.hidden);
-        formData.append("opacity", layer.opacity);
-        formData.append("color", layer.color);
-        formData.append("mask", layer.mask);
+
+        if (layer?.type) formData.append("type", layer.type);
+        if (layer?.name) formData.append("name", layer.name);
+        if (layer?.width) formData.append("width", layer.width);
+        if (layer?.height) formData.append("height", layer.height);
+        if (layer?.url) formData.append("url", layer.url);
+        if (layer?.channel) formData.append("channel", JSON.stringify(layer.channel));
+        if (layer?.matrix?.a) formData.append("a", layer.matrix.a);
+        if (layer?.matrix?.b) formData.append("b", layer.matrix.b);
+        if (layer?.matrix?.c) formData.append("c", layer.matrix.c);
+        if (layer?.matrix?.d) formData.append("d", layer.matrix.d);
+        if (layer?.matrix?.x) formData.append("x", layer.matrix.x);
+        if (layer?.matrix?.y) formData.append("y", layer.matrix.y);
+        if (layer?.matrix?.rotate) formData.append("rotate", layer.matrix.rotate);
+        if (layer?.order) formData.append("order", layer.order);
+        if (layer?.hidden) formData.append("hidden", layer.hidden);
+        if (layer?.opacity) formData.append("opacity", layer.opacity);
+        if (layer?.color) formData.append("color", layer.color);
+        if (layer?.mask) formData.append("mask", layer.mask);
 
         const response = await api.post("/layer", formData, {
             headers: { "Content-Type": "multipart/form-data" },
         });
 
-        return !!response;
+        if (response) return true;
     } catch (error) {
         console.error("Error updating layer:", error.response?.data || error.message);
         return false;

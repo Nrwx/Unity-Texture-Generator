@@ -1,6 +1,6 @@
 export const layerEvent = (route) => ({
     "fetch-layer": async () => {
-        const response = await route.api.fetchLayers()
+        const response = await route.api.fetchLayers();
         if (response) {
             route.localData.layers.value = response;
             if(route.windowStates.brush.value){

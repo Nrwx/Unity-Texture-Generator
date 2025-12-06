@@ -140,59 +140,105 @@
             </Drag>
           </v-list>
 
-          <Channel v-show="tabIndex === 1 && channel.length > 0" :data="channel" :settings="channelSettings" :theme="theme" @update:componentEvent="emitEvent"/>
+          <Channel v-show="tabIndex === 1 && channel.length > 0" :selected-channel="selectedChannel" :data="channel" :settings="channelSettings" :theme="theme" @update:componentEvent="emitEvent"/>
 
           <Path v-show="tabIndex === 2 && paths.length > 0" :data="paths" @update:componentEvent="emitEvent"/>
         </div>
       </v-card>
       <!-- Navigation -->
-      <div class="navigation-bar d-flex justify-space-between align-center px-4" v-if="tabIndex === 0">
-        <v-btn
-            icon
-            color="#DCFDD4"
-            size="x-small"
-            @click="emitEvent('add-layer')"
-        >
-          <v-icon color="black">mdi-plus</v-icon>
-        </v-btn>
-        <v-btn
-            icon
-            color="#DCFDD4"
-            size="x-small"
-            :disabled="selectedLayer.length !== 2"
-            @click="emitEvent('mask-layer', {id: selectedLayer[0].id, id2: selectedLayer[1].id})"
-        >
-          <v-icon color="black">mdi-vector-intersection</v-icon>
-        </v-btn>
-        <v-btn
-            icon
-            color="#DCFDD4"
-            size="x-small"
-            :disabled="!layers.length"
-            @click="emitEvent('renderer:preview')"
-        >
-          <v-icon color="black">mdi-printer</v-icon>
-        </v-btn>
-        <v-btn
-            icon
-            color="#C2F0FF"
-            size="x-small"
-            :disabled="!groupAble"
-            @click="emitEvent('group-layer', allInSameGroup ? {ids: selectedLayer, group: selectedLayer[0].group, reset: true} : {ids: selectedLayer, group: null, reset: false})"
-        >
-          <v-icon color="black">
-            {{ allInSameGroup ? 'mdi-link-off' : 'mdi-link' }}
-          </v-icon>
-        </v-btn>
-        <v-btn
-            icon
-            color="#FF516D"
-            size="x-small"
-            @click="emitEvent('delete-layer', selectedLayer)"
-            :disabled="!selectedLayer.length"
-        >
-          <v-icon color="white">mdi-delete</v-icon>
-        </v-btn>
+      <div class="navigation-bar d-flex justify-space-between align-center px-4">
+        <template v-if="tabIndex === 0">
+          <v-btn
+              icon
+              color="#DCFDD4"
+              size="x-small"
+              @click="emitEvent('add-layer')"
+          >
+            <v-icon color="black">mdi-plus</v-icon>
+          </v-btn>
+          <v-btn
+              icon
+              color="#DCFDD4"
+              size="x-small"
+              :disabled="selectedLayer.length !== 2"
+              @click="emitEvent('mask-layer', {id: selectedLayer[0].id, id2: selectedLayer[1].id})"
+          >
+            <v-icon color="black">mdi-vector-intersection</v-icon>
+          </v-btn>
+          <v-btn
+              icon
+              color="#DCFDD4"
+              size="x-small"
+              :disabled="!layers.length"
+              @click="emitEvent('renderer:preview')"
+          >
+            <v-icon color="black">mdi-printer</v-icon>
+          </v-btn>
+          <v-btn
+              icon
+              color="#C2F0FF"
+              size="x-small"
+              :disabled="!groupAble"
+              @click="emitEvent('group-layer', allInSameGroup ? {ids: selectedLayer, group: selectedLayer[0].group, reset: true} : {ids: selectedLayer, group: null, reset: false})"
+          >
+            <v-icon color="black">
+              {{ allInSameGroup ? 'mdi-link-off' : 'mdi-link' }}
+            </v-icon>
+          </v-btn>
+          <v-btn
+              icon
+              color="#FF516D"
+              size="x-small"
+              @click="emitEvent('delete-layer', selectedLayer)"
+              :disabled="!selectedLayer.length"
+          >
+            <v-icon color="white">mdi-delete</v-icon>
+          </v-btn>
+        </template>
+        <template v-if="tabIndex === 1">
+          <!-- Create / Add Channel from selected -->
+          <v-btn
+              icon
+              color="#DCFDD4"
+              size="x-small"
+              :disabled="!selectedChannel.length"
+              @click="emitEvent('add-channel', selectedChannel)"
+          >
+            <v-icon color="black">mdi-plus</v-icon>
+          </v-btn>
+
+          <!-- Activate selected Channel -->
+          <v-btn
+              icon
+              color="#C2F0FF"
+              size="x-small"
+              :disabled="!selectedChannel.length"
+              @click="emitEvent('activate-channel', selectedChannel)"
+          >
+            <v-icon color="black">mdi-check-bold</v-icon>
+          </v-btn>
+
+          <!-- Delete selected Channel -->
+          <v-btn
+              icon
+              color="#FF516D"
+              size="x-small"
+              :disabled="!selectedChannel.length"
+              @click="emitEvent('delete-channel', selectedChannel)"
+          >
+            <v-icon color="white">mdi-delete</v-icon>
+          </v-btn>
+
+          <!-- Render Preview of selected Channel -->
+          <v-btn
+              icon
+              color="#DCFDD4"
+              size="x-small"
+              @click="emitEvent('renderer:preview', selectedChannel.length ? selectedChannel : channel)"
+          >
+            <v-icon color="black">mdi-printer</v-icon>
+          </v-btn>
+        </template>
       </div>
     </v-container>
   </v-card>

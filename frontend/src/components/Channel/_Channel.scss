@@ -1,8 +1,12 @@
 
 .channel-list {
-  background: linear-gradient(180deg, #071026, #04101b);
-  border-radius: 10px;
   .channel-item {
+    transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out, background-color 0.2s ease;
+    border-radius: 4px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     .channel-row {
       .channel-field {
         .channel-avatar {
@@ -16,6 +20,16 @@
       background: rgba(255,255,255,0.03);
       border-radius: 6px;
     }
+  }
+  .channel-item:hover {
+    background-color: rgba(0, 0, 0, 0.04);  /* sanfte Hover-Farbe */
+  }
+
+  .channel-item.selected {
+    background-color: #e4dfeb;
+    border: 1px solid #a77ce5;
+    border-left-width: thick;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.16), 0 1px 3px rgba(0, 0, 0, 0.23); /* Shadow when selected */
   }
 }
 

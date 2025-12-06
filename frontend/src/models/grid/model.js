@@ -343,7 +343,7 @@ export function gridModel(props, emit) {
             || !props.menu && !props.transform && !event.ctrlKey
             || !props.menu && !props.rotate && !event.ctrlKey
             || !props.menu && !props.size && !event.ctrlKey) {
-            stopTransform()
+            await stopTransform()
             props.selectedLayer.forEach(layer => {
                 updateLayer(layer)
             })
@@ -452,11 +452,11 @@ export function gridModel(props, emit) {
         }
     };
 
-    const stopTransform = () => {
-        emitEvent('layer:transform-menu', false)
-        emitEvent('layer:transform-state', false)
-        emitEvent('layer:transform-size', false)
-        emitEvent('layer:transform-rotate', false)
+    const stopTransform = async () => {
+        await emitEvent('layer:transform-menu', false)
+        await emitEvent('layer:transform-state', false)
+        await emitEvent('layer:transform-size', false)
+        await emitEvent('layer:transform-rotate', false)
         register('remove', document, 'mouseup', stopTransform);
     };
 
@@ -617,7 +617,7 @@ export function gridModel(props, emit) {
                 register('add', document, 'keyup', keyUp);
             }
 
-            emitEvent('fetch-layer');
+            await emitEvent('fetch-layer');
 
             return console.log('Grid-Component successfully initialized');
         } catch (error) {

@@ -13,7 +13,7 @@ export { createBackup, fetchBackupList, jumpToBackup } from "./backup"
 
 export { fileUpload } from "./upload";
 
-export { fetchChannel, channelSettings, toggleChannel } from "./channel";
+export { fetchChannel, channelSettings, toggleChannel, activateChannel, createChannel, deleteChannel } from "./channel";
 
 export { generateImage  } from "./ai";
 

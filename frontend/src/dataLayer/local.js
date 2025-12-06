@@ -70,7 +70,7 @@ export const localData = {
         grey: false,
         red: true
     }),
-    selectedChannel: ref(null),
+    selectedChannel: ref([]),
     selectedLayer: ref([]),
     selectedMaps: ref(["Diffuse Map"]),
     selectedTargetResize: ref(0),

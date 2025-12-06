@@ -14,6 +14,15 @@ from components import ( apply_channel, generate_channels, apply_color, apply_ma
 from utils import get_path, apply_rgb_rgba, apply_alpha, time, layer_transform
 
 class LayerModel(BaseModel):
+
+    @staticmethod
+    def _bust_url(id, ext="png"):
+        base, current_ext = os.path.splitext(id)
+        if not base:
+            base = id
+
+        return f"/download/{base}.{ext}?ts={int(time('unix_ms'))}"
+
     @classmethod
     def add(cls, name="", path="", id="", type=0, width=1024, height=1024):
         try:
@@ -82,7 +91,7 @@ class LayerModel(BaseModel):
                 "name": name,
                 "width": width,
                 "height": height,
-                "url": f"/download/{id}.png",
+                "url": cls._bust_url(id),
                 "matrix": matrix,
                 "source": source_id,
                 "order": len(LAYERS),
@@ -157,7 +166,7 @@ class LayerModel(BaseModel):
             if id:
                 layer["id"] = id
             if url:
-                layer["url"] = url
+                layer["url"] = cls._bust_url(id)
             if matrix:
                 layer["matrix"] = matrix
             if order:
@@ -179,7 +188,7 @@ class LayerModel(BaseModel):
                     layer_img = Image.open(image_path).convert("RGBA")
                     layer_img = apply_channel(layer_img, channel)
                     layer_img.save(image_path, "PNG", quality=100)
-                    layer["url"] = f"/download/{id}.png"
+                    layer["url"] = cls._bust_url(id)
             if type != 4:
                 image_path = os.path.join(PUBLIC_LAYER_FOLDER, f"{id}.png")
                 if os.path.exists(image_path):
@@ -341,7 +350,7 @@ class LayerModel(BaseModel):
                 strokeDashType, fill, fillOpacity, gradient, closed, name):
 
         try:
-            viewport_width = VIEWPORT_CONFIG[0]["width"]
+            viewport_width = VIEWPORT_CONFIG[0]["width"],
             viewport_height = VIEWPORT_CONFIG[0]["height"]
 
             id = str(uuid.uuid4())
@@ -405,8 +414,8 @@ class LayerModel(BaseModel):
             layer_img.save(img_path)
 
             # URL im Layer speichern
-            layer["svg"] = f"/download/{filename}"
-            layer["url"] = f"/download/{imgName}"
+            layer["svg"] = cls._bust_url(filename, "svg")
+            layer["url"] = cls._bust_url(imgName)
             layer["thumbnail"] = generate_thumbnail_map(id, path=img_path, size=64, image=None)
 
 
@@ -585,7 +594,7 @@ class LayerModel(BaseModel):
             output_id = str(uuid.uuid4()) if blend_mode != 0 else id
             map_filename = f"{output_id}.png"
             map_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER if blend_mode != 0 else PUBLIC_LAYER_FOLDER, map_filename)
-            url_path = f"/download/{map_filename}"
+            url_path = cls._bust_url(output_id)
 
             # Bild speichern
             blended_img.save(map_path)

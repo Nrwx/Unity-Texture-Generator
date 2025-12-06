@@ -5,12 +5,14 @@
         v-for="(channel) in data.filter(x => !x?.combined)"
         :key="channel.id"
         :data-id="channel.id"
-        class="layer-item"
+        class="channel-item"
+        :class="{selected: selectedChannel.find(x => x.id === channel.id)}"
+        @click="toggleChannelSelection(channel)"
     >
       <template v-slot:prepend>
         <v-checkbox
-            v-model="channelChecked[channel.name.toLowerCase()]"
-            @click.stop="toggleChannel(channel)"
+            :model-value="settings[channel.key]"
+            @update:model-value="toggleChannel(channel)"
             hide-details
             dense
         ></v-checkbox>
@@ -24,7 +26,7 @@
             v-model="channel.name"
             variant="outlined"
             min-width="160"
-            :hide-details="true"
+            hide-details
             @click.stop
             class="channel-field flex-1-1"
         >

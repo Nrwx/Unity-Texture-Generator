@@ -1,4 +1,4 @@
-import {computed, nextTick} from "vue";
+import {nextTick} from "vue";
 
 export function channelModel(props, emit) {
     const emitEvent = (event, payload) => {
@@ -11,26 +11,30 @@ export function channelModel(props, emit) {
         emitEvent('channel:mixer-state', true)
     };
 
-    const channelChecked = computed(() => {
-        const checked = {};
-        props.data.forEach(channel => {
-            const key = channel.name.toLowerCase();
-            checked[key] = props.settings[key] || false;
-        });
-        return checked;
-    });
     // Toggle Funktion für Checkbox
     const toggleChannel = (channel) => {
-        const key = channel.name.toLowerCase();
-        const current = props.settings[key] || false;
-        emitEvent("channel:toggle", {channel: key,
-        state: !current, ids: props.settings.ids || null
-    });
+        emitEvent("channel:toggle", {
+            channel: channel.key,
+            state: !props.settings[channel.key],
+            ids: props.settings.ids || null
+        });
     };
 
+    const toggleChannelSelection = (channel) => {
+        let data = props.selectedChannel || [];
+        const index = data.findIndex(c => c.id === channel.id);
+
+        if (index === -1) {
+            data.push(channel);
+            emitEvent('channel:selected', data);
+        } else {
+            data.splice(index, 1);
+            emitEvent('channel:selected', data);
+        }
+    };
 
     return {
-        channelChecked,
+        toggleChannelSelection,
         toggleChannel,
         handleChannel
     };
@@ -38,6 +42,10 @@ export function channelModel(props, emit) {
 
 export const channelProps = {
     data: {
+        type: Array,
+        required: true
+    },
+    selectedChannel: {
         type: Array,
         required: true
     },
