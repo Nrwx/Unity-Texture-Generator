@@ -33,40 +33,47 @@ export function channelMixerModel(props, emit) {
 
     // channel select options
     const refOptions = computed(() =>
-        props.channel.map((c, i) => ({
-            id: uuid(),
+        props.channel.map((c) => ({
+            id: c.id,
             width: c.width,
             height: c.height,
-            order: i,
+            order: 0,
             url: c.url,
             value: c.id,
-            label: c.name || `Channel ${c.id}`
+            label: c.name || `Channel ${c.id}`,
+            texture_mode: 'diffuse',
+            matrix: matrixDefault(props.data.webgl)
         }))
     );
 
     const update = (mode, layerId, ref = null) => {
         if (mode === 'base') {
-            const item = props.channel.find(x => x.id === layerId);
+            const item = refOptions.value.find(x => x.id === layerId);
             if (item) {
-                return emitEvent('channel:mixer-base', {...item, matrix: matrixDefault()});
+               emitEvent('channel:mixer-base', {...item, _update: true});
             }
         } else if (mode === 'overlay') {
             const layer = props.data.layers.find(l => l.id === layerId);
             if (!layer) return;
 
             layer.ref = ref;
+            layer._update = true;
 
-            const ch = props.channel.find(c => c.id === ref);
+            const ch = refOptions.value.find(c => c.id === ref);
             if (!ch) {
                 layer.url = null;
                 layer.width = 0;
                 layer.height = 0;
+                layer.hidden = 1;
+                layer.texture_mode = 'transparent';
                 return;
             }
 
             layer.url = ch.url;
             layer.width = ch.width;
+            layer.hidden = 0;
             layer.height = ch.height;
+            layer.texture_mode = 'diffuse'
         } else {
             console.log('Ungültiger updte modus')
         }
@@ -79,7 +86,7 @@ export function channelMixerModel(props, emit) {
             id: uuid(),
             ref: null,
             blend_mode: 'multiply',
-            matrix: matrixDefault(),
+            matrix: matrixDefault(props.data.webgl),
             opacity: 0.5,
             url: null,
             width: props.viewport.width,
@@ -89,7 +96,7 @@ export function channelMixerModel(props, emit) {
         emitEvent("channel:mixer-add", newLayer);
     };
 
-    const save = ()=> {
+    const save = () => {
         if (!canvas.value) return;
         emitEvent("channel:mixer-save", { id: canvasId.value });
     }
@@ -99,7 +106,7 @@ export function channelMixerModel(props, emit) {
     }
 
     async function _prepare () {
-        await add();
+        add();
     }
 
     async function _init() {
@@ -121,10 +128,11 @@ export function channelMixerModel(props, emit) {
             if (resetBtn.value) {
                 register('add', resetBtn.value, 'pointerdown', reset)
             }
-            await emitEvent("channel:mixer-update",{
+            emitEvent("channel:mixer-update",{
                 wrapper: wrapperId.value || wrapper.value,
                 id: canvasId.value,
                 canvas: canvas.value,
+                webgl: true,
                 viewport: {
                     width: props.viewport.width,
                     height: props.viewport.height,
@@ -150,11 +158,7 @@ export function channelMixerModel(props, emit) {
                         target: wrapperId.value || wrapper.value,
                         type: 'wheel',
                         options: {passive: false}
-                    },
-                    resize: {
-                        target: wrapperId.value || wrapper.value,
-                        observer: true
-                    },
+                    }
                 },
                 emit: {
                     event: 'channel:mixer-update',
@@ -163,7 +167,8 @@ export function channelMixerModel(props, emit) {
             })
             await nextTick();
             await _prepare();
-            await emitEvent('channel:mixer-active', true);
+            await nextTick();
+            emitEvent('channel:mixer-active', true);
             return console.log('Mixer-Component successfully initialized');
         } catch (error) {
             console.error('[init] Initialization failed:', error);
@@ -176,8 +181,8 @@ export function channelMixerModel(props, emit) {
         if (v) {
             await _init();
         } else {
+            emitEvent('channel:mixer-active', false);
             await reset(true);
-            await emitEvent('channel:mixer-active', false);
             register('removeAll');
             console.log('Cleaned Channel-Canvas')
         }

@@ -1,0 +1,1 @@
+vec3 blendSaturation(vec3 b, vec3 s);

@@ -36,3 +36,27 @@ export const blendModeMap = (mode) => {
     }
     return "source-over";
 };
+
+// Kleiner helper für blend-mode (nur die gängigen)
+export const applyWebGLBlendMode = (gl, mode) => {
+    gl.enable(gl.BLEND);
+    switch (mode) {
+        case "multiply":
+            gl.blendFunc(gl.DST_COLOR, gl.ONE_MINUS_SRC_ALPHA);
+            break;
+        case "screen":
+            gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_COLOR);
+            break;
+        case "add":
+        case "lighter":
+            gl.blendFunc(gl.ONE, gl.ONE);
+            break;
+        case "copy":
+            gl.blendFunc(gl.ONE, gl.ZERO);
+            break;
+        default:
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    }
+    gl.disable(gl.DEPTH_TEST);
+};
+

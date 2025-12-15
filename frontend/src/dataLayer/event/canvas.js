@@ -2,17 +2,57 @@
  * Canvas Event Handler
  * @param {Object} route - z.B. { canvas: createCanvasEnvironment() }
  */
-export const canvasEvent = (route) => ({
+import {ref} from "vue";
 
-    // REGISTER benötigt (canvasId, config!)
-    "canvas:register": ({ id, config }) => {
-        route.canvas.register(id, config);
-        console.log("REGISTER EVENT:", id, config);
+const _prepare = (data) => {
+    const update = ref(null);
+
+    update.value = {
+        updatedAt: ''
+    }
+
+    if (data?.payload) {
+        const item = data.payload;
+
+        if (item?.webgl) update.value.webgl = item.webgl;
+        if (item?.register) update.value.register = item.register;
+        if (item?.fps) update.value.fps = item.fps;
+        if (item?.active) update.value.active = item.active;
+        if (item?.id) update.value.id = item.id;
+        if (item?.viewport) update.value.viewport = item.viewport;
+        if (item?.wrapper) update.value.wrapper = item.wrapper;
+        if (item?.canvas) update.value.canvas = item.canvas;
+        if (item?.ctx) update.value.ctx = item.ctx;
+        if (item?.base) update.value.base = item.base;
+        if (item?.layers) update.value.layers = item.layers;
+        if (item?.segments) update.value.segments = item.segments;
+        if (item?.background) update.value.background = item.background;
+        if (item?.matrix) update.value.matrix = item.matrix;
+        if (item?.opacity) update.value.opacity = item.opacity;
+        if (item?.selectedLayer) update.value.selectedLayer = item.selectedLayer;
+        if (item?.selectedSegmentId) update.value.selectedSegmentId = item.selectedSegmentId;
+        if (item?.hook) update.value.hook = item.hook;
+    }
+
+    update.value.updatedAt = new Date().toISOString();
+    return update.value
+}
+
+export const canvasEvent = (route) => ({
+    "canvas:register": ({id, config}) => {
+        const update = _prepare({payload: config})
+        if (update) {
+            console.log("REGISTER EVENT:", id, update);
+            route.canvas.register(id, update)
+        }
     },
 
-    // UPDATE — Signatur: update(canvasId, payload, loop)
-    "canvas:update": (data) =>
-        route.canvas.update(data?.id, data?.payload, data?.loop),
+    "canvas:update": (data) => {
+        const update = _prepare(data);
+        if (update) {
+            route.canvas.update(data?.id, update, data?.loop);
+        }
+    },
 
     "canvas:pause": ({ id }) =>
         route.canvas.pause(id),
@@ -25,7 +65,6 @@ export const canvasEvent = (route) => ({
 
     "canvas:remove-all": () =>
         route.canvas.destroy(),
-
 
     "canvas:pause-all": () =>
         route.canvas.pauseAll(),

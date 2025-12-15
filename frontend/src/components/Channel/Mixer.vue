@@ -14,7 +14,7 @@
           <aside class="mix-left flex-0-1 d-flex flex-column align-center pa-3 ga-3">
 
             <div class="canvas-wrap relative w-100 overflow-hidden d-flex justify-center align-center" ref="wrapper" :id="wrapperId">
-              <Canvas :state="data?.active" :id="canvasId" :config="data" @update:component-event="emitEvent"/>
+              <Canvas :state="data?.active" :viewport="viewport" :id="canvasId" :config="data" @update:component-event="emitEvent"/>
             </div>
 
             <div class="preview-controls w-100 d-flex justify-center align-center ga-3">

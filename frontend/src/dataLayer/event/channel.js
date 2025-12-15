@@ -84,15 +84,14 @@ export const channelEvent = (route) => ({
 
     "channel:selected": async (payload) => {
         route.localData.selectedChannel.value = payload;
-        console.log(route.localData.selectedChannel.value)
     },
     "channel:toggle": async (payload) => {
         const response = await route.api.toggleChannel(payload)
         console.log(payload);
         if (response) {
-            await route.emit("channel:fetch", payload.ids);
+            route.emit("channel:fetch", payload.ids);
             await nextTick();
-            await route.emit("channel:update", payload.ids);
+            route.emit("channel:update", payload.ids);
         }
     },
     "channel:mixer-state": async (payload) => {
@@ -109,8 +108,8 @@ export const channelEvent = (route) => ({
     "channel:mixer-target": async (payload) => {
         const target =  route.localData.channel.value.find(x => x.id === payload);
         if (target) {
-            await route.emit('channel:mixer-base', target);
             route.mixerConfig.value.target = payload;
+            route.emit('channel:mixer-base', target);
         }
     },
     "channel:mixer-base": async (payload) => {

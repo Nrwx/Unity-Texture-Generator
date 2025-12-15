@@ -1,7 +1,6 @@
-import {ref} from "vue";
-export const canvasEnvironment = ref({
+export const canvasEnvironment = {
     cache: new Map(),
     layout: new Map(),
     models: new Map(),
     rafIds: new Map()
-});
+};

@@ -5,8 +5,13 @@ import {canvasEnvironment} from "@/models/canvas/config/model";
 import {exportAllSegmentsToBase64} from "@/models/canvas/core/export/model";
 import {selectEntity} from "@/models/canvas/core/event/model";
 import {render} from "@/models/canvas/core/render/model";
-import {nextTick} from "vue";
-import {ensureCanvasModel, ensureModel} from "@/models/canvas/core/utils/model";
+import {
+    destroyCanvas,
+    ensureCanvasModel,
+    ensureModel,
+    ensureWebGLModel,
+    wipeCanvas
+} from "@/models/canvas/core/utils/model";
 import {computeLayout, ensure_segments} from "@/models/canvas/core/layout/model";
 
 /**
@@ -25,7 +30,6 @@ import {computeLayout, ensure_segments} from "@/models/canvas/core/layout/model"
  *  - Segments are rendered in layout space and have their own segment.matrix (scale/rotate/translate).
  *  - Hit testing considers combined transforms of segment (no global view transform).
  */
-
 export const createCanvasEnvironment = () => {
 
     /**
@@ -36,49 +40,32 @@ export const createCanvasEnvironment = () => {
      * @param {string} [id=null]
      * @param config
      */
-    const register = async (id, config) => {
+    const register = (id, config) => {
         try {
-            if (!ensureModel(id, canvasEnvironment.value.models)) {
-                canvasEnvironment.value.models.set(id, {
-                    ...config,
-                    background: config?.background || 'checker',
-                    viewport: config?.viewport || {
-                        width: 256,
-                        height: 256,
-                        rows: 1,
-                        columns: 1
-                    },
-                    ctx: config.canvas.getContext("2d"),
-                    base: config?.base || [],
-                    layers: config?.layers || [],
-                    segments: config?.segments || [],
-                    selectedSegmentId: null,
-                    selectedLayer: {segId: null, layerId: null},
-                    matrix: config?.matrix || matrixDefault(),
-                    hook: config?.hook || {},
-                    _paused: false,
-                    _fullscreen: null
-                });
-                await nextTick();
-                const m = ensureModel(id, canvasEnvironment.value.models);
-                if (!m) return;
-                await ensureCanvasModel(m);
-                if (m.viewport) {
-                    const layout = await computeLayout(m.canvas, m.viewport);
-                    await ensure_segments(m, layout);
+            if (!ensureModel(id, canvasEnvironment.models)) {
+                canvasEnvironment.models.set(id, config);
+                const m = ensureModel(id, canvasEnvironment.models);
+                if (!m) return console.warn('Model nicht registriert!');
+                ensureCanvasModel(m);
+                if (m.webgl) {
+                    ensureWebGLModel(m);
                 }
-                if (typeof config?.hook?.register === 'function') {
+                if (m.viewport) {
+                    if (!m.layout)  m.layout = computeLayout({canvas: m.canvas, viewport: m.viewport})
+                    ensure_segments({webgl: m.webgl, segments: m.segments, ctx: m.ctx, viewport: m.viewport, layout: m.layout});
+                }
+                if (typeof m?.hook?.register === 'function') {
                     try {
-                        await nextTick();
-                        await config.hook?.register(m);
+                        m.hook?.register(m);
                     } catch (e) {
                         console.warn('Indieviduelle Canvas registrierung fehlgeschlagen', e);
                     }
                 }
-                await render(m);
+                if (!m.register) m.register = true;
+                update(id, m, false);
             }
         } catch (e) {
-            console.error('Fehler beim registrieren des Canvas: ', id)
+            console.error('Fehler beim registrieren des Canvas: ', id, e)
         }
     };
 
@@ -90,36 +77,82 @@ export const createCanvasEnvironment = () => {
      * @param {object} [config=null]
      * @param {boolean} [loop=false]
      */
-    const update = async (id, config, loop= false) => {
+    const update = (id, config, loop = false) => {
         try {
-            const m = ensureModel(id, canvasEnvironment.value.models);
+            const m = ensureModel(id, canvasEnvironment.models);
             if (!m) return;
+
+            // Konfiguration anwenden
             for (const key in config) {
-                let back = null;
-                try {
-                    back = m[key];
-                    m[key] = config[key];
-                } catch (e){
-                    m[key] = back;
-                    console.log('Canvas springt auf vorherigen wert:', back, e)
-                }
+                const back = m[key];
+                try { if (config[key] !== undefined) m[key] = config[key]; }
+                catch { m[key] = back; }
             }
-            const step = async () => {
-                await render(m);
-                if(m?.emit && m?.update){
-                    await m.emit.handler(m.emit.event, {...m, update: false})
-                    console.log('UPDATE M', m.emit.event, m)
+
+            if (!m.active || !m.register) return;
+
+            const step = ()  => {
+                const now = performance.now();
+                m._lastRAFTime = now;
+
+                const frameInterval = 1000 / m.fps.limit;
+                const maxDeltaClamp = (1000 / m.fps.min) * 4;
+                let rawDelta = now - m._lastRAFTime;
+                let delta = Math.max(0, Math.min(rawDelta, maxDeltaClamp));
+
+                const deltaAlpha = 0.25;
+                if (!m._avgDelta) m._avgDelta = delta;
+                m._avgDelta = m._avgDelta * (1 - deltaAlpha) + delta * deltaAlpha;
+                const avgDelta = m._avgDelta;
+
+                // FramesToProcess berechnen
+                let framesToProcess = Math.max(1, Math.floor(avgDelta / frameInterval));
+                framesToProcess = Math.min(framesToProcess, m.fps.buffer);
+                m.fps.stack = framesToProcess;
+
+                const renderStart = performance.now();
+
+                // Nur begrenzt Frames pro RAF nachholen
+                const processFrames = Math.min(framesToProcess, 2);
+                for (let i = 0; i < processFrames; i++) {
+                    render(m);
+                    m._lastRAFTime += frameInterval;
                 }
+
+                if (m.fps.dynamic) {
+                    const renderTime = performance.now() - renderStart;
+                    const loadFactor = (delta + renderTime) / frameInterval;
+
+                    const loadAlpha = 0.2;
+                    if (m._avgLoad == null) m._avgLoad = loadFactor;
+                    m._avgLoad = m._avgLoad * (1 - loadAlpha) + loadFactor * loadAlpha;
+
+                    if (m._avgLoad > 1.1) {
+                        m.fps.limit = Math.max(m.fps.min, m.fps.limit - 5);
+                    } else if (m._avgLoad < 0.9) {
+                        m.fps.limit = Math.min(m.fps.max, m.fps.limit + 1);
+                    }
+
+                    console.log(
+                        `FPS limit: ${m.fps.limit}, ` +
+                        `Stack: ${m.fps.stack}, ` +
+                        `LoadEWMA: ${m._avgLoad.toFixed(2)}`
+                    );
+                }
+
                 if (loop) {
                     const ref = requestAnimationFrame(step);
-                    canvasEnvironment.value.rafIds.set(id, ref);
+                    canvasEnvironment.rafIds.set(id, ref);
                 }
             };
-            await step();
+
+            step();
+
         } catch (e) {
-            console.error('Fehler beim updaten der Canvas-Instanz!', e)
+            console.error('Fehler beim updaten der Canvas-Instanz!', e);
         }
     };
+
 
     /**
      * | API | Instanz-Löschen
@@ -128,73 +161,72 @@ export const createCanvasEnvironment = () => {
      */
     const remove = async (id) => {
         try {
-            const loop = canvasEnvironment.value.rafIds.has(id);
-            if (loop) {
-                await cancelAnimationFrame(canvasEnvironment.value.rafIds.get(id));
-                await nextTick();
-                canvasEnvironment.value.rafIds.delete(id);
-                const item = canvasEnvironment.value.rafIds.get(id);
-                if (item) console.warn('Canvas Animation konnte nicht gestoppt werden', id);
-                else console.log('Canvas Animation erfolgreich gestoppt!')
+            const rafId = canvasEnvironment.rafIds.get(id)
+            if (typeof rafId === "number") {
+                cancelAnimationFrame(rafId);
+                canvasEnvironment.rafIds.delete(id);
             }
-            canvasEnvironment.value.models.delete(id);
-            await nextTick();
-            const item = canvasEnvironment.value.models.get(id);
-            if (item) {
-                console.warn('Canvas model konnte nicht gelöscht werden', id);
-            }
-            else {
-                console.log('Canvas erfolgreich gelöscht!')
-            }
-        } catch (e) {
-            console.error('Fehler beim löschen des Canvas!', e)
+
+            const m = ensureModel(id, canvasEnvironment.models);
+            if (!m) return;
+
+            m.register = false;
+            m.active = false;
+            destroyCanvas(m);
+            wipeCanvas(m);
+
+            canvasEnvironment.models.delete(id);
+
+            console.log(`Canvas ${id} erfolgreich entfernt.`);
+        }
+        catch (e) {
+            console.error("remove(): Fehler", e);
         }
     };
+
 
     /**
      * | API | Environment-Instanz-Löschen
      * @returns Boolean
      */
-    const destroy = async () => {
+    const destroy = () => {
         try {
-            canvasEnvironment.value.rafIds.forEach(id => cancelAnimationFrame(id));
-            await nextTick();
-            canvasEnvironment.value.rafIds.clear();
-            canvasEnvironment.value.models.clear();
-            canvasEnvironment.value.cache.clear();
-            canvasEnvironment.value.layout.clear();
-            await nextTick();
-            const check = {
-                0: canvasEnvironment.value.rafIds.size,
-                1: canvasEnvironment.value.models.size,
-                2: canvasEnvironment.value.cache.size,
-                3: canvasEnvironment.value.layout.size
-            }
-            let total = 0;
-            let processed = 0;
-            for (const key in check) {
-                const item = check[key];
-                if (item) { total += item; processed += 1}
-                else processed += 1;
-            }
-            if (total === 0) {
-                console.log(`Canvas-Environment erfolgreich bereinigt! Bereinigt: ${processed} Reste: ${total}`);
-            } else {
-                console.warn(`Canvas-Environment konnte nicht bereinigt werden! Bereinigt: ${processed} Reste: ${total}`);
-            }
-        } catch (e) {
-            console.error('Fehler beim löschen der Canvas-Environments!', e)
+            canvasEnvironment.rafIds.forEach(id => {
+                const rafId = canvasEnvironment.rafIds.get(id)
+                if (typeof rafId === "number") {
+                    cancelAnimationFrame(rafId);
+                    canvasEnvironment.rafIds.delete(id);
+                }
+            });
+            canvasEnvironment.rafIds.clear();
+
+            canvasEnvironment.models.forEach((m) => {
+                m.register = false;
+                m.active = false;
+                destroyCanvas(m);
+                wipeCanvas(m);
+            });
+
+            canvasEnvironment.models.clear();
+            canvasEnvironment.cache.clear();
+            canvasEnvironment.layout.clear();
+
+            console.log("Canvas-Environment vollständig bereinigt!");
+        }
+        catch (e) {
+            console.error("destroy(): Fehler", e);
         }
     };
+
 
     // -----------------------------------------------------------
     // HIT SEGMENT TEST
     // -----------------------------------------------------------
     const select = async (id, x = null, y = null) => {
-        const m = ensureModel(id, canvasEnvironment.value.models);
+        const m = ensureModel(id, canvasEnvironment.models);
         if (!m) return;
         await selectEntity(m, x, y);
-        await render(m);
+        await update(id, m, false);
     };
 
 
@@ -202,7 +234,7 @@ export const createCanvasEnvironment = () => {
     // SEGMENTS API
     // -----------------------------------------------------------
     const addSegment = async (canvasId, segmentId, data = {}) => {
-        const m = ensureModel(canvasId, canvasEnvironment.value.models);
+        const m = ensureModel(canvasId, canvasEnvironment.models);
         if (!m) return;
 
         m?.segments.set(segmentId, {
@@ -224,7 +256,7 @@ export const createCanvasEnvironment = () => {
     };
 
     const updateSegment = async (canvasId, segmentId, data = {}) => {
-        const m = ensureModel(canvasId, canvasEnvironment.value.models);
+        const m = ensureModel(canvasId, canvasEnvironment.models);
         if (!m) return;
         const seg = m?.segments.get(segmentId);
         if (!seg) return;
@@ -244,14 +276,14 @@ export const createCanvasEnvironment = () => {
     };
 
     const removeSegment = async (canvasId, segmentId) => {
-        const m = ensureModel(canvasId, canvasEnvironment.value.models);
+        const m = ensureModel(canvasId, canvasEnvironment.models);
         if (!m) return;
         m?.segments.delete(segmentId);
         await render(m);
     };
 
     const fullscreenSegment = async (canvasId, segmentId = null) => {
-        const m = ensureModel(canvasId, canvasEnvironment.value.models);
+        const m = ensureModel(canvasId, canvasEnvironment.models);
         if (!m) return;
         m._fullscreen = segmentId;
         await render(m);
@@ -261,41 +293,50 @@ export const createCanvasEnvironment = () => {
     // LAYER API (Single + Segment)
     // -----------------------------------------------------------
     const addLayer = async (canvasId, layerData) => {
-        const m = ensureModel(canvasId, canvasEnvironment.value.models);
+        const m = ensureModel(canvasId, canvasEnvironment.models);
         if (!m) return;
         const layer = {...layerData};
         m?.layers.set(layer.id, layer);
+        // if WebGL renderer exists, rasterize and schedule tiles
+        if (m.glRenderer) {
+            try {
+                await m.glRenderer.rasterizeLayerAndSchedule(layer, { id: 'global' , matrix: { x:0, y:0 } }, m);
+            } catch (e) { console.warn('rasterize layer failed', e); }
+        }
         await render(m);
     };
     const updateLayer = async (canvasId, layerId, data) => {
-        const m = ensureModel(canvasId, canvasEnvironment.value.models);
+        const m = ensureModel(canvasId, canvasEnvironment.models);
         if (!m || !m?.layers?.has(layerId)) return;
         Object.assign(m?.layers.get(layerId), data);
         await render(m);
     };
     const removeLayer = async (canvasId, layerId) => {
-        const m = ensureModel(canvasId, canvasEnvironment.value.models);
+        const m = ensureModel(canvasId, canvasEnvironment.models);
         if (!m || !m?.layers) return;
         m?.layers.delete(layerId);
         await render(m);
     };
     const addLayerToSegment = async (canvasId, segmentId, layerData) => {
-        const m = ensureModel(canvasId, canvasEnvironment.value.models);
+        const m = ensureModel(canvasId, canvasEnvironment.models);
         const seg = m?.segments.get(segmentId);
         if (!seg) return;
         const layer = {...layerData};
         seg?.layers.set(layer.id, layer);
+        if (m.glRenderer) {
+            try { await m.glRenderer.rasterizeLayerAndSchedule(layer, seg, m); } catch(e) { console.warn(e); }
+        }
         await render(m);
     };
     const updateLayerInSegment = async (canvasId, segmentId, layerId, data) => {
-        const m = ensureModel(canvasId, canvasEnvironment.value.models);
+        const m = ensureModel(canvasId, canvasEnvironment.models);
         const seg = m?.segments.get(segmentId);
         if (!seg || !seg.layers?.has(layerId)) return;
         Object.assign(seg?.layers.get(layerId), data);
         await render(m);
     };
     const removeLayerFromSegment = async (canvasId, segmentId, layerId) => {
-        const m = ensureModel(canvasId, canvasEnvironment.value.models);
+        const m = ensureModel(canvasId, canvasEnvironment.models);
         const seg = m?.segments.get(segmentId);
         if (!seg || !seg?.layers) return;
         seg?.layers.delete(layerId);
@@ -306,21 +347,21 @@ export const createCanvasEnvironment = () => {
     // CONTROL
     // -----------------------------------------------------------
     const pause = async (canvasId) => {
-        const m = ensureModel(canvasId, canvasEnvironment.value.models);
+        const m = ensureModel(canvasId, canvasEnvironment.models);
         if (m) m._paused = true;
     };
     const resume = async (canvasId) => {
-        const m = ensureModel(canvasId, canvasEnvironment.value.models);
+        const m = ensureModel(canvasId, canvasEnvironment.models);
         if (m) m._paused = false;
     };
     const pauseAll = async () => {
-        canvasEnvironment.value.models.forEach(m => async () => {
+        canvasEnvironment.models.forEach(m => async () => {
             m._paused = true
         });
-        canvasEnvironment.value.rafIds.forEach(id => cancelAnimationFrame(id));
+        canvasEnvironment.rafIds.forEach(id => cancelAnimationFrame(id));
     };
     const resumeAll = () => {
-        canvasEnvironment.value.models.forEach(m => async () => {
+        canvasEnvironment.models.forEach(m => async () => {
             m._paused = false
         });
     };
@@ -328,14 +369,14 @@ export const createCanvasEnvironment = () => {
     // -----------------------------------------------------------
     // UTIL
     // -----------------------------------------------------------
-    const count = () => canvasEnvironment.value.models.size;
-    const isActive = (canvasId) => { const m = ensureModel(canvasId, canvasEnvironment.value.models); return m ? !m?._paused : false; };
+    const count = () => canvasEnvironment.models.size;
+    const isActive = (canvasId) => { const m = ensureModel(canvasId, canvasEnvironment.models); return m ? !m?._paused : false; };
     
     /**
      * Exportiert alle Segmente als Base64.
      */
     const exportBase64 = async (canvasId) => {
-        const m = ensureModel(canvasId, canvasEnvironment.value.models);
+        const m = ensureModel(canvasId, canvasEnvironment.models);
         if (!m) return {};
         return await exportAllSegmentsToBase64(m);
     };
@@ -370,6 +411,6 @@ export const createCanvasEnvironment = () => {
 
         select,
 
-        get models() { return canvasEnvironment.value.models; }
+        get models() { return canvasEnvironment.models; }
     };
 };

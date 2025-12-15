@@ -1,51 +1,49 @@
-import {makeDefaultSegment} from "@/models/canvas/core/utils/model";
+import {isGLContext, makeDefaultSegment} from "@/models/canvas/core/utils/model";
 
 /**
  * Compute segment layout for canvas and map global base/layers into segments
- * @param {HTMLCanvasElement} canvas
- * @param {object} viewport
  * @returns {object} layout
+ * @param model
  */
-export const computeLayout = async (canvas, viewport = {}) => {
-    const cw = canvas.width;
-    const ch = canvas.height;
+export const computeLayout = (model) => {
+    if (!model?.canvas || !model.viewport) return;
 
-    const colWidths = Array(viewport?.columns).fill(0);
-    const rowHeights = Array(viewport?.rows).fill(0);
+    const colWidths = Array(model?.viewport?.columns).fill(0);
+    const rowHeights = Array(model?.viewport?.rows).fill(0);
 
     let usedW = 0, usedH = 0;
 
-    for (let c = 0; c < viewport?.columns; c++) {
-        if (viewport.columns?.[c]?.width) {
-            colWidths[c] = viewport.columns[c].width;
+    for (let c = 0; c < model?.viewport?.columns; c++) {
+        if (model?.viewport?.columns?.[c]?.width) {
+            colWidths[c] = model.viewport.columns[c].width;
             usedW += colWidths[c];
         }
     }
 
-    for (let r = 0; r < viewport?.rows; r++) {
-        if (viewport.rows?.[r]?.height) {
-            rowHeights[r] = viewport.rows[r].height;
+    for (let r = 0; r < model?.viewport?.rows; r++) {
+        if (model?.viewport?.rows?.[r]?.height) {
+            rowHeights[r] = model.viewport.rows[r].height;
             usedH += rowHeights[r];
         }
     }
 
-    const freeW = cw - usedW;
-    const freeH = ch - usedH;
+    const freeW = model?.canvas?.width - usedW;
+    const freeH = model?.canvas?.height - usedH;
 
     const dynCols = colWidths.filter(w => w === 0).length || 1;
     const dynRows = rowHeights.filter(h => h === 0).length || 1;
 
-    for (let c = 0; c < viewport?.columns; c++)
+    for (let c = 0; c < model?.viewport?.columns; c++)
         if (colWidths[c] === 0) colWidths[c] = Math.floor(freeW / dynCols);
 
-    for (let r = 0; r < viewport?.rows; r++)
+    for (let r = 0; r < model?.viewport?.rows; r++)
         if (rowHeights[r] === 0) rowHeights[r] = Math.floor(freeH / dynRows);
 
     const colOffset = colWidths.map((_, i) => colWidths.slice(0, i).reduce((a, b) => a + b, 0));
     const rowOffset = rowHeights.map((_, i) => rowHeights.slice(0, i).reduce((a, b) => a + b, 0));
 
     return {
-        isSingle: viewport?.rows === 1 && viewport?.columns === 1,
+        isSingle: model?.viewport?.rows === 1 && model?.viewport?.columns === 1,
         colWidths,
         rowHeights,
         colOffset,
@@ -53,20 +51,13 @@ export const computeLayout = async (canvas, viewport = {}) => {
     };
 };
 
-export const ensure_segments = async (model, layout) => {
-    if (!model?.viewport?.rows || !model?.viewport?.columns) return;
+export const ensure_segments = (model) => {
+    if (!model?.viewport?.rows || !model?.viewport?.columns || !model?.layout) return;
 
-    const rows = model.viewport.rows;
-    const cols = model.viewport.columns;
-
-    if (!Array.isArray(model.segments)) {
-        model.segments = [];
-    }
-
-    const neededCount = rows * cols;
+    const neededCount = model.viewport.rows *  model.viewport.columns;
 
     while (model.segments.length < neededCount) {
-        model.segments.push(makeDefaultSegment());
+        model.segments.push(makeDefaultSegment(model?.webgl));
     }
 
     if (model.segments.length > neededCount) {
@@ -74,39 +65,55 @@ export const ensure_segments = async (model, layout) => {
     }
 
     let i = 0;
-    for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
+    for (let r = 0; r < model.viewport.rows; r++) {
+        for (let c = 0; c < model.viewport.columns; c++) {
 
-            const seg = model.segments[i];
+            const seg = model?.segments[i];
             seg.id = `${r}-${c}`;
             seg.row = r;
             seg.col = c;
 
-            seg.width = layout.colWidths[c];
-            seg.height = layout.rowHeights[r];
+            seg.width = model.layout.colWidths[c];
+            seg.height = model.layout.rowHeights[r];
 
-            // important: write into matrix.x / matrix.y
-            seg.matrix.x = layout.colOffset[c];
-            seg.matrix.y = layout.rowOffset[r];
+            const x = model.layout.colOffset[c];
+            const y = model.layout.rowOffset[r];
+            if (model?.webgl && seg?.matrix instanceof Float32Array) {
+                seg.matrix[12] = x;
+                seg.matrix[13] = y;
+            }
+
+            else if (!isGLContext(model.ctx)) {
+                seg.matrix.x = x;
+                seg.matrix.y = y;
+            }
 
             i++;
         }
     }
 };
 
-export const updateSegmentGridData = async (model, layout) => {
+
+export const updateSegmentGridData = (model) => {
     if (!model?.segments) return;
 
     for (const seg of model.segments) {
         const c = seg.col;
         const r = seg.row;
 
-        // set grid size
-        seg.width = layout.colWidths[c];
-        seg.height = layout.rowHeights[r];
+        seg.width  = model.layout.colWidths[c];
+        seg.height = model.layout.rowHeights[r];
 
-        // write offset into matrix
-        seg.matrix.x = layout.colOffset[c];
-        seg.matrix.y = layout.rowOffset[r];
+        // ✅ WebGL: write into 4x4 matrix
+        if (model.webgl && seg.matrix instanceof Float32Array) {
+            // column-major translation
+            seg.matrix[12] = model.layout.colOffset[c];
+            seg.matrix[13] = model.layout.rowOffset[r];
+        }
+        // ✅ Canvas 2D: affine matrix
+        else if (!isGLContext(model.ctx) && seg?.matrix) {
+            seg.matrix.x = model.layout.colOffset[c];
+            seg.matrix.y = model.layout.rowOffset[r];
+        }
     }
 };

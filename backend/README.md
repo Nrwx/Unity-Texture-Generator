@@ -1,6 +1,22 @@
 # backend
 
 ```
+
+shader/
+├── vertex.glsl
+├── fragment.glsl
+├── model.js
+└── blend/
+│   ├── vertex.glsl
+│   ├── fragment.glsl
+│   ├── model.js
+│   └── modes/*.glsl // Blend fragmente blendNormal, blendMultiply..
+└── particle/
+    ├── vertex.glsl
+    ├── fragment.glsl
+    ├── model.js
+    └── modes/*.glsl // Particle fragmente..
+
 backend/
 ├── cli.py
 ├── app.py

@@ -28,7 +28,7 @@ export function canvasModel(props, emit) {
         flags.value.matrix.x = e.clientX - props.config.matrix.x;
         flags.value.matrix.y = e.clientY - props.config.matrix.y;
 
-        await environment('select', {}, { x: e.clientX, y: e.clientY });
+        environment('select', {}, { x: e.clientX, y: e.clientY });
 
         if (props.config?.event?.pointerDown?.handler) {
             if (typeof props.config.event.pointerDown.handler === "function") {
@@ -46,7 +46,7 @@ export function canvasModel(props, emit) {
 
 
     const onPointerMove = async (e) => {
-        if (!flags.value.pointerDown) return;
+        if (!flags.value.pointerDown ) return;
         props.config.matrix.x = e.clientX - flags.value?.matrix?.x;
         props.config.matrix.y = e.clientY - flags.value?.matrix?.y;
         if (props.config?.event?.pointerMove?.handler) {
@@ -70,6 +70,7 @@ export function canvasModel(props, emit) {
     };
 
     const onKeyDown = async (e) => {
+        if (!canvas.value) return;
         flags.value.keyDown = true;
         if (e.key === "Escape") environment("fullscreen", {}, {fullscreen: null});
         if (props.config?.event?.keyDown?.handler) {
@@ -93,6 +94,7 @@ export function canvasModel(props, emit) {
     };
 
     const onResize = async () => {
+        if (!canvas.value) return;
         if(props.config?.event?.resize?.observer === true) {
             const resizeObserver = new ResizeObserver(() => _update(props.config));
             if(props.config?.event?.resize?.observer && props.config?.event?.resize?.target) {
@@ -114,6 +116,7 @@ export function canvasModel(props, emit) {
     };
 
     const onWheel = async (e) => {
+        if (!canvas.value) return;
         e.preventDefault();
 
         const delta = -e.deltaY / 500;
@@ -179,12 +182,12 @@ export function canvasModel(props, emit) {
 
     watch(() => props.config, async (v) => {
         if (v && props.state) {
+            if (!v.active) return;
             await _update(v)
         }
     }, { deep: true });
 
     watch(() => props.state, async (v) => {
-        await nextTick();
         if (v) {
             await _init();
         } else {
@@ -193,6 +196,7 @@ export function canvasModel(props, emit) {
     });
 
     const _update = async (v) => {
+        if(!props.state) return;
         await environment("update", v, {canvas: canvas.value, id: canvasId.value || props.id});
     }
 
@@ -210,24 +214,17 @@ export function canvasModel(props, emit) {
             await register('removeAll');
             await nextTick();
             await environment("remove");
-            flags.value.register = false;
-            console.log('Cleaned Canvas')
-        } else if (props.state) {
+            return console.log('Cleaned Canvas')
+        } else {
             if (typeof props.config.canvas === 'string') canvas.value = document.getElementById(props.id);
             else canvas.value = props.config.canvas;
-            await nextTick();
             if(canvas.value) {
                 canvasId.value = props.config?.id || props.id;
                 if(props.config?.wrapper) {
                     if(typeof props.config.wrapper === 'string') wrapper.value = document.getElementById(props.config.wrapper);
                     else wrapper.value = props.config.wrapper;
-                    await nextTick();
-                    if(wrapper.value) {
-                        console.log('CNVS MIT WRPPER INITILISIERT')
-                    }
                 }
                 if (props.config?.canvas === canvas.value) {
-                    console.log('CNVS IS GLEICH');
                     if (wrapper.value) {
                         await environment('register', {
                             ...props.config,
@@ -237,7 +234,6 @@ export function canvasModel(props, emit) {
                         await environment('register', props.config);
                     }
                 } else {
-                    console.log('CNVS IST NICHT GLEICH, PYLOD');
                     if (wrapper.value) {
                         await environment('register',{
                             ...props.config,
@@ -253,7 +249,6 @@ export function canvasModel(props, emit) {
                         });
                     }
                 }
-                await nextTick();
                 canvasId.value = props.id || props.config?.id;
                 await _registerEvents();
             } else {
@@ -272,5 +267,6 @@ export function canvasModel(props, emit) {
 export const canvasProps = {
     state: { type: Boolean, required: true },
     id: { type: String, required: true },
-    config: { type: Object, required: true }
+    config: { type: Object, required: true },
+    viewport: { type: Object, required: true }
 };

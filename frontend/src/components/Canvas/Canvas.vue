@@ -2,6 +2,8 @@
   <canvas
       v-show="state"
       ref="canvas"
+      :width="viewport.width"
+      :height="viewport.height"
       :id="id"
       class="d-block"
   ></canvas>
