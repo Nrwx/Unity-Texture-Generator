@@ -6,6 +6,7 @@ export const appData = {
 }
 
 export const localData = {
+    shader: ref([]),
     queue: ref({
         title: '',
         subTitle: '',

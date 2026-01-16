@@ -1,1 +1,0 @@
-vec3 blendLuminosity(vec3 b, vec3 s);

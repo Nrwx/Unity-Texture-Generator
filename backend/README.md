@@ -2,6 +2,38 @@
 
 ```
 
+world/
+├── model.js // KLASSE WORLD
+└── build/
+│   └── model.js
+└── scheduler/
+     └── model.js
+
+
+WaterBossLevel/
+├── water.json
+├── shadow.json
+├── terrain.json
+├── sound.json
+├── entitys.json
+├── sector.json
+├── collision.json
+└── WaterBossLevel0x0/
+│   ├── sector00.json
+│   ├── sector00.json
+│   ├── sector00.json
+│   └── sector00.json
+└── WaterBossLevel0x1/
+│   ├── sector01.json
+│   ├── sector01.json
+│   ├── sector01.json
+│   └── sector01
+└── WaterBossLevel1x0/
+    ├── sector1x0.json
+    ├── sector1x0.json
+    ├── sector1x0.json
+    └── sector1x0.json
+
 shader/
 ├── vertex.glsl
 ├── fragment.glsl
@@ -11,6 +43,16 @@ shader/
 │   ├── fragment.glsl
 │   ├── model.js
 │   └── modes/*.glsl // Blend fragmente blendNormal, blendMultiply..
+└── skybox/
+│   ├── vertex.glsl
+│   ├── fragment.glsl
+│   ├── model.js
+│   └── modes/*.glsl
+└── mesh/
+│   ├── vertex.glsl
+│   ├── fragment.glsl
+│   ├── model.js
+│   └── modes/*.glsl // mesh fragmente alphaMask, lightning..
 └── particle/
     ├── vertex.glsl
     ├── fragment.glsl

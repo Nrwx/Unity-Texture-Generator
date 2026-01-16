@@ -32,7 +32,7 @@
       <!-- Layer -->
       <Layer style="position: absolute; top: 40px; right: 70px;" :state="windowStates.layer.value" v-model:selected-channel="localData.selectedChannel.value" v-model:channel-settings="localData.channelSettings.value" v-model:layers="localData.layers.value" v-model:paths="localData.paths.value" v-model:selected-layer="localData.selectedLayer.value" v-model:channel="localData.channel.value" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
       <!-- Channel Mixer -->
-      <Mixer v-model:viewport="localData.viewport.value" v-model:data="mixerConfig" :blend-mode="blendMode" v-model:channel="localData.channel.value" v-model:state="windowStates.mixer.value" v-model:loading="loadingStates.mixer.value" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
+      <Mixer v-model:viewport="localData.viewport.value" v-model:data="mixerConfig" v-model:shader="localData.shader.value" :blend-mode="blendMode" v-model:channel="localData.channel.value" v-model:state="windowStates.mixer.value" v-model:loading="loadingStates.mixer.value" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
       <!-- Rechte Taskbar -->
       <Taskbar @taskbar-event="taskbarEvent('right', $event)" align="right"  @component-event="componentEvent" v-model:items="itemsRight" v-model:theme="appData.theme.value" />
       <!-- Rechter Drawer -->
@@ -233,6 +233,9 @@ export default {
       if(!localData.paths.value.length) {
         await componentEvent("path:fetch")
         await componentEvent("select:path-layer", localData.paths.value[1]);
+      }
+      if(!localData.shader.value.length) {
+        await componentEvent('fetch-shader');
       }
     };
 

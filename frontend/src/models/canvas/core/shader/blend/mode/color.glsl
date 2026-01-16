@@ -1,1 +1,0 @@
-vec3 blendColor(vec3 b, vec3 s);

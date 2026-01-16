@@ -7,6 +7,7 @@ BACKUP = []
 MAX_BACKUPS = 5
 
 CHANNELS = []
+SHADERS = []
 FONTS = []
 BRUSHES = []
 

@@ -8,6 +8,7 @@ FOLDER_STRUCTURE = {
         "temp": ["upload", "channel", "mask", "cursor", "render"],
         "layer": None,
         "font": None,
+        "shader": None,
         "brush": None,
         "static": None,
         "backup": None,
@@ -17,6 +18,7 @@ FOLDER_STRUCTURE = {
         "brush": None,
         "font": None,
         "path": None,
+        "shader": None,
         "driver": ["windows", "linux", "aarch64"],
     },
     "__DRIVER": None

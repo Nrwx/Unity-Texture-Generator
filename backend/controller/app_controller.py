@@ -11,6 +11,7 @@ from generated.paths import (
     PUBLIC_TEMP_CHANNEL_FOLDER,
     PUBLIC_TEMP_MASK_FOLDER,
     PUBLIC_TEMP_CURSOR_FOLDER,
+    PUBLIC_SHADER_FOLDER
 )
 from config.data.constant import FRONTEND_PATH, HEADER_NO_CACHE
 
@@ -48,6 +49,7 @@ class AppController(BaseController):
         """
         search_paths = [
             PUBLIC_LAYER_FOLDER,
+            PUBLIC_SHADER_FOLDER,
             PUBLIC_TEMP_RENDER_FOLDER,
             PUBLIC_TEMP_UPLOAD_FOLDER,
             PUBLIC_TEMP_CHANNEL_FOLDER,

@@ -1,19 +1,31 @@
 import {computed, nextTick, ref, watch} from "vue";
 import {eventRegister} from "@/dataLayer/event";
 import {uuid} from "@/utils/uuid";
-import {matrixDefault} from "@/utils/matrix";
 
 export function channelMixerModel(props, emit) {
     const wrapper = ref(null);
     const wrapperId = ref(uuid());
     const canvas = ref(null);
     const canvasId = ref(uuid());
+    const targetId = ref(uuid());
     const addBtn = ref(null);
     const addBtnId = ref(uuid());
     const saveBtn = ref(null);
     const saveBtnId = ref(uuid());
     const resetBtn = ref(null);
     const resetBtnId = ref(uuid());
+
+    const ctx = ref(null);
+    const images = new Map();
+
+    const _state = {
+        panning: false,
+        mouse: {x: 0, y: 0},
+        transform: [0,0],
+        zoom: [1]
+    }
+
+
     const emitEvent = (event, payload) => emit("component-event", event, payload);
     const { register } = eventRegister('listener:channel-canvas', emitEvent);
 
@@ -31,6 +43,187 @@ export function channelMixerModel(props, emit) {
         };
     });
 
+    function loadImage(url) {
+        if (!url) return Promise.resolve(null);
+        if (images.has(url)) return Promise.resolve(images.get(url));
+
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.onload = () => {
+                images.set(url, img);
+                resolve(img);
+            };
+            img.onerror = reject;
+            img.src = url;
+        });
+    }
+
+    function resize() {
+        if (!canvas.value || !wrapper.value || !ctx.value) return;
+        const rect = wrapper.value.getBoundingClientRect();
+
+        canvas.value.width  = rect.width;
+        canvas.value.height = rect.height;
+
+        canvas.value.style.width  = `${rect.width}px`;
+        canvas.value.style.height = `${rect.height}px`;
+
+        ctx.value.setTransform(1, 0, 0, 1, 0, 0);
+    }
+
+    function background() {
+        if (!ctx.value) return;
+
+        const { background } = props.data;
+        const { width, height } = canvas.value ?? props.viewport;
+
+        ctx.value.clearRect(0, 0, width, height);
+
+        if (background === "black") {
+            ctx.value.fillStyle = "#000";
+            ctx.value.fillRect(0, 0, width, height);
+        }
+
+        if (background === "white") {
+            ctx.value.fillStyle = "#fff";
+            ctx.value.fillRect(0, 0, width, height);
+        }
+
+        if (background === "grid") {
+            const size = 16;
+            for (let y = 0; y < height; y += size) {
+                for (let x = 0; x < width; x += size) {
+                    ctx.value.fillStyle =
+                        (x / size + y / size) % 2 ? "#ccc" : "#eee";
+                    ctx.value.fillRect(x, y, size, size);
+                }
+            }
+        }
+    }
+
+    function getContainRect(img, canvasW, canvasH) {
+        const imgRatio = img.width / img.height;
+        const canvasRatio = canvasW / canvasH;
+
+        let w, h;
+
+        if (imgRatio > canvasRatio) {
+            w = canvasW;
+            h = canvasW / imgRatio;
+        } else {
+            h = canvasH;
+            w = canvasH * imgRatio;
+        }
+
+        return {
+            x: (canvasW - w) / 2,
+            y: (canvasH - h) / 2,
+            w,
+            h
+        };
+    }
+
+    async function render() {
+        if (!ctx.value) return;
+
+        resize();
+        background();
+
+        const cw = canvas.value.width  / (window.devicePixelRatio || 1);
+        const ch = canvas.value.height / (window.devicePixelRatio || 1);
+
+        ctx.value.save();
+
+        ctx.value.translate(
+            _state.transform[0] + cw / 2,
+            _state.transform[1] + ch / 2
+        );
+        ctx.value.scale(_state.zoom[0], _state.zoom[0]);
+        ctx.value.translate(-cw / 2, -ch / 2);
+
+        /* -------- BASE CHANNEL -------- */
+        if (currentChannel.value?.url) {
+            const baseImg = await loadImage(currentChannel.value.url);
+            if (baseImg) {
+                const r = getContainRect(baseImg, cw, ch);
+
+                ctx.value.globalAlpha = 1;
+                ctx.value.globalCompositeOperation = "source-over";
+                ctx.value.drawImage(baseImg, r.x, r.y, r.w, r.h);
+            }
+        }
+
+        /* -------- LAYERS -------- */
+        for (const layer of props.data.layers) {
+            if (!layer.url || layer.hidden) continue;
+
+            const img = await loadImage(layer.url);
+            if (!img) continue;
+
+            const r = getContainRect(img, cw, ch);
+
+            ctx.value.globalAlpha = layer.opacity ?? 1;
+            ctx.value.globalCompositeOperation = layer.blend_mode || "normal";
+            ctx.value.drawImage(img, r.x, r.y, r.w, r.h);
+        }
+
+        ctx.value.restore();
+
+        ctx.value.globalAlpha = 1;
+        ctx.value.globalCompositeOperation = "source-over";
+    }
+
+    function down(e) {
+        _state.panning = true;
+        _state.mouse.x = e.clientX;
+        _state.mouse.y = e.clientY;
+        register('add', window, 'pointermove', move)
+        register('add', window, 'pointerup', up)
+    }
+
+    function move(e) {
+        if (!_state.panning) return;
+
+        const dx = e.clientX - _state.mouse.x;
+        const dy = e.clientY - _state.mouse.y;
+
+        _state.transform[0] += dx;
+        _state.transform[1] += dy;
+
+        _state.mouse.x = e.clientX;
+        _state.mouse.y = e.clientY;
+
+        render();
+    }
+
+    function up() {
+        _state.panning = false;
+        register('remove', window, 'pointermove', move)
+        register('remove', window, 'pointerup', up)
+    }
+
+    function setZoom(value) {
+        _state.zoom[0] = Math.min(4, Math.max(0.25, value));
+    }
+
+    function wheel(e) {
+        e.preventDefault();
+
+        const zoomSpeed = 0.0015;
+        const delta = -e.deltaY * zoomSpeed;
+
+        const oldZoom = _state.zoom[0];
+        const newZoom = oldZoom + delta;
+
+        if (newZoom === oldZoom) return;
+
+        setZoom(newZoom);
+        render();
+    }
+
+
+
     // channel select options
     const refOptions = computed(() =>
         props.channel.map((c) => ({
@@ -40,9 +233,7 @@ export function channelMixerModel(props, emit) {
             order: 0,
             url: c.url,
             value: c.id,
-            label: c.name || `Channel ${c.id}`,
-            texture_mode: 'diffuse',
-            matrix: matrixDefault(props.data.webgl)
+            label: c.name || `Channel ${c.id}`
         }))
     );
 
@@ -50,7 +241,7 @@ export function channelMixerModel(props, emit) {
         if (mode === 'base') {
             const item = refOptions.value.find(x => x.id === layerId);
             if (item) {
-               emitEvent('channel:mixer-base', {...item, _update: true});
+                emitEvent('channel:mixer-base', {...item});
             }
         } else if (mode === 'overlay') {
             const layer = props.data.layers.find(l => l.id === layerId);
@@ -73,7 +264,6 @@ export function channelMixerModel(props, emit) {
             layer.width = ch.width;
             layer.hidden = 0;
             layer.height = ch.height;
-            layer.texture_mode = 'diffuse'
         } else {
             console.log('Ungültiger updte modus')
         }
@@ -86,7 +276,6 @@ export function channelMixerModel(props, emit) {
             id: uuid(),
             ref: null,
             blend_mode: 'multiply',
-            matrix: matrixDefault(props.data.webgl),
             opacity: 0.5,
             url: null,
             width: props.viewport.width,
@@ -101,12 +290,15 @@ export function channelMixerModel(props, emit) {
         emitEvent("channel:mixer-save", { id: canvasId.value });
     }
 
-    const reset = async (payload = false) => {
-        emitEvent('channel:mixer-reset', payload);
+    const reset = () => {
+        setZoom(1);
+        _state.transform[0] = 0;
+        _state.transform[1] = 0;
     }
 
     async function _prepare () {
         add();
+        render()
     }
 
     async function _init() {
@@ -119,6 +311,10 @@ export function channelMixerModel(props, emit) {
             await nextTick();
             if (!canvas.value || !wrapper.value) return;
 
+            ctx.value = canvas.value.getContext("2d");
+            resize();
+            await render();
+
             if (addBtn.value) {
                 register('add', addBtn.value, 'pointerdown', add);
             }
@@ -128,47 +324,14 @@ export function channelMixerModel(props, emit) {
             if (resetBtn.value) {
                 register('add', resetBtn.value, 'pointerdown', reset)
             }
-            emitEvent("channel:mixer-update",{
-                wrapper: wrapperId.value || wrapper.value,
-                id: canvasId.value,
-                canvas: canvas.value,
-                webgl: true,
-                viewport: {
-                    width: props.viewport.width,
-                    height: props.viewport.height,
-                    rows: 1,
-                    columns: 1
-                },
-                event: {
-                    pointerDown : {
-                        target: wrapperId.value || wrapper.value,
-                        type: 'pointerdown'
-                    },
-                    pointerMove : {
-                        target: window,
-                        type: 'pointermove',
-                        passive: true
-                    },
-                    pointerUp : {
-                        target: window,
-                        type: 'pointerup',
-                        passive: true
-                    },
-                    wheel: {
-                        target: wrapperId.value || wrapper.value,
-                        type: 'wheel',
-                        options: {passive: false}
-                    }
-                },
-                emit: {
-                    event: 'channel:mixer-update',
-                    handler: emitEvent
-                }
-            })
+
+            if (canvas.value) {
+                register('add', canvas.value, 'pointerdown', down)
+                register('add', canvas.value, 'wheel', wheel, { passive: false })
+            }
+
             await nextTick();
             await _prepare();
-            await nextTick();
-            emitEvent('channel:mixer-active', true);
             return console.log('Mixer-Component successfully initialized');
         } catch (error) {
             console.error('[init] Initialization failed:', error);
@@ -181,20 +344,36 @@ export function channelMixerModel(props, emit) {
         if (v) {
             await _init();
         } else {
-            emitEvent('channel:mixer-active', false);
-            await reset(true);
+            emitEvent('channel:mixer-state', false);
+            reset();
             register('removeAll');
             console.log('Cleaned Channel-Canvas')
         }
     });
 
+    watch(
+        () => [
+            props.data.target,
+            props.data.layers,
+            props.data.background,
+        ],
+        async () => {
+            await nextTick();
+            render();
+        },
+        { deep: true }
+    );
+
 
     return {
         config,
+        _state,
 
         wrapper,
         wrapperId,
+        canvas,
         canvasId,
+        targetId,
         addBtn,
         addBtnId,
         saveBtn,
@@ -217,6 +396,11 @@ export const channelMixerProps = {
     data: {
         type: Object,
         required: true,
+    },
+    shader: {
+        type: Array,
+        required: true,
+        default: () => []
     },
     channel: {
         type: Array,

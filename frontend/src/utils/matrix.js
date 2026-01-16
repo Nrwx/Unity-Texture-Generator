@@ -1,65 +1,4 @@
 /**
- * Erzeugt eine Standardmatrix.
- *
- * Für 2D Canvas: {a,b,c,d,x,y,rotate} (2×3 affine)
- * Für WebGL 4x4: Float32Array (column-major)
- *
- * @param {boolean} [webgl=false] - true → WebGL 4×4 Matrix
- * @returns {Object|Float32Array} - Standardmatrix
- */
-export const matrixDefault = (webgl = false) => {
-    if (webgl) {
-        // WebGL 4x4 Identity-Matrix (column-major)
-        return new Float32Array([
-            1, 0, 0, 0,  // Spalte 0
-            0, 1, 0, 0,  // Spalte 1
-            0, 0, 1, 0,  // Spalte 2
-            0, 0, 0, 1   // Spalte 3
-        ]);
-    } else {
-        // 2D Canvas Identity-Matrix
-        return { a: 1, b: 0, c: 0, d: 1, x: 0, y: 0, rotate: 0 };
-    }
-};
-
-/**
- * Konvertiert eine 2D Canvas affine Matrix (+ optional Z) in eine WebGL 4x4 Matrix (column-major)
- *
- * Canvas-Matrix:
- *  { a,b,c,d,x,y,z }
- *
- * WebGL 4x4 column-major:
- *  [ a b 0 0 ]
- *  [ c d 0 0 ]
- *  [ 0 0 1 0 ]
- *  [ x y z 1 ]
- *
- * @param {{a?:number,b?:number,c?:number,d?:number,x?:number,y?:number,z?:number}} m
- * @returns {Float32Array}
- */
-export const matrix2dAffineTo4x4 = (m = {}) => {
-
-    // --------------------------------------------
-    // Defaults (Canvas 2D Identity Matrix)
-    // --------------------------------------------
-    const a = m.a ?? 1;
-    const b = m.b ?? 0;
-    const c = m.c ?? 0;
-    const d = m.d ?? 1;
-    const x = m.x ?? 0;
-    const y = m.y ?? 0;
-    const z = m.z ?? 0;
-
-    return new Float32Array([
-        a, b, 0, 0,
-        c, d, 0, 0,
-        0, 0, 1, 0,
-        x, y, z, 1
-    ]);
-};
-
-
-/**
  * Multipliziert zwei Matrizen.
  *
  * Normal:
@@ -102,33 +41,6 @@ export const matrixMultiply = (m2, m1, webgl = false) => {
             y: m2.b * m1.x + m2.d * m1.y + m2.y
         };
     }
-};
-
-
-/**
- * Konvertiert eine WebGL 4x4 Matrix (column-major) zurück in eine 2D Canvas 2x3 Matrix inkl. Rotation.
- *
- * Canvas-Matrix:
- *  { a,b,c,d,x,y,rotate }
- *
- * @param {Float32Array|number[]} m - WebGL 4x4 Matrix (column-major)
- * @returns {{a:number,b:number,c:number,d:number,x:number,y:number,rotate:number}} - Canvas 2D Matrix
- */
-export const matrix4x4To2dAffine = (m) => {
-    // Extrahiere a,b,c,d aus der 4x4 Matrix
-    const a = m[0]; // m00
-    const b = m[1]; // m01
-    const c = m[4]; // m10
-    const d = m[5]; // m11
-
-    // Translation
-    const x = m[12];
-    const y = m[13];
-
-    // Rotation berechnen (nur XY Ebene)
-    const rotate = Math.atan2(b, a); // Rotation um Z-Achse
-
-    return { a, b, c, d, x, y, rotate };
 };
 
 
@@ -365,25 +277,92 @@ export const rayCast = (px, py, poly) => {
 };
 
 /**
- * Berechnet die Inverse einer 2D-Affinmatrix.
- * @param {{a:number,b:number,c:number,d:number,x:number,y:number}} m
- * @returns {{a:number,b:number,c:number,d:number,x:number,y:number}} inverse Matrix
+ * Invertiert eine Matrix
+ *
+ * - 2D Canvas: 2x3 affine Matrix
+ * - WebGL: 4x4 column-major Float32Array
+ *
+ * @param {Object|Float32Array} m
+ * @param {boolean} [webgl=false]
+ * @returns {Object|Float32Array}
  */
-export const matrixInverse = (m) => {
-    const det = m.a * m.d - m.b * m.c;
-    if (!det) throw new Error("Matrix not invertible");
+export const matrixInvert = (m, webgl = false) => {
 
-    const invDet = 1 / det;
+    // ===============================
+    // WebGL 4x4 Matrix (column-major)
+    // ===============================
+    if (webgl) {
+        const inv = new Float32Array(16);
 
-    return {
-        a: m.d * invDet,
-        b: -m.b * invDet,
-        c: -m.c * invDet,
-        d: m.a * invDet,
-        x: (m.c * m.y - m.d * m.x) * invDet,
-        y: (m.b * m.x - m.a * m.y) * invDet
-    };
+        const a00 = m[0],  a01 = m[4],  a02 = m[8],  a03 = m[12];
+        const a10 = m[1],  a11 = m[5],  a12 = m[9],  a13 = m[13];
+        const a20 = m[2],  a21 = m[6],  a22 = m[10], a23 = m[14];
+        const a30 = m[3],  a31 = m[7],  a32 = m[11], a33 = m[15];
+
+        const b00 = a00 * a11 - a01 * a10;
+        const b01 = a00 * a12 - a02 * a10;
+        const b02 = a00 * a13 - a03 * a10;
+        const b03 = a01 * a12 - a02 * a11;
+        const b04 = a01 * a13 - a03 * a11;
+        const b05 = a02 * a13 - a03 * a12;
+        const b06 = a20 * a31 - a21 * a30;
+        const b07 = a20 * a32 - a22 * a30;
+        const b08 = a20 * a33 - a23 * a30;
+        const b09 = a21 * a32 - a22 * a31;
+        const b10 = a21 * a33 - a23 * a31;
+        const b11 = a22 * a33 - a23 * a32;
+
+        // Determinante
+        let det =
+            b00 * b11 -
+            b01 * b10 +
+            b02 * b09 +
+            b03 * b08 -
+            b04 * b07 +
+            b05 * b06;
+
+        if (!det) throw new Error("Matrix not invertible");
+
+        det = 1.0 / det;
+
+        inv[0]  = ( a11 * b11 - a12 * b10 + a13 * b09) * det;
+        inv[1]  = (-a10 * b11 + a12 * b08 - a13 * b07) * det;
+        inv[2]  = ( a10 * b10 - a11 * b08 + a13 * b06) * det;
+        inv[3]  = (-a10 * b09 + a11 * b07 - a12 * b06) * det;
+
+        inv[4]  = (-a01 * b11 + a02 * b10 - a03 * b09) * det;
+        inv[5]  = ( a00 * b11 - a02 * b08 + a03 * b07) * det;
+        inv[6]  = (-a00 * b10 + a01 * b08 - a03 * b06) * det;
+        inv[7]  = ( a00 * b09 - a01 * b07 + a02 * b06) * det;
+
+        inv[8]  = ( a31 * b05 - a32 * b04 + a33 * b03) * det;
+        inv[9]  = (-a30 * b05 + a32 * b02 - a33 * b01) * det;
+        inv[10] = ( a30 * b04 - a31 * b02 + a33 * b00) * det;
+        inv[11] = (-a30 * b03 + a31 * b01 - a32 * b00) * det;
+
+        inv[12] = (-a21 * b05 + a22 * b04 - a23 * b03) * det;
+        inv[13] = ( a20 * b05 - a22 * b02 + a23 * b01) * det;
+        inv[14] = (-a20 * b04 + a21 * b02 - a23 * b00) * det;
+        inv[15] = ( a20 * b03 - a21 * b01 + a22 * b00) * det;
+
+        return inv;
+    } else {
+        const det = m.a * m.d - m.b * m.c;
+        if (!det) throw new Error("Matrix not invertible");
+
+        const invDet = 1 / det;
+
+        return {
+            a: m.d * invDet,
+            b: -m.b * invDet,
+            c: -m.c * invDet,
+            d: m.a * invDet,
+            x: (m.c * m.y - m.d * m.x) * invDet,
+            y: (m.b * m.x - m.a * m.y) * invDet
+        };
+    }
 };
+
 
 /**
  * Erzeugt eine Rotationsmatrix um einen Pivotpunkt.

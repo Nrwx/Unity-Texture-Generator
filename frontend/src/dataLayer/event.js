@@ -29,15 +29,13 @@ import {rendererEvent} from "@/dataLayer/event/renderer";
 import {pathEvent} from "@/dataLayer/event/path";
 import {timelineEvent} from "@/dataLayer/event/timeline";
 import {taskEvent} from "@/dataLayer/event/task";
-import {canvasEvent} from "@/dataLayer/event/canvas";
-import {createCanvasEnvironment} from "@/dataLayer/canvas";
+import {shaderEvent} from "@/dataLayer/event/shader";
 
 
 /**
  * Kombiniert alle Events zu einem Handler-Objekt
  */
 const eventHandler = (route) => ({
-    ...canvasEvent(route),
     ...listenerEvent(route),
     ...keyEvent(route),
     ...appEvent(route),
@@ -67,7 +65,8 @@ const eventHandler = (route) => ({
     ...contextMenuEvent(route),
     ...exportEvent(route),
     ...rendererEvent(route),
-    ...pathEvent(route)
+    ...pathEvent(route),
+    ...shaderEvent(route)
 });
 
 
@@ -101,7 +100,6 @@ export const createEventSystem = (deps) => {
     };
 
     route.listener = createListenerManager();
-    route.canvas = createCanvasEnvironment();
 
     const emit = eventManager(eventHandler(route));
     route.emit = emit;
@@ -171,128 +169,4 @@ export const eventRegister = (id= '', emitEvent = null) => {
     };
 
     return { register };
-};
-
-/**
- * Canvas Register Helper
- * @param {string} id - eindeutige Canvas ID
- * @param {function} emitEvent - Vue emit Funktion
- */
-export const canvasRegister = (id = '', emitEvent = null) => {
-    if (!id || typeof id !== 'string') {
-        console.warn(`[canvasRegister] ⚠️ id ist nicht definiert oder kein String!`);
-    }
-    if (!emitEvent || typeof emitEvent !== 'function') {
-        console.warn(`[canvasRegister] ⚠️ emitEvent ist nicht definiert oder keine Funktion!`);
-    }
-
-    /**
-     * @param {string} mode
-     * 'register' | 'update' | 'pause' | 'resume' | 'export' | 'destroy' | 'pause-all' | 'resume-all'
-     * 'add-segment' | 'update-segment' | 'remove-segment' | 'fullscreen-segment' | 'add-layer'
-     * | 'update-layer' | 'remove-layer'
-     * @param {Object} config - optional, bei 'register'
-     * @param {Object} payload - optional, bei 'update' oder Segment-Operation
-     * @param {boolean} loop - optional, bei 'update'
-     */
-    const environment = (mode, config = {}, payload = {}, loop = false) => {
-        switch (mode) {
-            case 'register':
-
-                if (!config?.canvas || !(config?.canvas instanceof HTMLCanvasElement)) {
-                    console.warn(`[canvasRegister:register] Ungültiges Canvas Element:`, config.canvas);
-                    return;
-                }
-                emitEvent('canvas:register', {
-                    id: payload?.id || id,
-                    config: config
-                });
-                break;
-
-            case 'update':
-                emitEvent('canvas:update', {
-                    id: id,
-                    payload: {
-                        ...config,
-                        ...payload
-                    },
-                    loop: loop
-                });
-                break;
-
-            case 'select':
-                emitEvent('canvas:select', {
-                    ...payload,
-                    id: payload?.id || id,
-                });
-                break;
-
-            case 'export':
-                emitEvent('canvas:export', {
-                    id: payload?.id || id,
-                });
-                break;
-
-            case 'pause':
-                emitEvent('canvas:pause', {
-                    id: payload?.id || id,
-                });
-                break;
-
-            case 'resume':
-                emitEvent('canvas:resume', {
-                    id: payload?.id || id,
-                });
-                break;
-
-            case 'remove':
-                emitEvent('canvas:remove', payload?.id || id);
-                break;
-
-            case 'remove-all':
-                emitEvent('remove-all');
-                break;
-
-            case 'pause-all':
-                emitEvent('canvas:pause-all');
-                break;
-
-            case 'resume-all':
-                emitEvent('canvas:resume-all');
-                break;
-
-            case 'add-segment':
-                emitEvent('canvas:add-segment', { id, ...payload });
-                break;
-
-            case 'update-segment':
-                emitEvent('canvas:update-segment', { id, ...payload });
-                break;
-
-            case 'remove-segment':
-                emitEvent('canvas:remove-segment', { id, ...payload });
-                break;
-
-            case 'fullscreen-segment':
-                emitEvent('canvas:fullscreen-segment', { id, ...payload });
-                break;
-
-            case 'add-layer':
-                emitEvent('canvas:add-layer', { id, ...payload });
-                break;
-
-            case 'update-layer':
-                emitEvent('canvas:update-layer', { id, ...payload });
-                break;
-
-            case 'remove-layer':
-                emitEvent('canvas:remove-layer', { id, ...payload });
-                break;
-
-            default:
-                console.warn(`[canvasRegister] Unbekannter Modus: ${mode}`);
-        }
-    };
-
-    return { environment };
 };

@@ -1,4 +1,3 @@
-import {matrixDefault} from "@/utils/matrix";
 import {nextTick} from "vue";
 
 export const channelEvent = (route) => ({
@@ -100,11 +99,6 @@ export const channelEvent = (route) => ({
             if (payload === false) route.emit('channel:mixer-reset')
         }
     },
-    "channel:mixer-active": async (payload) => {
-        if (typeof payload === "boolean") {
-            route.mixerConfig.value.active = payload;
-        }
-    },
     "channel:mixer-target": async (payload) => {
         const target =  route.localData.channel.value.find(x => x.id === payload);
         if (target) {
@@ -115,15 +109,10 @@ export const channelEvent = (route) => ({
     "channel:mixer-base": async (payload) => {
         route.mixerConfig.value.base = [payload];
     },
-    "channel:mixer-reset": async (payload) => {
-        route.mixerConfig.value.matrix = matrixDefault();
-        if(payload === true) {
-            route.mixerConfig.value.background = 'checker';
-            route.mixerConfig.value.active = false;
-            route.mixerConfig.value.target = '';
-            route.mixerConfig.value.base = [];
-            route.mixerConfig.value.layers = [];
-        }
+    "channel:mixer-reset": async () => {
+        route.mixerConfig.value.target = '';
+        route.mixerConfig.value.base.length = 0;
+        route.mixerConfig.value.layers.length = 0;
     },
     "channel:mixer-add": async (payload) => {
         route.mixerConfig.value.layers.push(payload);
@@ -139,12 +128,5 @@ export const channelEvent = (route) => ({
     },
     "channel:mixer-save": async (payload) => {
         console.log(payload)
-    },
-    "channel:mixer-update": async (payload) => {
-        route.mixerConfig.value = {
-            ...route.mixerConfig.value,
-            ...payload
-        };
-        console.log(route.mixerConfig.value, 'THIS IS MIXER')
     }
 });

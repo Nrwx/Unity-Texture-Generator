@@ -14,20 +14,20 @@
           <aside class="mix-left flex-0-1 d-flex flex-column align-center pa-3 ga-3">
 
             <div class="canvas-wrap relative w-100 overflow-hidden d-flex justify-center align-center" ref="wrapper" :id="wrapperId">
-              <Canvas :state="data?.active" :viewport="viewport" :id="canvasId" :config="data" @update:component-event="emitEvent"/>
+              <canvas ref="canvas" :id="canvasId"></canvas>
             </div>
 
             <div class="preview-controls w-100 d-flex justify-center align-center ga-3">
 
               <div class="control d-flex flex-column ga-1">
                 <label>Zoom</label>
-                <input type="range" min="0.25" max="2" step="0.25" v-model.number="data.matrix.a"/>
+                <input type="range" min="0.25" max="2" step="0.25" v-model.number="_state.zoom[0]"/>
               </div>
 
               <div class="control">
                 <label>Background</label>
                 <select v-model="data.background">
-                  <option value="checker">Checker</option>
+                  <option value="grid">Grid</option>
                   <option value="transparent">Transparent</option>
                   <option value="black">Black</option>
                   <option value="white">White</option>
@@ -122,11 +122,10 @@
 import { defineComponent } from "vue";
 import {channelMixerModel, channelMixerProps} from "@/models/channel/mixer/model";
 import Dialog from "@/components/Dialog/Dialog.vue";
-import Canvas from "@/components/Canvas/Canvas.vue";
 
 export default defineComponent({
   name: "MixerComponent",
-  components: {Dialog, Canvas},
+  components: {Dialog},
   props: channelMixerProps,
   setup(props, { emit }) {
     const model = channelMixerModel(props, emit);

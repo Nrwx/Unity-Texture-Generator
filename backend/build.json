@@ -17,7 +17,7 @@
     "project_name": "unity-texture-generator"
   },
   "dependencies": {
-    "last_build": "2025-12-11T22:57:26.820747Z",
+    "last_build": "2026-01-12T04:38:35.545724Z",
     "config": {
       "library_policy": {
         "auto_update": true,
@@ -1010,6 +1010,66 @@
             "id"
           ],
           "function": "clear"
+        }
+      },
+      "api": {
+        "dependency": {
+          "view": [
+            "log"
+          ],
+          "controller": [
+            "log"
+          ],
+          "model": [
+            "syslink",
+            "log"
+          ]
+        }
+      }
+    },
+    {
+      "blueprint": "shader",
+      "view_module": "view.shader_view",
+      "controller": "controller.shader_controller",
+      "model": "model.shader_model",
+      "url": "/shader",
+      "strict_slashes": false,
+      "initialize": true,
+      "active": true,
+      "routes": {
+        "0": {
+          "url": "",
+          "methods": [
+            "GET",
+            "POST"
+          ],
+          "function": "handle_shader",
+          "value": "dispatch"
+        },
+        "1": {
+          "url": "/shader/<folder>/<filename>",
+          "methods": [
+            "GET"
+          ],
+          "function": "get_shader",
+          "keys": "folder, filename",
+          "value": "_controller._serve_shader"
+        }
+      },
+      "method_map": {
+        "upload": {
+          "keys": [],
+          "function": "upload"
+        },
+        "update": {
+          "keys": [],
+          "function": "update"
+        },
+        "delete": {
+          "keys": [
+            "id"
+          ],
+          "function": "delete"
         }
       },
       "api": {
