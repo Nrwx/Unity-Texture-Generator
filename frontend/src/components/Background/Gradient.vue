@@ -1,7 +1,7 @@
 <template>
   <div class="gradient-container relative w-h overflow-hidden">
     <!-- SVG-Farbverlauf -->
-    <svg class="gradient-svg absolute w-h cursor-none" viewBox="0 0 50 50" preserveAspectRatio="none">
+    <svg class="gradient-svg w-h cursor-none absolute" viewBox="0 0 50 50" preserveAspectRatio="none">
       <defs>
         <linearGradient
             :id="gradientId"
@@ -44,7 +44,7 @@
     </svg>
 
     <!-- Dunkler SVG-Verlauf, schnellere Animation -->
-    <svg class="gradient-svg dark" viewBox="0 0 50 50" preserveAspectRatio="none">
+    <svg class="gradient-svg dark absolute" viewBox="0 0 50 50" preserveAspectRatio="none">
       <defs>
         <linearGradient :id="`${gradientId}-dark`" x1="100%" y1="0%" x2="0%" y2="0%">
           <stop v-for="(color, i) in darkSteps" :key="i" :offset="`${(i / (darkSteps.length - 1)) * 100}%`">

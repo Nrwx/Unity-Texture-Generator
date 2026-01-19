@@ -17,7 +17,7 @@
     "project_name": "unity-texture-generator"
   },
   "dependencies": {
-    "last_build": "2026-01-12T04:38:35.545724Z",
+    "last_build": "2026-01-19T05:58:45.321270Z",
     "config": {
       "library_policy": {
         "auto_update": true,
@@ -231,7 +231,8 @@
             "size",
             "layer_type"
           ],
-          "function": "generate_image"
+          "function": "generate_image",
+          "value": "dispatch"
         }
       },
       "api": {
@@ -275,14 +276,16 @@
             "id",
             "title"
           ],
-          "function": "create"
+          "function": "create",
+          "value": "dispatch"
         },
         "jump": {
           "keys": [
             "index",
             "id"
           ],
-          "function": "jump"
+          "function": "jump",
+          "value": "dispatch"
         }
       },
       "api": {
@@ -948,6 +951,12 @@
             "id"
           ],
           "function": "upload_base64"
+        },
+        "blob": {
+          "keys": [
+            "id"
+          ],
+          "function": "overwrite_image"
         }
       },
       "api": {

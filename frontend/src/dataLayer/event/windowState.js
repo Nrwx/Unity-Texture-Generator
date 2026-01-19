@@ -170,15 +170,9 @@ export const windowStateEvent = (route) => ({
                     await route.emit("layer:select", [route.localData.layers.value[route.localData.layers.value.length - 1]]);
                 }
             }
-            if(!payload && route.tempData.brushLayer.value) {
-                await route.emit('hide-layer', {id: route.tempData.brushLayer.value.id, hidden: 1})
-            }
             route.windowStates.brush.value = payload;
             if (!route.listener.isActive('listener:brush')) {
                 await route.emit("event:listener", {resume: true, id: 'listener:brush'})
-            }
-            if (route.tempData.brushLayer.value && payload) {
-                await route.emit('hide-layer', {id: route.tempData.brushLayer.value.id, hidden: 0})
             }
         }
     },

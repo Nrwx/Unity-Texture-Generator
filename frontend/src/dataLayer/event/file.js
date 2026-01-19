@@ -62,10 +62,6 @@ export const fileEvent = (route) => ({
 })
 
 export const fileSettingEvent = (route) => ({
-    "update-dimension": (payload) => {
-        route.localData.dimension.value = payload
-        console.log(payload, '@EVENT: UPDATE-DIMENSION')
-    },
     "apply-maps": (payload) => {
         route.localData.selectedMaps.value = payload;
     },

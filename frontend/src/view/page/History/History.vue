@@ -3,7 +3,7 @@
       v-model="tabIndex"
       class="tab-navigation"
       background-color="primary"
-      dark
+      :dark="theme === 'darkTheme'"
       grow
       height="32"
       align="center"
@@ -14,7 +14,7 @@
     </v-tab>
   </v-tabs>
 
-  <v-card class="pa-0" width="100%" flat height="100%" v-for="(tab, index) in tabs" :key="tab.name" v-show="tabIndex === index">
+  <v-card :theme="theme" class="pa-0" width="100%" flat height="100%" v-for="(tab, index) in tabs" :key="tab.name" v-show="tabIndex === index">
 
     <!-- TAB 0: GLOBAL BACKUP -->
     <template v-if="tabIndex === 0">
@@ -25,7 +25,7 @@
         Klicken Sie auf einen Eintrag, um im Protokoll vor- oder zurückzuspringen.
         Nach dem Zurückspringen überschreibt ein erneutes Ausführen alle späteren Einträge.
       </v-card-subtitle>
-      <div class="scrollFx" :class="theme === 'dark' ? 'dark' : 'light'">
+      <div class="scrollFx" :class="theme === 'darkTheme' ? 'dark' : 'light'">
         <div class="scrollTop"></div>
         <div class="scrollBottom"></div>
       </div>
@@ -36,6 +36,7 @@
               v-for="(entry) in backupStates.global.value"
               :key="entry.id"
               :active="entry.active"
+              :class="[{ 'backup-future': entry.future }]"
               class="cursor-pointer"
               @click="emitEvent('backup:jump-to', { id: entry.id, index: entry.index })"
           >
@@ -64,7 +65,7 @@
             min-width="145"
         ></v-select>
       </v-card-title>
-      <div class="scrollFx">
+      <div class="scrollFx" :class="theme === 'darkTheme' ? 'dark' : 'light'">
         <div class="scrollTop"></div>
         <div class="scrollBottom"></div>
       </div>
@@ -80,11 +81,11 @@
             <v-badge class="absolute-badge" color="error" :content="build.buildMaps.length + build.tiledMaps.length"></v-badge>
             <v-badge style="top: 36px;" class="absolute-badge nav-badge" @click="emitEvent('delete-build', build.id)" color="error" icon="mdi-delete"></v-badge>
             <!-- Build Info: Zeitstempel und Karten -->
-            <v-card class="py-6 px-4" :style="index === 0 ? 'background-color: #fff8d8;' : ''">
+            <v-card class="py-6 px-4 " :class="index === 0 ? 'text-shades-black' : ''" :style="index === 0 ? 'background-color: #fff8d8;' : ''">
               <v-card-title style="font-size: 14px;">{{ build.timestamp }}</v-card-title>
               <v-card-subtitle class="d-flex align-center" style="font-size: 12px; min-height: 45px;">
                 <div style="width: 100%;" class="text-truncate mr-6">{{ build.maps }}</div>
-                <v-btn icon size="x-small" @click="toggleCollapse(index)">
+                <v-btn class="text-shades-white" icon size="x-small" @click="toggleCollapse(index)">
                   <v-icon>{{ build.collapsed ? 'mdi-chevron-down' : 'mdi-chevron-up' }}</v-icon>
                 </v-btn>
 

@@ -5,40 +5,83 @@ from utils import time
 import copy
 
 class BackupModel(BaseModel):
+
+    @staticmethod
+    def _normalize_state(state):
+        """
+        Gibt IMMER eine vollständige Scene (Liste von Layern) zurück
+        """
+        # Fall 1: vollständige Scene
+        if isinstance(state, list):
+            return copy.deepcopy(state)
+
+        # Fall 2: einzelner Layer
+        if isinstance(state, dict):
+            scene = copy.deepcopy(LAYERS)
+
+            # Layer mit gleicher ID ersetzen oder hinzufügen
+            for i, layer in enumerate(scene):
+                if layer.get("id") == state.get("id"):
+                    scene[i] = copy.deepcopy(state)
+                    break
+            else:
+                scene.append(copy.deepcopy(state))
+
+            return scene
+
+        raise ValueError("Ungültiger State-Typ")
+
+
     @classmethod
     def create(cls, state, id, title):
         try:
+            if state is None:
+                return {"error": "State fehlt"}, 400
+
+            # State vereinheitlichen
+            normalized_state = cls._normalize_state(state)
+
             backups_for_id = [b for b in BACKUP if b["id"] == id]
-            active_backup = next((b for b in backups_for_id if b["active"]), None)
-            max_global_index = max((b["index"] for b in BACKUP), default=-1)
+            active_backup = next((b for b in backups_for_id if b.get("active")), None)
 
-            if active_backup is not None:
-                current_time = active_backup["time"]
+            if active_backup:
+                active_index = active_backup["index"]
+
+                # 🔥 GLOBALE Zukunft löschen (ID EGAL)
+                BACKUP[:] = [
+                    b for b in BACKUP
+                    if b["index"] <= active_index
+                ]
+
+                new_index = active_index + 1
             else:
-                current_time = -1  # oder 0 je nach Zeitformat
+                # erster Eintrag oder inkonsistenter Zustand
+                new_index = max((b["index"] for b in BACKUP), default=-1) + 1
 
-            # Lösche alle Backups, die nach active_backup zeitlich liegen
-            BACKUP[:] = [b for b in BACKUP if not (b["id"] == id and b["time"] > current_time)]
-
-            new_index = max_global_index + 1
-            now = time('unix_ms')
             BACKUP.append({
                 "id": id,
                 "title": title,
-                "time": now,
-                "state": copy.deepcopy(state),
+                "time": time("unix_ms"),
+                "state": normalized_state,
                 "active": True,
                 "index": new_index
             })
 
-            # Deaktiviere andere Backups mit der ID
+            # alle anderen deaktivieren
             for b in BACKUP:
-                if b["id"] == id and b["index"] != new_index:
+                if b["index"] != new_index:
                     b["active"] = False
 
-            return {"message": f"Backup für {id} gespeichert.", "index": new_index}
+            return {
+                "message": f"Backup gespeichert (Index {new_index})",
+                "index": new_index
+            }, 200
+
         except Exception as e:
             return cls.handle_error(e)
+
+
+
 
     @classmethod
     def jump(cls, index, id):
@@ -51,34 +94,21 @@ class BackupModel(BaseModel):
             if chosen_backup is None:
                 return {"error": "Ungültiger Index."}, 400
 
-            chosen_time = chosen_backup["time"]
-            chosen_state = chosen_backup["state"]
-
-            # 1. Lösche alle Backups, die zeitlich nach dem Ziel-Zeitpunkt liegen
-            BACKUP[:] = [b for b in BACKUP if b["time"] <= chosen_time]
-
-            # 2. Setze alle Backups auf inactive
+            # Backups aktiv setzen
             for b in BACKUP:
                 b["active"] = False
+            chosen_backup["active"] = True
 
-            # 3. Aktiviere das gewählte Backup
-            for b in BACKUP:
-                if b["id"] == id and b["index"] == index:
-                    b["active"] = True
+            # 🔥 Scene vollständig ersetzen
+            LAYERS.clear()
+            LAYERS.extend(copy.deepcopy(chosen_backup["state"]))
 
-            # 4. Layer mit gleicher ID in LAYERS ersetzen (wenn vorhanden), sonst hinzufügen
-            updated = False
-            for i, layer in enumerate(LAYERS):
-                if layer.get("id") == id:
-                    LAYERS[i] = chosen_state
-                    updated = True
-                    break
-            if not updated:
-                LAYERS.append(chosen_state)
+            return {"message": f"Jump erfolgreich zu Index {index}"}, 200
 
-            return {"message": f"Jump erfolgreich zu ID '{id}'"}
         except Exception as e:
             return cls.handle_error(e)
+
+
 
     @classmethod
     def fetch(cls):
@@ -90,10 +120,17 @@ class BackupModel(BaseModel):
 
     @staticmethod
     def _list_global():
+        # 🔥 Finde globalen aktiven Index (Undo-Pointer)
+        active_index = max(
+            (b["index"] for b in BACKUP if b.get("active")),
+            default=-1
+        )
+
         return [{
             "id": b["id"],
             "index": b["index"],
             "title": b["title"],
-            "state": b["state"],
-            "time": b["time"]
+            "time": b["time"],
+            "active": b["active"],
+            "future": b["index"] > active_index
         } for b in BACKUP]

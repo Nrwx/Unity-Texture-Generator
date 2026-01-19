@@ -22,7 +22,7 @@ export function channelMixerModel(props, emit) {
         panning: false,
         mouse: {x: 0, y: 0},
         transform: [0,0],
-        zoom: [1]
+        zoom: ref(1)
     }
 
 
@@ -139,7 +139,7 @@ export function channelMixerModel(props, emit) {
             _state.transform[0] + cw / 2,
             _state.transform[1] + ch / 2
         );
-        ctx.value.scale(_state.zoom[0], _state.zoom[0]);
+        ctx.value.scale(_state.zoom.value, _state.zoom.value);
         ctx.value.translate(-cw / 2, -ch / 2);
 
         /* -------- BASE CHANNEL -------- */
@@ -182,7 +182,7 @@ export function channelMixerModel(props, emit) {
         register('add', window, 'pointerup', up)
     }
 
-    function move(e) {
+    async function move(e) {
         if (!_state.panning) return;
 
         const dx = e.clientX - _state.mouse.x;
@@ -194,7 +194,7 @@ export function channelMixerModel(props, emit) {
         _state.mouse.x = e.clientX;
         _state.mouse.y = e.clientY;
 
-        render();
+        await render();
     }
 
     function up() {
@@ -204,22 +204,17 @@ export function channelMixerModel(props, emit) {
     }
 
     function setZoom(value) {
-        _state.zoom[0] = Math.min(4, Math.max(0.25, value));
+        _state.zoom.value = Math.min(4, Math.max(0.25, value));
     }
 
-    function wheel(e) {
+    async function wheel(e) {
         e.preventDefault();
 
         const zoomSpeed = 0.0015;
         const delta = -e.deltaY * zoomSpeed;
 
-        const oldZoom = _state.zoom[0];
-        const newZoom = oldZoom + delta;
-
-        if (newZoom === oldZoom) return;
-
-        setZoom(newZoom);
-        render();
+        setZoom(_state.zoom.value + delta);
+        await render();
     }
 
 
@@ -290,15 +285,15 @@ export function channelMixerModel(props, emit) {
         emitEvent("channel:mixer-save", { id: canvasId.value });
     }
 
-    const reset = () => {
+    const reset = async () => {
         setZoom(1);
         _state.transform[0] = 0;
         _state.transform[1] = 0;
+        await render();
     }
 
     async function _prepare () {
         add();
-        render()
     }
 
     async function _init() {
@@ -345,7 +340,7 @@ export function channelMixerModel(props, emit) {
             await _init();
         } else {
             emitEvent('channel:mixer-state', false);
-            reset();
+            await reset();
             register('removeAll');
             console.log('Cleaned Channel-Canvas')
         }
@@ -355,11 +350,11 @@ export function channelMixerModel(props, emit) {
         () => [
             props.data.target,
             props.data.layers,
-            props.data.background,
+            props.data.background
         ],
         async () => {
             await nextTick();
-            render();
+            await render();
         },
         { deep: true }
     );
@@ -384,6 +379,7 @@ export function channelMixerModel(props, emit) {
         refOptions,
         currentChannel,
         update,
+        render,
         emitEvent
     };
 }

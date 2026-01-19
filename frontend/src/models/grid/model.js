@@ -190,7 +190,7 @@ export function gridModel(props, emit) {
         resizeDirection.value = corner;
         lastMouse.value.x = event.clientX;
         lastMouse.value.y = event.clientY;
-        register('add', document, 'mouseup', stopTransform);
+        register('add', window, 'mouseup', stopTransform);
     };
 
     const startRotate = async (direction, event) => {
@@ -199,7 +199,7 @@ export function gridModel(props, emit) {
         rotationStartAngle.value = calculateRotation(event.clientX, event.clientY);
         lastMouse.value.x = event.clientX;
         lastMouse.value.y = event.clientY;
-        register('add', document, 'mouseup', stopTransform);
+        register('add', window, 'mouseup', stopTransform);
     };
 
 
@@ -337,7 +337,7 @@ export function gridModel(props, emit) {
 
 
     const resetSelection = async (event) => {
-        if (props.brush) return;
+        if (props.brush === true) return;
         event.preventDefault();
         if (!canvas.value.contains(event.target) && !event.ctrlKey
             || !props.menu && !props.transform && !event.ctrlKey
@@ -347,8 +347,8 @@ export function gridModel(props, emit) {
             props.selectedLayer.forEach(layer => {
                 updateLayer(layer)
             })
-            emitEvent('layer:transform-align', false);
-            alignModeStep.value = 0
+
+            props.selectedLayer = [];
             emitEvent('layer:select', [])
         }
     };
@@ -372,10 +372,9 @@ export function gridModel(props, emit) {
     };
 
     const layerChanged = (a, b) => {
-        if (!a || !b) return true;
+        if (!a || !b) return false;
 
         for (const key in a) {
-            if (key === 'matrix' || key === '__originalMatrix' || key === '__originalBase') continue;
             if (a[key] !== b[key]) {
                 return true;
             }
@@ -388,15 +387,11 @@ export function gridModel(props, emit) {
         if (!layer.__originalMatrix) {
             layer.__originalMatrix = { ...layer.matrix };
         }
-        if (!layer.__originalBase) {
-            const { matrix, __originalMatrix, ...rest } = layer;
-            console.log(`Stored Base: ${JSON.stringify(rest)} Excluded Matrix: ${JSON.stringify(matrix)} Excluded Shadow-Matrix: ${JSON.stringify(__originalMatrix)}`);
-            layer.__originalBase = { ...rest };
-        }
     };
 
     const updateLayer = (layer) => {
-        if (layerChanged(layer.__originalMatrix, layer.matrix || layerChanged(layer.__originalBase, layer))) {
+        const check = layerChanged(layer.__originalMatrix, layer.matrix)
+        if (check) {
             emitEvent("backup:create-global", {id: layer.id, state: layer, title: props.backup});
             emitEvent('update-layer', layer);
             console.log('Layer aktualisiert');
@@ -407,10 +402,8 @@ export function gridModel(props, emit) {
 
     const toggleSelection = (layer, event) => {
         event.preventDefault();
-        emitEvent('layer:transform-state', false)
-        emitEvent('layer:transform-size', false)
-        emitEvent('layer:transform-rotate', false)
-        let data = props.selectedLayer;
+        emitEvent('reset:grid-states', false)
+        const data = props.selectedLayer;
         const index = data.findIndex(l => l.id === layer.id);
         storeLayer(layer);
 
@@ -425,8 +418,7 @@ export function gridModel(props, emit) {
             }
         } else {
             storeLayer(layer);
-            data = [layer];
-            emitEvent('layer:select', data);
+            emitEvent('layer:select',[layer]);
         }
     };
 
@@ -453,11 +445,9 @@ export function gridModel(props, emit) {
     };
 
     const stopTransform = async () => {
-        await emitEvent('layer:transform-menu', false)
-        await emitEvent('layer:transform-state', false)
-        await emitEvent('layer:transform-size', false)
-        await emitEvent('layer:transform-rotate', false)
-        register('remove', document, 'mouseup', stopTransform);
+        register('remove', window, 'mouseup', stopTransform);
+        alignModeStep.value = 0
+        await emitEvent('reset:grid-states', false)
     };
 
     const frameBox = computed(() => {
@@ -612,9 +602,9 @@ export function gridModel(props, emit) {
 
             if (canvas.value) {
                 register('add', canvas.value, 'mousedown', mouseDown);
-                register('add', document, 'mousemove', mouseMove);
-                register('add', document, 'keydown', keyDown);
-                register('add', document, 'keyup', keyUp);
+                register('add', window, 'mousemove', mouseMove);
+                register('add', window, 'keydown', keyDown);
+                register('add', window , 'keyup', keyUp);
             }
 
             await emitEvent('fetch-layer');
@@ -649,7 +639,6 @@ export function gridModel(props, emit) {
         toggleSelection,
         startRotate,
         startResize,
-        updateLayer,
         onPositionUpdate,
         onRotationUpdate,
         onScaleUpdate,

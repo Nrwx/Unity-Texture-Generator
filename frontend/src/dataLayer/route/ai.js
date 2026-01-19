@@ -7,18 +7,19 @@ import api from "@/dataLayer/api";
  * @param mode - Img Model
  * @returns {Promise<boolean>} - Base64 oder Pfad des generierten Bildes
  */
-export const generateImage = async (method='prompt_img', prompt, mode) => {
+export const generateImage = async (prompt, mode) => {
     try {
-        const response = await api.post('/ai/generateImage/', {
-            method,
-            prompt,
-            mode
-        });
+        const formData = new FormData();
+        formData.append("method", 'prompt_img');
+        formData.append("prompt", prompt);
+        formData.append("model", mode);
 
-        console.log("Bildantwort:", response);
+        const response = await api.post('/ai/generateImage/', formData);
 
-        // Wenn dein Backend Base64 zurückgibt:
-        return true;
+        if(response) {
+            console.log("Bildantwort:", response);
+            return true;
+        }
 
         // Alternativ, wenn dein Backend eine URL/Pfad zurückgibt:
         // return response.data.url;

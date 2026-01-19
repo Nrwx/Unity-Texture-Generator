@@ -29,7 +29,6 @@ export function imageModel(props, emit) {
 
             const data = {id: id, x: x, y: y, color: props.color}
             emitEvent("fill-color-modifier", data);
-            emitEvent("layer:select", []);
         }
     }
 

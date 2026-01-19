@@ -1,6 +1,7 @@
 export const globalBackupEvent = (route) => ({
-    "backup:create-global": async ({ id, state, title }) => {
-        const response = await route.api.createBackup(id, state, title);
+    "backup:create-global": async (payload) => {
+        console.log(payload, 'BACKUP')
+        const response = await route.api.createBackup(payload.id, payload.state, payload.title);
         if (response) {
             await route.emit("backup:fetch-list");
         }

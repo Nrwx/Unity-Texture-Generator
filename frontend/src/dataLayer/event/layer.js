@@ -1,13 +1,10 @@
 export const layerEvent = (route) => ({
     "fetch-layer": async () => {
+        const prevSelectionIds = route.localData.selectedLayer.value?.map(l => l.id) || [];
         const response = await route.api.fetchLayers();
         if (response) {
             route.localData.layers.value = response;
-            if(route.windowStates.brush.value){
-                const brushItem = route.localData.layers.value.find(x => x.id === route.tempData.brushLayer.value.id);
-                if(brushItem) await route.emit("update:brush-layer", brushItem);
-                else await route.emit("reset:brush-ctx", route.tempData.brushCanvasId.value);
-            } else {
+            if(route.tempData.brushLayer.value){
                 await route.emit("reset:brush-ctx", route.tempData.brushCanvasId.value);
             }
             if(route.localData.layers.value?.length) {
@@ -21,6 +18,17 @@ export const layerEvent = (route) => ({
                  }
             }
         }
+
+        if (prevSelectionIds.length && !route.windowStates.brush.value) {
+            const reselected = response.filter(l =>
+                prevSelectionIds.includes(l.id)
+            );
+
+            if (reselected.length) {
+                await route.emit("layer:select", reselected);
+            }
+        }
+
     },
     "add-layer": async () => {
         const data = {
@@ -111,14 +119,30 @@ export const layerModifierEvent = (route) => ({
 export const selectLayerEvent = (route) => ({
     "layer:select": async (payload) => {
         if (route.windowStates.brush.value) {
-            if (payload.length > 0) {
-                route.localData.selectedLayer.value = [payload[payload.length - 1]];
-                await route.emit("update:brush-layer", payload[payload.length - 1]);
+            const nextLayer = payload[payload.length - 1];
+            const current = route.tempData.brushLayer.value;
+
+            if (current?.id === nextLayer.id) {
+                await route.emit("update:brush-layer", current);
+                return;
             }
+
+            if (current) {
+                await route.emit("hide-layer", {id: current.id, hidden: 1});
+            }
+
+            if (nextLayer) {
+                await route.emit("hide-layer", {id: nextLayer.id, hidden: 0});
+            }
+
+            route.localData.selectedLayer.value = [nextLayer];
+            await route.emit("update:brush-layer", nextLayer);
+
         } else {
             route.localData.selectedLayer.value = payload;
         }
     },
+
 });
 
 export const textLayerEvent = (route) => ({

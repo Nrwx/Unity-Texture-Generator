@@ -21,7 +21,7 @@
 
               <div class="control d-flex flex-column ga-1">
                 <label>Zoom</label>
-                <input type="range" min="0.25" max="2" step="0.25" v-model.number="_state.zoom[0]"/>
+                <input type="range" @input="render" min="0.25" max="2" step="0.25" v-model.number="_state.zoom.value"/>
               </div>
 
               <div class="control">

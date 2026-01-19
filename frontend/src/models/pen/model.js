@@ -43,14 +43,11 @@ export function penModel(props, emit) {
     };
 
     const handleClosePath = (pos) => {
-        const hitIdx = findPointAtPos(pos);
+        if (props.pathLayer.closed) return false;
+        if (props.pathLayer.points.length < 3) return false;
 
-        if (props.pathLayer.points.length >= 3 && hitIdx === 0 && !props.pathLayer.closed) {
-            const last = props.pathLayer.points[props.pathLayer.points.length - 1];
-            return findPointAtPos(last) === 0;
-        }
-
-        return false;
+        // Nur prüfen, ob wir den ersten Punkt treffen
+        return findPointAtPos(pos) === 0;
     };
 
     const handleAltClick = () => {
@@ -1056,8 +1053,13 @@ export function penModel(props, emit) {
                 const lastIndex = props.pathLayer.points.length - 1;
                 const last = props.pathLayer.points[lastIndex];
 
-                // Verbindung von letztem zu erstem Punkt herstellen
-                props.pathLayer.connections.push([lastIndex, 0]);
+                const alreadyClosed = props.pathLayer.connections.some(
+                    ([a, b]) => a === lastIndex && b === 0
+                );
+
+                if (!alreadyClosed) {
+                    props.pathLayer.connections.push([lastIndex, 0]);
+                }
 
                 // Pulse am ersten Punkt auslösen
                 first.pulseAt = Date.now();
@@ -1075,18 +1077,6 @@ export function penModel(props, emit) {
                         start: { x: last.x, y: last.y },
                         end: { x: last.x, y: last.y },
                         neighbors: {}
-                    };
-                }
-
-                // Nachbarschaft für Bezier-Verbindungen definieren
-                first.anchor.neighbors[lastIndex] = { mid: calcMidAnchorPoint(first, last) };
-                last.anchor.neighbors[0] = { mid: calcMidAnchorPoint(last, first) };
-
-                // Optional: Bezier-Kontrollpunkte übernehmen, wenn vorhanden
-                if (last.bezier) {
-                    first.bezier = {
-                        cp1: { ...last.bezier.cp1 },
-                        cp2: { ...last.bezier.cp2 }
                     };
                 }
 

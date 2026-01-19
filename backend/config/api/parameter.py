@@ -68,7 +68,7 @@ PARAMETERS = {
     "backup": {
         "method": {"type": str, "required": True},
         "title": {"type": str},
-        "state": {"type": str},
+        "state": {"type": (dict, list)},
         "index": {"type": int},
         "id": {"type": str}
     },

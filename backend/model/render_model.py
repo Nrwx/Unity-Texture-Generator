@@ -151,6 +151,48 @@ class RenderModel(BaseModel):
         except Exception as e:
             return cls.handle_error(e)
 
+    @classmethod
+    def overwrite_image(cls, id, files):
+        """
+        Überschreibt das Bild eines bestehenden Layers mit einem PNG-Blob/File
+        """
+        try:
+            # Layer prüfen
+            layer = next((l for l in LAYERS if l.get("id") == id), None)
+            if not layer:
+                return {"error": "Layer not found"}, 404
+
+            # Zielpfad
+            file_path = os.path.join(PUBLIC_LAYER_FOLDER, f"{id}.png")
+            if "file" in files:
+                img = Image.open(files["file"].stream)
+                width, height = img.size
+                img.save(file_path, "PNG", optimize=True)
+
+            # Layer-Metadaten aktualisieren
+            layer["width"] = width
+            layer["height"] = height
+            layer["time"] = time("unix_ms")
+
+            # Cache-Busting URL
+            layer["url"] = f"/download/{id}.png?t={layer['time']}"
+
+            # Thumbnail neu erzeugen
+            layer["thumbnail"] = generate_thumbnail_map(
+                id,
+                path=file_path,
+                size=64
+            )
+
+            return {
+                "success": True,
+                "id": id,
+                "url": layer["url"]
+            }, 200
+
+        except Exception as e:
+            return cls.handle_error(e)
+
     @staticmethod
     def _thumbnail(id, path, size=128):
         """

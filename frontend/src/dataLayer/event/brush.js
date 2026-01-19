@@ -10,9 +10,6 @@ export const brushEvent = (route) => ({
             console.log(route.localData.brush.value)
         }
     },
-    "brush:save-preset": async (payload) => {
-        route.localData.brushPreset.value = payload
-    },
     "brush:pressure": async (payload) => {
         route.brushSettings.value.pressure = payload
     },

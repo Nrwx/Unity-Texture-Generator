@@ -6,28 +6,6 @@ export const appData = {
 }
 
 export const localData = {
-    shader: ref([]),
-    queue: ref({
-        title: '',
-        subTitle: '',
-        percent: 0,
-        indeterminate: true,
-        complete: false,
-    }),
-    paths: ref([]),
-    selectedPath: ref(null),
-    messageTimers: ref(new Map()),
-    messages: ref([]),
-    tasks: ref([]),
-    tasksMeta: ref(null),
-    queuePending: ref(null),
-    queueWait: ref(false),
-    lastPercent : ref(0),
-    historyIndex: ref(0),
-    maxHistoryLength: ref(0),
-    queueCompleteTimer: ref(null),
-    queuePollTimer: ref(null),
-    loading: ref(false),
     viewport: ref({
         id: '',
         width: 1024,
@@ -39,15 +17,7 @@ export const localData = {
         title: 'Unbekannt',
         layer: 'Ebene'
     }),
-    viewportRef: ref(null),
-    file: ref(null),
-    fonts: ref([]),
-    bezier: ref('linear'),
-    loadedFonts: ref(new Set()),
-    brush: ref([]),
-    brushPreset: ref([]),
-    cursor: ref(''),
-    guides: ref([]),
+
     fullscreenData: reactive({
         mode: 0,
         title: '',
@@ -58,11 +28,33 @@ export const localData = {
         tileSize: {x: 1, y: 1},
         tileSrc: ''
     }),
+
     color: ref('#000000'),
+    bezier: ref('linear'),
     output: ref(''),
-    dimension: ref({width: 1024, height: 1024}),
+
+    loading: ref(false),
+
+    messages: ref([]),
+    messageTimers: ref(new Map()),
+
+    guides: ref([]),
+
+    file: ref(null),
     layers: ref([]),
+    selectedLayer: ref([]),
+    brush: ref([]),
+    cursor: ref(''),
+    fonts: ref([]),
+    loadedFonts: ref(new Set()),
+    shader: ref([]),
+    paths: ref([]),
+    selectedPath: ref(null),
+    tasks: ref([]),
+    tasksMeta: ref(null),
+
     channel: ref([]),
+    selectedChannel: ref([]),
     channelSettings: ref({
         alpha :true,
         blue: true,
@@ -71,18 +63,34 @@ export const localData = {
         grey: false,
         red: true
     }),
-    selectedChannel: ref([]),
-    selectedLayer: ref([]),
+
+    queuePending: ref(null),
+    queueWait: ref(false),
+    queueCompleteTimer: ref(null),
+    queuePollTimer: ref(null),
+    lastPercent : ref(0),
+    historyIndex: ref(0),
+    maxHistoryLength: ref(0),
+    queue: ref({
+        title: '',
+        subTitle: '',
+        percent: 0,
+        indeterminate: true,
+        complete: false,
+    }),
+
     selectedMaps: ref(["Diffuse Map"]),
     selectedTargetResize: ref(0),
     selectedTargetResizeOption: ref(0),
     selectedUpscaleMethod: ref(1),
     selectedRgb: ref(0),
     selectedRgba: ref(0),
+
     buildId: ref(''),
     builds: ref([]),
     modified: ref([]),
     sort: ref("newest"),
+
     animation: ref([]),
     tile: ref({x: 1, y: 1}),
     selectedShape: ref('rectangle'),

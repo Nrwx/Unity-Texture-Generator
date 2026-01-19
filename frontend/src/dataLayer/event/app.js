@@ -48,9 +48,6 @@ export const appEvent = (route) => ({
             console.log(`Current Theme: ${mode}`)
         }
     },
-    "app:viewport-ref": async (payload) => {
-        route.localData.viewportRef.value = payload;
-    },
     "app:update-guide": async (payload) => {
         route.localData.guides.value = payload;
     },
@@ -99,11 +96,6 @@ export const appEvent = (route) => ({
                 method: processingInfo.method
             };
             await route.emit('app:update-queue', data);
-            if (route.localData.selectedLayer.value.length) {
-                await route.emit('layer:select', []);
-                await route.emit('reset:grid-states', false);
-                await route.emit('reset:canvas-states', false);
-            }
             route.localData.queuePollTimer.value = setTimeout(() => {
                 route.emit('app:queue-status', { state: true });
             }, 100);

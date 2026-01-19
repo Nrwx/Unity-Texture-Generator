@@ -107,7 +107,7 @@ export default defineComponent({
     Control
   },
   setup(props, { emit }) {
-    const { wrapper, wrapperId, main, mainId, canvas, offset, cursor, canvasStyle, zoomFaktor, controlData, emitEvent, toggleSelection, startRotate, startResize, updateLayer, onPositionUpdate, onRotationUpdate, onScaleUpdate, onReset, frameBox} = gridModel(props, emit);
+    const { wrapper, wrapperId, main, mainId, canvas, offset, cursor, canvasStyle, zoomFaktor, controlData, emitEvent, toggleSelection, startRotate, startResize, onPositionUpdate, onRotationUpdate, onScaleUpdate, onReset, frameBox} = gridModel(props, emit);
     return {
       wrapper,
       wrapperId,
@@ -122,7 +122,6 @@ export default defineComponent({
       toggleSelection,
       startRotate,
       startResize,
-      updateLayer,
       onPositionUpdate,
       onRotationUpdate,
       onScaleUpdate,

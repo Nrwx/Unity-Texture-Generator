@@ -4,7 +4,7 @@
         width="100%"
         class="mb-3"
         v-model="model"
-        :items="['dall-e-2', 'dall-e-3']"
+        :items="['gpt-image-1', 'dall-e-2', 'dall-e-3']"
         label="Modell wählen"
         dense
         outlined

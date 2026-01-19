@@ -1,4 +1,4 @@
-import {computed, nextTick, onBeforeUnmount, onMounted, ref} from 'vue';
+import {computed, nextTick, ref, watch} from 'vue';
 import {eventRegister} from "@/dataLayer/event";
 import {nowMs} from "@/utils/dayJs";
 import {matrixCombine} from "@/utils/matrix";
@@ -22,7 +22,6 @@ export function brushModel(props, emit) {
     const currentBrush = ref(null);
     const drawQueue = ref([]);
     const animating = ref(false);
-    const updateTimeout = ref(null);
 
     const setCursor = computed(() => {
         if (!props.cursor && !props.state && !props.mouse && !props.data.id) return {};
@@ -137,63 +136,43 @@ export function brushModel(props, emit) {
         if (!animating.value) {
             drawLoop();
         }
-        updateQueue();
     };
 
     /**
      * Erstellt ein neues Layer-Objekt aus dem aktuellen Canvas
      */
-    const createLayer = () => {
+    /**
+     * Erstellt ein neues Layer-Objekt aus dem aktuellen Canvas
+     * (Blob statt Base64)
+     */
+    const createLayer = async () => {
         if (!canvas.value || !props.selectedLayer) return null;
 
         const { width: layerWidth, height: layerHeight } = props.selectedLayer;
 
-        // Shadow-Canvas exakt in Layer-Größe
         const shadowCanvas = document.createElement('canvas');
         shadowCanvas.width = layerWidth;
         shadowCanvas.height = layerHeight;
-        const shadowCtx = shadowCanvas.getContext('2d');
 
-        // Direkt den Canvas-Inhalt kopieren (ohne Skalierung)
+        const shadowCtx = shadowCanvas.getContext('2d');
         shadowCtx.clearRect(0, 0, layerWidth, layerHeight);
+
         shadowCtx.drawImage(
             canvas.value,
             0, 0, canvas.value.width, canvas.value.height,
             0, 0, layerWidth, layerHeight
         );
 
-        const base64 = shadowCanvas.toDataURL('image/png');
+        const blob = await new Promise(resolve =>
+            shadowCanvas.toBlob(resolve, 'image/png', 0.95)
+        );
+
+        if (!blob) return null;
 
         return {
             ...props.selectedLayer,
-            base64
+            image: blob
         };
-    };
-
-    /**
-     * Überwacht die DrawQueue und triggert nach 1 Sekunde Inaktivität ein Update
-     */
-    const updateQueue = () => {
-        // Timer zurücksetzen, falls noch aktiv
-        if (updateTimeout.value) clearTimeout(updateTimeout.value);
-
-        // Neuen Timer setzen
-        updateTimeout.value = setTimeout(async () => {
-            // Prüfen: nur ausführen, wenn DrawQueue leer ist
-            if (drawQueue.value.length > 0) return;
-
-            // Neues Layer erstellen
-            const render = createLayer();
-            if (!render) return;
-
-            // Event feuern
-            emitEvent("update-layer", render);
-
-            // Canvas leeren
-            if (ctx.value) {
-                ctx.value.clearRect(0, 0, canvas.value.width, canvas.value.height);
-            }
-        }, 1000); // 1 Sekunde Inaktivität
     };
 
     const drawLoop = () => {
@@ -263,11 +242,11 @@ export function brushModel(props, emit) {
 
 
     const onPointerDown = async (e) => {
-        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        if (visible.value || e.pointerType === 'mouse' && e.button !== 0) return;
         if (!props.state) return;
 
-        register('add', canvas.value, 'pointermove', onPointerMove);
-        register('add', canvas.value, 'pointerup', onPointerUp);
+        register('add', window, 'pointermove', onPointerMove);
+        register('add', window, 'pointerup', onPointerUp);
         register('add', canvas.value, 'pointerleave', onPointerUp);
 
         emitEvent('drawing-state', true);
@@ -376,8 +355,8 @@ export function brushModel(props, emit) {
         emitEvent('drawing-state', false);
         lastPos.value = null;
         pointerMoved.value = false;
-        register('remove', canvas.value, 'pointerup', onPointerUp);
-        register('remove', canvas.value, 'pointermove', onPointerMove);
+        register('remove', window, 'pointerup', onPointerUp);
+        register('remove', window, 'pointermove', onPointerMove);
         register('remove', canvas.value, 'pointerleave', onPointerMove);
     };
 
@@ -393,29 +372,49 @@ export function brushModel(props, emit) {
         };
         visible.value = true;
         await nextTick();
-        register('add', document, 'click', closeContextMenu);
+        register('add', window, 'click', closeContextMenu);
     };
 
     const closeContextMenu = (e) => {
         const menu = document.querySelector('.brush-context-menu');
         if (menu && !menu.contains(e.target)) {
             visible.value = false;
-            register('remove', document, 'click', closeContextMenu);
+            register('remove', window, 'click', closeContextMenu);
         }
     };
 
-    onMounted(async () => {
-        await setup();
+    async function _init(unregister = false) {
+        if (unregister) {
+            if (drawQueue.value.length > 0) return;
 
-        register('add', canvas.value, 'pointerdown', onPointerDown);
-        register('add', canvas.value, 'contextmenu', openContextMenu, {prevent: true});
+            const render = await createLayer();
+            if (!render) return;
 
-        register('pause');
+            await emitEvent("update-layer", render);
+            await emitEvent('hide-layer', {id: render.id, hidden: 1})
+
+            await nextTick()
+            ctx.value = null;
+            register('removeAll');
+        } else {
+            await setup();
+            register('add', canvas.value, 'pointerdown', onPointerDown);
+            register('add', canvas.value, 'contextmenu', openContextMenu, {prevent: true});
+            register('pause');
+            emitEvent('hide-layer', {id: props.selectedLayer.id, hidden: 0})
+        }
+    }
+
+    watch(() => props.state, async (v) => {
+        await nextTick();
+        if (v) {
+            await _init();
+        } else {
+            await _init(true);
+            console.log('Cleaned Brush-Canvas')
+        }
     });
 
-    onBeforeUnmount(() => {
-        register('removeAll');
-    });
 
     return {
         canvas,

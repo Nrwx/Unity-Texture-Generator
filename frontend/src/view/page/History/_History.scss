@@ -46,3 +46,40 @@
     cursor: pointer;
   }
 }
+
+/* ===== INACTIVE (PAST) ===== */
+.v-list-item:not(.v-list-item--active) {
+  opacity: 0.85;
+}
+
+/* ===== ACTIVE BACKUP ===== */
+.v-list-item--active {
+  border-left: 4px solid rgb(255, 248, 216);
+  font-weight: 700;
+}
+
+/* Active title */
+.v-list-item--active .v-list-item__title {
+  color: #FFFFFF;
+}
+
+/* Active left bar */
+.v-list-item--active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 4px;
+  background-color: rgb(255, 248, 216);
+}
+
+/* ===== FUTURE (REDO) ===== */
+.v-list-item.backup-future {
+  color: #8A8A8A;
+  opacity: 0.55;
+}
+
+.v-list-item.backup-future:hover {
+  opacity: 0.7;
+}

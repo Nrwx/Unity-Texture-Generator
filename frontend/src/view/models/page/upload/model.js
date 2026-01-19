@@ -287,7 +287,7 @@ export function uploadModel(emit) {
     return {
         emitEvent,
         config,
-        methods,
+        methods
     };
 }
 

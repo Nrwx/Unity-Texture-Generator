@@ -110,7 +110,7 @@ export function layerModel(props, emit) {
     const handleTabEmit = (index) => {
         tabIndex.value = index
         if(index === 0) {
-            emitEvent('layer:select', [])
+            emitEvent('fetch-layer')
         }
         if(index === 1) {
             const payload = props.selectedLayer.map(x => x.id);

@@ -134,6 +134,8 @@ class LayerModel(BaseModel):
     @classmethod
     def fetch(cls):
         try:
+            if GROUPS:
+                cls.cleanup_groups()
             return LAYERS, 200
         except Exception as e:
             return cls.handle_error(e)
@@ -141,6 +143,7 @@ class LayerModel(BaseModel):
     @classmethod
     def update(cls, type, name, width, height, url, id, a, b, c, d, x, y, rotate, order, hidden, channel, opacity, blend_mode, color, mask):
         try:
+
             layer = next((l for l in LAYERS if l["id"] == id), None)
             if not layer:
                 return {"error": "Layer not found"}, 404
@@ -204,6 +207,106 @@ class LayerModel(BaseModel):
         except Exception as e:
             return cls.handle_error(e)
 
+    @staticmethod
+    def validate_grouping(ids):
+        groups = {
+            l.get("group") for l in LAYERS
+            if l["id"] in ids
+        }
+
+        groups.discard(None)
+
+        # Mischung verboten
+        if len(groups) > 1:
+            return False, "Layers from different groups cannot be grouped"
+
+        return True, groups.pop() if groups else None
+
+    @staticmethod
+    def cleanup_groups():
+        # Entferne Gruppen ohne Mitglieder
+        valid_group_ids = {
+            l["group"] for l in LAYERS if l.get("type") != 4 and l.get("group")
+        }
+
+        # Entferne verwaiste Gruppen-Layer
+        LAYERS[:] = [
+            l for l in LAYERS
+            if not (l["type"] == 4 and l["id"] not in valid_group_ids)
+        ]
+
+        # Entferne verwaiste GROUPS-Einträge
+        GROUPS[:] = [g for g in GROUPS if g["id"] in valid_group_ids]
+
+    @classmethod
+    def reorder(cls):
+        """
+        Stellt sicher:
+        - Gruppen liegen über ihren Mitgliedern
+        - Mitglieder liegen direkt unter ihrer Gruppe
+        - Andere Gruppen/Layers bleiben unberührt
+        - Orders sind lückenlos 0..n
+        """
+
+        # 1. Aktuelle Reihenfolge nach order
+        layers = sorted(LAYERS, key=lambda l: l["order"])
+
+        # 2. Gruppenzuordnung (group_id -> Mitglieder)
+        group_members = {}
+        for l in layers:
+            gid = l.get("group")
+            if gid and l["type"] != 4:
+                group_members.setdefault(gid, []).append(l)
+
+        # 3. Mitglieder sortieren
+        for gid in group_members:
+            group_members[gid].sort(key=lambda l: l["order"])
+
+        # 4. Neues Layer-Array bauen
+        new_layers = []
+        visited = set()
+
+        def add_layer(layer):
+            if layer["id"] in visited:
+                return
+
+            # Wenn es eine Gruppe ist:
+            if layer["type"] == 4:
+                gid = layer["id"]
+                members = group_members.get(gid, [])
+
+                # Mitglieder zuerst
+                for m in members:
+                    if m["id"] not in visited:
+                        visited.add(m["id"])
+                        new_layers.append(m)
+
+                # dann die Gruppe (höchster Index!)
+                visited.add(layer["id"])
+                new_layers.append(layer)
+
+            # Wenn es ein Mitglied ist, wird es durch die Gruppe behandelt
+            elif layer.get("group") in group_members:
+                return
+
+            # normale Layer
+            else:
+                visited.add(layer["id"])
+                new_layers.append(layer)
+
+        # 5. Reihenfolge bauen
+        for l in layers:
+            add_layer(l)
+
+        # 6. Order neu vergeben
+        for i, l in enumerate(new_layers):
+            l["order"] = i
+
+        # 7. LAYERS ersetzen
+        LAYERS[:] = new_layers
+
+
+
     @classmethod
     def group(cls, ids, group=None, reset=False):
         try:
@@ -212,85 +315,91 @@ class LayerModel(BaseModel):
             if not isinstance(ids, list):
                 return {"error": "Invalid ID input"}, 400
 
+            valid, parent_group = cls.validate_grouping(ids)
+            if not valid:
+                return {"error": "Invalid cross-group grouping"}, 400
+
+            group_id = None if reset else group or str(uuid.uuid4())
+
+            members = [
+                l for l in LAYERS
+                if l["id"] in ids
+            ]
+
+            if not members:
+                return {"error": "No valid layers"}, 404
+
+            # Setze group
+            for m in members:
+                m["group"] = group_id
+
             if reset:
-                group_id = None
-            elif group is None:
-                group_id = str(uuid.uuid4())
-            else:
-                group_id = group
+                cls.cleanup_groups()
+                cls.reorder()
+                return {"message": "Group reset"}, 200
 
-            updated = 0
-            grouped_orders = []
+            # --- Mitglieder sortieren ---
+            members.sort(key=lambda l: l["order"])
 
-            for layer_id in ids:
-                layer = next((l for l in LAYERS if l["id"] == layer_id), None)
-                if not layer:
-                    continue
-                grouped_orders.append(layer["order"])
-                layer["group"] = group_id
-                updated += 1
+            # --- Ziel-Order ---
+            max_order = max(l["order"] for l in members)
 
-            if updated == 0:
-                return {"error": "No valid layer IDs provided"}, 404
+            # --- Bestehende Gruppe entfernen ---
+            LAYERS[:] = [
+                l for l in LAYERS
+                if l["id"] != group_id
+            ]
 
-            if reset and group:
-                still_grouped = any(
-                    l for l in LAYERS
-                    if l.get("group") == group and l.get("type") != 4
-                )
-                if not still_grouped:
-                    LAYERS[:] = [l for l in LAYERS if not (l["type"] == 4 and l["id"] == group)]
-                    cls.delete(group)
-                    # Entferne aus GROUPS
-                    GROUPS[:] = [g for g in GROUPS if g["id"] != group]
+            # --- Block entfernen ---
+            block = members[:]
+            LAYERS[:] = [l for l in LAYERS if l not in block]
 
-            elif not reset and group_id:
-                group_layer = next((l for l in LAYERS if l["type"] == 4 and l["id"] == group_id), None)
-                if not group_layer:
-                    # Neue Gruppe einfügen an der höchsten Position ihrer Member-IDs
-                    max_order = max(grouped_orders)
+            # --- Insert Index bestimmen ---
+            insert_index = next(
+                (i for i, l in enumerate(LAYERS) if l["order"] > max_order),
+                len(LAYERS)
+            )
 
-                    # Ermittle Einfügeindex: nach dem letzten Layer mit dieser order
-                    insert_index = next(
-                        (i + 1 for i, l in enumerate(LAYERS) if l["order"] == max_order),
-                        len(LAYERS)
-                    )
+            # --- Gruppe erstellen ---
+            group_layer = {
+                "id": group_id,
+                "type": 4,
+                "name": group_id,
+                "width": 0,
+                "height": 0,
+                "matrix": {
+                    "a": 1, "b": 0, "c": 0, "d": 1, "x": 0, "y": 0, "rotate": 0,
+                },
+                "order": 0,
+                "hidden": 1,
+                "group": group_id,
+                "groupName": group_id,
+                "opacity": 1,
+                "blend_mode": 0,
+                "color": "#ffffff"
+            }
 
-                    # Neue Gruppen-Layer-Struktur
-                    group_layer = {
-                        "id": group_id,
-                        "type": 4,
-                        "name": group_id,
-                        "width": 0,
-                        "height": 0,
-                        "matrix": {
-                            "a": 1, "b": 0, "c": 0, "d": 1, "x": 0, "y": 0, "rotate": 0,
-                        },
-                        "order": 0,  # Temporär
-                        "hidden": 1,
-                        "group": group_id,
-                        "groupName": group_id,
-                        "opacity": 1,
-                        "blend_mode": 0,
-                        "color": "#ffffff"
-                    }
+            # --- Block einfügen ---
+            for m in block:
+                LAYERS.insert(insert_index, m)
+                insert_index += 1
 
-                    # Gruppe an korrekter Stelle einfügen
-                    LAYERS.insert(insert_index, group_layer)
+            LAYERS.insert(insert_index, group_layer)
 
-                    # Neue Ordnung anwenden
-                    for i, l in enumerate(LAYERS):
-                        l["order"] = i
+            # --- Orders neu ---
+            cls.reorder()
 
-                    # In GROUPS registrieren
-                    GROUPS.append({"id": group_id, "order": group_layer["order"]})
+            # --- GROUPS aktualisieren ---
+            GROUPS[:] = [g for g in GROUPS if g["id"] != group_id]
+            GROUPS.append({"id": group_id, "order": group_layer["order"]})
 
-            return {
-                "message": f"{updated} layer(s) grouped",
-                "group": group_id
-            }, 200
+            cls.cleanup_groups()
+
+            return {"message": "Grouped successfully", "group": group_id}, 200
+
         except Exception as e:
             return cls.handle_error(e)
+
 
     @classmethod
     def addText(cls, type: int,order: int, name: str,hidden: int,opacity: float,color: str, font: str, fontFamily: str,fontSize: int,fontWeight: str,initFontSize: int,initHeight: int,initWidth: int,letterSpacing: float,lineHeight: float,text: str,textAlign: str,textDecoration: str,textTransform: str,width: int,height: int,x: int,y: int, mask: str):

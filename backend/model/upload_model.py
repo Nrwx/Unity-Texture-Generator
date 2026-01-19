@@ -5,7 +5,7 @@ from model.base.main import BaseModel
 from model.layer_model import LayerModel
 from components import (
     generate_diffuse_map, generate_normal_map, generate_specular_map,
-    generate_bump_map, generate_light_map, generate_alpha_map, apply_crop_image
+    generate_bump_map, generate_light_map, generate_alpha_map, apply_crop_image, apply_resize, apply_rgb_mode, apply_rgba_mode
 )
 from generated.paths import PUBLIC_LAYER_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER
 from utils import apply_rgb_rgba
@@ -29,11 +29,11 @@ class UploadModel(BaseModel):
         Optionale Bildanpassungen wie Resize oder RGB/RGBA-Modi.
         """
         try:
-            if resize_index != 0 and 'apply_resize' in globals():
+            if resize_index != 0:
                 img = apply_resize(img, resize_index, resize_mode, upscale_method)
-            if rgb_mode != 0 and 'apply_rgb_mode' in globals():
+            if rgb_mode != 0 :
                 img = apply_rgb_mode(img, rgb_mode)
-            if rgba_mode != 0 and 'apply_rgba_mode' in globals():
+            if rgba_mode != 0:
                 img = apply_rgba_mode(img, rgba_mode)
         except Exception:
             pass  # Fehler ignorieren und Originalbild zurückgeben
