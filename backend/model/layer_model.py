@@ -97,6 +97,7 @@ class LayerModel(BaseModel):
                 "order": len(LAYERS),
                 "thumbnail": generate_thumbnail_map(id, image_path, 64),
                 "hidden": 0,
+                "keyframes": [],
                 "group": None,
                 "opacity": 1,
                 "channel": channel,
@@ -141,7 +142,7 @@ class LayerModel(BaseModel):
             return cls.handle_error(e)
 
     @classmethod
-    def update(cls, type, name, width, height, url, id, a, b, c, d, x, y, rotate, order, hidden, channel, opacity, blend_mode, color, mask):
+    def update(cls, type, name, width, height, url, id, a, b, c, d, x, y, rotate, keyframes, order, hidden, channel, opacity, blend_mode, color, mask):
         try:
 
             layer = next((l for l in LAYERS if l["id"] == id), None)
@@ -182,6 +183,8 @@ class LayerModel(BaseModel):
                 layer["blend_mode"] = blend_mode
             if color:
                 layer["color"] = color
+            if keyframes:
+                layer["keyframes"] = keyframes
             if mask:
                 layer["mask"] = mask
             if channel:

@@ -113,7 +113,7 @@ export const layerModifierEvent = (route) => ({
                 await route.emit("fetch-layer");
             }
         }
-    },
+    }
 });
 
 export const selectLayerEvent = (route) => ({

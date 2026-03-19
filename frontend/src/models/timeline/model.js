@@ -1,78 +1,229 @@
-import {computed, nextTick, onMounted, ref, watch} from "vue";
+import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from "vue";
+import {eventRegister} from "@/dataLayer/event";
 import {uuid} from "@/utils/uuid";
 
 export function timelineModel(props, emit) {
 
     const wrapper = ref(null);
     const timeline = ref(null);
+    const scrollbars = ref([uuid()]);
     const dragging = ref(null);
     const selectedId = ref(null);
     const pointerId = ref(null);
     const rafId = ref(null);
+
+    const width = computed(() => props.config.width);
+
     const playStartTimestamp = ref(0);
     const playOffset = ref(0);
 
-    const bezierModeEnabled = ref(false);
     const draggedControlPoint = ref(null);
     const cpPointerId = ref(null);
 
     const draggingPlayhead = ref(false);
     const playheadPointerId = ref(null);
 
+    const ease = {
+        linear: (t) => t,
+        'ease-in': (t) => t * t,
+        'ease-out': (t) => t * (2 - t),
+        'ease-in-out': (t) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t,
+    };
+
+    const presets = {
+        'linear': { cp1: { t: 0.33, v: 0.33 }, cp2: { t: 0.66, v: 0.66 } },
+        'ease-in': { cp1: { t: 0.42, v: 0 }, cp2: { t: 1.0, v: 1.0 } },
+        'ease-out': { cp1: { t: 0, v: 0 }, cp2: { t: 0.58, v: 1.0 } },
+        'ease-in-out': { cp1: { t: 0.42, v: 0 }, cp2: { t: 0.58, v: 1.0 } }
+    };
+
+    const easeModes = [
+        { title: 'Linear', value: 'linear' },
+        { title: 'Ease In', value: 'ease-in' },
+        { title: 'Ease Out', value: 'ease-out' },
+        { title: 'Ease In-Out', value: 'ease-in-out' }
+    ]
+
+    const openLayers = ref({}); // map layerId => boolean
+    const trackHeight = 36;
+    const trackPalette = [
+        '#ff6b6b', '#f5a623', '#f8e71c', '#8bffc6', '#6bafff', '#d07bff', '#4de0b8', '#ff7ac4'
+    ];
+
     const emitEvent = (event, payload) => {
         emit("component-event", event, payload);
     };
 
-    const width = computed(() => {
-        // Always use the full visible width as maxTime
-        return props.config.width;
-    });
+    const { register } = eventRegister('listener:timeline', emitEvent);
 
-    // Computed totalTime that can be negative
-    const totalTime = computed(() => {
-        return props.config.endTime - props.config.startTime;
-    });
+    const hasOffset = (kf) => {
+        console.log(kf)
+        if (!kf?.matrix) return false;
 
-    const normalizeTime = (time) => {
+        const m = kf.matrix;
+
+        // Transform (x / y) – Offset darf 0 sein
+        const hasTranslate = m.x !== undefined && m.y !== undefined;
+
+        // Rotate – 0 ist gültig
+        const hasRotate = m.rotate !== undefined;
+
+        // Scale – Default ist 1 → nur anzeigen, wenn gesetzt
+        const hasScale = m.a !== undefined && m.d !== undefined;
+
+        return hasTranslate || hasRotate || hasScale;
+    };
+
+    const trackHasOffsetByType = (layer, type) => {
+        return layer.keyframes.some(kf => {
+            const m = kf.matrix ?? {};
+            if (type === 'transform') return (m.x ?? 0) !== 0 || (m.y ?? 0) !== 0;
+            if (type === 'rotate') return (m.rotate ?? 0) !== 0;
+            if (type === 'scale') return (m.a ?? 1) !== 1 || (m.d ?? 1) !== 1;
+            return false;
+        });
+    };
+
+    const keyframeHasOffset = (kf) => {
+        if (!kf?.matrix) return false;
+        const m = kf.matrix;
+        if ((m.x ?? 0) !== 0) return true;
+        if ((m.y ?? 0) !== 0) return true;
+        if ((m.rotate ?? 0) !== 0) return true;
+        if ((m.a ?? 1) !== 1) return true;
+        if ((m.d ?? 1) !== 1) return true;
+        return false;
+    };
+
+    function _getLayerById(layerId){
+        return props.selectedLayer.find(l => l.id === layerId);
+    }
+
+
+
+    function _normalizeTime(time){
         const start = props.config.startTime;
         const end = props.config.endTime;
         const minT = Math.min(start, end);
         const maxT = Math.max(start, end);
         if (minT === maxT) return start;
         return Math.max(minT, Math.min(maxT, time));
-    };
+    }
 
-
-    const timeToPosition = (time) => {
+    function _timeToPosition(time) {
         const range = props.config.endTime - props.config.startTime;
         const t = range >= 0 ? (time - props.config.startTime) : (props.config.startTime - time);
         return t * props.config.zoomLevel.current + props.config.padding;
-    };
+    }
 
-    const positionToTime = (position) => {
+    function _ensureLayerKeyframes (layerObj) {
+        if (!Array.isArray(layerObj.keyframes)) {
+            layerObj.keyframes = [];
+        }
+    }
+
+    function _positionToTime(position) {
         const range = props.config.endTime - props.config.startTime;
         const offset = (position - props.config.padding) / props.config.zoomLevel.current;
         return range >= 0 ? props.config.startTime + offset : props.config.startTime - offset;
+    }
+
+    function _applyBezierEasing(factor, cp1, cp2){
+        const cubicBezier = (t, p0, p1, p2, p3) => {
+            const u = 1 - t;
+            return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3;
+        };
+        return cubicBezier(factor, 0, cp1.value, cp2.value, 1);
+    }
+
+    function _applyEasing(factor, easeType, bezier) {
+        if (easeType === 'linear') return factor;
+        if (bezier?.cp1 && bezier?.cp2) return _applyBezierEasing(factor, bezier.cp1, bezier.cp2);
+        const easeFn = ease[easeType] || ease.linear;
+        return easeFn(factor);
+    }
+
+    const trackColor = (layerId) => {
+        // deterministic color by id -> pick index by hash
+        let hash = 0;
+        for (let i = 0; i < layerId.length; i++) hash = (hash << 5) - hash + layerId.charCodeAt(i);
+        const idx = Math.abs(hash) % trackPalette.length;
+        return trackPalette[idx];
+    };
+    const lighten = (hex, amt) => {
+        // quick hex lighten (returns hex) - not perfect but ok for strokes
+        let col = hex.replace('#','');
+        if (col.length === 3) col = col.split('').map(c=>c+c).join('');
+        const num = parseInt(col, 16);
+        let r = (num >> 16) + amt; r = Math.max(0, Math.min(255, r));
+        let g = ((num >> 8) & 0x00FF) + amt; g = Math.max(0, Math.min(255, g));
+        let b = (num & 0x0000FF) + amt; b = Math.max(0, Math.min(255, b));
+        return '#' + (r<<16 | g<<8 | b).toString(16).padStart(6, '0');
     };
 
+    const trackTop = () => {
+        return props.config?.height * 0.32
+    };
 
-    const playHead = computed(() => {
-        return timeToPosition(props.config.time);
+    const layersWithKeys = computed(() => {
+        return props.layers.filter(l => Array.isArray(l.keyframes) && l.keyframes.length > 0);
     });
 
+    const toggleLayerOpen = (id) => openLayers.value[id] = !openLayers.value[id];
+    const isLayerOpen = (id) => !!openLayers.value[id];
+
+    const playHead = computed(() => _timeToPosition(props.config.time));
+
+    /**
+     * Keyframes computed = merged from all selected layers
+     * with layerId reference.
+     */
     const keyframes = computed(() => {
-        const arr = props.config.keyframes; // direkt benutzen, keine Kopie
-        arr.sort((a,b) => a.time - b.time);
-        arr.forEach(k => { k.left = timeToPosition(k.time); });
-        for (let i=0;i<arr.length-1;i++) arr[i]._next = arr[i+1];
-        return arr;
+        const frames = [];
+
+        // build merged *copies* from selected layers (for curve drawing etc.)
+        props.selectedLayer.forEach(layerObj => {
+            _ensureLayerKeyframes(layerObj);
+
+            // take a shallow copy per keyframe so we don't mutate the originals
+            const copies = layerObj.keyframes
+                .slice()
+                .sort((a, b) => a.time - b.time)
+                .map(k => {
+                    return {
+                        // keep id so we can map back to original when needed
+                        id: k.id,
+                        time: k.time,
+                        ease: k.ease,
+                        // don't copy bezier object by reference, copy if exists
+                        bezier: k.bezier ? structuredClone(k.bezier) : null,
+                        // *computed* props only on the copy:
+                        left: _timeToPosition(k.time),
+                        layerId: layerObj.id,
+                        // store original reference id so we can find the original in layer.keyframes
+                        _orig: k
+                    };
+                });
+
+            // set _next on copies only (so original keyframes won't get _next)
+            for (let i = 0; i < copies.length - 1; i++) {
+                copies[i]._next = copies[i + 1];
+            }
+
+            frames.push(...copies);
+        });
+
+        frames.sort((a, b) => a.time - b.time);
+        return frames;
     });
+
+
+    const selectedKeys = computed(() => props.config.selectedKeyframes || []);
 
     const ticks = computed(() => {
         const candidates = props.config.ticks.candidates;
         const targetPx = props.config.ticks.targetPx;
 
-        // Find appropriate tick interval based on current zoom
         let chosen = 1;
         for (const c of candidates) {
             if (c * props.config.zoomLevel.current >= targetPx) {
@@ -80,35 +231,26 @@ export function timelineModel(props, emit) {
                 break;
             }
         }
-
-        // If no candidate found, use largest
-        if (chosen === 1 && candidates[candidates.length-1] * props.config.zoomLevel.current < targetPx) {
-            chosen = candidates[candidates.length-1];
+        if (chosen === 1 && candidates[candidates.length - 1] * props.config.zoomLevel.current < targetPx) {
+            chosen = candidates[candidates.length - 1];
         }
 
         const ticksArr = [];
-
-        // Calculate visible time range based on scroll position
         const scrollLeft = wrapper.value ? wrapper.value.scrollLeft : 0;
         const visibleWidth = props.config.width;
 
-        // Convert scroll position to time
-        const startTime = positionToTime(scrollLeft);
-        const endTime = positionToTime(scrollLeft + visibleWidth);
+        const startTime = _positionToTime(scrollLeft);
+        const endTime = _positionToTime(scrollLeft + visibleWidth);
 
-        // For negative ranges, swap if needed
         const minTime = Math.min(props.config.startTime, props.config.endTime);
         const maxTime = Math.max(props.config.startTime, props.config.endTime);
 
-        // Round to tick boundaries
         const tickStart = Math.floor(Math.max(minTime, startTime) / chosen) * chosen;
         const tickEnd = Math.ceil(Math.min(maxTime, endTime) / chosen) * chosen;
 
-        // Generate ticks only for visible range
         for (let t = tickStart; t <= tickEnd; t += chosen) {
-            const left = timeToPosition(t);
+            const left = _timeToPosition(t);
 
-            // Determine major tick frequency based on chosen interval
             let majorInterval = 5;
             if (chosen >= 100) majorInterval = 1;
             else if (chosen >= 10) majorInterval = 2;
@@ -128,14 +270,12 @@ export function timelineModel(props, emit) {
         const arr = keyframes.value;
         if (!arr?.length) return [];
 
-        // Extend segments to fill the full timeline width
         for (let i = 0; i < arr.length - 1; i++) {
             const left = arr[i].left;
-            const width = Math.max(2, arr[i+1].left - arr[i].left);
+            const width = Math.max(2, arr[i + 1].left - arr[i].left);
             items.push({ left, width, color: i % 2 === 0 ? '#9153a1' : '#2b8cff' });
         }
 
-        // Add final segment from last keyframe to end of visible timeline
         if (arr.length > 0) {
             const lastKf = arr[arr.length - 1];
             const timelineEnd = props.config.width;
@@ -153,106 +293,59 @@ export function timelineModel(props, emit) {
         return items;
     });
 
-    const selectedKeys = computed( () => {
-        return props.config.selectedKeyframes || [];
-    });
+    const trackRows = computed(() => {
+        // order = props.selectedLayer order
+        return props.selectedLayer.map((layer, i) => {
+            _ensureLayerKeyframes(layer);
 
-    // Watch for selection changes to auto-disable bezier mode
-    watch(selectedKeys, (newSelection) => {
-        if (newSelection.length === 0 || newSelection.length < 2) {
-            bezierModeEnabled.value = false;
-        }
-    });
+            // per-layer keyframe view copies
+            const keyframesForLayer = (layer.keyframes || [])
+                .slice()
+                .map(k => ({
+                    id: k.id,
+                    time: k.time,
+                    left: _timeToPosition(k.time),
+                    matrix: structuredClone(k.matrix ?? {}),
+                    _orig: k
+                }))
+                .sort((a, b) => a.time - b.time);
 
-    const curveSegments = computed(() => {
-        const curves = [];
-        const arr = keyframes.value;
-
-        for (let i = 0; i < arr.length - 1; i++) {
-            const kf = arr[i];
-            const nextKf = arr[i + 1];
-            const isLinear = kf.ease === 'linear';
-
-            // Get the original keyframe from props.config.keyframes
-            const originalKf = props.config.keyframes.find(k => k.id === kf.id);
-            if (!originalKf) continue;
-
-            // Only initialize bezier for non-linear keyframes
-            if (!isLinear) {
-                // Check if bezier needs initialization
-                if (!originalKf.bezier || !originalKf.bezier.cp1 || !originalKf.bezier.cp2) {
-                    initializeBezierForKeyframe(originalKf, nextKf);
-                } else if (!originalKf.bezier._relativePos) {
-                    // Bezier exists but _relativePos is missing - recalculate it
-                    const dt = nextKf.time - originalKf.time || 1;
-                    originalKf.bezier._relativePos = {
-                        cp1: {
-                            t: (originalKf.bezier.cp1.time - originalKf.time) / dt,
-                            v: originalKf.bezier.cp1.value
-                        },
-                        cp2: {
-                            t: (originalKf.bezier.cp2.time - originalKf.time) / dt,
-                            v: originalKf.bezier.cp2.value
-                        }
-                    };
-                } else {
-                    // Update positions based on relative positions (handles keyframe moves)
-                    updateBezierAfterKeyframeMove(originalKf, nextKf);
+            // build raw subTracks with hasOffset flag and keyframe list
+            const subTracks = [
+                {
+                    trackId: 'transform',
+                    label: 'Transform',
+                    hasOffset: trackHasOffsetByType(layer, 'transform'),
+                    keyframes: keyframesForLayer.map(k => ({ id: k.id, left: k.left, time: k.time }))
+                },
+                {
+                    trackId: 'rotate',
+                    label: 'Rotate',
+                    hasOffset: trackHasOffsetByType(layer, 'rotate'),
+                    keyframes: keyframesForLayer.map(k => ({ id: k.id, left: k.left, time: k.time }))
+                },
+                {
+                    trackId: 'scale',
+                    label: 'Scale',
+                    hasOffset: trackHasOffsetByType(layer, 'scale'),
+                    keyframes: keyframesForLayer.map(k => ({ id: k.id, left: k.left, time: k.time }))
                 }
+            ];
 
-                // Copy updated bezier to computed keyframe
-                kf.bezier = originalKf.bezier;
-            }
+            // visibleSubTracks = vorgefilterte Liste (vermeidet v-if + v-for Mischung)
+            const visibleSubTracks = subTracks.filter(st => st.hasOffset);
 
-            const isSelected = selectedKeys.value.includes(kf.id) || selectedKeys.value.includes(nextKf.id);
-
-            // All non-linear segments show both control points
-            // No special handling for first/last keyframes
-            const showCp1 = !isLinear;
-            const showCp2 = !isLinear;
-
-            curves.push({
-                id: `curve-${kf.id}-${nextKf.id}`,
-                start: kf,
-                end: nextKf,
-                isSelected,
-                isLinear,
-                showCp1,
-                showCp2,
-                // Reference the actual bezier objects, not copies
-                cp1: (isLinear || !showCp1) ? null : kf.bezier?.cp1,
-                cp2: (isLinear || !showCp2) ? null : kf.bezier?.cp2
-            });
-        }
-
-        return curves;
+            return {
+                layer,
+                keyframes: keyframesForLayer,
+                color: trackColor(layer.id),
+                bg: trackColor(layer.id),
+                index: i,
+                subTracks,
+                visibleSubTracks
+            };
+        });
     });
-
-    const updateBezierAfterKeyframeMove = (kf, nextKf) => {
-        if (!kf || !nextKf || !kf.bezier) return;
-
-        const dt = nextKf.time - kf.time;
-        if (dt === 0) return;
-
-        const rel = kf.bezier._relativePos;
-        if (!rel) return;
-
-        // berechne absolute Zeiten basierend auf relativen t-Werten (rel kann <0 oder >1 sein)
-        let cp1Time = kf.time + dt * rel.cp1.t;
-        let cp2Time = kf.time + dt * rel.cp2.t;
-
-        // clamp auf die Keyframe-Range
-        const minT = Math.min(kf.time, nextKf.time);
-        const maxT = Math.max(kf.time, nextKf.time);
-        cp1Time = Math.max(minT, Math.min(maxT, cp1Time));
-        cp2Time = Math.max(minT, Math.min(maxT, cp2Time));
-
-        // Übernehme absolute Werte, Wert bleibt aus rel.v
-        kf.bezier.cp1.time = cp1Time;
-        kf.bezier.cp2.time = cp2Time;
-        kf.bezier.cp1.value = rel.cp1.v;
-        kf.bezier.cp2.value = rel.cp2.v;
-    };
 
 
 
@@ -263,29 +356,17 @@ export function timelineModel(props, emit) {
         if (dt === 0) return;
 
         const ease = kf.ease || 'linear';
-        const easePresets = {
-            'linear':     { cp1: { t: 0.33, v: 0.33 }, cp2: { t: 0.66, v: 0.66 } },
-            'ease-in':    { cp1: { t: 0.42, v: 0 },    cp2: { t: 1.0,  v: 1.0  } },
-            'ease-out':   { cp1: { t: 0,    v: 0 },    cp2: { t: 0.58, v: 1.0  } },
-            'ease-in-out':{ cp1: { t: 0.42, v: 0 },    cp2: { t: 0.58, v: 1.0  } }
-        };
+        const preset = JSON.parse(JSON.stringify(presets[ease] || presets.linear));
 
-        // copy so wir das preset sicher mutieren können
-        const preset = JSON.parse(JSON.stringify(easePresets[ease] || easePresets['linear']));
-
-        // Optional: spiegel das Preset wenn die Strecke rückwärts läuft
         if (Math.sign(dt) < 0) {
-            // spiegel t-Werte — behalte v-Werte (vertical easing) wie definiert
             const cp1t = preset.cp1.t, cp2t = preset.cp2.t;
             preset.cp1.t = 1 - cp2t;
             preset.cp2.t = 1 - cp1t;
         }
 
-        // absolute CP Zeiten (signiertes dt berücksichtigt automatisch)
         let cp1Time = kf.time + dt * preset.cp1.t;
         let cp2Time = kf.time + dt * preset.cp2.t;
 
-        // clamp auf die Keyframe-Range (unabhängig von dt sign)
         const minT = Math.min(kf.time, nextKf.time);
         const maxT = Math.max(kf.time, nextKf.time);
         cp1Time = Math.max(minT, Math.min(maxT, cp1Time));
@@ -301,251 +382,361 @@ export function timelineModel(props, emit) {
         };
     };
 
+    const updateBezierAfterKeyframeMove = (kf, nextKf) => {
+        if (!kf || !nextKf || !kf.bezier) return;
 
+        const dt = nextKf.time - kf.time;
+        if (dt === 0) return;
 
+        const rel = kf.bezier._relativePos;
+        if (!rel) return;
 
-    const bezierToSVGCoords = (cp) => {
+        let cp1Time = kf.time + dt * rel.cp1.t;
+        let cp2Time = kf.time + dt * rel.cp2.t;
+
+        const minT = Math.min(kf.time, nextKf.time);
+        const maxT = Math.max(kf.time, nextKf.time);
+        cp1Time = Math.max(minT, Math.min(maxT, cp1Time));
+        cp2Time = Math.max(minT, Math.min(maxT, cp2Time));
+
+        kf.bezier.cp1.time = cp1Time;
+        kf.bezier.cp2.time = cp2Time;
+        kf.bezier.cp1.value = rel.cp1.v;
+        kf.bezier.cp2.value = rel.cp2.v;
+    };
+
+    const getCurveBaseY = (trackIndex) => {
+        // trackTop(trackIndex) gives top of the track row in the SVG
+        // place curve baseline a bit down inside the track row
+        return trackTop(trackIndex) + trackHeight * 0.75;
+    };
+
+    const bezierToSVGCoords = (cp, trackIndex = null) => {
         if (!cp) return { x: 0, y: 0 };
-
-        const curveHeight = props.config.height * 0.25;
-        const baseY = props.config.height * 0.75;
-
-        const x = timeToPosition(cp.time);
+        const curveHeight = Math.min(props.config.height * 0.25, trackHeight * 1.5); // cap size
+        const baseY = trackIndex !== null ? getCurveBaseY(trackIndex) : props.config.height * 0.75;
+        const x = _timeToPosition(cp.time);
         const y = baseY - (cp.value * curveHeight);
-
         return { x, y };
     };
 
+    const buildCurvesForLayer = (layer) => {
+        _ensureLayerKeyframes(layer);
+        const frames = (layer.keyframes || [])
+            .slice()
+            .sort((a,b) => a.time - b.time)
+            .map(k => ({
+                id: k.id,
+                time: k.time,
+                ease: k.ease,
+                bezier: k.bezier ? structuredClone(k.bezier) : null,
+                left: _timeToPosition(k.time),
+                _orig: k
+            }));
 
-    const easingFunctions = {
-        linear: (t) => t,
-        'ease-in': (t) => t * t,
-        'ease-out': (t) => t * (2 - t),
-        'ease-in-out': (t) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t,
-    };
+        const curves = [];
+        for (let i = 0; i < frames.length - 1; i++) {
+            const kf = frames[i];
+            const nextKf = frames[i + 1];
+            const isLinear = kf.ease === 'linear';
 
-    const applyBezierEasing = (factor, cp1, cp2) => {
-        const cubicBezier = (t, p0, p1, p2, p3) => {
-            const u = 1 - t;
-            return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3;
-        };
+            const originalKf = layer.keyframes.find(k => k.id === kf.id);
+            if (!originalKf) continue;
 
-        return cubicBezier(factor, 0, cp1.value, cp2.value, 1);
-    };
+            if (!isLinear) {
+                if (!originalKf.bezier || !originalKf.bezier.cp1 || !originalKf.bezier.cp2) {
+                    initializeBezierForKeyframe(originalKf, nextKf);
+                } else if (!originalKf.bezier._relativePos) {
+                    const dt = nextKf.time - originalKf.time || 1;
+                    originalKf.bezier._relativePos = {
+                        cp1: { t: (originalKf.bezier.cp1.time - originalKf.time) / dt, v: originalKf.bezier.cp1.value },
+                        cp2: { t: (originalKf.bezier.cp2.time - originalKf.time) / dt, v: originalKf.bezier.cp2.value }
+                    };
+                } else {
+                    updateBezierAfterKeyframeMove(originalKf, nextKf);
+                }
+                kf.bezier = originalKf.bezier;
+            }
 
-    const applyEasing = (factor, easeType, bezier) => {
-        if (easeType === 'linear') {
-            return factor;
+            const isSelected = selectedKeys.value.includes(kf.id) || selectedKeys.value.includes(nextKf.id);
+
+            curves.push({
+                id: `curve-${layer.id}-${kf.id}-${nextKf.id}`,
+                start: kf,
+                end: nextKf,
+                isSelected,
+                isLinear,
+                showCp1: !isLinear,
+                showCp2: !isLinear,
+                cp1: (!isLinear && kf.bezier?.cp1) ? kf.bezier.cp1 : null,
+                cp2: (!isLinear && kf.bezier?.cp2) ? kf.bezier.cp2 : null
+            });
         }
 
-        if (bezier?.cp1 && bezier?.cp2) {
-            return applyBezierEasing(factor, bezier.cp1, bezier.cp2);
-        }
-
-        const easeFn = easingFunctions[easeType] || easingFunctions.linear;
-        return easeFn(factor);
+        return curves;
     };
 
-    const onWheel = async (e) => {
-        e.preventDefault();
-
-        if (!timeline.value || !wrapper.value) return;
-
-        const oldZoom = props.config.zoomLevel.current;
-        const delta = e.deltaY;
-        const factor = Math.exp(-delta * 0.0025);
-
-        const newZoom = Math.min(
-            props.config.zoomLevel.max,
-            Math.max(props.config.zoomLevel.min, oldZoom * factor)
-        );
-
-        // Get mouse position relative to the timeline
-        const rect = timeline.value.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const scrollLeft = wrapper.value.scrollLeft;
-
-        // Calculate the time value at mouse position (before zoom)
-        const mouseTimeBeforeZoom = positionToTime(mouseX + scrollLeft);
-
-        // Update zoom level
-        emitEvent('timeline:zoom', newZoom);
-
-        await nextTick(async () => {
-            if (!wrapper.value) return;
-
-            // Calculate new scroll position to keep mouse over same time
-            const newScrollLeft = timeToPosition(mouseTimeBeforeZoom) - mouseX;
-
-            wrapper.value.scrollLeft = Math.max(0, newScrollLeft);
+    const layerCurveSegments = computed(() => {
+        const map = {};
+        // we use selectedLayer order so visible tracks correspond to trackRows
+        props.selectedLayer.forEach(layer => {
+            map[layer.id] = buildCurvesForLayer(layer);
         });
-    }
+        return map;
+    });
 
+    const curveSegments = computed(() => {
+        const curves = [];
+        const arr = keyframes.value;
 
-    const onPlayheadPointerDown = (evt) => {
+        for (let i = 0; i < arr.length - 1; i++) {
+            const kf = arr[i];
+            const nextKf = arr[i + 1];
+            const isLinear = kf.ease === 'linear';
+
+            const layer = _getLayerById(kf.layerId);
+            if (!layer) continue;
+
+            const originalKf = layer.keyframes.find(k => k.id === kf.id);
+            if (!originalKf) continue;
+
+            if (!isLinear) {
+                if (!originalKf.bezier || !originalKf.bezier.cp1 || !originalKf.bezier.cp2) {
+                    initializeBezierForKeyframe(originalKf, nextKf);
+                } else if (!originalKf.bezier._relativePos) {
+                    const dt = nextKf.time - originalKf.time || 1;
+                    originalKf.bezier._relativePos = {
+                        cp1: { t: (originalKf.bezier.cp1.time - originalKf.time) / dt, v: originalKf.bezier.cp1.value },
+                        cp2: { t: (originalKf.bezier.cp2.time - originalKf.time) / dt, v: originalKf.bezier.cp2.value }
+                    };
+                } else {
+                    updateBezierAfterKeyframeMove(originalKf, nextKf);
+                }
+                kf.bezier = originalKf.bezier;
+            }
+
+            const isSelected = selectedKeys.value.includes(kf.id) || selectedKeys.value.includes(nextKf.id);
+
+            curves.push({
+                id: `curve-${kf.layerId}-${kf.id}-${nextKf.id}`,
+                start: kf,
+                end: nextKf,
+                isSelected,
+                isLinear,
+                showCp1: !isLinear,
+                showCp2: !isLinear,
+                cp1: (!isLinear && kf.bezier?.cp1) ? kf.bezier.cp1 : null,
+                cp2: (!isLinear && kf.bezier?.cp2) ? kf.bezier.cp2 : null
+            });
+        }
+
+        return curves;
+    });
+
+    // ---- Interpolation per layer ----
+    const interpolateLayerAtTime = (layerObj, t) => {
+        _ensureLayerKeyframes(layerObj);
+
+        const frames = layerObj.keyframes.sort((a, b) => a.time - b.time);
+        if (frames.length === 0) return {};
+
+        let left = frames[0], right = frames[frames.length - 1];
+        for (let i = 0; i < frames.length - 1; i++) {
+            if (t >= frames[i].time && t <= frames[i + 1].time) {
+                left = frames[i];
+                right = frames[i + 1];
+                break;
+            }
+        }
+
+        if (t === left.time) return { opacity: left.opacity, matrix: left.matrix };
+
+        const dt = right.time - left.time;
+        if (dt === 0) return { opacity: left.opacity, matrix: left.matrix };
+
+        let factor = (t - left.time) / dt;
+        factor = _applyEasing(factor, left.ease || 'linear', left.bezier);
+
+        const current = {};
+        const start = { opacity: left.opacity, matrix: left.matrix };
+        const end = { opacity: right.opacity, matrix: right.matrix };
+
+        // opacity
+        if (typeof start.opacity === "number" && typeof end.opacity === "number") {
+            current.opacity = start.opacity + (end.opacity - start.opacity) * factor;
+        } else {
+            current.opacity = start.opacity ?? end.opacity;
+        }
+
+        // matrix interpolation (linear per element)
+        if (start.matrix && end.matrix) {
+            current.matrix = {
+                a: start.matrix.a + (end.matrix.a - start.matrix.a) * factor,
+                b: start.matrix.b + (end.matrix.b - start.matrix.b) * factor,
+                c: start.matrix.c + (end.matrix.c - start.matrix.c) * factor,
+                d: start.matrix.d + (end.matrix.d - start.matrix.d) * factor,
+                x: start.matrix.x + (end.matrix.x - start.matrix.x) * factor,
+                y: start.matrix.y + (end.matrix.y - start.matrix.y) * factor,
+                rotate: start.matrix.rotate + (end.matrix.rotate - start.matrix.rotate) * factor,
+            };
+        } else {
+            current.matrix = start.matrix ?? end.matrix;
+        }
+
+        return current;
+    };
+
+    const interpolateAtCurrentTime = async () => {
+        const t = props.config.time;
+        const result = {};
+
+        props.selectedLayer.forEach(layerObj => {
+            result[layerObj.id] = interpolateLayerAtTime(layerObj, t);
+        });
+
+        props.config._currentByLayer = result;
+    };
+
+    const onMultiSelect = (box) => {
         if (!timeline.value) return;
 
-        evt.preventDefault();
-        evt.stopPropagation();
+        const scrollLeft = wrapper.value ? wrapper.value.scrollLeft : 0;
+        const selectedIds = [];
 
-        draggingPlayhead.value = true;
-        playheadPointerId.value = evt.pointerId;
+        if (box) {
+            keyframes.value.forEach(frame => {
+                const frameX = frame.left;
+                const frameY = props.config.height * 0.5;
 
-        try {
-            timeline.value.setPointerCapture(evt.pointerId);
-        } catch (e) {
-            console.warn('Failed to capture pointer:', e);
+                const boxLeftInSvg = box.x + scrollLeft;
+                const boxRightInSvg = boxLeftInSvg + box.width;
+                const boxTopInSvg = box.y;
+                const boxBottomInSvg = boxTopInSvg + box.height;
+
+                const inside =
+                    frameX >= boxLeftInSvg &&
+                    frameX <= boxRightInSvg &&
+                    frameY >= boxTopInSvg &&
+                    frameY <= boxBottomInSvg;
+
+                if (inside) selectedIds.push(frame.id);
+            });
+
+            emitEvent('timeline:select-keyframes', selectedIds);
+        } else {
+            emitEvent('timeline:select-keyframes', []);
         }
-
-        window.addEventListener("pointermove", onPlayheadPointerMove);
-        window.addEventListener("pointerup", onPlayheadPointerUp);
-
-        // Immediately update time to clicked position
-        updatePlayheadFromEvent(evt);
     };
 
-    const onPlayheadPointerMove = async (evt) => {
-        if (!draggingPlayhead.value || !timeline.value) return;
-
-        evt.preventDefault();
-        evt.stopPropagation();
-
-        updatePlayheadFromEvent(evt);
-    };
-
-    const updatePlayheadFromEvent = (evt) => {
-        if (!timeline.value || !wrapper.value) return;
-
-        const rect = timeline.value.getBoundingClientRect();
-        const scrollLeft = wrapper.value.scrollLeft;
-        const x = evt.clientX - rect.left + scrollLeft;
-
-        // Convert x position to time
-        const rawTime = positionToTime(x);
-        // Verwende normalizeTime damit wir zwischen startTime und endTime clampen (funktioniert auch bei negativen/umgekehrten ranges)
-        const newTime = normalizeTime(Math.round(rawTime));
-
-        emitEvent('timeline:time', newTime);
-    };
-
-
-    const onPlayheadPointerUp = async (evt) => {
-        if (!timeline.value || !playheadPointerId.value) return;
-
-        evt.preventDefault();
-        evt.stopPropagation();
-
-        try {
-            timeline.value.releasePointerCapture(playheadPointerId.value);
-        } catch (e) {
-            // Ignore if not captured
-        }
-
-        window.removeEventListener("pointermove", onPlayheadPointerMove);
-        window.removeEventListener("pointerup", onPlayheadPointerUp);
-
-        draggingPlayhead.value = false;
-        playheadPointerId.value = null;
-
-        await interpolateAtCurrentTime();
-    };
-
-
-    const findControlPointAt = (x, y, radius = 15) => {
-        if (!bezierModeEnabled.value) return null;
-
-        for (const curve of curveSegments.value) {
-            if (!curve.isSelected || curve.isLinear) continue;
-
-            // Check cp1 only if it should be shown
-            if (curve.showCp1 && curve.cp1) {
-                const cp1Pos = bezierToSVGCoords(curve.cp1);
-                const dx1 = x - cp1Pos.x;
-                const dy1 = y - cp1Pos.y;
-                if (Math.sqrt(dx1 * dx1 + dy1 * dy1) < radius) {
-                    return { curve, point: 'cp1' };
-                }
-            }
-
-            // Check cp2 only if it should be shown
-            if (curve.showCp2 && curve.cp2) {
-                const cp2Pos = bezierToSVGCoords(curve.cp2);
-                const dx2 = x - cp2Pos.x;
-                const dy2 = y - cp2Pos.y;
-                if (Math.sqrt(dx2 * dx2 + dy2 * dy2) < radius) {
-                    return { curve, point: 'cp2' };
-                }
-            }
-        }
-        return null;
-    };
-
+    // ---- KEYFRAME DRAGGING ----
     const onKFPointerDown = async (frame, evt) => {
         if (!timeline.value) return;
 
-        // Priority 1: Check if clicking on a control point (in bezier mode)
-        if (bezierModeEnabled.value) {
+        // bezier editing branch unchanged
+        if (props.bezierState) {
             const rect = timeline.value.getBoundingClientRect();
             const scrollLeft = wrapper.value ? wrapper.value.scrollLeft : 0;
             const x = evt.clientX - rect.left + scrollLeft;
             const y = evt.clientY - rect.top;
-
             const cpHit = findControlPointAt(x, y);
             if (cpHit) {
                 evt.stopPropagation();
                 evt.preventDefault();
-
                 draggedControlPoint.value = cpHit;
                 cpPointerId.value = evt.pointerId;
-
-                try {
-                    timeline.value.setPointerCapture(evt.pointerId);
-                } catch (e) {
-                    console.warn('Failed to capture pointer:', e);
-                }
-
-                window.addEventListener("pointermove", onCPPointerMove);
-                window.addEventListener("pointerup", onCPPointerUp);
+                try { timeline.value.setPointerCapture(evt.pointerId); } catch (e) {console.warn(e)}
+                register('add', window, 'pointermove', onCPPointerMove);
+                register('add', window, 'pointerup', onCPPointerUp);
                 return;
             }
         }
 
-        // Priority 2: Handle keyframe selection
         if (frame) {
             let data = [...props.config.selectedKeyframes];
             const index = data.findIndex(id => id === frame.id);
 
             if (evt.ctrlKey || evt.shiftKey) {
-                if (index === -1) {
-                    data.push(frame.id);
-                } else {
-                    data.splice(index, 1);
-                }
+                if (index === -1) data.push(frame.id);
+                else data.splice(index, 1);
             } else {
-                if (index === -1) {
-                    data = [frame.id];
-                }
+                if (index === -1) data = [frame.id];
             }
 
             emitEvent('timeline:select-keyframes', data);
         }
 
-        // Priority 3: Start keyframe dragging
         if (!props.selectState || (!evt.ctrlKey && !evt.shiftKey)) {
-            selectedId.value = frame.id;
+            selectedId.value = frame?.id ?? null;
             pointerId.value = evt.pointerId;
-            dragging.value = { id: frame.id, startX: evt.clientX, origTime: frame.time };
+            // store layerId together with dragging info
+            dragging.value = {
+                id: frame?.id,
+                layerId: frame?.layerId ?? frame?._orig?.layerId ?? null,
+                startX: evt.clientX,
+                origTime: frame?.time
+            };
 
-            try {
-                timeline.value.setPointerCapture(pointerId.value);
-            } catch (e) {
-                console.warn('Failed to capture pointer:', e);
+            try { timeline.value.setPointerCapture(pointerId.value); } catch (e) {console.warn(e)}
+
+            register('add', window, 'pointermove', onKFPointerMove);
+            register('add', window, 'pointerup', onKFPointerUp);
+        }
+    };
+
+    const onKFPointerMove = async (ev) => {
+        if (!dragging.value || !timeline.value) return;
+
+        const rect = timeline.value.getBoundingClientRect();
+        const scrollLeft = wrapper.value?.scrollLeft || 0;
+        const x = ev.clientX - rect.left + scrollLeft;
+        const time = _normalizeTime(_positionToTime(x));
+
+        // emit layerId as well so the listener knows which layer to modify
+        emitEvent("timeline:move-keyframe", {
+            keyframeId: dragging.value.id,
+            layerId: dragging.value.layerId,
+            time: Math.round(time),
+            record: props.recordState
+        });
+    };
+
+
+    const onKFPointerUp = async () => {
+        if (!timeline.value || !pointerId.value) return;
+
+        try { timeline.value.releasePointerCapture(pointerId.value); } catch (e) {console.warn(e)}
+        register('remove', window, 'pointermove', onKFPointerMove);
+        register('remove', window, 'pointerup', onKFPointerUp);
+
+        dragging.value = null;
+        pointerId.value = null;
+
+        emitEvent('timeline:keyframes', props.selectedLayer.map(l => ({ id: l.id, keyframes: l.keyframes })));
+    };
+
+    // ---- CONTROL POINT DRAG ----
+    const findControlPointAt = (x, y, radius = 15) => {
+        if (!props.bezierState) return null;
+
+        for (const curve of curveSegments.value) {
+            if (!curve.isSelected || curve.isLinear) continue;
+
+            if (curve.showCp1 && curve.cp1) {
+                const cp1Pos = bezierToSVGCoords(curve.cp1);
+                const dx1 = x - cp1Pos.x;
+                const dy1 = y - cp1Pos.y;
+                if (Math.sqrt(dx1 * dx1 + dy1 * dy1) < radius) return { curve, point: 'cp1' };
             }
 
-            window.addEventListener("pointermove", onKFPointerMove);
-            window.addEventListener("pointerup", onKFPointerUp);
+            if (curve.showCp2 && curve.cp2) {
+                const cp2Pos = bezierToSVGCoords(curve.cp2);
+                const dx2 = x - cp2Pos.x;
+                const dy2 = y - cp2Pos.y;
+                if (Math.sqrt(dx2 * dx2 + dy2 * dy2) < radius) return { curve, point: 'cp2' };
+            }
         }
-    }
+        return null;
+    };
 
     const onCPPointerMove = async (ev) => {
         if (!draggedControlPoint.value || !timeline.value) return;
@@ -572,9 +763,12 @@ export function timelineModel(props, emit) {
             time = props.config.startTime - (x - props.config.padding) / props.config.zoomLevel.current;
         }
 
-        const value = (baseY - y) / curveHeight; // allow overshoot
+        const value = (baseY - y) / curveHeight;
 
-        const originalKf = props.config.keyframes.find(k => k.id === start.id);
+        const layerObj = _getLayerById(start.layerId);
+        if (!layerObj) return;
+
+        const originalKf = layerObj.keyframes.find(k => k.id === start.id);
         if (!originalKf) return;
 
         if (!originalKf.bezier) {
@@ -585,9 +779,7 @@ export function timelineModel(props, emit) {
             };
         }
 
-        if (!originalKf.bezier[point]) {
-            originalKf.bezier[point] = { time, value };
-        }
+        if (!originalKf.bezier[point]) originalKf.bezier[point] = { time, value };
 
         originalKf.bezier[point].time = time;
         originalKf.bezier[point].value = value;
@@ -596,13 +788,16 @@ export function timelineModel(props, emit) {
         const relT = (time - start.time) / dt;
         originalKf.bezier._relativePos[point] = { t: relT, v: value };
 
-        // Referenziere das Originalobjekt für die sofortige Visualisierung
-        if (curve[point]) {
-            curve[point] = originalKf.bezier[point];
-        }
+        if (curve[point]) curve[point] = originalKf.bezier[point];
+
+        emitEvent("timeline:update-bezier", {
+            keyframeId: start.id,
+            layerId: layerObj.id,
+            point,
+            time,
+            value
+        });
     };
-
-
 
     const onCPPointerUp = async (ev) => {
         if (!timeline.value || !cpPointerId.value) return;
@@ -610,292 +805,101 @@ export function timelineModel(props, emit) {
         ev.preventDefault();
         ev.stopPropagation();
 
-        try {
-            timeline.value.releasePointerCapture(cpPointerId.value);
-        } catch (e) {
-            // Ignore if not captured
-        }
+        try { timeline.value.releasePointerCapture(cpPointerId.value); } catch (e) {console.warn(e)}
 
-        window.removeEventListener("pointermove", onCPPointerMove);
-        window.removeEventListener("pointerup", onCPPointerUp);
+        register('remove', window, 'pointermove', onCPPointerMove);
+        register('remove', window, 'pointerup', onCPPointerUp);
 
-        // Emit the updated keyframes to persist changes
-        emitEvent('timeline:keyframes', props.config.keyframes);
+        emitEvent('timeline:keyframes', props.selectedLayer.map(l => ({ id: l.id, keyframes: l.keyframes })));
 
         draggedControlPoint.value = null;
         cpPointerId.value = null;
 
-        // Recalculate interpolation
         await nextTick();
         await interpolateAtCurrentTime();
     };
 
-    const onKFPointerMove = async (ev) => {
-        if (!dragging.value || !timeline.value) return;
-
-        const rect = timeline.value.getBoundingClientRect();
-        const scrollLeft = wrapper.value ? wrapper.value.scrollLeft : 0;
-        const xInSvg = ev.clientX - rect.left + scrollLeft;
-        const newTime = normalizeTime(positionToTime(xInSvg));
-
-        const k = props.config.keyframes.find(kf => kf.id === dragging.value.id);
-        if (k) {
-            k.time = Math.round(newTime);
-
-            if (props.recordState && props.config._current) {
-                k.transform = JSON.parse(JSON.stringify(props.config._current));
-            }
-
-            await interpolateAtCurrentTime();
-        }
-    }
-
-    const onKFPointerUp = async () => {
-        if (!timeline.value || !pointerId.value) return;
-
-        try {
-            timeline.value.releasePointerCapture(pointerId.value);
-        } catch (e) {
-            // Ignore if not captured
-        }
-
-        window.removeEventListener("pointermove", onKFPointerMove);
-        window.removeEventListener("pointerup", onKFPointerUp);
-        dragging.value = null;
-        pointerId.value = null;
-        emitEvent('timeline:keyframes', props.config.keyframes)
-    }
-
-    const normalizeKeyframes = async () => {
-        keyframes.value.forEach((k) => {
-            k.time = typeof k.time === "string" ? parseFloat(k.time) || 0 : (k.time || 0);
-        });
-        await nextTick();
-        emitEvent('timeline:keyframes', keyframes.value)
-    }
-
-    const interpolateAtCurrentTime = async () => {
-        const t = props.config.time;
-        const frames = keyframes.value.sort((a,b) => a.time - b.time);
-
-        if (frames.length === 0) {
-            props.config._current = {};
-            return;
-        }
-
-        let left = frames[0], right = frames[frames.length - 1];
-        for (let i = 0; i < frames.length - 1; i++) {
-            if (t >= frames[i].time && t <= frames[i+1].time) {
-                left = frames[i];
-                right = frames[i+1];
-                break;
-            }
-        }
-
-        if (t === left.time) {
-            props.config._current = JSON.parse(JSON.stringify(left.transform || {}));
-            return;
-        }
-
-        const dt = right.time - left.time;
-        if (dt === 0) {
-            // If keyframes are at same time, use left
-            props.config._current = JSON.parse(JSON.stringify(left.transform || {}));
-            return;
-        }
-
-        let factor = (t - left.time) / dt;
-
-        const easeType = left.ease || 'linear';
-        factor = applyEasing(factor, easeType, left.bezier);
-
-        const current = {};
-        const start = left.transform || {};
-        const end = right.transform || {};
-        const keys = new Set([...Object.keys(start), ...Object.keys(end)]);
-
-        keys.forEach(k => {
-            const a = start[k], b = end[k];
-            if (typeof a === "number" && typeof b === "number") {
-                current[k] = a + (b - a) * factor;
-            } else {
-                current[k] = a !== undefined ? a : b;
-            }
-        });
-
-        props.config._current = current;
-    }
-
-    const onAddKey = async () => {
-        const t = Math.round(props.config.time);
-        const existing = keyframes.value.find(k => k.time === t);
-        if (existing) return;
-
-        const data = [...keyframes.value];
-        const newKF = {
-            time: t,
-            transform: {},
-            id: uuid(),
-            ease: 'linear',
-            bezier: null,
-            connection: []
-        };
-
-        data.push(newKF);
-        emitEvent('timeline:keyframes', data)
-        await recompute();
-    }
-
-    const onDeleteKey = async () => {
-        if (selectedKeys.value.length > 0) {
-            const data = keyframes.value.filter(k => !selectedKeys.value.includes(k.id));
-            emitEvent('timeline:keyframes', data);
-            emitEvent('timeline:select-keyframes', []);
-        } else {
-            const t = Math.round(props.config.time);
-            const idx = keyframes.value.findIndex(k => k.time === t);
-            const data = [...keyframes.value];
-            if (idx !== -1) data.splice(idx, 1);
-            emitEvent('timeline:keyframes', data);
-        }
-        await recompute();
-    }
-
-    const onMultiSelect = (box) => {
+    // ---- PLAYHEAD ----
+    const onPlayheadPointerDown = (evt) => {
         if (!timeline.value) return;
 
-        const scrollLeft = wrapper.value ? wrapper.value.scrollLeft : 0;
-        const selectedIds = [];
+        evt.preventDefault();
+        evt.stopPropagation();
 
-        if(box) {
-            keyframes.value.forEach(frame => {
-                const frameX = frame.left;
-                const frameY = props.config.height * 0.5;
+        draggingPlayhead.value = true;
+        playheadPointerId.value = evt.pointerId;
 
-                const boxLeftInSvg = box.x + scrollLeft;
-                const boxRightInSvg = boxLeftInSvg + box.width;
-                const boxTopInSvg = box.y;
-                const boxBottomInSvg = boxTopInSvg + box.height;
+        try { timeline.value.setPointerCapture(evt.pointerId); } catch (e) {console.warn(e)}
 
-                const inside =
-                    frameX >= boxLeftInSvg &&
-                    frameX <= boxRightInSvg &&
-                    frameY >= boxTopInSvg &&
-                    frameY <= boxBottomInSvg;
+        register('add', window, 'pointermove', onPlayheadPointerMove);
+        register('add', window, 'pointerup', onPlayheadPointerUp);
 
-                if (inside) {
-                    selectedIds.push(frame.id);
-                }
-            });
+        updatePlayheadFromEvent(evt);
+    };
 
-            emitEvent('timeline:select-keyframes', selectedIds);
-        } else {
-            emitEvent('timeline:select-keyframes', []);
-        }
-    }
+    const onPlayheadPointerMove = async (evt) => {
+        if (!draggingPlayhead.value || !timeline.value) return;
+        evt.preventDefault();
+        evt.stopPropagation();
+        updatePlayheadFromEvent(evt);
+    };
 
-    const onFrameForward = async () => {
-        let newTime = props.config.time + 1;
+    const updatePlayheadFromEvent = (evt) => {
+        if (!timeline.value || !wrapper.value) return;
 
-        // Handle looping
-        if (props.config.loop) {
-            const start = props.config.startTime;
-            const end = props.config.endTime;
-            const total = end - start;
+        const rect = timeline.value.getBoundingClientRect();
+        const scrollLeft = wrapper.value.scrollLeft;
+        const x = evt.clientX - rect.left + scrollLeft;
 
-            if (total > 0 && newTime > end) {
-                newTime = start;
-            } else if (total < 0 && newTime < end) {
-                newTime = start;
-            }
-        } else {
-            newTime = normalizeTime(newTime);
-        }
+        const rawTime = _positionToTime(x);
+        const newTime = _normalizeTime(Math.round(rawTime));
 
         emitEvent('timeline:time', newTime);
+    };
+
+    const onPlayheadPointerUp = async (evt) => {
+        if (!timeline.value || !playheadPointerId.value) return;
+
+        evt.preventDefault();
+        evt.stopPropagation();
+
+        try { timeline.value.releasePointerCapture(playheadPointerId.value); } catch (e) {console.warn(e)}
+
+        register('remove', window, 'pointermove', onPlayheadPointerMove);
+        register('remove', window, 'pointerup', onPlayheadPointerUp);
+
+        draggingPlayhead.value = false;
+        playheadPointerId.value = null;
+
         await interpolateAtCurrentTime();
-    }
+    };
 
-    const onFrameBack = async () => {
-        let newTime = props.config.time - 1;
 
-        // Handle looping
-        if (props.config.loop) {
-            const start = props.config.startTime;
-            const end = props.config.endTime;
-            const total = end - start;
+    // ---- RECORD ----
+    const emitRecord = () => {
+        const time = Math.round(props.config.time);
 
-            if (total > 0 && newTime < start) {
-                newTime = end;
-            } else if (total < 0 && newTime > start) {
-                newTime = end;
-            }
-        } else {
-            newTime = normalizeTime(newTime);
-        }
+        const payload = {
+            time,
+            layers: props.selectedLayer.map(l => ({
+                id: l.id,
+                opacity: l.opacity ?? 1,
+                matrix: l.matrix ?? { a: 1, b: 0, c: 0, d: 1, x: 0, y: 0, rotate: 0 }
+            }))
+        };
 
-        emitEvent('timeline:time', newTime);
-        await interpolateAtCurrentTime();
-    }
-
-    const onSkipToEnd = async () => {
-        emitEvent('timeline:time', props.config.endTime);
-        await interpolateAtCurrentTime();
-    }
-
-    const onTimeInput = async (newTime) => {
-        const time = normalizeTime(Math.round(newTime));
-        emitEvent('timeline:time', time);
-        await interpolateAtCurrentTime();
-    }
+        emitEvent("timeline-record", payload);
+    };
 
     const onToggleRecord = async () => {
         emitEvent('timeline:record', !props.recordState);
 
-        if (props.recordState && props.config._current) {
-            const t = Math.round(props.config.time);
-            const existingKF = keyframes.value.find(k => k.time === t);
-
-            if (existingKF) {
-                existingKF.transform = JSON.parse(JSON.stringify(props.config._current));
-                emitEvent('timeline:keyframes', props.config.keyframes);
-            }
+        if (props.recordState && props.config._currentByLayer) {
+            emitRecord();
         }
-    }
+    };
 
-    const onToggleSelectMode = async () => {
-        emitEvent('select-state', !props.selectState);
-        emitEvent('select-state:items', !props.selectState);
-        emitEvent('timeline:select-keyframes', []);
-    }
-
-    const onTogglePlay = async () => {
-        if (props.playState) {
-            await onPause();
-        } else {
-            await onPlay();
-        }
-    }
-
-    const onPlay = async () => {
-        if (!props.playState) await startRAF();
-    }
-
-    const onPause = async () => {
-        emitEvent('timeline:play', false);
-        emitEvent('timeline:time', props.config.time);
-        if (rafId.value) {
-            cancelAnimationFrame(rafId.value);
-            rafId.value = null;
-        }
-    }
-
-    const onStop = async () => {
-        await onPause();
-        emitEvent('timeline:time', props.config.startTime);
-        await interpolateAtCurrentTime();
-    }
-
+    // ---- PLAYBACK ----
     const startRAF = async () => {
         if (rafId.value) cancelAnimationFrame(rafId.value);
         playStartTimestamp.value = performance.now();
@@ -912,110 +916,119 @@ export function timelineModel(props, emit) {
             const end = props.config.endTime;
             const total = end - start;
 
-            // Handle end of timeline
             if (total > 0) {
-                // Positive range
                 if (newTime >= end) {
                     if (props.config.loop) {
-                        // Loop back to start
                         playStartTimestamp.value = now;
                         playOffset.value = start;
                         newTime = start;
                     } else {
-                        // Stop at end
                         emitEvent('timeline:time', end);
                         emitEvent('timeline:play', false);
-                        if (rafId.value) {
-                            cancelAnimationFrame(rafId.value);
-                            rafId.value = null;
-                        }
+                        if (rafId.value) cancelAnimationFrame(rafId.value);
+                        rafId.value = null;
                         return;
                     }
                 }
             } else if (total < 0) {
-                // Negative range - play backwards
                 if (newTime <= end) {
                     if (props.config.loop) {
-                        // Loop back to start
                         playStartTimestamp.value = now;
                         playOffset.value = start;
                         newTime = start;
                     } else {
-                        // Stop at end
                         emitEvent('timeline:time', end);
                         emitEvent('timeline:play', false);
-                        if (rafId.value) {
-                            cancelAnimationFrame(rafId.value);
-                            rafId.value = null;
-                        }
+                        if (rafId.value) cancelAnimationFrame(rafId.value);
+                        rafId.value = null;
                         return;
                     }
                 }
             }
 
             emitEvent('timeline:time', newTime);
+
+            if (props.recordState) emitRecord();
             rafId.value = requestAnimationFrame(step);
         }
 
         rafId.value = requestAnimationFrame(step);
-    }
-
-
-    const onEaseChange = async (easeType) => {
-        if (selectedKeys.value.length === 0) return;
-
-        // Work directly with original keyframes
-        const originalKeyframes = props.config.keyframes;
-
-        selectedKeys.value.forEach(selectedId => {
-            const idx = originalKeyframes.findIndex(k => k.id === selectedId);
-            if (idx === -1) return;
-
-            const k = originalKeyframes[idx];
-            k.ease = easeType;
-
-            // If changing to linear, clear bezier
-            if (easeType === 'linear') {
-                k.bezier = null;
-            } else {
-                // Initialize bezier for this keyframe if it has a next keyframe
-                if (idx < originalKeyframes.length - 1) {
-                    const nextKf = originalKeyframes[idx + 1];
-                    initializeBezierForKeyframe(k, nextKf);
-                }
-            }
-        });
-
-        emitEvent('timeline:keyframes', originalKeyframes);
-        await nextTick();
-        await interpolateAtCurrentTime();
-    }
-
-    const onToggleBezierMode = () => {
-        bezierModeEnabled.value = !bezierModeEnabled.value;
     };
 
-    const recompute = async () => {
-        await normalizeKeyframes();
-        await interpolateAtCurrentTime();
-    }
-
-    const init = async () => {
-        wrapper.value = document.getElementById(props.wrapperId);
-        timeline.value = document.getElementById(props.config.id);
-    }
-
-    const getSelectedEase = () => {
-        if (selectedKeys.value.length === 0) return 'linear';
-        const firstSelected = keyframes.value.find(k => k.id === selectedKeys.value[0]);
-        return firstSelected?.ease || 'linear';
+    const onTogglePlay = async () => {
+        if (props.playState) await onPause();
+        else await onPlay();
     };
 
-    const getCurvePath = (curve) => {
+    const onPlay = async () => {
+        if (!props.playState) await startRAF();
+    };
+
+    const onPause = async () => {
+        emitEvent('timeline:play', false);
+        emitEvent('timeline:time', props.config.time);
+        if (rafId.value) {
+            cancelAnimationFrame(rafId.value);
+            rafId.value = null;
+        }
+    };
+
+    const onStop = async () => {
+        await onPause();
+        emitEvent('timeline:time', props.config.startTime);
+        await interpolateAtCurrentTime();
+    };
+
+    const onFrameForward = async () => {
+        let newTime = props.config.time + 1;
+        if (props.config.loop) {
+            const start = props.config.startTime;
+            const end = props.config.endTime;
+            const total = end - start;
+
+            if (total > 0 && newTime > end) newTime = start;
+            else if (total < 0 && newTime < end) newTime = start;
+        } else {
+            newTime = _normalizeTime(newTime);
+        }
+
+        emitEvent('timeline:time', newTime);
+        await interpolateAtCurrentTime();
+    };
+
+    const onFrameBack = async () => {
+        let newTime = props.config.time - 1;
+        if (props.config.loop) {
+            const start = props.config.startTime;
+            const end = props.config.endTime;
+            const total = end - start;
+
+            if (total > 0 && newTime < start) newTime = end;
+            else if (total < 0 && newTime > start) newTime = end;
+        } else {
+            newTime = _normalizeTime(newTime);
+        }
+
+        emitEvent('timeline:time', newTime);
+        await interpolateAtCurrentTime();
+    };
+
+    const onSkipToEnd = async () => {
+        emitEvent('timeline:time', props.config.endTime);
+        await interpolateAtCurrentTime();
+    };
+
+    const onTimeInput = async (newTime) => {
+        const time = _normalizeTime(Math.round(newTime));
+        emitEvent('timeline:time', time);
+        await interpolateAtCurrentTime();
+    };
+
+    const getCurvePath = (curve, trackIndex = null) => {
         const startX = curve.start.left;
         const endX = curve.end.left;
-        const curveHeight = props.config.height * 0.25;
-        const baseY = props.config.height * 0.75;
+        const curveHeight = Math.min(props.config.height * 0.25, trackHeight * 1.5);
+        const baseY = trackIndex !== null ? getCurveBaseY(trackIndex) : props.config.height * 0.75;
 
         if (curve.isLinear || !curve.cp1 || !curve.cp2) {
             const startY = baseY;
@@ -1025,38 +1038,88 @@ export function timelineModel(props, emit) {
 
         const startY = baseY;
         const endY = baseY - curveHeight;
-        const cp1 = bezierToSVGCoords(curve.cp1);
-        const cp2 = bezierToSVGCoords(curve.cp2);
+        const cp1 = bezierToSVGCoords(curve.cp1, trackIndex);
+        const cp2 = bezierToSVGCoords(curve.cp2, trackIndex);
 
         return `M ${startX} ${startY} C ${cp1.x} ${cp1.y}, ${cp2.x} ${cp2.y}, ${endX} ${endY}`;
     };
 
+    watch(selectedKeys, (newSelection) => {
+        if (newSelection.length < 2) {
+            emitEvent('timeline:bezier', false);
+        }
+    });
+
+    async function init (){
+        wrapper.value = document.getElementById(props.wrapperId);
+        timeline.value = document.getElementById(props.config.id);
+    }
+
     onMounted(async () => {
         await init();
-        await normalizeKeyframes();
+        await interpolateAtCurrentTime();
+    });
+
+    onBeforeUnmount(() => {
+        register('removeAll');
     });
 
     return {
         timeline,
         width,
+        scrollbars,
         keyframes,
         ticks,
-        totalTime,
         segments,
         playHead,
         selectedKeys,
         curveSegments,
-        bezierModeEnabled,
+        easeModes,
+        trackHeight,
+
+        trackRows,
+        layersWithKeys,
+        keyframeHasOffset,
+
+        layerCurveSegments,
+        getCurveBaseY,
+
+        trackTop,
+        trackColor,
+        lighten,
+        toggleLayerOpen,
+        isLayerOpen,
+
         bezierToSVGCoords,
         onPlay,
         onPause,
         onStop,
         onTogglePlay,
-        getSelectedEase,
+        hasOffset,
+        trackHasOffsetByType,
         getCurvePath,
-        onWheel,
-        onAddKey,
-        onDeleteKey,
+        onWheel: async (e) => {
+            e.preventDefault();
+            if (!timeline.value || !wrapper.value) return;
+
+            const oldZoom = props.config.zoomLevel.current;
+            const delta = e.deltaY;
+            const factor = Math.exp(-delta * 0.0025);
+            const newZoom = Math.min(props.config.zoomLevel.max, Math.max(props.config.zoomLevel.min, oldZoom * factor));
+
+            const rect = timeline.value.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const scrollLeft = wrapper.value.scrollLeft;
+            const mouseTimeBeforeZoom = _positionToTime(mouseX + scrollLeft);
+
+            emitEvent('timeline:zoom', newZoom);
+
+            await nextTick(async () => {
+                if (!wrapper.value) return;
+                const newScrollLeft = _timeToPosition(mouseTimeBeforeZoom) - mouseX;
+                wrapper.value.scrollLeft = Math.max(0, newScrollLeft);
+            });
+        },
         onMultiSelect,
         onKFPointerDown,
         onFrameForward,
@@ -1064,41 +1127,21 @@ export function timelineModel(props, emit) {
         onSkipToEnd,
         onTimeInput,
         onToggleRecord,
-        onToggleSelectMode,
-        onEaseChange,
-        onToggleBezierMode,
         onPlayheadPointerDown,
         emitEvent
     };
 }
 
 export const timelineProps = {
-    selectMenu: {
-        type: Boolean,
-        required: true,
-    },
-    selectState: {
-        type: Boolean,
-        required: true,
-    },
-    playState: {
-        type: Boolean,
-        required: true,
-    },
-    recordState: {
-        type: Boolean,
-        required: true,
-    },
-    wrapperId: {
-        type: String,
-        required: true,
-    },
-    config: {
-        type: Object,
-        required: true,
-    },
-    selectionBox: {
-        type: Object,
-        required: true,
-    }
+    selectMenu: { type: Boolean, required: true },
+    selectState: { type: Boolean, required: true },
+    playState: { type: Boolean, required: true },
+    recordState: { type: Boolean, required: true },
+    bezierState: { type: Boolean, required: true },
+    sidebarState: { type: Boolean, required: true },
+    wrapperId: { type: String, required: true },
+    config: { type: Object, required: true },
+    selectionBox: { type: Object, required: true },
+    selectedLayer: { type: Array, required: true },
+    layers: { type: Array, required: true }
 };

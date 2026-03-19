@@ -12,7 +12,11 @@
               :select-state="windowStates.selectItems.value"
               :play-state="timelineStates.play.value"
               :record-state="timelineStates.record.value"
+              :bezier-state="timelineStates.bezier.value"
               :selection-box="localData.selectItemsBox.value"
+              :selected-layer="localData.selectedLayer.value"
+              :layers="localData.layers.value"
+              :sidebar-state="timelineStates.sidebar.value"
               @component-event="emitEvent"
           />
         </div>
@@ -45,7 +49,7 @@ export default defineComponent({
       wrapperRef,
       wrapperId,
       timelineBar,
-      emitEvent,
+      emitEvent
     };
   },
 });

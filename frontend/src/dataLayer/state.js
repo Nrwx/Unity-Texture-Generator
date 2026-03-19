@@ -37,7 +37,8 @@ export const windowStates = {
     context: ref(false),
     color: ref(false),
     drawing: ref(false),
-    queue: ref(false)
+    queue: ref(false),
+    timeline: ref(false)
 };
 
 export const loadingStates = {
@@ -51,7 +52,9 @@ export const modifierStates = {
 
 export const timelineStates = {
     play: ref(false),
-    record: ref(false)
+    record: ref(false),
+    sidebar: ref(false),
+    bezier: ref(false)
 };
 
 export const transformStates = {

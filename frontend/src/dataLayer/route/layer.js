@@ -159,6 +159,7 @@ export const updateLayer = async (layer) => {
         if (layer?.matrix?.x) formData.append("x", layer.matrix.x);
         if (layer?.matrix?.y) formData.append("y", layer.matrix.y);
         if (layer?.matrix?.rotate) formData.append("rotate", layer.matrix.rotate);
+        if (layer?.keyframes) formData.append("keyframes", JSON.stringify(layer.keyframes));
         if (layer?.order) formData.append("order", layer.order);
         if (layer?.hidden) formData.append("hidden", layer.hidden);
         if (layer?.opacity) formData.append("opacity", layer.opacity);

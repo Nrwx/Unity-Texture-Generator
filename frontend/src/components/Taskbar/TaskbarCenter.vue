@@ -10,10 +10,8 @@
         <v-card
             v-if="active && active.component && active.component.props"
             variant="flat"
-            color="surface"
             :max-width="active.component?.maxWidth || 585"
             width="100%"
-            :theme="theme"
             class="px-4 py-3 mb-4 rounded-xl"
         >
           <div class="d-flex align-center px-2" style="width: 100%; height: 36px;">
@@ -42,11 +40,9 @@
     <!-- Taskbar separat fixiert -->
     <v-sheet
         width="100%"
-        color="surface"
-        :elevation="0"
         :theme="theme"
-        class="rounded-xl d-flex flex-column"
-        style="overflow: visible; border: 1px solid rgba(0, 0, 0, 0.1); pointer-events: auto;"
+        class="rounded-xl elevation-0 d-flex flex-column"
+        style="overflow: visible; pointer-events: auto;"
     >
       <!-- Taskbar Inhalt -->
       <div

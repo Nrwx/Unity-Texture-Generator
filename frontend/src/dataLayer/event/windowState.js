@@ -288,4 +288,7 @@ export const windowStateEvent = (route) => ({
             route.localData.loading.value = false;
         }
     },
+    "timeline:state": async (payload) => {
+        route.windowStates.timeline.value = payload;
+    },
 });

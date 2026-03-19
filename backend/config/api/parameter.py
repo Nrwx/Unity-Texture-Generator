@@ -214,6 +214,7 @@ PARAMETERS = {
         "group": {"type": str, "default": None},
         "reset": {"type": bool, "default": False},
         "channel": {"type": dict, "default": {}},
+        "keyframes": {"type": list, "default": []},
 
         # TextLayer spezifisch
         "font": {"type": str, "default": ""},

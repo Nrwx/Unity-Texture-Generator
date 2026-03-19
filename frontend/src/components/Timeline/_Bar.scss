@@ -1,0 +1,232 @@
+.timeline-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: linear-gradient(180deg, rgb(var(--v-theme-background)) 0%, rgb(var(--v-theme-surface)) 100%);
+  border-bottom: 1px solid #1a1a1a;
+  gap: 12px;
+}
+
+.controls-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+
+  &:not(:last-child) {
+    border-right: 1px solid #3a3a3a;
+  }
+
+  &.playback-controls {
+    gap: 2px;
+  }
+
+  &.record-controls {
+    padding: 0 4px;
+  }
+
+  &.time-info {
+    gap: 12px;
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+.control-btn {
+  background: #2a2a2a !important;
+  border: 1px solid #3a3a3a !important;
+  border-radius: 4px !important;
+  color: #b0b0b0 !important;
+  transition: all 0.2s ease;
+  min-width: 32px !important;
+  min-height: 32px !important;
+
+  &:hover {
+    background: #353535 !important;
+    border-color: #4a4a4a !important;
+    color: #e0e0e0 !important;
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  &.play-btn {
+    background: #2a3f5f !important;
+    border-color: #3a5f8f !important;
+
+    &:hover {
+      background: #3a5f8f !important;
+      border-color: #4a7faf !important;
+      color: #fff !important;
+    }
+  }
+
+  &.record-btn {
+    position: relative;
+
+    &:hover {
+      color: #ff6b6b !important;
+      border-color: #ff6b6b !important;
+    }
+
+    &.recording {
+      background: #5f2a2a !important;
+      border-color: #8f3a3a !important;
+      color: #ff6b6b !important;
+      animation: pulse 2s ease-in-out infinite;
+
+      &:hover {
+        background: #6f3a3a !important;
+        border-color: #af4a4a !important;
+        color: #ff8b8b !important;
+      }
+    }
+  }
+
+  &.select-btn {
+    &:hover {
+      color: #9b59d0 !important;
+      border-color: #9b59d0 !important;
+    }
+
+    &.active {
+      background: #3a2a5f !important;
+      border-color: #5a3a8f !important;
+      color: #b88dd0 !important;
+
+      &:hover {
+        background: #4a3a6f !important;
+        border-color: #6a4aaf !important;
+        color: #c89de0 !important;
+      }
+    }
+  }
+
+  &.bezier-btn {
+    &:hover {
+      color: #9b59d0 !important;
+      border-color: #9b59d0 !important;
+    }
+
+    &.active {
+      background: #3a2a5f !important;
+      border-color: #5a3a8f !important;
+      color: #b88dd0 !important;
+
+      &:hover {
+        background: #4a3a6f !important;
+        border-color: #6a4aaf !important;
+        color: #c89de0 !important;
+      }
+    }
+  }
+
+  &.add-key {
+    &:hover {
+      color: #4a9eff !important;
+      border-color: #4a9eff !important;
+    }
+  }
+
+  &.delete-key {
+    &:hover {
+      color: #ff6b6b !important;
+      border-color: #ff6b6b !important;
+    }
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(255, 107, 107, 0);
+  }
+}
+
+.time-display {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: #1e1e1e;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  font-family: 'Consolas', 'Monaco', monospace;
+
+  .time-label {
+    font-size: 11px;
+    color: #888;
+    font-weight: 500;
+  }
+
+  .time-value {
+    font-size: 13px;
+    color: #4a9eff;
+    font-weight: 600;
+    min-width: 40px;
+    text-align: right;
+  }
+}
+
+.time-separator {
+  width: 1px;
+  height: 20px;
+  background: #3a3a3a;
+}
+
+.zoom-level {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: #1e1e1e;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #888;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.time-input {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  color: #fff;
+  padding: 2px 8px;
+  width: 140px;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+
+  &:focus {
+    outline: none;
+    border-color: #4a9eff;
+    background: rgba(74, 158, 255, 0.1);
+  }
+
+  &::-webkit-inner-spin-button,
+  &::-webkit-outer-spin-button {
+    opacity: 0.5;
+  }
+}
+
+.play-btn.playing {
+  background: rgba(74, 158, 255, 0.2);
+  color: #4a9eff;
+}
+
+.ease-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .ease-select {
+    width: 140px;
+    font-size: 12px;
+  }
+}

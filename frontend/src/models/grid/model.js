@@ -165,9 +165,6 @@ export function gridModel(props, emit) {
             });
         }
 
-
-
-
         else if (props.canvasTransform) {
             offset.value.x += dx;
             offset.value.y += dy;
@@ -182,7 +179,6 @@ export function gridModel(props, emit) {
         lastMouse.value.x = event.clientX;
         lastMouse.value.y = event.clientY;
     };
-
 
     const startResize = async (corner, event) => {
         emitEvent('layer:transform-menu', true)
@@ -336,14 +332,14 @@ export function gridModel(props, emit) {
     }
 
 
-    const resetSelection = async (event) => {
-        if (props.brush === true) return;
+    const resetSelection = (event) => {
+        if (props.brush || props.timeline) return;
         event.preventDefault();
         if (!canvas.value.contains(event.target) && !event.ctrlKey
             || !props.menu && !props.transform && !event.ctrlKey
             || !props.menu && !props.rotate && !event.ctrlKey
             || !props.menu && !props.size && !event.ctrlKey) {
-            await stopTransform()
+            stopTransform()
             props.selectedLayer.forEach(layer => {
                 updateLayer(layer)
             })
@@ -444,10 +440,11 @@ export function gridModel(props, emit) {
         }
     };
 
-    const stopTransform = async () => {
+    const stopTransform = () => {
         register('remove', window, 'mouseup', stopTransform);
         alignModeStep.value = 0
-        await emitEvent('reset:grid-states', false)
+        if (props.timeline || props.timelineRecord) emitEvent("timeline:set-keyframe");
+        emitEvent('reset:grid-states', false)
     };
 
     const frameBox = computed(() => {
@@ -650,6 +647,14 @@ export function gridModel(props, emit) {
 
 export const gridProps = {
     rule: {
+        type: Boolean,
+        required: true,
+    },
+    timeline: {
+        type: Boolean,
+        required: true,
+    },
+    timelineRecord: {
         type: Boolean,
         required: true,
     },

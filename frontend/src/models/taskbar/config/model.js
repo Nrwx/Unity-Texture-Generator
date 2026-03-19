@@ -1,4 +1,3 @@
-import {v4 as uuidv4} from "uuid";
 import Upload from "@/view/page/Upload/Upload.vue";
 import History from "@/view/page/History/History";
 import Tools from "@/view/page/Tools/Tools";
@@ -15,11 +14,12 @@ import Overview from "@/view/page/Overview/Overview";
 import Export from "@/view/page/Export/Export";
 import Form from "@/view/page/Form/Form";
 import Animation from "@/view/page/Animation/Animation";
+import {uuid} from "@/utils/uuid";
 
 export const taskbarItemLeft = [
     {
         position: 'top',
-        id: uuidv4(),
+        id: uuid(),
         title: 'Einstellungen',
         subtitle: 'Legen Sie zusätzliche Einstellungen fest...',
         icon: 'mdi-cog',
@@ -30,7 +30,7 @@ export const taskbarItemLeft = [
     },
     {
         position: 'top',
-        id: uuidv4(),
+        id: uuid(),
         title: 'Datei hochladen',
         subtitle: 'Wählen Sie ein Bild aus...',
         icon: 'mdi-file',
@@ -44,7 +44,7 @@ export const taskbarItemLeft = [
     },
     {
         position: 'top',
-        id: uuidv4(),
+        id: uuid(),
         title: 'AI Bild generieren',
         subtitle: 'Generiere ein Bild mit OpenAI DALL·E',
         icon: 'mdi-robot',
@@ -58,7 +58,7 @@ export const taskbarItemLeft = [
     },
     {
         position: 'top',
-        id: uuidv4(),
+        id: uuid(),
         title: 'Bild Optionen',
         subtitle: 'Legen Sie zusätzliche Einstellungen fest...',
         icon: 'mdi-image-multiple',
@@ -68,7 +68,7 @@ export const taskbarItemLeft = [
     },
     {
         position: 'center',
-        id: uuidv4(),
+        id: uuid(),
         title: 'Auswahl',
         icon: 'mdi-cursor-default-outline',
         active: false,
@@ -78,7 +78,7 @@ export const taskbarItemLeft = [
     },
     {
         position: 'center',
-        id: uuidv4(),
+        id: uuid(),
         title: 'Frei-Maskierung',
         icon: 'mdi-select',
         active: false,
@@ -87,7 +87,7 @@ export const taskbarItemLeft = [
         event: 'select-state',
         menuItems: [
             {
-                id: uuidv4(),
+                id: uuid(),
                 title: 'Rechteckmaske',
                 icon: 'mdi-select',
                 active: false,
@@ -96,7 +96,7 @@ export const taskbarItemLeft = [
                 val: 'rectangle'
             },
             {
-                id: uuidv4(),
+                id: uuid(),
                 title: 'Kreismaske',
                 icon: 'mdi-selection-ellipse',
                 active: false,
@@ -108,7 +108,7 @@ export const taskbarItemLeft = [
     },
     {
         position: 'center',
-        id: uuidv4(),
+        id: uuid(),
         title: 'Pinsel-Werkzeug',
         icon: 'mdi-brush',
         active: false,
@@ -118,7 +118,7 @@ export const taskbarItemLeft = [
     },
     {
         position: 'center',
-        id: uuidv4(),
+        id: uuid(),
         title: 'Textebene',
         icon: 'mdi-format-text',
         active: false,
@@ -128,7 +128,7 @@ export const taskbarItemLeft = [
     },
     {
         position: 'center',
-        id: uuidv4(),
+        id: uuid(),
         title: 'Füllwerkzeug',
         icon: 'mdi-format-color-fill',
         active: false,
@@ -138,7 +138,7 @@ export const taskbarItemLeft = [
     },
     {
         position: 'center',
-        id: uuidv4(),
+        id: uuid(),
         title: 'Farbauswahl',
         active: false,
         hidden: false,
@@ -151,7 +151,7 @@ export const taskbarItemLeft = [
     },
     {
         position: 'center',
-        id: uuidv4(),
+        id: uuid(),
         title: 'Zeichenwerkzeug',
         icon: 'mdi-fountain-pen-tip',
         active: false,
@@ -160,7 +160,7 @@ export const taskbarItemLeft = [
         event: 'pen-state',
         menuItems: [
             {
-                id: uuidv4(),
+                id: uuid(),
                 title: 'Bezier',
                 icon: 'mdi-vector-curve',
                 active: false,
@@ -169,7 +169,7 @@ export const taskbarItemLeft = [
                 val: 'bezier'
             },
             {
-                id: uuidv4(),
+                id: uuid(),
                 title: 'Linear',
                 icon: 'mdi-vector-line',
                 active: false,
@@ -181,7 +181,7 @@ export const taskbarItemLeft = [
     },
     {
         position: 'center',
-        id: uuidv4(),
+        id: uuid(),
         title: 'Formauswahl',
         active: false,
         hidden: false,
@@ -197,7 +197,7 @@ export const taskbarItemLeft = [
 export const taskbarItemCenter = [
     {
         position: 'left',
-        id: uuidv4(),
+        id: uuid(),
         icon: 'mdi-drawing',
         tooltip: 'Form-Einstellungen',
         active: false,
@@ -211,7 +211,7 @@ export const taskbarItemCenter = [
     },
     {
         position: 'left',
-        id: uuidv4(),
+        id: uuid(),
         icon: 'mdi-animation-play',
         tooltip: 'Animation',
         active: false,
@@ -220,11 +220,11 @@ export const taskbarItemCenter = [
             path: Animation,
             props: {},
             maxWidth: '100%'
-        },
+        }
     },
     {
         position: 'center',
-        id: uuidv4(),
+        id: uuid(),
         icon: 'mdi-view-dashboard',
         tooltip: 'Übersicht',
         active: false,
@@ -236,7 +236,7 @@ export const taskbarItemCenter = [
     },
     {
         position: 'right',
-        id: uuidv4(),
+        id: uuid(),
         icon: 'mdi-bell',
         tooltip: 'Benachrichtigungen',
         active: false,
@@ -254,7 +254,7 @@ export const taskbarItemCenter = [
     },
     {
         position: 'right',
-        id: uuidv4(),
+        id: uuid(),
         icon: 'mdi-account',
         tooltip: 'Benutzer',
         active: false,
@@ -262,7 +262,7 @@ export const taskbarItemCenter = [
     },
     {
         position: 'right',
-        id: uuidv4(),
+        id: uuid(),
         icon: 'mdi-camera',
         tooltip: 'Screenshot',
         active: false,
@@ -277,7 +277,7 @@ export const taskbarItemCenter = [
 export const taskbarItemRight = [
     {
         position: 'top',
-        id: uuidv4(),
+        id: uuid(),
         icon: 'mdi-apps',
         active: false,
         hidden: false,
@@ -289,7 +289,7 @@ export const taskbarItemRight = [
     },
     {
         position: 'top',
-        id: uuidv4(),
+        id: uuid(),
         title: 'Ebenen',
         icon: 'mdi-layers-triple',
         active: false,
@@ -299,7 +299,7 @@ export const taskbarItemRight = [
     },
     {
         position: 'top',
-        id: uuidv4(),
+        id: uuid(),
         title: 'Typographie',
         icon: 'mdi-format-font',
         active: false,
@@ -312,7 +312,7 @@ export const taskbarItemRight = [
     },
     {
         position: 'top',
-        id: uuidv4(),
+        id: uuid(),
         title: 'Verlauf',
         icon: 'mdi-history',
         active: false,
@@ -325,7 +325,7 @@ export const taskbarItemRight = [
     },
     {
         position: 'center',
-        id: uuidv4(),
+        id: uuid(),
         title: 'Export',
         icon: 'mdi-file-export',
         active: false,

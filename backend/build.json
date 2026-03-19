@@ -17,7 +17,7 @@
     "project_name": "unity-texture-generator"
   },
   "dependencies": {
-    "last_build": "2026-01-19T05:58:45.321270Z",
+    "last_build": "2026-03-19T12:40:12.398308Z",
     "config": {
       "library_policy": {
         "auto_update": true,
@@ -674,6 +674,7 @@
             "d",
             "x",
             "y",
+            "keyframes",
             "rotate",
             "channel",
             "order",
