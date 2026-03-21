@@ -27,8 +27,11 @@
                 :color="color"
                 :selected-layer="selectedLayer"
                 :fill-state="fillState"
+
                 @update:image-event="emitEvent"
                 @update:select-layer="toggleSelection"
+                :timeline="timelinePlay"
+                :timeline-time="time"
             />
 
             <div v-if="!selectedLayer.length" class="center-crosshair"></div>
@@ -107,28 +110,8 @@ export default defineComponent({
     Control
   },
   setup(props, { emit }) {
-    const { wrapper, wrapperId, main, mainId, canvas, offset, cursor, canvasStyle, zoomFaktor, controlData, emitEvent, toggleSelection, startRotate, startResize, onPositionUpdate, onRotationUpdate, onScaleUpdate, onReset, frameBox} = gridModel(props, emit);
-    return {
-      wrapper,
-      wrapperId,
-      main,
-      mainId,
-      canvas,
-      offset,
-      cursor,
-      canvasStyle,
-      zoomFaktor,
-      emitEvent,
-      toggleSelection,
-      startRotate,
-      startResize,
-      onPositionUpdate,
-      onRotationUpdate,
-      onScaleUpdate,
-      onReset,
-      frameBox,
-      controlData
-    };
+    const model = gridModel(props, emit);
+    return {...model};
   },
 });
 </script>

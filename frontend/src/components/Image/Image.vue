@@ -12,12 +12,7 @@
           :class="{ 'absolute': index >= 0, 'selected': selectedLayer.includes(layer) }"
           :data-context-id="layer.id"
           :alt="layer.name"
-          :style="{
-            opacity: layer.opacity,
-            zIndex: index,
-            position: 'absolute',
-            transform: `matrix(${layer.matrix.a}, ${layer.matrix.b}, ${layer.matrix.c}, ${layer.matrix.d}, ${layer.matrix.x}, ${layer.matrix.y}) rotate(${layer.matrix.rotate}deg)`
-          }"
+          :style="getLayerStyle(layer)"
       />
 
       <!-- 📝 Text-Layer -->
@@ -29,23 +24,7 @@
           :class="{ 'absolute': index >= 0, 'selected': selectedLayer.includes(layer) }"
           :data-context-id="layer.id"
           :key="layer.time"
-          :style="{
-          width: `${layer.width}px`,
-          height: `${layer.height}px`,
-          color: layer.color,
-          fontFamily: layer.fontFamily,
-          fontSize: `${layer.fontSize}px !important`,
-          fontWeight: layer.fontWeight,
-          letterSpacing: `${layer.letterSpacing}px`,
-          lineHeight: layer.lineHeight,
-          textAlign: layer.textAlign,
-          textTransform: layer.textTransform,
-          textDecoration: layer.textDecoration,
-          opacity: layer.opacity,
-          whiteSpace: 'pre-wrap',
-          transform: `matrix(${layer.matrix.a}, ${layer.matrix.b}, ${layer.matrix.c}, ${layer.matrix.d}, ${layer.matrix.x}, ${layer.matrix.y}) rotate(${layer.matrix.rotate}deg)`,
-          zIndex: index
-        }"
+          :style="getTextLayerStyle(layer)"
       >
         {{ layer.text }}
       </div>
@@ -60,14 +39,7 @@
           :class="{ 'absolute': index >= 0, 'selected': selectedLayer.includes(layer) }"
           :data-context-id="layer.id"
           :alt="layer.name"
-          :style="{
-          width: `${layer.width}px`,
-          height: `${layer.height}px`,
-          opacity: layer.opacity,
-          zIndex: index,
-          transform: `matrix(${layer.matrix.a}, ${layer.matrix.b}, ${layer.matrix.c}, ${layer.matrix.d}, ${layer.matrix.x}, ${layer.matrix.y}) rotate(${layer.matrix.rotate}deg)`,
-          pointerEvents: 'auto'
-          }"
+          :style="getVectorStyle(layer)"
       />
     </template>
   </v-col>
@@ -88,9 +60,9 @@
     Frame
   },
   setup(props, { emit }) {
-    const { emitSelectLayer} = imageModel(props, emit);
+    const model = imageModel(props, emit);
     return {
-      emitSelectLayer,
+      ...model,
     };
   },
 });

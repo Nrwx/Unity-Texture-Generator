@@ -147,9 +147,58 @@
               rx="2"
           />
 
+          <!-- Render SubTracks -->
+          <g v-for="subTrack in track.visibleSubTracks" :key="subTrack.trackId">
+            <!-- Filter Kurven nach SubTrack -->
+            <g v-for="curve in (layerCurveSegments[track.layer.id] || []).filter(c => c.subType === subTrack.trackId)" :key="curve.id">
+
+              <!-- Value Curve -->
+              <path
+                  :d="getValueGraphPath(curve, track.layer, subTrack.trackId, i)"
+                  :stroke="subTrack.trackId === 'transform' ? '#4a9eff' : subTrack.trackId === 'rotate' ? '#ff9f4a' : '#4aff9f'"
+                  fill="none"
+                  stroke-width="2"
+                  opacity="0.8"
+              />
+
+              <!-- Value Labels -->
+              <g v-for="label in getCurveValueLabels(curve, i)" :key="label.x">
+                <text :x="label.x" :y="label.y - 4" font-size="10" fill="white" text-anchor="middle">
+                  {{ label.val }}
+                </text>
+              </g>
+            </g>
+          </g>
+
           <!-- 1) per-layer curves (using layerCurveSegments map) -->
           <g v-if="layerCurveSegments[track.layer.id]" >
             <g v-for="curve in layerCurveSegments[track.layer.id]" :key="curve.id" class="curve-segment">
+
+              <!-- Value Graph -->
+              <g v-if="curve.isSelected">
+                <path
+                    :d="getCurveValuePath(curve, i)"
+                    stroke="#4a9eff"
+                    fill="none"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    opacity="0.6"
+                />
+                <!-- Speed Graph -->
+                <path
+                    :d="getCurveSpeedPath(curve, i)"
+                    stroke="orange"
+                    fill="none"
+                    stroke-width="1.5"
+                    stroke-dasharray="4,3"
+                    opacity="0.7"
+                />
+                <!-- Live Labels -->
+                <g v-for="label in getCurveValueLabels(curve, i)" :key="label.x">
+                  <text :x="label.x" :y="label.y" font-size="8" fill="#fff">{{ label.val }}</text>
+                </g>
+              </g>
+
               <path
                   :d="getCurvePath(curve, i)"
                   stroke="#4a9eff"

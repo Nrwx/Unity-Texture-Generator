@@ -558,6 +558,7 @@ export function gridModel(props, emit) {
         e.preventDefault();
         const key = e.key === 'Shift' ? 'Shift' : e.key.toLowerCase();
         if (key === "g") {
+            if (props.timeline || props.timelineRecord) emitEvent("timeline:set-keyframe");
             emitEvent('canvas:transform-state', false);
             emitEvent('layer:transform-state', false);
             emitEvent('layer:transform-menu', false);
@@ -652,6 +653,14 @@ export const gridProps = {
     },
     timeline: {
         type: Boolean,
+        required: true,
+    },
+    timelinePlay: {
+        type: Boolean,
+        required: true,
+    },
+    time: {
+        type: Number,
         required: true,
     },
     timelineRecord: {

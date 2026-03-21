@@ -348,7 +348,6 @@ export function timelineModel(props, emit) {
     });
 
 
-
     const initializeBezierForKeyframe = (kf, nextKf) => {
         if (!kf || !nextKf) return;
 
@@ -420,6 +419,121 @@ export function timelineModel(props, emit) {
         return { x, y };
     };
 
+    const getCurveValuePath = (curve, trackIndex = null) => {
+        const points = [];
+        const steps = 50; // Sampling-Punkte für glatte Kurve
+        for (let i = 0; i <= steps; i++) {
+            const t = i / steps;
+            let val;
+            if (curve.isLinear || !curve.cp1 || !curve.cp2) {
+                val = t;
+            } else {
+                // Cubic Bezier
+                const cp1 = curve.cp1, cp2 = curve.cp2;
+                const u = 1 - t;
+                val = u*u*u*0 + 3*u*u*t*cp1.value + 3*u*t*t*cp2.value + t*t*t*1;
+            }
+            const x = curve.start.left + t * (curve.end.left - curve.start.left);
+            const y = getCurveBaseY(trackIndex) - val * trackHeight * 0.7;
+            points.push(`${x} ${y}`);
+        }
+        return `M ${points.join(' L ')}`;
+    };
+
+    const sampleCurveValues = (curve, layer, trackType, steps = 60) => {
+        const samples = [];
+
+        let min = Infinity;
+        let max = -Infinity;
+
+        for (let i = 0; i <= steps; i++) {
+            const t = i / steps;
+
+            // Zeit interpolieren
+            const time = curve.start.time + t * (curve.end.time - curve.start.time);
+
+            // 🔥 HIER nutzt du deine bestehende Engine!
+            const state = interpolateLayerAtTime(layer, time);
+
+            let value;
+
+            if (trackType === 'transform') value = state.matrix?.x ?? 0;
+            if (trackType === 'rotate') value = state.matrix?.rotate ?? 0;
+            if (trackType === 'scale') value = state.matrix?.a ?? 1;
+
+            min = Math.min(min, value);
+            max = Math.max(max, value);
+
+            samples.push({ t, value });
+        }
+
+        return { samples, min, max };
+    };
+
+    const normalizeValue = (value, min, max) => {
+        if (max - min === 0) return 0.5;
+        return (value - min) / (max - min);
+    };
+
+    const getValueGraphPath = (curve, layer, trackType, trackIndex) => {
+        const { samples, min, max } = sampleCurveValues(curve, layer, trackType);
+
+        const baseY = getCurveBaseY(trackIndex);
+        const height = trackHeight * 0.7;
+
+        const points = samples.map(({ t, value }) => {
+            const norm = normalizeValue(value, min, max);
+
+            const x = curve.start.left + t * (curve.end.left - curve.start.left);
+            const y = baseY - norm * height;
+
+            return `${x} ${y}`;
+        });
+
+        return `M ${points.join(' L ')}`;
+    };
+
+    const getCurveSpeedPath = (curve, trackIndex = null) => {
+        const points = [];
+        const steps = 50;
+        let prevVal = null;
+        for (let i = 0; i <= steps; i++) {
+            const t = i / steps;
+            let val;
+            if (curve.isLinear || !curve.cp1 || !curve.cp2) {
+                val = t;
+            } else {
+                const cp1 = curve.cp1, cp2 = curve.cp2;
+                const u = 1 - t;
+                val = u*u*u*0 + 3*u*u*t*cp1.value + 3*u*t*t*cp2.value + t*t*t*1;
+            }
+            let speed = prevVal !== null ? (val - prevVal) : 0;
+            prevVal = val;
+            const x = curve.start.left + t * (curve.end.left - curve.start.left);
+            const y = getCurveBaseY(trackIndex) - speed * trackHeight * 1.5; // gestreckt
+            points.push(`${x} ${y}`);
+        }
+        return `M ${points.join(' L ')}`;
+    };
+
+    const getCurveValueLabels = (curve, trackIndex = null) => {
+        const labels = [];
+        const steps = 50;
+        for (let i = 0; i <= steps; i += 5) { // alle 5 Schritte ein Label
+            const t = i / steps;
+            let val;
+            if (curve.isLinear || !curve.cp1 || !curve.cp2) val = t;
+            else {
+                const u = 1 - t;
+                val = u*u*u*0 + 3*u*u*t*curve.cp1.value + 3*u*t*t*curve.cp2.value + t*t*t*1;
+            }
+            const x = curve.start.left + t * (curve.end.left - curve.start.left);
+            const y = getCurveBaseY(trackIndex) - val * trackHeight * 0.7;
+            labels.push({ x, y, val: val.toFixed(2) }); // gerundet auf 2 Nachkommastellen
+        }
+        return labels;
+    };
+
     const buildCurvesForLayer = (layer) => {
         _ensureLayerKeyframes(layer);
         const frames = (layer.keyframes || [])
@@ -435,43 +549,41 @@ export function timelineModel(props, emit) {
             }));
 
         const curves = [];
-        for (let i = 0; i < frames.length - 1; i++) {
-            const kf = frames[i];
-            const nextKf = frames[i + 1];
-            const isLinear = kf.ease === 'linear';
 
-            const originalKf = layer.keyframes.find(k => k.id === kf.id);
-            if (!originalKf) continue;
+        ['transform','rotate','scale'].forEach(subType => {
+            for (let i = 0; i < frames.length - 1; i++) {
+                const kf = frames[i];
+                const nextKf = frames[i + 1];
+                const originalKf = layer.keyframes.find(k => k.id === kf.id);
+                if (!originalKf) continue;
 
-            if (!isLinear) {
-                if (!originalKf.bezier || !originalKf.bezier.cp1 || !originalKf.bezier.cp2) {
-                    initializeBezierForKeyframe(originalKf, nextKf);
-                } else if (!originalKf.bezier._relativePos) {
-                    const dt = nextKf.time - originalKf.time || 1;
-                    originalKf.bezier._relativePos = {
-                        cp1: { t: (originalKf.bezier.cp1.time - originalKf.time) / dt, v: originalKf.bezier.cp1.value },
-                        cp2: { t: (originalKf.bezier.cp2.time - originalKf.time) / dt, v: originalKf.bezier.cp2.value }
-                    };
-                } else {
-                    updateBezierAfterKeyframeMove(originalKf, nextKf);
+                const valueExists = subType === 'transform' ? 'x' in originalKf.matrix : subType === 'rotate' ? 'rotate' in originalKf.matrix : 'a' in originalKf.matrix;
+                if (!valueExists) continue;
+
+                const isLinear = kf.ease === 'linear';
+
+                if (!isLinear) {
+                    if (!originalKf.bezier || !originalKf.bezier.cp1 || !originalKf.bezier.cp2) {
+                        initializeBezierForKeyframe(originalKf, nextKf);
+                    }
                 }
-                kf.bezier = originalKf.bezier;
+
+                const isSelected = selectedKeys.value.includes(kf.id) || selectedKeys.value.includes(nextKf.id);
+
+                curves.push({
+                    id: `curve-${layer.id}-${subType}-${kf.id}-${nextKf.id}`,
+                    start: kf,
+                    end: nextKf,
+                    subType,                // ← Wichtig!
+                    isSelected,
+                    isLinear,
+                    showCp1: !isLinear,
+                    showCp2: !isLinear,
+                    cp1: (!isLinear && kf.bezier?.cp1) ? kf.bezier.cp1 : null,
+                    cp2: (!isLinear && kf.bezier?.cp2) ? kf.bezier.cp2 : null
+                });
             }
-
-            const isSelected = selectedKeys.value.includes(kf.id) || selectedKeys.value.includes(nextKf.id);
-
-            curves.push({
-                id: `curve-${layer.id}-${kf.id}-${nextKf.id}`,
-                start: kf,
-                end: nextKf,
-                isSelected,
-                isLinear,
-                showCp1: !isLinear,
-                showCp2: !isLinear,
-                cp1: (!isLinear && kf.bezier?.cp1) ? kf.bezier.cp1 : null,
-                cp2: (!isLinear && kf.bezier?.cp2) ? kf.bezier.cp2 : null
-            });
-        }
+        });
 
         return curves;
     };
@@ -946,6 +1058,8 @@ export function timelineModel(props, emit) {
                 }
             }
 
+            interpolateAtCurrentTime()
+
             emitEvent('timeline:time', newTime);
 
             if (props.recordState) emitRecord();
@@ -1083,6 +1197,11 @@ export function timelineModel(props, emit) {
 
         layerCurveSegments,
         getCurveBaseY,
+
+        getCurveValuePath,
+        getCurveSpeedPath,
+        getCurveValueLabels,
+        getValueGraphPath,
 
         trackTop,
         trackColor,
