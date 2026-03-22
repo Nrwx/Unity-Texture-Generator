@@ -44,6 +44,15 @@ export function timelineModel(props, emit) {
         { title: 'Ease In-Out', value: 'ease-in-out' }
     ]
 
+    const curveVisibility = ref({
+        transform: false,
+        rotate: false,
+        scale: false,
+        value: false,
+        speed: false,
+        label: false
+    });
+
     const openLayers = ref({}); // map layerId => boolean
     const trackHeight = 36;
     const trackPalette = [
@@ -803,7 +812,23 @@ export function timelineModel(props, emit) {
         const x = ev.clientX - rect.left + scrollLeft;
         const time = _normalizeTime(_positionToTime(x));
 
-        // emit layerId as well so the listener knows which layer to modify
+        const layer = _getLayerById(dragging.value.layerId);
+        if (!layer) return;
+
+        const kfIndex = layer.keyframes.findIndex(k => k.id === dragging.value.id);
+        if (kfIndex === -1) return;
+
+        const kf = layer.keyframes[kfIndex];
+        const prev = layer.keyframes[kfIndex - 1];
+        const next = layer.keyframes[kfIndex + 1];
+
+        // 👉 TEMP time setzen (wichtig!)
+        kf.time = time;
+
+        // 👉 BEZIER UPDATE (hier passiert die Magie)
+        if (next) updateBezierAfterKeyframeMove(kf, next);
+        if (prev) updateBezierAfterKeyframeMove(prev, kf);
+
         emitEvent("timeline:move-keyframe", {
             keyframeId: dragging.value.id,
             layerId: dragging.value.layerId,
@@ -1087,6 +1112,29 @@ export function timelineModel(props, emit) {
         }
     };
 
+    const onWheel = async (e) => {
+        e.preventDefault();
+        if (!timeline.value || !wrapper.value) return;
+
+        const oldZoom = props.config.zoomLevel.current;
+        const delta = e.deltaY;
+        const factor = Math.exp(-delta * 0.0025);
+        const newZoom = Math.min(props.config.zoomLevel.max, Math.max(props.config.zoomLevel.min, oldZoom * factor));
+
+        const rect = timeline.value.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const scrollLeft = wrapper.value.scrollLeft;
+        const mouseTimeBeforeZoom = _positionToTime(mouseX + scrollLeft);
+
+        emitEvent('timeline:zoom', newZoom);
+
+        await nextTick(async () => {
+            if (!wrapper.value) return;
+            const newScrollLeft = _timeToPosition(mouseTimeBeforeZoom) - mouseX;
+            wrapper.value.scrollLeft = Math.max(0, newScrollLeft);
+        });
+    };
+
     const onStop = async () => {
         await onPause();
         emitEvent('timeline:time', props.config.startTime);
@@ -1190,6 +1238,7 @@ export function timelineModel(props, emit) {
         curveSegments,
         easeModes,
         trackHeight,
+        curveVisibility,
 
         trackRows,
         layersWithKeys,
@@ -1217,28 +1266,7 @@ export function timelineModel(props, emit) {
         hasOffset,
         trackHasOffsetByType,
         getCurvePath,
-        onWheel: async (e) => {
-            e.preventDefault();
-            if (!timeline.value || !wrapper.value) return;
-
-            const oldZoom = props.config.zoomLevel.current;
-            const delta = e.deltaY;
-            const factor = Math.exp(-delta * 0.0025);
-            const newZoom = Math.min(props.config.zoomLevel.max, Math.max(props.config.zoomLevel.min, oldZoom * factor));
-
-            const rect = timeline.value.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const scrollLeft = wrapper.value.scrollLeft;
-            const mouseTimeBeforeZoom = _positionToTime(mouseX + scrollLeft);
-
-            emitEvent('timeline:zoom', newZoom);
-
-            await nextTick(async () => {
-                if (!wrapper.value) return;
-                const newScrollLeft = _timeToPosition(mouseTimeBeforeZoom) - mouseX;
-                wrapper.value.scrollLeft = Math.max(0, newScrollLeft);
-            });
-        },
+        onWheel,
         onMultiSelect,
         onKFPointerDown,
         onFrameForward,

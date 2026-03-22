@@ -24,8 +24,34 @@
 
     <!-- direkt unter .timeline-controls -->
     <div class="timeline-sidebar absolute" v-if="sidebarState">
-      <div class="sidebar-header d-flex w-100 mb-2">
+      <div class="sidebar-header d-flex w-100 mb-2 align-center">
         <strong class="text-caption">Tracks</strong>
+
+        <!-- MINI TOGGLES -->
+        <div class="curve-toggles ml-3">
+          <button
+              class="mini-toggle"
+              :class="{ active: curveVisibility.value }"
+              @click="curveVisibility.value = !curveVisibility.value"
+          >
+            V
+          </button>
+          <button
+              class="mini-toggle"
+              :class="{ active: curveVisibility.speed }"
+              @click="curveVisibility.speed = !curveVisibility.speed"
+          >
+            S
+          </button>
+          <button
+              class="mini-toggle"
+              :class="{ active: curveVisibility.label }"
+              @click="curveVisibility.label = !curveVisibility.label"
+          >
+            L
+          </button>
+        </div>
+
         <button class="close ml-auto mr-0" @click="emitEvent('timeline:sidebar', !sidebarState)">✕</button>
       </div>
 
@@ -43,6 +69,13 @@
           <!-- inside .layer-tracks -->
           <div class="layer-tracks" v-if="isLayerOpen(layer.id)">
             <div v-for="sub in ['transform','rotate','scale']" :key="layer.id+'-sub-'+sub" class="track-row d-flex ml-auto mr-0">
+              <button
+                  class="eye-toggle"
+                  :class="{ active: curveVisibility[sub] }"
+                  @click="curveVisibility[sub] = !curveVisibility[sub]"
+              >
+                👁
+              </button>
               <div class="track-label text-truncate">{{ sub }}</div>
               <div class="track-controls">
                 <input type="number"
@@ -152,20 +185,24 @@
             <!-- Filter Kurven nach SubTrack -->
             <g v-for="curve in (layerCurveSegments[track.layer.id] || []).filter(c => c.subType === subTrack.trackId)" :key="curve.id">
 
-              <!-- Value Curve -->
-              <path
-                  :d="getValueGraphPath(curve, track.layer, subTrack.trackId, i)"
-                  :stroke="subTrack.trackId === 'transform' ? '#4a9eff' : subTrack.trackId === 'rotate' ? '#ff9f4a' : '#4aff9f'"
-                  fill="none"
-                  stroke-width="2"
-                  opacity="0.8"
-              />
+              <g v-if="curveVisibility[subTrack.trackId]">
+                <!-- Value Curve -->
+                <path
+                    :d="getValueGraphPath(curve, track.layer, subTrack.trackId, i)"
+                    :stroke="subTrack.trackId === 'transform' ? '#4a9eff' : subTrack.trackId === 'rotate' ? '#ff9f4a' : '#4aff9f'"
+                    fill="none"
+                    stroke-width="2"
+                    opacity="0.8"
+                />
 
-              <!-- Value Labels -->
-              <g v-for="label in getCurveValueLabels(curve, i)" :key="label.x">
-                <text :x="label.x" :y="label.y - 4" font-size="10" fill="white" text-anchor="middle">
-                  {{ label.val }}
-                </text>
+                  <!-- Value Labels -->
+                <g v-if="curveVisibility.label">
+                  <g v-for="label in getCurveValueLabels(curve, i)" :key="label.x">
+                    <text :x="label.x" :y="label.y - 4" font-size="10" fill="white" text-anchor="middle">
+                      {{ label.val }}
+                    </text>
+                  </g>
+                </g>
               </g>
             </g>
           </g>
@@ -174,28 +211,35 @@
           <g v-if="layerCurveSegments[track.layer.id]" >
             <g v-for="curve in layerCurveSegments[track.layer.id]" :key="curve.id" class="curve-segment">
 
-              <!-- Value Graph -->
+
               <g v-if="curve.isSelected">
-                <path
-                    :d="getCurveValuePath(curve, i)"
-                    stroke="#4a9eff"
-                    fill="none"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    opacity="0.6"
-                />
+                <!-- Value Graph -->
+                <g v-if="curveVisibility.value">
+                  <path
+                      :d="getCurveValuePath(curve, i)"
+                      stroke="#4a9eff"
+                      fill="none"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      opacity="0.6"
+                  />
+                </g>
                 <!-- Speed Graph -->
-                <path
-                    :d="getCurveSpeedPath(curve, i)"
-                    stroke="orange"
-                    fill="none"
-                    stroke-width="1.5"
-                    stroke-dasharray="4,3"
-                    opacity="0.7"
-                />
+                <g v-if="curveVisibility.speed">
+                  <path
+                      :d="getCurveSpeedPath(curve, i)"
+                      stroke="orange"
+                      fill="none"
+                      stroke-width="1.5"
+                      stroke-dasharray="4,3"
+                      opacity="0.7"
+                  />
+                </g>
                 <!-- Live Labels -->
-                <g v-for="label in getCurveValueLabels(curve, i)" :key="label.x">
-                  <text :x="label.x" :y="label.y" font-size="8" fill="#fff">{{ label.val }}</text>
+                <g v-if="curveVisibility.label && curveVisibility.value || curveVisibility.label && curveVisibility.speed">
+                  <g v-for="label in getCurveValueLabels(curve, i)" :key="label.x">
+                    <text :x="label.x" :y="label.y" font-size="8" fill="#fff">{{ label.val }}</text>
+                  </g>
                 </g>
               </g>
 

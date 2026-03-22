@@ -52,18 +52,22 @@ export const timelineEvent = (route) => ({
 
             let kf = layer.keyframes.find(k => k.time === time);
 
-            if (!kf) {
+            if (kf) {
+                kf.opacity = layer.opacity;
+                kf.matrix = structuredClone(layer.matrix);
+                kf.width = layer.width;
+                kf.height = layer.height;
+
+            } else {
                 layer.keyframes.push({
                     id: uuid("keyframe"),
                     time,
 
-                    // snapshot
                     opacity: layer.opacity,
                     matrix: structuredClone(layer.matrix),
                     width: layer.width,
                     height: layer.height,
 
-                    // interpolation
                     ease: "linear",
                     bezier: null
                 });
