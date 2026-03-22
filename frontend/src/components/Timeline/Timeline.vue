@@ -31,17 +31,17 @@
         <div class="curve-toggles ml-3">
           <button
               class="mini-toggle"
-              :class="{ active: curveVisibility.value }"
-              @click="curveVisibility.value = !curveVisibility.value"
-          >
-            V
-          </button>
-          <button
-              class="mini-toggle"
               :class="{ active: curveVisibility.speed }"
               @click="curveVisibility.speed = !curveVisibility.speed"
           >
             S
+          </button>
+          <button
+              class="mini-toggle"
+              :class="{ active: curveVisibility.acceleration }"
+              @click="curveVisibility.acceleration = !curveVisibility.acceleration"
+          >
+            A
           </button>
           <button
               class="mini-toggle"
@@ -188,7 +188,7 @@
               <g v-if="curveVisibility[subTrack.trackId]">
                 <!-- Value Curve -->
                 <path
-                    :d="getValueGraphPath(curve, track.layer, subTrack.trackId, i)"
+                    :d="getCurveValuePath(curve, track.layer, subTrack.trackId, i)"
                     :stroke="subTrack.trackId === 'transform' ? '#4a9eff' : subTrack.trackId === 'rotate' ? '#ff9f4a' : '#4aff9f'"
                     fill="none"
                     stroke-width="2"
@@ -197,12 +197,71 @@
 
                   <!-- Value Labels -->
                 <g v-if="curveVisibility.label">
-                  <g v-for="label in getCurveValueLabels(curve, i)" :key="label.x">
+                  <g v-for="label in getCurveValueLabels(curve, track.layer, subTrack.trackId, i)"
+                     :key="`${curve.id}-${label.x}-${label.val}`">
                     <text :x="label.x" :y="label.y - 4" font-size="10" fill="white" text-anchor="middle">
                       {{ label.val }}
                     </text>
                   </g>
                 </g>
+
+                <!-- Speed Graph -->
+                <g v-if="curveVisibility.speed">
+                  <path
+                      :d="getCurveSpeedPath(curve, track.layer, subTrack.trackId, i)"
+                      stroke="orange"
+                      fill="none"
+                      stroke-width="1.5"
+                      stroke-dasharray="4,3"
+                      opacity="0.7"
+                  />
+
+                  <!-- Speed Labels -->
+                  <g v-if="curveVisibility.label">
+                    <g v-for="label in getCurveSpeedLabels(curve, track.layer, subTrack.trackId, i)"
+                       :key="`${curve.id}-speed-${label.x}-${label.val}`">
+                      <text :x="label.x" :y="label.y - 4" font-size="10" fill="#ffaaaa" text-anchor="middle">
+                        {{ label.val }}
+                      </text>
+                    </g>
+                  </g>
+                </g>
+
+                <!-- Acceleration Graph -->
+                <g v-if="curveVisibility.acceleration">
+
+                  <!-- Path -->
+                  <path
+                      :d="getCurveAccelerationPath(curve, track.layer, subTrack.trackId, i)"
+                      stroke="#ff4ad8"
+                      fill="none"
+                      stroke-width="1.5"
+                      stroke-dasharray="2,3"
+                      opacity="0.8"
+                  />
+
+                  <!-- Labels -->
+                  <g v-if="curveVisibility.label">
+                    <g v-for="label in getCurveAccelerationLabels(curve, track.layer, subTrack.trackId, i)"
+                       :key="`${curve.id}-acc-${label.x}-${label.val}`">
+                      <text :x="label.x" :y="label.y - 4" font-size="10" fill="#ffb3f5" text-anchor="middle">
+                        {{ label.val }}
+                      </text>
+                    </g>
+                  </g>
+
+                  <line
+                      v-if="curveVisibility.acceleration"
+                      :x1="curve.start.left"
+                      :x2="curve.end.left"
+                      :y1="getZeroLineY(curve, track.layer, subTrack.trackId, i)"
+                      :y2="getZeroLineY(curve, track.layer, subTrack.trackId, i)"
+                      stroke="#888"
+                      stroke-dasharray="2,2"
+                  />
+
+                </g>
+
               </g>
             </g>
           </g>
@@ -210,38 +269,6 @@
           <!-- 1) per-layer curves (using layerCurveSegments map) -->
           <g v-if="layerCurveSegments[track.layer.id]" >
             <g v-for="curve in layerCurveSegments[track.layer.id]" :key="curve.id" class="curve-segment">
-
-
-              <g v-if="curve.isSelected">
-                <!-- Value Graph -->
-                <g v-if="curveVisibility.value">
-                  <path
-                      :d="getCurveValuePath(curve, i)"
-                      stroke="#4a9eff"
-                      fill="none"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      opacity="0.6"
-                  />
-                </g>
-                <!-- Speed Graph -->
-                <g v-if="curveVisibility.speed">
-                  <path
-                      :d="getCurveSpeedPath(curve, i)"
-                      stroke="orange"
-                      fill="none"
-                      stroke-width="1.5"
-                      stroke-dasharray="4,3"
-                      opacity="0.7"
-                  />
-                </g>
-                <!-- Live Labels -->
-                <g v-if="curveVisibility.label && curveVisibility.value || curveVisibility.label && curveVisibility.speed">
-                  <g v-for="label in getCurveValueLabels(curve, i)" :key="label.x">
-                    <text :x="label.x" :y="label.y" font-size="8" fill="#fff">{{ label.val }}</text>
-                  </g>
-                </g>
-              </g>
 
               <path
                   :d="getCurvePath(curve, i)"
@@ -251,6 +278,7 @@
                   :opacity="curve.isSelected ? 0.8 : 0.4"
                   stroke-linecap="round"
               />
+
               <g v-if="bezierState && curve.isSelected && !curve.isLinear">
                 <template v-if="curve.showCp1 && curve.cp1">
                   <line
