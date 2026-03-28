@@ -131,12 +131,8 @@ export const timelineEvent = (route) => ({
         route.localData.selectedLayer.value.forEach(layer => {
             layer.keyframes?.forEach(kf => {
                 if (!keyframeIds.includes(kf.id)) return;
-
+                kf.bezier = null;
                 kf.ease = ease;
-
-                if (ease === "linear") {
-                    kf.bezier = null;
-                }
             });
         });
     },

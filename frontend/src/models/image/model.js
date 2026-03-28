@@ -137,7 +137,7 @@ export function imageModel(props, emit) {
 
     const liveLayerById = computed(() => {
         const map = {};
-        const t = props.timeline ? localTime.value : null;
+        const t = (props.timeline || props.miniTimeline || props.timelinePlay) ? localTime.value : null;
 
         for (const layer of props.layers || []) {
             if (t === null || !Array.isArray(layer.keyframes) || layer.keyframes.length === 0) {
@@ -282,6 +282,14 @@ export const imageProps = {
         required: true,
     },
     timeline: {
+        type: Boolean,
+        required: true,
+    },
+    miniTimeline: {
+        type: Boolean,
+        required: true,
+    },
+    timelinePlay: {
         type: Boolean,
         required: true,
     },

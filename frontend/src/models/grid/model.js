@@ -655,6 +655,10 @@ export const gridProps = {
         type: Boolean,
         required: true,
     },
+    miniTimeline: {
+        type: Boolean,
+        required: true,
+    },
     timelinePlay: {
         type: Boolean,
         required: true,

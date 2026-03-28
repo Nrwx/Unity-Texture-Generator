@@ -247,7 +247,9 @@ export function timelineModel(props, emit) {
 
     const ticks = computed(() => {
         const candidates = props.config.ticks.candidates;
-        const targetPx = props.config.ticks.targetPx;
+        const zoom = props.config.zoomLevel.current;
+
+        const targetPx = Math.max(8, 25 / zoom);
 
         let chosen = 1;
         for (const c of candidates) {
@@ -486,7 +488,7 @@ export function timelineModel(props, emit) {
     const layerCurveSegments = computed(() => {
         const map = {};
         props.selectedLayer.forEach(layer => {
-            map[layer.id] = buildCurvesForLayer(layer, false);
+            map[layer.id] = buildCurvesForLayer(layer, true);
         });
         return map;
     });
@@ -598,28 +600,38 @@ export function timelineModel(props, emit) {
     };
 
     const sampleCurveAcceleration = (curve, layer, trackType, steps = 60) => {
-        return sampleCurveMetric(
-            curve,
-            layer,
-            trackType,
-            steps,
-            (i) => {
-                const tPrev = Math.max(0, (i - 1) / steps);
-                const tNext = Math.min(1, (i + 1) / steps);
+        const samples = [];
+        let min = Infinity;
+        let max = -Infinity;
 
-                const timePrev = curve.start.time + tPrev * (curve.end.time - curve.start.time);
-                const timeMid = curve.start.time + (i / steps) * (curve.end.time - curve.start.time);
-                const timeNext = curve.start.time + tNext * (curve.end.time - curve.start.time);
+        // 1. Alle Zeiten vorbereiten
+        const times = [];
+        for (let i = 0; i <= steps; i++) {
+            times.push(curve.start.time + (i / steps) * (curve.end.time - curve.start.time));
+        }
 
-                const vPrev = getTrackValueFromMatrix(interpolateLayerAtTime(layer, timePrev).matrix, trackType);
-                const vMid = getTrackValueFromMatrix(interpolateLayerAtTime(layer, timeMid).matrix, trackType);
-                const vNext = getTrackValueFromMatrix(interpolateLayerAtTime(layer, timeNext).matrix, trackType);
+        // 2. Alle Werte einmal interpolieren
+        const values = times.map(t => getTrackValueFromMatrix(interpolateLayerAtTime(layer, t).matrix, trackType));
 
-                const dt = (timeNext - timePrev) || 1;
-                return (vNext - 2 * vMid + vPrev) / (dt * dt);
-            },
-            "acc"
-        );
+        // 3. Finite-Differenzen (Zentraldifferenzen) für Beschleunigung
+        for (let i = 0; i <= steps; i++) {
+            const tPrev = i > 0 ? times[i - 1] : times[i];
+            const tNext = i < steps ? times[i + 1] : times[i];
+            const dt = tNext - tPrev || 1;
+
+            const vPrev = i > 0 ? values[i - 1] : values[i];
+            const vMid = values[i];
+            const vNext = i < steps ? values[i + 1] : values[i];
+
+            const acc = (vNext - 2 * vMid + vPrev) / (dt * dt);
+
+            min = Math.min(min, acc);
+            max = Math.max(max, acc);
+
+            samples.push({ t: i / steps, acc });
+        }
+
+        return { samples, min, max };
     };
 
     const normalizeValue = (value, min, max) => {
@@ -651,7 +663,11 @@ export function timelineModel(props, emit) {
         const baseY = getCurveBaseY(trackIndex);
         const height = getGraphHeight();
 
-        for (let i = 0; i < samples.length; i += 5) {
+        const curvePixelWidth = curve.end.left - curve.start.left;
+        const desiredPixelStep = clamp(50 / props.config.zoomLevel.current, 80, 160);
+        const stepCount = Math.max(1, Math.floor(samples.length * desiredPixelStep / curvePixelWidth));
+
+        for (let i = 0; i < samples.length; i += stepCount) {
             const sample = samples[i];
             const v = sample[valueKey];
             const x = curve.start.left + sample.t * (curve.end.left - curve.start.left);
@@ -849,6 +865,20 @@ export function timelineModel(props, emit) {
                 else data.splice(index, 1);
             } else {
                 if (index === -1) data = [frame.id];
+            }
+
+            const layer = _getLayerById(frame.layerId);
+            if (layer) {
+                const index = layer.keyframes.findIndex(k => k.id === frame.id);
+
+                if (index !== -1) {
+                    const kf = layer.keyframes[index];
+                    const prev = layer.keyframes[index - 1];
+                    const next = layer.keyframes[index + 1];
+
+                    if (next) updateBezierAfterKeyframeMove(kf, next);
+                    if (prev) updateBezierAfterKeyframeMove(prev, kf);
+                }
             }
 
             emitEvent("timeline:select-keyframes", data);
@@ -1093,6 +1123,35 @@ export function timelineModel(props, emit) {
         return time;
     };
 
+    const animateToTime = (targetTime, duration = 120) => {
+        if (rafId.value) cancelAnimationFrame(rafId.value);
+
+        const startTime = props.config.time;
+        const startTs = performance.now();
+
+        async function step(now) {
+            const elapsed = now - startTs;
+            const t = Math.min(1, elapsed / duration);
+
+            // easing optional (macht es nicer)
+            const eased = ease["ease-in-out"](t);
+
+            const currentTime = lerp(startTime, targetTime, eased);
+
+            emitEvent("timeline:time", currentTime);
+            await interpolateAtCurrentTime();
+
+            if (t < 1) {
+                rafId.value = requestAnimationFrame(step);
+            } else {
+                emitEvent("timeline:time", targetTime);
+                rafId.value = null;
+            }
+        }
+
+        rafId.value = requestAnimationFrame(step);
+    };
+
     const startRAF = async () => {
         if (rafId.value) cancelAnimationFrame(rafId.value);
         playStartTimestamp.value = performance.now();
@@ -1175,19 +1234,20 @@ export function timelineModel(props, emit) {
 
     const onFrameForward = async () => {
         const newTime = normalizePlaybackTime(props.config.time + 1, "forward");
-        emitEvent("timeline:time", newTime);
-        await interpolateAtCurrentTime();
+        animateToTime(newTime);
     };
 
     const onFrameBack = async () => {
         const newTime = normalizePlaybackTime(props.config.time - 1, "backward");
-        emitEvent("timeline:time", newTime);
-        await interpolateAtCurrentTime();
+        animateToTime(newTime);
     };
 
     const onSkipToEnd = async () => {
-        emitEvent("timeline:time", props.config.endTime);
-        await interpolateAtCurrentTime();
+        animateToTime(props.config.endTime, 200);
+    };
+
+    const onSkipToStart = async () => {
+        animateToTime(props.config.startTime, 200);
     };
 
     const onTimeInput = async (newTime) => {
@@ -1295,6 +1355,7 @@ export function timelineModel(props, emit) {
         onKFPointerDown,
         onFrameForward,
         onFrameBack,
+        onSkipToStart,
         onSkipToEnd,
         onTimeInput,
         onToggleRecord,

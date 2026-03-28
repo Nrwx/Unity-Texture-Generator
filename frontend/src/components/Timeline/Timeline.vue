@@ -13,7 +13,7 @@
         :select="selectState"
         :sidebar="sidebarState"
         @update:component-event="emitEvent"
-        @update:timeline-bar-start="onStop"
+        @update:timeline-bar-start="onSkipToStart"
         @update:timeline-bar-back="onFrameBack"
         @update:timeline-bar-toggle-play="onTogglePlay"
         @update:timeline-bar-forward="onFrameForward"

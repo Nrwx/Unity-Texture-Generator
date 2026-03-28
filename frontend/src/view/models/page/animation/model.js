@@ -37,7 +37,7 @@ export function animationModel(props, emit) {
         wrapperRef,
         wrapperId,
         timelineBar,
-        emitEvent,
+        emitEvent
     };
 }
 

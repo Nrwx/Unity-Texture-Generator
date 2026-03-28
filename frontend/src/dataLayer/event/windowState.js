@@ -290,5 +290,15 @@ export const windowStateEvent = (route) => ({
     },
     "timeline:state": async (payload) => {
         route.windowStates.timeline.value = payload;
+        if (!payload && route.timelineStates.play.value) {
+            await route.emit("mini-timeline:state", true);
+            await route.emit("timeline:play", false);
+        } else {
+            await route.emit("timeline:play", false);
+            await route.emit("mini-timeline:state", false);
+        }
+    },
+    "mini-timeline:state": async (payload) => {
+        route.windowStates.miniTimeline.value = payload;
     },
 });

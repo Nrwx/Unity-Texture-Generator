@@ -216,6 +216,14 @@ export const taskbarItemCenter = [
         tooltip: 'Animation',
         active: false,
         hidden: false,
+        badge: {
+            content: computed(() => {
+                return localData.selectedLayer.value.reduce((sum, layer) => {
+                    return sum + (layer.keyframes?.length || 0);
+                }, 0);
+            }),
+            dot: true
+        },
         component: {
             path: Animation,
             props: {},

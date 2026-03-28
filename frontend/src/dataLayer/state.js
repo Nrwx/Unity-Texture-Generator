@@ -38,7 +38,8 @@ export const windowStates = {
     color: ref(false),
     drawing: ref(false),
     queue: ref(false),
-    timeline: ref(false)
+    timeline: ref(false),
+    miniTimeline: ref(false)
 };
 
 export const loadingStates = {

@@ -22,11 +22,13 @@
       <!-- Main Content -->
       <v-main>
         <!-- Grid -->
-        <Grid v-model:brush-canvas-id="tempData.brushCanvasId.value" v-model:canvas-id="tempData.canvasId.value" v-model:rule="ruleStates.form.value" v-model:timeline="windowStates.timeline.value" v-model:timeline-play="timelineStates.play.value" v-model:time="timelineData.time" v-model:timeline-record="timelineStates.record.value" v-model:path-drag="windowStates.pathDrag.value" v-model:selected-path="localData.selectedPath.value" v-model:canvas-control="canvasStates.control.value" v-model:canvas-zoom="canvasStates.zoom.value" v-model:canvas-transform="canvasStates.transform.value" v-model:canvas-rotate="canvasStates.rotate.value" v-model:transform="transformStates.transform.value" v-model:canvas-select="canvasStates.select.value" v-model:rotate="transformStates.rotate.value" v-model:size="transformStates.size.value" v-model:menu="transformStates.menu.value" v-model:align="transformStates.align.value" v-model:backup="backupStates.action.value" v-model:form-rule="ruleStates.form.value" @component-event="componentEvent" v-model:path-import="windowStates.pathImport.value" v-model:bezier="localData.bezier.value" v-model:layers="localData.layers.value" v-model:selected-layer="localData.selectedLayer.value" v-model:text-layer="textLayer" v-model:brush-cursor="localData.cursor.value" v-model:color="localData.color.value" v-model:settings="localData.viewport.value" v-model:guides="localData.guides.value" v-model:fill-state="modifierStates.fill.value" v-model:select="windowStates.select.value" v-model:select-mode="localData.selectedShape.value" v-model:text="windowStates.text.value" v-model:brushes="localData.brush.value" v-model:brush-settings="brushSettings" v-model:brush="windowStates.brush.value" v-model:drawing="windowStates.drawing.value" v-model:pen="windowStates.pen.value" v-model:path-layer="pathLayer" :viewport="{width: localData.viewport.value.width, height: localData.viewport.value.height}" :theme="appData.theme.value" :loading="localData.loading.value" :pen-path-state="windowStates.path.value" style="position: relative;">
+        <Grid v-model:brush-canvas-id="tempData.brushCanvasId.value" v-model:canvas-id="tempData.canvasId.value" v-model:rule="ruleStates.form.value" v-model:timeline="windowStates.timeline.value" v-model:mini-timeline="windowStates.miniTimeline.value" v-model:timeline-play="timelineStates.play.value" v-model:time="timelineData.time" v-model:timeline-record="timelineStates.record.value" v-model:path-drag="windowStates.pathDrag.value" v-model:selected-path="localData.selectedPath.value" v-model:canvas-control="canvasStates.control.value" v-model:canvas-zoom="canvasStates.zoom.value" v-model:canvas-transform="canvasStates.transform.value" v-model:canvas-rotate="canvasStates.rotate.value" v-model:transform="transformStates.transform.value" v-model:canvas-select="canvasStates.select.value" v-model:rotate="transformStates.rotate.value" v-model:size="transformStates.size.value" v-model:menu="transformStates.menu.value" v-model:align="transformStates.align.value" v-model:backup="backupStates.action.value" v-model:form-rule="ruleStates.form.value" @component-event="componentEvent" v-model:path-import="windowStates.pathImport.value" v-model:bezier="localData.bezier.value" v-model:layers="localData.layers.value" v-model:selected-layer="localData.selectedLayer.value" v-model:text-layer="textLayer" v-model:brush-cursor="localData.cursor.value" v-model:color="localData.color.value" v-model:settings="localData.viewport.value" v-model:guides="localData.guides.value" v-model:fill-state="modifierStates.fill.value" v-model:select="windowStates.select.value" v-model:select-mode="localData.selectedShape.value" v-model:text="windowStates.text.value" v-model:brushes="localData.brush.value" v-model:brush-settings="brushSettings" v-model:brush="windowStates.brush.value" v-model:drawing="windowStates.drawing.value" v-model:pen="windowStates.pen.value" v-model:path-layer="pathLayer" :viewport="{width: localData.viewport.value.width, height: localData.viewport.value.height}" :theme="appData.theme.value" :loading="localData.loading.value" :pen-path-state="windowStates.path.value" style="position: relative;">
           <!-- Mittige Taskbar -->
           <TaskbarCenter  v-model:items="itemsCenter" v-model:expanded="windowStates.drawerCenter.value" :active="activeItemCenter" @component-event="componentEvent" @taskbar-event="taskbarEvent('center', $event)" v-model:theme="appData.theme.value"/>
           <!-- Key-Event Log System -->
           <Key v-model:keys="tempData.keys.value" v-model:held-keys="tempData.heldKeys.value"/>
+          <!-- Mini Timeline -->
+          <Mini @component-event="componentEvent" v-model:config="timelineData" v-model:state="windowStates.miniTimeline.value" v-model:timeline="windowStates.timeline.value" v-model:play-state="timelineStates.play.value"/>
         </Grid>
       </v-main>
       <!-- Layer -->
@@ -89,6 +91,7 @@ import Boot from "@/components/Boot/Boot.vue";
 import Mixer from "@/components/Channel/Mixer.vue";
 import {mixerConfig} from "@/models/channel/config/model";
 import {blendMode} from "@/models/canvas/blend/model";
+import Mini from "@/components/Timeline/Mini";
 
 export default {
   name: 'App',
@@ -106,7 +109,8 @@ export default {
     Setting,
     Fullscreen,
     Context,
-    Key
+    Key,
+    Mini
   },
   setup() {
     const itemsLeft = ref(taskbarItemLeft);

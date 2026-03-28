@@ -27,10 +27,11 @@
                 :color="color"
                 :selected-layer="selectedLayer"
                 :fill-state="fillState"
-
                 @update:image-event="emitEvent"
                 @update:select-layer="toggleSelection"
-                :timeline="timelinePlay"
+                :timeline="timeline"
+                :mini-timeline="miniTimeline"
+                :timeline-play="timelinePlay"
                 :timeline-time="time"
             />
 
@@ -79,6 +80,7 @@
         @update:rotation="onRotationUpdate"
         @reset="onReset"
     />
+
   </div>
 </template>
 
