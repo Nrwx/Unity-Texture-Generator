@@ -1,5 +1,5 @@
-import {computed, nextTick, onBeforeUnmount, ref} from "vue";
-import {eventRegister} from "@/dataLayer/event";
+import { computed, nextTick, onBeforeUnmount, ref } from "vue";
+import { eventRegister } from "@/dataLayer/event";
 
 export function guideModel(props, emit) {
     const guide = ref(null);
@@ -21,14 +21,48 @@ export function guideModel(props, emit) {
         }
     };
 
+    const getCanvasCenter = () => ({
+        x: props.offset.x + (props.settings.width * props.zoomFaktor) / 2,
+        y: props.offset.y + (props.settings.height * props.zoomFaktor) / 2,
+    });
+
+    const rotatePoint = (x, y, cx, cy, angleDeg) => {
+        const rad = (angleDeg * Math.PI) / 180;
+        const cos = Math.cos(rad);
+        const sin = Math.sin(rad);
+
+        const dx = x - cx;
+        const dy = y - cy;
+
+        return {
+            x: cx + dx * cos - dy * sin,
+            y: cy + dx * sin + dy * cos,
+        };
+    };
+
+    // Mausposition in das unrotierte Koordinatensystem zurückrechnen
+    const getLocalPoint = (event) => {
+        const center = getCanvasCenter();
+        const rotated = rotatePoint(
+            event.clientX,
+            event.clientY,
+            center.x,
+            center.y,
+            -props.rotation
+        );
+
+        return {
+            x: rotated.x - props.offset.x,
+            y: rotated.y - props.offset.y,
+        };
+    };
+
     const columnPositions = computed(() => {
         const positions = [];
         const unit = props.settings.unit || 'px';
         const dpi = props.settings.dpi || 96;
 
-        // Schrittweite in der gewählten Einheit
         let stepInUnits = 1;
-
         if (unit === 'px') stepInUnits = 50;
         else if (unit === 'in') stepInUnits = 0.5;
         else if (unit === 'mm') stepInUnits = 10;
@@ -74,31 +108,31 @@ export function guideModel(props, emit) {
     const startGuide = async (type, event) => {
         await nextTick();
         event.preventDefault();
-        let guidesRef = props.guides;
-        const position = type === 'horizontal'
-            ? event.clientY - props.offset.y
-            : event.clientX - props.offset.x;
 
-        const index = props.guides.findIndex(g => g.type === type && Math.abs(g.position - position) < 5);
+        const point = getLocalPoint(event);
+        const position = type === 'horizontal' ? point.y : point.x;
+
+        const index = props.guides.findIndex(
+            g => g.type === type && Math.abs(g.position - position) < 5
+        );
 
         if (index !== -1) {
-            guidesRef.splice(index, 1);
+            props.guides.splice(index, 1);
         } else {
             const newGuide = { id: Date.now(), type, position };
-            guidesRef.push(newGuide);
+            props.guides.push(newGuide);
             await startDraggingGuide(newGuide, event);
         }
 
-        emitEvent('app:update-guide', guidesRef)
+        emitEvent('app:update-guide', props.guides);
     };
 
     const dragGuide = (event) => {
         event.preventDefault();
         if (!guide.value) return;
 
-        const newPosition = guide.value.type === 'horizontal'
-            ? event.clientY - props.offset.y
-            : event.clientX - props.offset.x;
+        const point = getLocalPoint(event);
+        const newPosition = guide.value.type === 'horizontal' ? point.y : point.x;
 
         if (guide.value.position !== newPosition) {
             guide.value.position = newPosition;
@@ -112,9 +146,10 @@ export function guideModel(props, emit) {
         const isOnYAxis = guide.value.type === 'vertical' && guide.value.position <= 20;
 
         if (isOnXAxis || isOnYAxis) {
-            let guidesRef = props.guides;
-            guidesRef = guidesRef.filter(g => g.id !== guide.value.id);
-            emitEvent('app:update-guide', guidesRef)
+            const guidesRef = props.guides.filter(g => g.id !== guide.value.id);
+            emitEvent('app:update-guide', guidesRef);
+        } else {
+            emitEvent('app:update-guide', props.guides);
         }
 
         guide.value = null;
@@ -123,6 +158,8 @@ export function guideModel(props, emit) {
     };
 
     const getGuideStyle = (g) => {
+        const rotation = props.rotation || 0;
+
         return g.type === 'horizontal'
             ? {
                 top: `${g.position + props.offset.y}px`,
@@ -132,7 +169,8 @@ export function guideModel(props, emit) {
                 height: '1px',
                 background: 'blue',
                 position: 'absolute',
-                cursor: 'row-resize'
+                cursor: 'row-resize',
+                transform: `rotate(${rotation}deg)`,
             }
             : {
                 left: `${g.position + props.offset.x}px`,
@@ -142,7 +180,8 @@ export function guideModel(props, emit) {
                 width: '1px',
                 background: 'blue',
                 position: 'absolute',
-                cursor: 'col-resize'
+                cursor: 'col-resize',
+                transform: `rotate(${rotation}deg)`,
             };
     };
 
@@ -175,5 +214,9 @@ export const guideProps = {
     offset: {
         type: Object,
         required: true
-    }
+    },
+    rotation: {
+        type: Number,
+        required: true
+    },
 };

@@ -5,9 +5,10 @@ import {useTheme} from 'vuetify';
 import {nextTick} from "vue";
 
 export const appEvent = (route) => ({
-    "app:boot-state": (payload) => {
+    "app:boot-state": async (payload) => {
         if (typeof payload === "boolean") {
             route.windowStates.boot.value = payload;
+            await route.emit('viewport-state', true);
         }
     },
     "app:clear-cache": async (payload) => {

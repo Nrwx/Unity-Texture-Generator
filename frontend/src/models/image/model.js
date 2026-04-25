@@ -171,7 +171,6 @@ export function imageModel(props, emit) {
             zIndex: layer.zIndex ?? 0,
             position: "absolute",
             transform: `matrix(${matrix.a}, ${matrix.b}, ${matrix.c}, ${matrix.d}, ${matrix.x}, ${matrix.y}) rotate(${matrix.rotate}deg)`,
-            transformOrigin: "center center",
         };
     };
 
@@ -184,7 +183,6 @@ export function imageModel(props, emit) {
             zIndex: layer.zIndex ?? 0,
             position: "absolute",
             transform: `matrix(${matrix.a}, ${matrix.b}, ${matrix.c}, ${matrix.d}, ${matrix.x}, ${matrix.y}) rotate(${matrix.rotate}deg)`,
-            transformOrigin: "center center",
         };
     };
 
@@ -211,7 +209,6 @@ export function imageModel(props, emit) {
             left: 0,
             zIndex: layer.zIndex ?? 0,
             transform: `matrix(${matrix.a}, ${matrix.b}, ${matrix.c}, ${matrix.d}, ${matrix.x}, ${matrix.y}) rotate(${matrix.rotate}deg)`,
-            transformOrigin: "center center",
         };
     };
 

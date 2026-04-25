@@ -11,14 +11,14 @@
       <v-card :class="!data?.fullscreen ? `px-6 pt-3 pb-2 elevation-1 ${data?.variant === 'rounded' ?  'rounded-xl' : data?.variant === 'shaped' ?  'rounded-shaped' : ''}` : data?.class || ''" style="background: linear-gradient(180deg, #1f2129 0%, #1b1e27 60%) !important;">
         <LoadingComponent v-if="loading"/>
         <template v-else>
-          <template v-if="data.fullscreen">
+          <template v-if="data.fullscreen && !data.hideClose">
             <v-btn class="absolute" icon style="top: 32px; right: 32px;" @click="emitEvent(data.emit, false)">
               <v-icon>mdi-close</v-icon>
             </v-btn>
             <slot name="absolute"/>
           </template>
-          <v-card-title :class="!data.fullscreen ? 'pa-0' : ''">
-            <template v-if="!$slots.header && data.title">
+          <v-card-title v-if="data.title" :class="!data.fullscreen ? 'pa-0' : ''">
+            <template v-if="!$slots.header">
               <div class="d-flex justify-space-between align-center mb-2">
                 <h6 v-if="data?.textVariant === 'id'" style="min-width: 60%;">
                   {{data.title}}
@@ -38,7 +38,7 @@
             <slot v-if="$slots.header" name="header"/>
           </v-card-title>
 
-          <v-card-text :style="data.maxHeight ? `max-height: ${data.maxHeight}px; overflow: hidden; overflow-y: auto;` : ''" :class="data.fullscreen ? 'mt-6' : 'pa-0'">
+          <v-card-text :style="data.maxHeight ? `max-height: ${data.maxHeight}px; overflow: hidden; overflow-y: auto;` : ''" :class="data.fullscreen && data.title ? 'mt-6' : 'pa-0'">
             <template v-if="!data.fullscreen">
               <div class="detail-container">
                 <div class="detail-card">

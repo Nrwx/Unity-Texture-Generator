@@ -3,6 +3,7 @@ import {ref} from "vue";
 
 export const ruleStates = {
     form: ref(false),
+    setup: ref(false)
 };
 
 export const windowStates = {
@@ -44,7 +45,8 @@ export const windowStates = {
 
 export const loadingStates = {
     taskEdit: ref(false),
-    mixer: ref(false)
+    mixer: ref(false),
+    viewport: ref(false)
 };
 
 export const modifierStates = {

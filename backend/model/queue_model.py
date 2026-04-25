@@ -45,8 +45,6 @@ class QueueModel:
                 )
                 QueueModel.set_pending(is_pending, info.get("method"))
 
-                time.sleep(0.1)  # optionale Verzögerung
-
                 with self.app.app_context():
                     content_type = info.get("content_type", "application/x-www-form-urlencoded")
 

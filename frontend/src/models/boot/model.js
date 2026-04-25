@@ -6,7 +6,7 @@ import {uuid} from "@/utils/uuid";
 import {clsManager} from "@/utils/DOM/clsManager";
 
 export function bootModel(props, emit) {
-    const emitEvent = (event, payload) => emit("component-event", event, payload);
+    const emitEvent = async (event, payload) => emit("component-event", event, payload);
 
     const terminalId = ref(uuid());
     const maxLines = 600;
@@ -192,9 +192,7 @@ export function bootModel(props, emit) {
     }
 
     async function emitComplete() {
-        emitEvent('viewport-state', true);
-        await nextTick();
-        emitEvent('app:boot-state', false);
+        await emitEvent('app:boot-state', false);
     }
 
     async function setupDOM(cls) {

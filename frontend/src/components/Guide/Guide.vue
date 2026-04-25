@@ -45,14 +45,8 @@ export default defineComponent({
   name: "GuideComponent",
   props: guideProps,
   setup(props, { emit }) {
-    const {rowPositions, columnPositions, startGuide, startDraggingGuide, getGuideStyle} = guideModel(props, emit);
-    return {
-      rowPositions,
-      columnPositions,
-      startGuide,
-      startDraggingGuide,
-      getGuideStyle
-    };
+    const model = guideModel(props, emit);
+    return {...model};
   },
 });
 </script>

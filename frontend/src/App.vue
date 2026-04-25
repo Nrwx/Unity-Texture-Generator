@@ -2,11 +2,11 @@
   <v-app :id="tempData.appId.value">
     <template v-if="windowStates.boot.value">
       <!-- App Loader -->
-      <Boot :state="windowStates.boot.value" :auto-start="true" @component-event="componentEvent"/>
+      <Boot v-model:state="windowStates.boot.value" :auto-start="true" @component-event="componentEvent"/>
     </template>
     <template v-if="windowStates.viewport.value">
       <!-- Viewport Setup -->
-      <Viewport @component-event="componentEvent" :state="windowStates.viewport.value" :settings="localData.viewport.value" v-model:theme="appData.theme.value"/>
+      <Viewport @component-event="componentEvent" :state="windowStates.viewport.value" v-model:loading="loadingStates.viewport.value" :settings="localData.viewport.value" v-model:theme="appData.theme.value"/>
     </template>
     <template v-if="!windowStates.boot.value && !windowStates.viewport.value">
       <!-- Settings Dialog -->

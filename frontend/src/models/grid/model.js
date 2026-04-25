@@ -17,6 +17,7 @@ export function gridModel(props, emit) {
         width: wrapperData.value.width,
         height: wrapperData.value.height,
     }));
+
     const canvasRotation = ref(0);
 
     const zoomFaktor = ref(1);
@@ -44,16 +45,45 @@ export function gridModel(props, emit) {
         }
     };
 
-    const mouseMove = async (event) => {
+    const screenToWorld = (clientX, clientY) => {
         const rect = canvas.value.getBoundingClientRect();
-        const scaledX = (event.clientX - rect.left);
-        const scaledY = (event.clientY - rect.top);
 
-        cursor.value.x = Math.round(scaledX);
-        cursor.value.y = Math.round(scaledY);
+        const cx = rect.width / 2;
+        const cy = rect.height / 2;
 
-        const dx = (event.clientX - lastMouse.value.x);
-        const dy = (event.clientY - lastMouse.value.y);
+        // 1. Screen → center space
+        let x = clientX - rect.left - cx;
+        let y = clientY - rect.top - cy;
+
+        // 2. inverse scale
+        const s = zoomFaktor.value;
+        x /= s;
+        y /= s;
+
+        // 3. inverse rotation
+        const a = (-canvasRotation.value * Math.PI) / 180;
+        const cos = Math.cos(a);
+        const sin = Math.sin(a);
+
+        const rx = x * cos - y * sin;
+        const ry = x * sin + y * cos;
+
+        // 4. back to world space
+        return {
+            x: rx + cx - offset.value.x,
+            y: ry + cy - offset.value.y
+        };
+    };
+
+    const mouseMove = async (event) => {
+        const current = screenToWorld(event.clientX, event.clientY);
+        const previous = screenToWorld(lastMouse.value.x, lastMouse.value.y);
+
+        const dx = current.x - previous.x;
+        const dy = current.y - previous.y;
+
+        cursor.value.x = Math.round(current.x);
+        cursor.value.y = Math.round(current.y);
 
         if (props.transform) {
             const mainRect = main.value.getBoundingClientRect();
@@ -166,27 +196,28 @@ export function gridModel(props, emit) {
         }
 
         else if (props.canvasTransform) {
+            const dx = event.clientX - lastMouse.value.x;
+            const dy = event.clientY - lastMouse.value.y;
             offset.value.x += dx;
             offset.value.y += dy;
         } else if (props.canvasRotate) {
             await rotateCanvas(event);
         } else if (props.size) {
-            await resize(dx, dy);
+            const start = screenToWorld(
+                resizeStartMouse.value.x,
+                resizeStartMouse.value.y
+            );
+
+            const dxAbs = current.x - start.x;
+            const dyAbs = current.y - start.y;
+
+            await resize(dxAbs, dyAbs);
         } else if (props.rotate) {
             await rotate(event);
         }
 
         lastMouse.value.x = event.clientX;
         lastMouse.value.y = event.clientY;
-    };
-
-    const startResize = async (corner, event) => {
-        emitEvent('layer:transform-menu', true)
-        emitEvent('layer:transform-size', true)
-        resizeDirection.value = corner;
-        lastMouse.value.x = event.clientX;
-        lastMouse.value.y = event.clientY;
-        register('add', window, 'mouseup', stopTransform);
     };
 
     const startRotate = async (direction, event) => {
@@ -286,51 +317,91 @@ export function gridModel(props, emit) {
         rotationStartAngle.value = currentAngle;
     };
 
-    // Handle Resize
-    const resize = async (dx, dy) => {
-        emitEvent('backup:action', 'Bild Skalieren')
+    const clamp = (v, min, max) => Math.max(min, Math.min(v, max));
+
+    const resizeStartMouse = ref({ x: 0, y: 0 });
+
+    const startResize = async (corner, event) => {
+        emitEvent('layer:transform-menu', true);
+        emitEvent('layer:transform-size', true);
+
+        resizeDirection.value = corner;
+
+        resizeStartMouse.value.x = event.clientX;
+        resizeStartMouse.value.y = event.clientY;
+
+        lastMouse.value.x = event.clientX;
+        lastMouse.value.y = event.clientY;
+
+        // Originalzustand nur einmal sichern
         props.selectedLayer.forEach(layer => {
-            const originalWidth = layer.width;
-            const originalHeight = layer.height;
-
-            if (props.align) {
-                // Wenn Shift gedrückt ist, gleichmäßige Skalierung (synchron auf X und Y)
-                const scale = Math.max(dx / originalWidth, dy / originalHeight);
-                layer.matrix.a += scale;
-                layer.matrix.d += scale;
-            } else {
-                // Skalierung entlang der X-Achse
-                if (resizeDirection.value.includes('left') || resizeDirection.value.includes('right')) {
-                    const scaleX = dx / originalWidth;
-                    layer.matrix.a += scaleX;
-                    // Verhindere extreme Skalierung
-                    layer.matrix.a = Math.max(0.1, Math.min(layer.matrix.a, 5)); // Beispiel: Skalierung von 10% bis 500%
-                }
-
-                // Skalierung entlang der Y-Achse
-                if (resizeDirection.value.includes('top') || resizeDirection.value.includes('bottom')) {
-                    const scaleY = dy / originalHeight;
-                    layer.matrix.d += scaleY;
-                    // Verhindere extreme Skalierung
-                    layer.matrix.d = Math.max(0.1, Math.min(layer.matrix.d, 5)); // Beispiel: Skalierung von 10% bis 500%
-                }
-            }
-
-            // Position anpassen
-            if (resizeDirection.value.includes('top')) {
-                layer.matrix.y += dy;  // Verschiebung nach oben
-            } else if (resizeDirection.value.includes('bottom')) {
-                // Keine direkte Änderung der Y-Position bei unten
-            }
-
-            if (resizeDirection.value.includes('left')) {
-                layer.matrix.x += dx;  // Verschiebung nach links
-            } else if (resizeDirection.value.includes('right')) {
-                // Keine direkte Änderung der X-Position bei rechts
+            if (!layer.__originalMatrix) {
+                storeLayer(layer);
             }
         });
-    }
 
+        register('add', window, 'mouseup', stopTransform);
+    };
+
+    const resize = async (dx, dy) => {
+        emitEvent('backup:action', 'Bild Skalieren');
+
+        const dir = resizeDirection.value;
+
+        const fromLeft = dir.includes('left');
+        const fromRight = dir.includes('right');
+        const fromTop = dir.includes('top');
+        const fromBottom = dir.includes('bottom');
+
+        props.selectedLayer.forEach(layer => {
+            const start = layer.__originalMatrix || layer.matrix;
+
+            const width = layer.width;
+            const height = layer.height;
+
+            const deltaW = fromLeft ? -dx : fromRight ? dx : 0;
+            const deltaH = fromTop ? -dy : fromBottom ? dy : 0;
+
+            let scaleX = (width + deltaW) / width;
+            let scaleY = (height + deltaH) / height;
+
+            // SHIFT bleibt exakt wie bisher
+            if (props.align) {
+                const uniform = Math.max(Math.abs(scaleX), Math.abs(scaleY));
+                scaleX = scaleX < 0 ? -uniform : uniform;
+                scaleY = scaleY < 0 ? -uniform : uniform;
+            }
+
+            scaleX = clamp(scaleX, 0.1, 5);
+            scaleY = clamp(scaleY, 0.1, 5);
+
+            const newWidth = width * scaleX;
+            const newHeight = height * scaleY;
+
+            layer.matrix.a = start.a * scaleX;
+            layer.matrix.d = start.d * scaleY;
+
+            if (props.align) {
+                // bleibt wie gehabt
+                layer.matrix.x = start.x;
+                layer.matrix.y = start.y;
+            } else {
+                // x/y als Mittelpunkt gedacht -> nur halbe Delta-Korrektur
+                const shiftX =
+                    fromLeft && !fromRight ? (width - newWidth) / 2 :
+                        fromRight && !fromLeft ? (newWidth - width) / 2 :
+                            0;
+
+                const shiftY =
+                    fromTop && !fromBottom ? (height - newHeight) / 2 :
+                        fromBottom && !fromTop ? (newHeight - height) / 2 :
+                            0;
+
+                layer.matrix.x = start.x + shiftX;
+                layer.matrix.y = start.y + shiftY;
+            }
+        });
+    };
 
     const resetSelection = (event) => {
         if (props.brush || props.timeline) return;
@@ -624,6 +695,7 @@ export function gridModel(props, emit) {
 
     return {
         controlData,
+        canvasRotation,
         wrapper,
         wrapperId,
         main,

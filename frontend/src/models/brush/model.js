@@ -50,7 +50,7 @@ export function brushModel(props, emit) {
         const y = props.mouse.y - size / 2;
 
         return {
-            position: 'fixed',
+            position: 'absolute',
             opacity: opacity,
             left: `${x}px`,
             top: `${y}px`,
@@ -438,4 +438,21 @@ export const brushProps = {
     cursor: { type: String, required: false },
     canvasId: { type: String, required: true },
     mouse: { type: Object, required: false },
+    canvasOffset: {
+        type: Object,
+        required: false,
+        default: () => ({ x: 0, y: 0 })
+    },
+
+    canvasRotation: {
+        type: Number,
+        required: false,
+        default: 0
+    },
+
+    canvasZoom: {
+        type: Number,
+        required: false,
+        default: 1
+    }
 };

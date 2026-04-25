@@ -88,8 +88,10 @@ export const windowStateEvent = (route) => ({
         }
     },
     "viewport-state": (payload) => {
+        route.loadingStates.viewport.value = true;
         if (typeof payload === "boolean") {
             route.windowStates.viewport.value = payload;
+            if (payload) route.loadingStates.viewport.value = false;
         }
     },
     "drawer-center-state": (payload) => {
