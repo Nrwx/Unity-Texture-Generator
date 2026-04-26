@@ -317,8 +317,6 @@ export function gridModel(props, emit) {
         rotationStartAngle.value = currentAngle;
     };
 
-    const clamp = (v, min, max) => Math.max(min, Math.min(v, max));
-
     const resizeStartMouse = ref({ x: 0, y: 0 });
 
     const startResize = async (corner, event) => {
@@ -335,13 +333,13 @@ export function gridModel(props, emit) {
 
         // Originalzustand nur einmal sichern
         props.selectedLayer.forEach(layer => {
-            if (!layer.__originalMatrix) {
-                storeLayer(layer);
-            }
+            storeLayer(layer);
         });
 
         register('add', window, 'mouseup', stopTransform);
     };
+
+    const MIN_SIZE = 2; // verhindert "zerquetschen"
 
     const resize = async (dx, dy) => {
         emitEvent('backup:action', 'Bild Skalieren');
@@ -362,18 +360,21 @@ export function gridModel(props, emit) {
             const deltaW = fromLeft ? -dx : fromRight ? dx : 0;
             const deltaH = fromTop ? -dy : fromBottom ? dy : 0;
 
-            let scaleX = (width + deltaW) / width;
-            let scaleY = (height + deltaH) / height;
+            let targetWidth = width + deltaW;
+            let targetHeight = height + deltaH;
 
-            // SHIFT bleibt exakt wie bisher
+            // 🔥 HARD CLAMP auf Größe statt Scale
+            targetWidth = Math.max(MIN_SIZE, targetWidth);
+            targetHeight = Math.max(MIN_SIZE, targetHeight);
+
+            let scaleX = targetWidth / width;
+            let scaleY = targetHeight / height;
+
             if (props.align) {
                 const uniform = Math.max(Math.abs(scaleX), Math.abs(scaleY));
                 scaleX = scaleX < 0 ? -uniform : uniform;
                 scaleY = scaleY < 0 ? -uniform : uniform;
             }
-
-            scaleX = clamp(scaleX, 0.1, 5);
-            scaleY = clamp(scaleY, 0.1, 5);
 
             const newWidth = width * scaleX;
             const newHeight = height * scaleY;
@@ -382,11 +383,9 @@ export function gridModel(props, emit) {
             layer.matrix.d = start.d * scaleY;
 
             if (props.align) {
-                // bleibt wie gehabt
                 layer.matrix.x = start.x;
                 layer.matrix.y = start.y;
             } else {
-                // x/y als Mittelpunkt gedacht -> nur halbe Delta-Korrektur
                 const shiftX =
                     fromLeft && !fromRight ? (width - newWidth) / 2 :
                         fromRight && !fromLeft ? (newWidth - width) / 2 :
@@ -451,9 +450,14 @@ export function gridModel(props, emit) {
     };
 
     const storeLayer = (layer) => {
-        if (!layer.__originalMatrix) {
-            layer.__originalMatrix = { ...layer.matrix };
-        }
+        layer.__originalMatrix = {
+            a: layer.matrix.a,
+            b: layer.matrix.b,
+            c: layer.matrix.c,
+            d: layer.matrix.d,
+            x: layer.matrix.x,
+            y: layer.matrix.y
+        };
     };
 
     const updateLayer = (layer) => {
