@@ -1,12 +1,12 @@
 <template>
   <!-- X-Achse Ruler -->
-  <div class="ruler x-axis d-flex" @mousedown="startGuide('horizontal', $event)" :style="{ width: `calc(100% + ${settings.width * zoomFaktor}px)` }">
-    <div class="d-flex align-center ma-auto" style="height: 100%;" :style="{ width: `${settings.width * zoomFaktor}px`, transform: `translateX(${offset.x}px)` }">
+  <div class="ruler x-axis d-flex" @mousedown="startGuide('horizontal', $event)" :style="{ width: `calc(100% + ${settings.width * container.a}px)` }">
+    <div class="d-flex align-center ma-auto" style="height: 100%;" :style="{ width: `${settings.width * container.a}px`, transform: `translateX(${container.x}px)` }">
       <div
           v-for="x in columnPositions"
           :key="x"
           class="ruler-mark"
-          :style="{ width: `${50 * zoomFaktor}px` }"
+          :style="{ width: `${50 * container.a}px` }"
       >
         {{ Math.round(x) }}
       </div>
@@ -14,13 +14,13 @@
   </div>
 
   <!-- Y-Achse Ruler -->
-  <div class="ruler y-axis d-flex" @mousedown="startGuide('vertical', $event)" :style="{ height: `calc(100% + ${settings.height * zoomFaktor}px)` }">
-    <div class="d-flex flex-column align-center ma-auto" style="width: 100%;" :style="{ height: `${settings.height * zoomFaktor}px`, transform: `translateY(${offset.y}px)` }">
+  <div class="ruler y-axis d-flex" @mousedown="startGuide('vertical', $event)" :style="{ height: `calc(100% + ${settings.height * container.d}px)` }">
+    <div class="d-flex flex-column align-center ma-auto" style="width: 100%;" :style="{ height: `${settings.height * container.d}px`, transform: `translateY(${container.y}px)` }">
       <div
           v-for="y in rowPositions"
           :key="y"
           class="ruler-mark"
-          :style="{ height: `${50 * zoomFaktor}px` }"
+          :style="{ height: `${50 * container.d}px` }"
       >
         {{ Math.round(y) }}
       </div>

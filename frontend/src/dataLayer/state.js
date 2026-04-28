@@ -60,20 +60,20 @@ export const timelineStates = {
     bezier: ref(false)
 };
 
-export const transformStates = {
+export const layerStates = {
     menu: ref(false),
     rotate: ref(false),
-    transform: ref(false),
-    size: ref(false),
-    align: ref(false)
+    translate: ref(false),
+    scale: ref(false),
+    align: ref(false),
+    direction: ref(false)
 };
 
-export const canvasStates = {
+export const containerStates = {
     control: ref(true),
     rotate: ref(false),
-    transform: ref(false),
-    size: ref(false),
-    zoom: ref(false),
+    translate: ref(false),
+    scale: ref(false),
     select: ref(false),
 };
 

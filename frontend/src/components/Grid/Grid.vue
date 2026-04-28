@@ -1,24 +1,22 @@
 <template>
-  <div ref="wrapper" :id="wrapperId" class="viewport-wrapper">
+  <div ref="grid.wrapper.ref" :id="grid.wrapper.id" class="viewport-wrapper">
     <!-- Hauptcontainer: Zentriert das Canvas -->
-    <div class="main-layer" ref="main" :id="mainId">
+    <div class="main-layer" ref="grid.main.ref" :id="grid.main.id">
       <!-- Lineale -->
       <Guide
           :guides="guides"
           :settings="settings"
-          :zoomFaktor="zoomFaktor"
-          :offset="offset"
-          :rotation="canvasRotation"
+          :container="grid.container.matrix"
           @update:guides-event="emitEvent"
       />
 
       <!-- Canvas Container -->
       <div class="canvas-row" style="position: relative;">
         <div
-            ref="canvas"
+            ref="grid.container.ref"
             class="canvas-container d-flex align-center justify-center"
-            :style="canvasStyle"
-            :id="canvasId"
+            :style="grid.container.style"
+            :id="grid.container.id"
         >
           <!-- Zentrale Inhalte im Canvas -->
           <div class="canvas-content overflow-hidden transparent">
@@ -42,7 +40,7 @@
             <!-- Formzeichnung -->
             <Path :viewport="viewport" :state="pathDrag" :selected="selectedPath" :mouse="cursor" @update:component-event="emitEvent"/>
             <!-- Zeichnung -->
-            <Brush :canvas-offset="offset" :canvas-rotation="canvasRotation" :canvas-zoom="zoomFaktor" :selected-layer="selectedLayer[selectedLayer.length - 1]" :canvas-id="brushCanvasId" :mouse="cursor" :cursor="brushCursor" :viewport="viewport" :brushes="brushes" :state="brush" :drawing="drawing" :data="brushSettings" @update:component-event="emitEvent"/>
+            <Brush :selected-layer="selectedLayer[selectedLayer.length - 1]" :canvas-id="brushCanvasId" :mouse="cursor" :cursor="brushCursor" :viewport="viewport" :brushes="brushes" :state="brush" :drawing="drawing" :data="brushSettings" @update:component-event="emitEvent"/>
             <!-- Pfadzeichnung -->
             <Pen :mouse="cursor" :bezier="bezier" :viewport="viewport" :state="pen" :path-import="pathImport" :path-layer="pathLayer" :loading="loading" :path-state="penPathState" :theme="theme" @update:component-event="emitEvent"/>
           </div>
@@ -50,8 +48,10 @@
           <SelectVector
               v-if="selectedLayer.length"
               :frameBox="frameBox"
+              :anchor="anchorScreen"
               @resize="startResize"
               @rotate="startRotate"
+              @anchor="startAnchorDrag"
           />
         </div>
       </div>
@@ -71,10 +71,10 @@
 
     <slot style="width: 100%;"/>
 
-    <!-- Canvas Control -->
+    <!-- Container Control -->
     <Control
-        :state="canvasControl"
-        :data="controlData"
+        :state="containerStates.control.value"
+        :data="{...grid.container.matrix, width: grid.wrapper.width, height: grid.wrapper.height}"
         :theme="theme"
         @update:position="onPositionUpdate"
         @update:scale="onScaleUpdate"

@@ -13,67 +13,72 @@ export const windowStateEvent = (route) => ({
         await route.emit("event:listener", {pause: true, id: 'listener:path'})
         await route.emit("path-drag-state", payload);
     },
-    "reset:grid-states": (payload) => {
+    "reset:container-states": (payload) => {
         if (typeof payload === "boolean") {
-            route.transformStates.menu.value = payload;
-            route.transformStates.rotate.value = payload;
-            route.transformStates.transform.value = payload;
-            route.transformStates.size.value = payload;
-            route.transformStates.align.value = payload;
+            route.containerStates.rotate.value = payload;
+            route.containerStates.translate.value = payload;
+            route.containerStates.scale.value = payload;
+            route.containerStates.select.value = payload;
         }
     },
-    "reset:canvas-states": (payload) => {
+    "grid:scale-state": (payload) => {
         if (typeof payload === "boolean") {
-            route.canvasStates.zoom.value = payload;
-            route.canvasStates.rotate.value = payload;
-            route.canvasStates.transform.value = payload;
-            route.canvasStates.size.value = payload;
-            route.canvasStates.select.value = payload;
+            route.containerStates.scale.value = payload;
         }
     },
-    "canvas:zoom-state": (payload) => {
+    "grid:translate-state": (payload) => {
         if (typeof payload === "boolean") {
-            route.canvasStates.zoom.value = payload;
+            route.containerStates.translate.value = payload;
         }
     },
-    "canvas:transform-state": (payload) => {
+    "grid:rotate-state": (payload) => {
         if (typeof payload === "boolean") {
-            route.canvasStates.transform.value = payload;
+            route.containerStates.rotate.value = payload;
         }
     },
-    "canvas:rotate-state": (payload) => {
+    "grid:select-state": (payload) => {
         if (typeof payload === "boolean") {
-            route.canvasStates.rotate.value = payload;
+            route.containerStates.select.value = payload;
         }
     },
-    "canvas:select-state": (payload) => {
+
+    "reset:layer-states": (payload) => {
         if (typeof payload === "boolean") {
-            route.canvasStates.select.value = payload;
+            route.layerStates.menu.value = payload;
+            route.layerStates.rotate.value = payload;
+            route.layerStates.translate.value = payload;
+            route.layerStates.scale.value = payload;
+            route.layerStates.align.value = payload;
         }
     },
-    "layer:transform-rotate": (payload) => {
+    "layer:rotate": (payload) => {
         if (typeof payload === "boolean") {
-            route.transformStates.rotate.value = payload;
+            route.layerStates.rotate.value = payload;
         }
     },
-    "layer:transform-size": (payload) => {
+    "layer:scale": (payload) => {
         if (typeof payload === "boolean") {
-            route.transformStates.size.value = payload;
+            route.layerStates.scale.value = payload;
         }
     },
-    "layer:transform-state": (payload) => {
+    "layer:translate": (payload) => {
         if (typeof payload === "boolean") {
-            route.transformStates.transform.value = payload;
+            route.layerStates.translate.value = payload;
         }
     },
     "layer:transform-menu": (payload) => {
         if (typeof payload === "boolean") {
-            route.transformStates.menu.value = payload;
+            route.layerStates.menu.value = payload;
         }
     },
     "layer:transform-align": (payload) => {
         if (typeof payload === "boolean") {
-            route.transformStates.align.value = payload;
+            route.layerStates.align.value = payload;
+        }
+    },
+    "layer:transform-direction": (payload) => {
+        if (typeof payload === "boolean") {
+            route.layerStates.direction.value = payload;
         }
     },
     "rule:allow-form": (payload) => {

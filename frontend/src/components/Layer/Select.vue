@@ -32,10 +32,21 @@
     <circle class="rotate-handle" :cx="frameBox.width / 2" :cy="frameBox.height" r="6" @mousedown="onRotate('bottom', $event)" />
     <circle class="rotate-handle" cx="0" :cy="frameBox.height / 2" r="6" @mousedown="onRotate('left', $event)" />
     <circle class="rotate-handle" :cx="frameBox.width" :cy="frameBox.height / 2" r="6" @mousedown="onRotate('right', $event)" />
-
-    <!-- Center -->
-    <circle class="center-crosshair" :cx="frameBox.width / 2" :cy="frameBox.height / 2" r="6" fill="#00aaff" />
   </svg>
+  <!-- Center -->
+  <div
+      class="center-crosshair"
+      :style="{
+        position: 'absolute',
+        left: anchor.x + 'px',
+        top: anchor.y + 'px',
+        width: '12px',
+        height: '12px',
+        transform: 'translate(-50%, -50%)',
+        pointerEvents: 'auto'
+      }"
+      @mousedown="onAnchor($event)"
+  />
 </template>
 
 <script>
@@ -46,10 +57,9 @@ export default defineComponent({
   name: "LayerSelectVector",
   props: selectVectorProps,
   setup(props, { emit }) {
-    const { onResize, onRotate} = selectVectorModel(props, emit);
+    const model = selectVectorModel(props, emit);
     return {
-      onResize,
-      onRotate
+      ...model
     };
   },
 });

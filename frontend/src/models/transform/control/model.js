@@ -5,7 +5,7 @@ export function controlModel(props, emit) {
     const size = 150;
 
     const toRad = deg => (deg * Math.PI) / 180;
-    const scaleAngle = computed(() => (props.data.scale - 1) * 90); // scale 1 = 0°
+    const scaleAngle = computed(() => (props.data.a - 1 || props.data.d - 1) * 90); // scale 1 = 0°
 
     const normalizedX = computed(() => {
         if (!props.data.width) return 0.5;

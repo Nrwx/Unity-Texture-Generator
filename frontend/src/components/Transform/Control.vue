@@ -40,8 +40,8 @@
         <line
             :x1="60"
             :y1="60"
-            :x2="60 + 15 * Math.cos(toRad(data.rotation - 90))"
-            :y2="60 + 15 * Math.sin(toRad(data.rotation - 90))"
+            :x2="60 + 15 * Math.cos(toRad(data?.rotate - 90))"
+            :y2="60 + 15 * Math.sin(toRad(data?.rotate - 90))"
             stroke="#ffcc00"
             stroke-width="2"
         />
@@ -106,19 +106,9 @@ export default defineComponent({
   name: "SelectionComponent",
   props: controlProps,
   setup(props, { emit }) {
-    const { normalizedX, normalizedY, progressArcPath, size, toRad, scaleAngle, onClickX, onClickY, onClickScale, onClickRotation, onReset} = controlModel(props, emit);
+    const model = controlModel(props, emit);
     return {
-      normalizedX,
-      normalizedY,
-      size,
-      toRad,
-      progressArcPath,
-      scaleAngle,
-      onReset,
-      onClickX,
-      onClickY,
-      onClickScale,
-      onClickRotation
+      ...model
     };
   },
 });

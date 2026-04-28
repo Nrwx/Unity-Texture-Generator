@@ -8,7 +8,12 @@ export function selectVectorModel(props, emit) {
         emit('rotate', direction, event)
     }
 
+    const onAnchor = (event) => {
+        emit('anchor', event);
+    };
+
     return {
+        onAnchor,
         onResize,
         onRotate
     };
@@ -16,6 +21,10 @@ export function selectVectorModel(props, emit) {
 
 export const selectVectorProps = {
     frameBox: {
+        type: Object,
+        required: true
+    },
+    anchor: {
         type: Object,
         required: true
     }

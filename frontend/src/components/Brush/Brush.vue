@@ -39,16 +39,10 @@ export default defineComponent({
   components: { Menu },
   props: brushProps,
   setup(props, { emit }) {
-    const { canvas, canvasStyle, visible, menuPos, emitEvent, buildMatrix, setCursor} = brushModel(props, emit);
+    const model = brushModel(props, emit);
 
     return {
-      canvas,
-      canvasStyle,
-      visible,
-      menuPos,
-      emitEvent,
-      buildMatrix,
-      setCursor
+      ...model
     };
   }
 });

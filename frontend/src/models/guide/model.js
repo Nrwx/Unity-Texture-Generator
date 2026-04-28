@@ -22,8 +22,8 @@ export function guideModel(props, emit) {
     };
 
     const getCanvasCenter = () => ({
-        x: props.offset.x + (props.settings.width * props.zoomFaktor) / 2,
-        y: props.offset.y + (props.settings.height * props.zoomFaktor) / 2,
+        x: props.container.x + (props.settings.width * props.container.a) / 2,
+        y: props.container.y + (props.settings.height * props.container.d) / 2,
     });
 
     const rotatePoint = (x, y, cx, cy, angleDeg) => {
@@ -40,7 +40,6 @@ export function guideModel(props, emit) {
         };
     };
 
-    // Mausposition in das unrotierte Koordinatensystem zurückrechnen
     const getLocalPoint = (event) => {
         const center = getCanvasCenter();
         const rotated = rotatePoint(
@@ -158,11 +157,11 @@ export function guideModel(props, emit) {
     };
 
     const getGuideStyle = (g) => {
-        const rotation = props.rotation || 0;
+        const rotation = props.container.rotate || 0;
 
         return g.type === 'horizontal'
             ? {
-                top: `${g.position + props.offset.y}px`,
+                top: `${g.position + props.container.y}px`,
                 left: '0',
                 right: '0',
                 width: '100%',
@@ -173,7 +172,7 @@ export function guideModel(props, emit) {
                 transform: `rotate(${rotation}deg)`,
             }
             : {
-                left: `${g.position + props.offset.x}px`,
+                left: `${g.position + props.container.x}px`,
                 top: '0',
                 bottom: '0',
                 height: '100%',
@@ -207,16 +206,8 @@ export const guideProps = {
         type: Object,
         required: true
     },
-    zoomFaktor: {
-        type: Number,
-        required: true
-    },
-    offset: {
+    container: {
         type: Object,
         required: true
-    },
-    rotation: {
-        type: Number,
-        required: true
-    },
+    }
 };
