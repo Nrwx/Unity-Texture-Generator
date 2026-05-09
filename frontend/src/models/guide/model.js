@@ -47,12 +47,12 @@ export function guideModel(props, emit) {
             event.clientY,
             center.x,
             center.y,
-            -props.rotation
+            -(props.container.rotate || 0)
         );
 
         return {
-            x: rotated.x - props.offset.x,
-            y: rotated.y - props.offset.y,
+            x: rotated.x - (props.container.x || 0),
+            y: rotated.y - (props.container.y || 0),
         };
     };
 
