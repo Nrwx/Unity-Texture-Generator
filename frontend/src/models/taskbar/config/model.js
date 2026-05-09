@@ -109,6 +109,16 @@ export const taskbarItemLeft = [
     {
         position: 'center',
         id: uuid(),
+        title: 'Radierer-Werkzeug',
+        icon: 'mdi-eraser',
+        active: false,
+        hidden: false,
+        tooltip: 'Eraser Tool',
+        event: 'eraser-state'
+    },
+    {
+        position: 'center',
+        id: uuid(),
         title: 'Pinsel-Werkzeug',
         icon: 'mdi-brush',
         active: false,

@@ -6,6 +6,7 @@ export const windowStateEvent = (route) => ({
         await route.emit("text-state", payload);
         await route.emit("event:listener", {pause: true, id: 'listener:text-create'})
         await route.emit("brush-state", payload);
+        await route.emit("eraser-state", payload);
         await route.emit("event:listener", {pause: true, id: 'listener:brush'})
         await route.emit("pen-state", payload);
         await route.emit("event:listener", {pause: true, id: 'listener:pen'})
@@ -167,6 +168,7 @@ export const windowStateEvent = (route) => ({
             }
         }
     },
+
     "brush-state": async (payload) => {
         if (typeof payload === "boolean") {
             await route.emit("rule:allow-form", payload);
@@ -181,6 +183,12 @@ export const windowStateEvent = (route) => ({
             if (!route.listener.isActive('listener:brush')) {
                 await route.emit("event:listener", {resume: true, id: 'listener:brush'})
             }
+        }
+    },
+    "eraser-state": async (payload) => {
+        if (typeof payload === "boolean") {
+            route.windowStates.eraser.value = payload;
+            await route.emit("brush-state", payload);
         }
     },
     "drawing-state": (payload) => {

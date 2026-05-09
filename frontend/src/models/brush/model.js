@@ -180,6 +180,7 @@ export function brushModel(props, emit) {
         requestAnimationFrame(() => {
             while (ctx.value && currentBrush.value && drawQueue.value.length) {
                 const { x, y, alpha, size, angle, flipX, flipY } = drawQueue.value.shift();
+
                 const sc = (props.data.scatter / 100) * size;
                 const sx = (Math.random() - 0.5) * sc;
                 const sy = (Math.random() - 0.5) * sc;
@@ -188,13 +189,22 @@ export function brushModel(props, emit) {
 
                 ctx.value.save();
                 ctx.value.globalAlpha = alpha;
-                ctx.value.globalCompositeOperation = props.data.blendMode;
+                ctx.value.globalCompositeOperation = props.eraser
+                    ? 'destination-out'
+                    : props.data.blendMode;
 
                 ctx.value.translate(x + sx, y + sy);
                 ctx.value.scale(flipX ? -1 : 1, flipY ? -1 : 1);
                 ctx.value.rotate(angle);
-                ctx.value.drawImage(currentBrush.value, -finalSize / 2, -finalSize / 2, finalSize, finalSize);
+                ctx.value.drawImage(
+                    currentBrush.value,
+                    -finalSize / 2,
+                    -finalSize / 2,
+                    finalSize,
+                    finalSize
+                );
                 ctx.value.restore();
+
                 lastPos.value = { x, y };
             }
             animating.value = false;
@@ -438,4 +448,5 @@ export const brushProps = {
     cursor: { type: String, required: false },
     canvasId: { type: String, required: true },
     mouse: { type: Object, required: false },
+    eraser: { type: Boolean, required: false, default: false },
 };

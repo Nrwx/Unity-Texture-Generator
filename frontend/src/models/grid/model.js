@@ -1058,6 +1058,10 @@ export const gridProps = {
         type: Boolean,
         required: true,
     },
+    eraser: {
+        type: Boolean,
+        required: true,
+    },
     brushes: {
         type: Array,
         required: true,

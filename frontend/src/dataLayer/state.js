@@ -28,6 +28,7 @@ export const windowStates = {
     typing: ref(false),
     cursor: ref(false),
     brush: ref(false),
+    eraser: ref(false),
     pen: ref(false),
     path: ref(false),
     form: ref(false),
