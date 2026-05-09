@@ -48,6 +48,19 @@ export function gridModel(props, emit) {
         'left'
     ];
 
+    const MIN_ZOOM = 0.25;
+    const MAX_ZOOM = 8;
+    const ZOOM_CLICK_STEP = 1.15;
+    const ZOOM_SCRUB_SPEED = 0.01;
+
+    const isZoomScrubbing = ref(false);
+    const zoomDrag = ref({
+        x: 0,
+        y: 0,
+        scale: 1
+    });
+
+
     const emitEvent = (event, payload) => {
         emit("component-event", event, payload);
     };
@@ -72,6 +85,8 @@ export function gridModel(props, emit) {
 
         anchorPoint.value = { x: 0.5, y: 0.5 };
     };
+
+    const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
     const { register } = eventRegister('listener:grid', emitEvent);
 
@@ -143,6 +158,59 @@ export function gridModel(props, emit) {
             x: sx + cx,
             y: sy + cy
         };
+    };
+
+    const setZoomAt = (clientX, clientY, nextScale) => {
+        const rect = grid.value.container.ref.getBoundingClientRect();
+
+        const cx = rect.width / 2;
+        const cy = rect.height / 2;
+
+        const m = grid.value.container.matrix;
+
+        const px = clientX - rect.left - cx;
+        const py = clientY - rect.top - cy;
+
+        const world = screenToWorld(clientX, clientY);
+
+        const rot = (m.rotate * Math.PI) / 180;
+        const cos = Math.cos(rot);
+        const sin = Math.sin(rot);
+
+        const invX = px * cos + py * sin;
+        const invY = -px * sin + py * cos;
+
+        m.a = nextScale;
+        m.d = nextScale;
+
+        m.x = cx + invX / nextScale - world.x;
+        m.y = cy + invY / nextScale - world.y;
+    };
+
+    const zoomByStep = (clientX, clientY, direction = 1) => {
+        const current = grid.value.container.matrix.a || 1;
+        const factor = direction > 0 ? ZOOM_CLICK_STEP : 1 / ZOOM_CLICK_STEP;
+        const next = clamp(current * factor, MIN_ZOOM, MAX_ZOOM);
+        setZoomAt(clientX, clientY, next);
+    };
+
+    const zoomMouseMove = (event) => {
+        if (!isZoomScrubbing.value) return;
+
+        const dy = zoomDrag.value.y - event.clientY;
+        const next = clamp(
+            zoomDrag.value.scale * Math.exp(dy * ZOOM_SCRUB_SPEED),
+            MIN_ZOOM,
+            MAX_ZOOM
+        );
+
+        setZoomAt(zoomDrag.value.x, zoomDrag.value.y, next);
+    };
+
+    const stopZoomScrub = () => {
+        isZoomScrubbing.value = false;
+        register('remove', window, 'mousemove', zoomMouseMove);
+        register('remove', window, 'mouseup', stopZoomScrub);
     };
 
     const mouseMove = async (event) => {
@@ -361,7 +429,7 @@ export function gridModel(props, emit) {
 
         deltaAngle *= dampingFactor;
 
-        if (props.selectedLayer) {
+        if (props.selectedLayer.length) {
             props.selectedLayer.forEach(layer => {
                 let newRotation = (layer.matrix.rotate + deltaAngle + 360) % 360;
 
@@ -372,8 +440,13 @@ export function gridModel(props, emit) {
                 layer.matrix.rotate = parseFloat(newRotation.toFixed(2));
             });
         } else {
-            const newAngle = (grid.value.container.matrix.rotate + deltaAngle + 360) % 360;
-            grid.value.container.matrix.rotate = parseFloat(newAngle.toFixed(2));
+            let newRotation = (grid.value.container.matrix.rotate + deltaAngle + 360) % 360;
+
+            if (props.containerStates.align?.value) {
+                newRotation = getSnappedAngle(newRotation);
+            }
+
+            grid.value.container.matrix.rotate = parseFloat(newRotation.toFixed(2));
         }
 
         rotationStartAngle.value = currentAngle;
@@ -586,20 +659,26 @@ export function gridModel(props, emit) {
 
     const mouseDown = (event) => {
         event.preventDefault();
-        resetSelection(event);
-        if (props.containerStates.select.value) {
+        if (props.containerStates.scale.value) {
+            if (event.button === 0 || event.button === 2) {
+                event.preventDefault();
+
+                const zoomOut = event.button === 2 || event.altKey;
+                zoomByStep(event.clientX, event.clientY, zoomOut ? -1 : 1);
+
+                isZoomScrubbing.value = true;
+                zoomDrag.value = {
+                    x: event.clientX,
+                    y: event.clientY,
+                    scale: grid.value.container.matrix.a || 1
+                };
+
+                register('add', window, 'mousemove', zoomMouseMove);
+                register('add', window, 'mouseup', stopZoomScrub);
+            }
             return;
         }
-        if (props.containerStates.scale.value) {
-            if (event.button === 0) {
-                grid.value.container.matrix.a = Math.min(grid.value.container.matrix.a + 0.1, 2);
-                grid.value.container.matrix.d = Math.min(grid.value.container.matrix.d + 0.1, 2);
-            } else if (event.button === 2) {
-                event.preventDefault();
-                grid.value.container.matrix.a = Math.max(grid.value.container.matrix.a - 0.1, 0.5);
-                grid.value.container.matrix.d = Math.max(grid.value.container.matrix.d - 0.1, 0.5);
-            }
-        }
+        resetSelection(event);
     };
 
     const stopTransform = () => {
@@ -807,6 +886,7 @@ export function gridModel(props, emit) {
             return;
         }
         if (key === "z") {
+            emitEvent('grid:scale-state', false);
             emitEvent('apply-key-up', e)
             return;
         }
@@ -888,6 +968,10 @@ export const gridProps = {
     },
     layerStates: {
         type: Object,
+        required: true,
+    },
+    status: {
+        type: Array,
         required: true,
     },
     rule: {

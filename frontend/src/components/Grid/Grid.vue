@@ -61,6 +61,12 @@
         {{ `X: ${cursor.x}, Y: ${cursor.y}, DPI: ${settings.dpi}, Maß: ${settings.unit.toUpperCase()}`  }}
       </div>
 
+      <Status
+          :items="status"
+          :always-show="true"
+          :docked="false"
+      />
+
       <!-- Selection Box -->
       <Selection
           :state="select"
@@ -97,6 +103,7 @@ import Selection from "@/components/Selection/Selection";
 import Pen from "@/components/Pen/Pen";
 import Control from "@/components/Transform/Control";
 import Path from "@/components/Path/Drag";
+import Status from "@/components/Status/Status";
 
 export default defineComponent({
   name: "GridComponent",
@@ -110,7 +117,8 @@ export default defineComponent({
     Text,
     Image,
     Selection,
-    Control
+    Control,
+    Status
   },
   setup(props, { emit }) {
     const model = gridModel(props, emit);
