@@ -48,7 +48,7 @@ class Config:
                 self.base_dir = base_dir
                 self.syslink = syslink
                 self.boot_sequence: List[str] = [
-                    "sudo", "system", "project", "path", "driver", "gpu", "measure", "storage"
+                    "sudo", "system", "project", "path", "driver", "gpu", "plugin", "measure", "storage"
                 ]
                 self._secure_cache: Optional[Dict[str, Any]] = None
 
@@ -84,6 +84,22 @@ class Config:
             .get("config", {})
             .get("library_policy", {})
         )
+
+    def get_plugin_path(self) -> Optional[str]:
+        """Liest plugin_path aus der externen Config."""
+        raw = self._raw_config or {}
+        plugin_path = raw.get("plugin_path")
+
+        if not plugin_path:
+            return None
+
+        return os.path.abspath(os.path.expanduser(plugin_path))
+
+
+    def get_project_name(self) -> str:
+        raw = self._raw_config or {}
+        return raw.get("project_name") or "app"
+
     # -------------------------------------------------------------
     # Pre-Actions
     # -------------------------------------------------------------
@@ -127,6 +143,11 @@ class Config:
                 "ms_build_tools": self.registry.get("MS_BUILD_TOOLS"),
                 "log": self.log,
                 "task_manager": True
+            },
+            "plugin": lambda: {
+                "backend_path": self.registry.get("BACKEND_PATH"),
+                "plugin_path": self.get_plugin_path(),
+                "project_name": self.get_project_name()
             },
             "measure": lambda: {
                 "os_type": self.registry.get("OS_TYPE"),

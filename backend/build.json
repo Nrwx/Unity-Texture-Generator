@@ -8,6 +8,7 @@
   ],
   "flask_mode": "development",
   "log_file": "cli.log",
+  "plugin_path": "D:\\",
   "secure": {
     "service_name": "unity-texture-generator",
     "account_name": "Eric",
@@ -17,7 +18,7 @@
     "project_name": "unity-texture-generator"
   },
   "dependencies": {
-    "last_build": "2026-05-09T13:47:51.394562Z",
+    "last_build": "2026-05-10T15:43:53.644870Z",
     "config": {
       "library_policy": {
         "auto_update": true,
@@ -43,6 +44,26 @@
       },
       "python-dotenv": {
         "version": "1.1.1",
+        "freeze": false
+      },
+      "diffusers": {
+        "version": "0.38.0",
+        "freeze": false
+      },
+      "transformers": {
+        "version": "5.8.0",
+        "freeze": false
+      },
+      "accelerate": {
+        "version": "1.13.0",
+        "freeze": false
+      },
+      "safetensors": {
+        "version": "0.8.0rc0",
+        "freeze": false
+      },
+      "pillow": {
+        "version": "11.3.0",
         "freeze": false
       },
       "cairosvg": {
@@ -115,6 +136,10 @@
       },
       "svgwrite": {
         "version": "1.4.3",
+        "freeze": false
+      },
+      "torch": {
+        "version": "2.6.0",
         "freeze": false
       },
       "torchaudio": {
@@ -220,6 +245,51 @@
           ],
           "url": "",
           "function": "handle_ai",
+          "value": "dispatch"
+        }
+      },
+      "method_map": {
+        "prompt_img": {
+          "keys": [
+            "prompt",
+            "model",
+            "size",
+            "layer_type"
+          ],
+          "function": "generate_image",
+          "value": "dispatch"
+        }
+      },
+      "api": {
+        "dependency": {
+          "view": [
+            "log"
+          ],
+          "controller": [
+            "log"
+          ],
+          "model": [
+            "syslink",
+            "log"
+          ]
+        }
+      }
+    },
+    {
+      "blueprint": "local_ai",
+      "view_module": "view.local_ai_view",
+      "controller": "controller.local_ai_controller",
+      "model": "model.local_ai_model",
+      "url": "/local-ai/generateImage/",
+      "strict_slashes": false,
+      "active": true,
+      "routes": {
+        "0": {
+          "methods": [
+            "POST"
+          ],
+          "url": "",
+          "function": "handle_local_ai",
           "value": "dispatch"
         }
       },
@@ -772,6 +842,98 @@
             "tolerance"
           ],
           "function": "fill"
+        }
+      },
+      "api": {
+        "dependency": {
+          "view": [
+            "log"
+          ],
+          "controller": [
+            "log"
+          ],
+          "model": [
+            "syslink",
+            "log"
+          ]
+        }
+      }
+    },
+    {
+      "blueprint": "plugin",
+      "view_module": "view.plugin_view",
+      "controller": "controller.plugin_controller",
+      "model": "model.plugin_model",
+      "url": "/plugin",
+      "strict_slashes": false,
+      "initialize": true,
+      "active": true,
+      "routes": {
+        "0": {
+          "methods": [
+            "GET",
+            "POST"
+          ],
+          "url": "",
+          "function": "handle_plugin",
+          "value": "dispatch"
+        }
+      },
+      "method_map": {
+        "fetch": {
+          "keys": [],
+          "function": "fetch",
+          "value": "dispatch"
+        },
+        "scan": {
+          "keys": [],
+          "function": "scan",
+          "value": "dispatch"
+        },
+        "installAll": {
+          "keys": [],
+          "function": "install_all",
+          "value": "dispatch"
+        },
+        "install": {
+          "keys": [
+            "pluginId"
+          ],
+          "function": "install",
+          "value": "dispatch"
+        },
+        "repair": {
+          "keys": [
+            "pluginId"
+          ],
+          "function": "repair",
+          "value": "dispatch"
+        },
+        "pause": {
+          "keys": [
+            "pluginId"
+          ],
+          "function": "pause",
+          "value": "dispatch"
+        },
+        "uninstall": {
+          "keys": [
+            "pluginId"
+          ],
+          "function": "uninstall",
+          "value": "dispatch"
+        },
+        "toggle": {
+          "keys": [
+            "pluginId"
+          ],
+          "function": "toggle",
+          "value": "dispatch"
+        },
+        "upload": {
+          "keys": [],
+          "function": "upload",
+          "value": "dispatch"
         }
       },
       "api": {

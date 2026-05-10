@@ -230,6 +230,13 @@
                         :meta="tasksMeta"
                         @component-event="emitEvent"
                     />
+
+                    <Plugin
+                        v-else-if="f.type === 'plugin-manager'"
+                        :plugins="plugins"
+                        :theme="theme"
+                        @component-event="emitEvent"
+                    />
                   </div>
                 </v-form>
               </div>
@@ -264,10 +271,11 @@ import TaskControl from "@/components/Task/Control.vue";
 import TaskLog from "@/components/Task/Log.vue";
 import TaskSummary from "@/components/Task/Summary.vue";
 import Scrollbar from "@/components/Scrollbar/Scrollbar.vue";
+import Plugin from "@/components/Plugin/Plugin";
 
 export default defineComponent({
   name: "SettingComponent",
-  components: {Scrollbar, TaskSummary, TaskLog, TaskControl, TaskOverview, Task, Cache, StarRating, Dialog },
+  components: {Scrollbar, TaskSummary, TaskLog, TaskControl, TaskOverview, Task, Cache, StarRating, Plugin, Dialog },
   props: settingProps,
   setup(props, { emit }) {
     const model = settingModel(props, emit);

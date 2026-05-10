@@ -46,6 +46,7 @@ export const localData = {
     brush: ref([]),
     cursor: ref(''),
     fonts: ref([]),
+    plugins: ref([]),
     loadedFonts: ref(new Set()),
     shader: ref([]),
     paths: ref([]),

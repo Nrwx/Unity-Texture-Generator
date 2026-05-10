@@ -10,7 +10,7 @@
     </template>
     <template v-if="!windowStates.boot.value && !windowStates.viewport.value">
       <!-- Settings Dialog -->
-      <Setting @component-event="componentEvent" v-model:project-id="localData.viewport.value.id" v-model:state="windowStates.setting.value" v-model:setting="osSettings" v-model:category="settingCategory" v-model:meta="osSettings.meta" v-model:tasks="localData.tasks.value" v-model:tasks-meta="localData.tasksMeta.value" v-model:task-edit="windowStates.taskEdit.value" v-model:task-edit-loading="loadingStates.taskEdit.value" :loading="localData.loading.value" v-model:theme="appData.theme.value"/>
+      <Setting @component-event="componentEvent" v-model:project-id="localData.viewport.value.id" v-model:state="windowStates.setting.value" v-model:setting="osSettings" v-model:category="settingCategory" v-model:meta="osSettings.meta" v-model:tasks="localData.tasks.value" v-model:tasks-meta="localData.tasksMeta.value" v-model:task-edit="windowStates.taskEdit.value" v-model:task-edit-loading="loadingStates.taskEdit.value" :loading="localData.loading.value" v-model:plugins="localData.plugins.value" v-model:theme="appData.theme.value"/>
       <!-- Fullscreen Dialog -->
       <Fullscreen @component-event="componentEvent" v-model:state="windowStates.fullscreen.value" v-model:data="localData.fullscreenData" :loading="localData.loading.value" v-model:theme="appData.theme.value"/>
       <!-- Linke Taskbar -->

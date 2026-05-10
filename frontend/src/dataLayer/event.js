@@ -30,6 +30,7 @@ import {pathEvent} from "@/dataLayer/event/path";
 import {timelineEvent} from "@/dataLayer/event/timeline";
 import {taskEvent} from "@/dataLayer/event/task";
 import {shaderEvent} from "@/dataLayer/event/shader";
+import {pluginEvent} from "@/dataLayer/event/plugin";
 
 
 /**
@@ -49,6 +50,7 @@ const eventHandler = (route) => ({
     ...aiEvent(route),
     ...settingEvent(route),
     ...taskEvent(route),
+    ...pluginEvent(route),
     ...brushEvent(route),
     ...brushLayerEvent(route),
     ...viewportEvent(route),

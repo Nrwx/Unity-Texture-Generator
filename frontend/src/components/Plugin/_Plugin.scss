@@ -1,0 +1,13 @@
+.plugin-card {
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.plugin-card:hover {
+  transform: translateY(-1px);
+}
+
+.path-line {
+  word-break: break-all;
+  font-family: monospace;
+  font-size: 12px;
+}

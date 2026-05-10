@@ -173,6 +173,10 @@ export const settingProps = {
         type: Object,
         required: true,
     },
+    plugins: {
+        type: Array,
+        default: () => [],
+    },
     theme: {
         type: String,
         required: true,

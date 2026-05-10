@@ -5,6 +5,17 @@ PARAMETERS = {
         "prompt": {"type": str, "required": True},
         "model": {"type": str, "required": True},
     },
+    "local_ai": {
+        "method": {"type": str, "required": True},
+        "prompt": {"type": str, "required": True},
+        "model": {"type": str, "required": True},
+        "size": {"type": str, "required": False},
+        "layer_type": {"type": int, "required": False},
+    },
+    "plugin": {
+        "method": {"type": str, "required": True},
+        "pluginId": {"type": str, "required": False}
+    },
     "task": {
         "method": {"type": str, "required": True},
         "meta": {"type": bool, "default": False},

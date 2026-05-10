@@ -1,28 +1,48 @@
 import api from "@/dataLayer/api";
 
 /**
- * Bild über eigenes Flask-Backend generieren lassen
- * @param method
- * @param {string} prompt - Beschreibung des Bildes
- * @param mode - Img Model
- * @returns {Promise<boolean>} - Base64 oder Pfad des generierten Bildes
+ * Bild über Flask-Backend generieren lassen
+ * Entscheidet automatisch zwischen OpenAI und Local AI
+ *
+ * @param {string} prompt
+ * @param {string} model
+ * @param {string} size
+ * @param {number} layerType
+ * @returns {Promise<boolean>}
  */
-export const generateImage = async (prompt, mode) => {
+export const generateImage = async (
+    prompt,
+    model,
+    size = "512x512",
+    layerType = 0
+) => {
     try {
+        const localModels = ["sd15", "sdxl"];
+        const isLocalModel = localModels.includes(model);
+
+        const endpoint = isLocalModel
+            ? "/local-ai/generateImage/"
+            : "/ai/generateImage/";
+
         const formData = new FormData();
-        formData.append("method", 'prompt_img');
+        formData.append("method", "prompt_img");
         formData.append("prompt", prompt);
-        formData.append("model", mode);
+        formData.append("model", model);
 
-        const response = await api.post('/ai/generateImage/', formData);
+        // nur für lokale AI mitsenden, falls deine OpenAI-API diese Felder nicht erwartet
+        if (isLocalModel) {
+            formData.append("size", size);
+            formData.append("layer_type", layerType);
+        }
 
-        if(response) {
+        const response = await api.post(endpoint, formData);
+
+        if (response) {
             console.log("Bildantwort:", response);
             return true;
         }
 
-        // Alternativ, wenn dein Backend eine URL/Pfad zurückgibt:
-        // return response.data.url;
+        return false;
     } catch (error) {
         console.error("Fehler bei der Bildgenerierung:", error.response?.data || error.message);
         throw new Error(error.response?.data?.error || "Bildgenerierung fehlgeschlagen");

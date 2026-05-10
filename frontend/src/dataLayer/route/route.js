@@ -13,6 +13,8 @@ export { createBackup, fetchBackupList, jumpToBackup } from "./backup"
 
 export { fileUpload } from "./upload";
 
+export { installPlugin, fetchPlugin, installAllPlugin, scanPlugin, uploadPlugin, repairPlugin, togglePlugin, uninstallPlugin, pausePlugin } from "./plugin";
+
 export { fetchChannel, channelSettings, toggleChannel, activateChannel, createChannel, deleteChannel } from "./channel";
 
 export { generateImage  } from "./ai";

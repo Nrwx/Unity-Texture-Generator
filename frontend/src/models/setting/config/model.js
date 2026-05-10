@@ -269,5 +269,34 @@ export const settingCategory = ref([
                 ]
             }
         ]
+    },
+    {
+        level: 1,
+        id: uuidv4(),
+        key: "plugins",
+        icon: "mdi-puzzle",
+        title: "Plugins",
+        description: "Verwaltung von lokalen Erweiterungen, KI-Modellen und Plugin-Installationen.",
+        categories: [
+            {
+                level: 2,
+                id: uuidv4(),
+                key: "plugin_manager",
+                icon: "mdi-puzzle-outline",
+                title: "Manager",
+                description: "Installiere, scanne und verwalte lokale Plugins.",
+                fields: [
+                    {
+                        level: 3,
+                        id: uuidv4(),
+                        key: "plugin_manager_entry",
+                        type: "plugin-manager",
+                        icon: "mdi-puzzle",
+                        title: "Plugin Übersicht",
+                        description: "Lokale Plugins und KI-Modelle verwalten."
+                    }
+                ]
+            }
+        ]
     }
 ]);

@@ -10,6 +10,7 @@ FOLDER_STRUCTURE = {
         "font": None,
         "shader": None,
         "brush": None,
+        "plugin": None,
         "static": None,
         "backup": None,
         "path": None
@@ -18,6 +19,7 @@ FOLDER_STRUCTURE = {
         "brush": None,
         "font": None,
         "path": None,
+        "plugin": None,
         "shader": None,
         "driver": ["windows", "linux", "aarch64"],
     },
