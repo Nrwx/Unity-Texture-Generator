@@ -249,13 +249,15 @@
                       </span>
 
                       <span
-                          v-if="speedText(plugin) || etaText(plugin) || speedFallbackText(plugin)"
+                          v-if="downloadSpeedSummaryText(plugin) || speedFallbackText(plugin)"
                           class="text-caption text-grey text-no-wrap"
                       >
-                        <span v-if="speedText(plugin)">{{ speedText(plugin) }}</span>
-                        <span v-else-if="speedFallbackText(plugin)">{{ speedFallbackText(plugin) }}</span>
-                        <span v-if="speedText(plugin) && etaText(plugin)"> · </span>
-                        <span v-if="etaText(plugin)">{{ etaText(plugin) }}</span>
+                        <span v-if="downloadSpeedSummaryText(plugin)">
+                          {{ downloadSpeedSummaryText(plugin) }}
+                        </span>
+                        <span v-else>
+                          {{ speedFallbackText(plugin) }}
+                        </span>
                       </span>
 
                       <span
@@ -407,16 +409,72 @@
                 </v-col>
 
                 <v-col cols="12" md="6">
-                  <div class="text-caption text-grey">Geschwindigkeit</div>
+                  <div class="text-caption text-grey">Datei-Live</div>
                   <div class="text-body-2">
-                    {{ speedText(plugin) || speedFallbackText(plugin) || '—' }}
+                    {{ currentSpeedText(plugin) || '0 B/s' }}
                   </div>
                 </v-col>
 
                 <v-col cols="12" md="6">
-                  <div class="text-caption text-grey">Verbleibend</div>
+                  <div class="text-caption text-grey">Aktuelle Datei</div>
+                  <div class="text-body-2 path-line">
+                    {{ plugin.status?.currentFile || '—' }}
+                  </div>
+                </v-col>
+
+                <v-col cols="12" md="6">
+                  <div class="text-caption text-grey">Aktuelle Datei Fortschritt</div>
+                  <div class="text-body-2">
+                    {{ currentFileProgressText(plugin) || '—' }}
+                  </div>
+                </v-col>
+
+                <v-col cols="12" md="6">
+                  <div class="text-caption text-grey">Aktuelle Datei Rest</div>
+                  <div class="text-body-2">
+                    {{ currentFileRemainingText(plugin) || '—' }}
+                  </div>
+                </v-col>
+
+                <v-col cols="12" md="6">
+                  <div class="text-caption text-grey">Gesamt-Rest</div>
+                  <div class="text-body-2">
+                    {{ remainingText(plugin) || '—' }}
+                  </div>
+                </v-col>
+
+                <v-col cols="12" md="6">
+                  <div class="text-caption text-grey">Netzwerk Ø-Speed</div>
+                  <div class="text-body-2">
+                    {{ networkCurrentDownloadSpeedText(plugin) || '—' }}
+                  </div>
+                </v-col>
+
+                <v-col cols="12" md="6">
+                  <div class="text-caption text-grey">ETA über Netzwerk Ø</div>
                   <div class="text-body-2">
                     {{ etaText(plugin) || '—' }}
+                  </div>
+                </v-col>
+
+                <v-col cols="12" md="6">
+                  <div class="text-caption text-grey">Netzwerk Live</div>
+                  <div class="text-body-2">
+                    {{ networkCurrentText(plugin) || '—' }}
+                  </div>
+                </v-col>
+
+                <v-col cols="12" md="6">
+                  <div class="text-caption text-grey">Downloadzeit</div>
+                  <div class="text-body-2">
+                    {{ formatDuration(plugin.status?.downloadElapsedSeconds) || '—' }}
+                  </div>
+                </v-col>
+
+                <v-col cols="12" md="6">
+                  <div class="text-caption text-grey">Geglättet</div>
+                  <div class="text-body-2">
+                    {{ speedText(plugin) || '—' }}
                   </div>
                 </v-col>
 

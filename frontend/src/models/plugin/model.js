@@ -419,12 +419,15 @@ export function pluginModel(props, emit) {
 
         const status = plugin?.status || {};
         const present = Number(status.presentBytes || 0);
-        const previous = Number(status.speedSampleBytes || 0);
+        const expected = Number(status.expectedBytes || 0);
+        const live = Number(status.currentDownloadBytesPerSecond || 0);
 
-        // Wenn schon Daten vorhanden sind, aber keine Änderung messbar ist,
-        // dann nicht "messe Geschwindigkeit..." endlos anzeigen.
-        if (present > 0 && present === previous) {
-            return "warte auf Dateifortschritt...";
+        if (live > 0) {
+            return "";
+        }
+
+        if (present > 0 && expected > 0) {
+            return "Datei-Live 0 B/s";
         }
 
         return "messe Geschwindigkeit...";
@@ -432,6 +435,105 @@ export function pluginModel(props, emit) {
 
     const canContinue = (plugin) => {
         return Boolean(isPaused(plugin) || hasMissingOrPartialFiles(plugin) || pluginError(plugin));
+    };
+
+    const currentSpeedText = (plugin) => {
+        const status = plugin?.status || {};
+        const speed = Number(status.currentDownloadBytesPerSecond || 0);
+
+        if (speed > 0) {
+            return formatSpeed(speed);
+        }
+
+        return "";
+    };
+
+    const averageSpeedText = (plugin) => {
+        const status = plugin?.status || {};
+        const speed = Number(status.averageDownloadBytesPerSecond || 0);
+
+        if (speed > 0) {
+            return formatSpeed(speed);
+        }
+
+        return "";
+    };
+
+    const networkCurrentDownloadSpeedText = (plugin) => {
+        const status = plugin?.status || {};
+
+        const networkBitsPerSecond = Number(status.networkReceiveBitsPerSecondCurrent || 0);
+
+        if (networkBitsPerSecond > 0) {
+            return formatSpeed(networkBitsPerSecond / 8);
+        }
+
+        const averageBytesPerSecond = Number(status.averageDownloadBytesPerSecond || 0);
+
+        if (averageBytesPerSecond > 0) {
+            return formatSpeed(averageBytesPerSecond);
+        }
+
+        return "";
+    };
+
+    const downloadSpeedSummaryText = (plugin) => {
+        const parts = [];
+
+        const file = currentFileText(plugin);
+        const fileProgress = currentFileProgressText(plugin);
+        const fileRemaining = currentFileRemainingText(plugin);
+        const totalRemaining = remainingText(plugin);
+        const networkCurrent = networkCurrentDownloadSpeedText(plugin);
+        const eta = etaText(plugin);
+
+        if (file) {
+            parts.push(`Datei ${file}`);
+        }
+
+        if (fileProgress) {
+            parts.push(`Datei ${fileProgress}`);
+        }
+
+        if (fileRemaining) {
+            parts.push(`Datei-Rest ${fileRemaining}`);
+        }
+
+        if (totalRemaining) {
+            parts.push(`Rest ${totalRemaining}`);
+        }
+
+        if (networkCurrent) {
+            parts.push(`Netzwerk ${networkCurrent}`);
+        }
+
+        if (eta) {
+            parts.push(eta);
+        }
+
+        return parts.join(" · ");
+    };
+
+    const networkReceiveCurrentText = (plugin) => {
+        return formatBitsSpeed(plugin?.status?.networkReceiveBitsPerSecondCurrent);
+    };
+
+    const networkSendCurrentText = (plugin) => {
+        return formatBitsSpeed(plugin?.status?.networkSendBitsPerSecondCurrent);
+    };
+
+    const networkCurrentText = (plugin) => {
+        const recv = networkReceiveCurrentText(plugin);
+        const sent = networkSendCurrentText(plugin);
+
+        if (!recv && !sent) return "";
+
+        if (recv && sent) {
+            return `↓ ${recv} · ↑ ${sent}`;
+        }
+
+        if (recv) return `↓ ${recv}`;
+        return `↑ ${sent}`;
     };
 
     const formatBitsSpeed = (bitsPerSecond) => {
@@ -474,22 +576,30 @@ export function pluginModel(props, emit) {
     };
 
     const formatDuration = (seconds) => {
-        const value = Number(seconds || 0);
+        const value = Math.max(0, Math.floor(Number(seconds || 0)));
 
-        if (!value || value < 0) return "";
+        if (!Number.isFinite(value) || value <= 0) return "";
 
-        const h = Math.floor(value / 3600);
+        const d = Math.floor(value / 86400);
+        const h = Math.floor((value % 86400) / 3600);
         const m = Math.floor((value % 3600) / 60);
-        const s = Math.floor(value % 60);
+        const s = value % 60;
 
+        if (d > 0) return `${d}d ${h}h`;
         if (h > 0) return `${h}h ${m}m`;
         if (m > 0) return `${m}m ${s}s`;
         return `${s}s`;
     };
 
     const etaText = (plugin) => {
-        const text = formatDuration(plugin?.status?.etaSeconds);
-        return text ? `ETA ${text}` : "";
+        const status = plugin?.status || {};
+        const seconds = Number(status.networkEtaSeconds ?? status.etaSeconds);
+
+        if (!Number.isFinite(seconds) || seconds <= 0) {
+            return "";
+        }
+
+        return `ETA ${formatDuration(seconds)}`;
     };
 
     const downloadText = (plugin) => {
@@ -500,6 +610,75 @@ export function pluginModel(props, emit) {
         if (!expected && !present) return "";
 
         return `${formatBytes(present)} / ${formatBytes(expected)}`;
+    };
+
+    const basename = (path) => {
+        const value = String(path || "");
+        if (!value) return "";
+
+        return value.split(/[\\/]/).filter(Boolean).pop() || value;
+    };
+
+    const currentFileText = (plugin) => {
+        const status = plugin?.status || {};
+        const file = status.currentFile;
+
+        if (!file) return "";
+
+        const index = Number(status.currentFileIndex || 0);
+        const total = Number(status.currentFileCount || 0);
+
+        if (index > 0 && total > 0) {
+            return `${index}/${total} ${basename(file)}`;
+        }
+
+        return basename(file);
+    };
+
+    const currentFileRemainingText = (plugin) => {
+        const status = plugin?.status || {};
+        const remaining = Number(status.currentFileRemainingBytes || 0);
+
+        if (remaining > 0) {
+            return formatBytes(remaining);
+        }
+
+        const expected = Number(status.currentFileExpectedBytes || 0);
+        const present = Number(status.currentFilePresentBytes || 0);
+
+        if (expected > 0 && expected >= present) {
+            return formatBytes(expected - present);
+        }
+
+        return "";
+    };
+
+    const currentFileProgressText = (plugin) => {
+        const status = plugin?.status || {};
+        const expected = Number(status.currentFileExpectedBytes || 0);
+        const present = Number(status.currentFilePresentBytes || 0);
+
+        if (!expected && !present) return "";
+
+        return `${formatBytes(present)} / ${formatBytes(expected)}`;
+    };
+
+    const remainingText = (plugin) => {
+        const status = plugin?.status || {};
+        const remaining = Number(status.remainingBytes || 0);
+
+        if (remaining > 0) {
+            return formatBytes(remaining);
+        }
+
+        const expected = Number(status.expectedBytes || 0);
+        const present = Number(status.presentBytes || 0);
+
+        if (expected > 0 && expected >= present) {
+            return formatBytes(expected - present);
+        }
+
+        return "";
     };
 
     const downloadProblemText = (plugin) => {
@@ -698,6 +877,13 @@ export function pluginModel(props, emit) {
         pluginPath,
         pluginError,
 
+        basename,
+        currentFileText,
+        currentFileRemainingText,
+        currentFileProgressText,
+        remainingText,
+        networkCurrentDownloadSpeedText,
+
         isInstalled,
         isRunning,
         isRepairing,
@@ -725,6 +911,16 @@ export function pluginModel(props, emit) {
         networkReceiveText,
         networkSendText,
         networkText,
+
+        currentSpeedText,
+        averageSpeedText,
+        downloadSpeedSummaryText,
+
+        networkReceiveCurrentText,
+        networkSendCurrentText,
+        networkCurrentText,
+
+        formatDuration,
 
         installButtonText,
         installButtonColor,

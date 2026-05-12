@@ -487,9 +487,32 @@ class PluginModel(BaseModel):
 
         status.setdefault("paused", False)
         status.setdefault("pauseRequested", False)
-        status.setdefault("speedBytesPerSecond", 0)
+
+        # Download-Fortschritt
+        status.setdefault("downloadedBytesAtStart", 0)
+        status.setdefault("downloadedBytesThisRun", 0)
+        status.setdefault("remainingBytes", 0)
+
+        # Zeitbasis für echte Durchschnittsgeschwindigkeit.
+        # Wird erst gesetzt, sobald wirklich neue Bytes dazukommen.
+        status.setdefault("downloadStartedAt", None)
+        status.setdefault("downloadElapsedSeconds", 0)
+
+        # Geschwindigkeit
+        status.setdefault("currentDownloadBytesPerSecond", 0)   # exakt letztes Intervall
+        status.setdefault("averageDownloadBytesPerSecond", 0)   # echte Ø-Geschwindigkeit
+        status.setdefault("speedBytesPerSecond", 0)             # geglättet / legacy
+
+        # Sample-Basis
         status.setdefault("speedSampleAt", None)
         status.setdefault("speedSampleBytes", 0)
+
+        # ETA ist Dauer in Sekunden, kein Timestamp
+        status.setdefault("etaSeconds", None)
+
+        # Netzwerk live/geglättet
+        status.setdefault("networkReceiveBitsPerSecondCurrent", 0)
+        status.setdefault("networkSendBitsPerSecondCurrent", 0)
 
         status.setdefault("networkReceiveBitsPerSecond", 0)
         status.setdefault("networkSendBitsPerSecond", 0)
@@ -497,6 +520,22 @@ class PluginModel(BaseModel):
         status.setdefault("networkSampleAt", None)
         status.setdefault("networkSampleRecv", 0)
         status.setdefault("networkSampleSent", 0)
+
+        status.setdefault("remainingBytes", 0)
+
+        status.setdefault("currentFile", None)
+        status.setdefault("currentFileExpectedBytes", 0)
+        status.setdefault("currentFilePresentBytes", 0)
+        status.setdefault("currentFileRemainingBytes", 0)
+
+        status.setdefault("currentFileStartPresentBytes", 0)
+        status.setdefault("currentFileIndex", 0)
+        status.setdefault("currentFileCount", 0)
+
+        status.setdefault("networkDownloadStartedAt", None)
+        status.setdefault("networkDownloadedBytesThisRun", 0)
+        status.setdefault("networkAverageReceiveBytesPerSecond", 0)
+        status.setdefault("networkEtaSeconds", None)
 
         status.setdefault("expectedFileCount", 0)
         status.setdefault("completeFileCount", 0)
@@ -584,10 +623,36 @@ class PluginModel(BaseModel):
         status["message"] = message or f"{action} gestartet"
         status["error"] = None
 
+        initial_present = int(status.get("presentBytes") or 0)
+        now = cls._now_ms()
+
+        status["downloadedBytesAtStart"] = initial_present
+        status["downloadedBytesThisRun"] = 0
+        status["remainingBytes"] = 0
+
+        status["downloadStartedAt"] = None
+        status["downloadElapsedSeconds"] = 0
+
+        status["currentDownloadBytesPerSecond"] = 0
+        status["averageDownloadBytesPerSecond"] = 0
         status["speedBytesPerSecond"] = 0
-        status["speedSampleAt"] = None
-        status["speedSampleBytes"] = int(status.get("presentBytes") or 0)
+
+        status["speedSampleAt"] = now
+        status["speedSampleBytes"] = initial_present
+
         status["etaSeconds"] = None
+
+        status["remainingBytes"] = 0
+
+        status["currentFile"] = None
+        status["currentFileExpectedBytes"] = 0
+        status["currentFilePresentBytes"] = 0
+        status["currentFileRemainingBytes"] = 0
+
+        status["networkDownloadStartedAt"] = None
+        status["networkDownloadedBytesThisRun"] = 0
+        status["networkAverageReceiveBytesPerSecond"] = 0
+        status["networkEtaSeconds"] = None
 
         manifest["updatedAt"] = cls._now_ms()
 
@@ -683,20 +748,65 @@ class PluginModel(BaseModel):
         if previous_at > 0 and now > previous_at:
             delta_seconds = max(0.001, (now - previous_at) / 1000)
 
-            recv_bps = max(0, int(((recv_bytes - previous_recv) * 8) / delta_seconds))
-            sent_bps = max(0, int(((sent_bytes - previous_sent) * 8) / delta_seconds))
+            delta_recv_bytes = max(0, recv_bytes - previous_recv)
+            delta_sent_bytes = max(0, sent_bytes - previous_sent)
+
+            recv_bits_per_second_current = int((delta_recv_bytes * 8) / delta_seconds)
+            sent_bits_per_second_current = int((delta_sent_bytes * 8) / delta_seconds)
+
+            status["networkReceiveBitsPerSecondCurrent"] = recv_bits_per_second_current
+            status["networkSendBitsPerSecondCurrent"] = sent_bits_per_second_current
 
             old_recv = int(status.get("networkReceiveBitsPerSecond") or 0)
             old_sent = int(status.get("networkSendBitsPerSecond") or 0)
 
+            recv_bits_per_second_smooth = recv_bits_per_second_current
+            sent_bits_per_second_smooth = sent_bits_per_second_current
+
             if old_recv > 0:
-                recv_bps = int((old_recv * 0.6) + (recv_bps * 0.4))
+                recv_bits_per_second_smooth = int((old_recv * 0.6) + (recv_bits_per_second_current * 0.4))
 
             if old_sent > 0:
-                sent_bps = int((old_sent * 0.6) + (sent_bps * 0.4))
+                sent_bits_per_second_smooth = int((old_sent * 0.6) + (sent_bits_per_second_current * 0.4))
 
-            status["networkReceiveBitsPerSecond"] = recv_bps
-            status["networkSendBitsPerSecond"] = sent_bps
+            status["networkReceiveBitsPerSecond"] = recv_bits_per_second_smooth
+            status["networkSendBitsPerSecond"] = sent_bits_per_second_smooth
+
+            # Netzwerk-Ø nur starten, wenn wirklich Downloadtraffic sichtbar ist.
+            # Kleine Werte ignorieren, damit Idle/HTTP-Metadaten nicht sofort den Ø verfälschen.
+            min_download_delta_bytes = 32 * 1024
+
+            if delta_recv_bytes >= min_download_delta_bytes:
+                if not status.get("networkDownloadStartedAt"):
+                    status["networkDownloadStartedAt"] = previous_at
+
+                status["networkDownloadedBytesThisRun"] = int(
+                    status.get("networkDownloadedBytesThisRun") or 0
+                ) + int(delta_recv_bytes)
+
+            started_at = int(status.get("networkDownloadStartedAt") or 0)
+            downloaded_network_bytes = int(status.get("networkDownloadedBytesThisRun") or 0)
+
+            network_average_bytes_per_second = 0
+
+            if started_at > 0 and now > started_at and downloaded_network_bytes > 0:
+                elapsed_seconds = max(0.001, (now - started_at) / 1000)
+                network_average_bytes_per_second = int(downloaded_network_bytes / elapsed_seconds)
+
+            status["networkAverageReceiveBytesPerSecond"] = int(network_average_bytes_per_second)
+
+            remaining_bytes = int(status.get("remainingBytes") or 0)
+
+            if remaining_bytes > 0 and network_average_bytes_per_second > 0:
+                status["networkEtaSeconds"] = int(remaining_bytes / network_average_bytes_per_second)
+                status["etaSeconds"] = int(status["networkEtaSeconds"])
+            else:
+                status["networkEtaSeconds"] = None
+                status["etaSeconds"] = None
+
+            # Für Frontend-Kompatibilität:
+            # Ø-Speed soll sich jetzt allein aufs Netzwerk beziehen.
+            status["averageDownloadBytesPerSecond"] = int(network_average_bytes_per_second)
 
         status["networkAdapter"] = adapter_name
         status["networkSampleAt"] = now
@@ -824,28 +934,81 @@ class PluginModel(BaseModel):
 
         present_bytes = max(previous_present, monitor_bytes)
 
+        remaining_bytes = 0
+        if expected_bytes > 0:
+            remaining_bytes = max(0, expected_bytes - int(present_bytes))
+
+        status["remainingBytes"] = int(remaining_bytes)
+
         now = cls._now_ms()
         previous_sample_at = int(status.get("speedSampleAt") or 0)
         previous_sample_bytes = int(status.get("speedSampleBytes") or 0)
 
-        speed_bps = int(status.get("speedBytesPerSecond") or 0)
+        downloaded_at_start = int(status.get("downloadedBytesAtStart") or 0)
+        downloaded_this_run = max(0, int(present_bytes) - downloaded_at_start)
+
+        remaining_bytes = 0
+        if expected_bytes > 0:
+            remaining_bytes = max(0, expected_bytes - int(present_bytes))
+
+        current_speed_bps = 0
+        smoothed_speed_bps = int(status.get("speedBytesPerSecond") or 0)
 
         if previous_sample_at > 0 and now > previous_sample_at:
-            delta_bytes = max(0, present_bytes - previous_sample_bytes)
+            delta_bytes = max(0, int(present_bytes) - previous_sample_bytes)
             delta_seconds = max(0.001, (now - previous_sample_at) / 1000)
 
-            current_speed = int(delta_bytes / delta_seconds)
+            # Exakte Dateisystem-Live-Geschwindigkeit.
+            # Wenn keine neuen Bytes sichtbar sind, ist Datei-Live wirklich 0.
+            current_speed_bps = int(delta_bytes / delta_seconds)
 
-            # Glätten, damit die Anzeige nicht wild springt.
-            if current_speed > 0:
-                if speed_bps > 0:
-                    speed_bps = int((speed_bps * 0.6) + (current_speed * 0.4))
+            # Ø-Timer erst starten, wenn wirklich Fortschritt sichtbar ist.
+            if delta_bytes > 0 and not status.get("downloadStartedAt"):
+                status["downloadStartedAt"] = previous_sample_at
+
+            # Geglätteter Wert: nur aktualisieren, wenn Fortschritt sichtbar ist.
+            # Nicht künstlich herunterzählen, sonst sieht es wie falscher Live-Speed aus.
+            if current_speed_bps > 0:
+                if smoothed_speed_bps > 0:
+                    smoothed_speed_bps = int((smoothed_speed_bps * 0.6) + (current_speed_bps * 0.4))
                 else:
-                    speed_bps = current_speed
+                    smoothed_speed_bps = current_speed_bps
+
+        download_started_at = int(status.get("downloadStartedAt") or 0)
+        elapsed_seconds = 0
+        average_speed_bps = 0
+
+        if download_started_at > 0 and now > download_started_at:
+            elapsed_seconds = int((now - download_started_at) / 1000)
+
+            if elapsed_seconds > 0 and downloaded_this_run > 0:
+                average_speed_bps = int(downloaded_this_run / elapsed_seconds)
+
+        eta_seconds = None
+
+        # ETA bewusst mit Ø-Speed berechnen.
+        # ETA = verbleibende Bytes / durchschnittliche Bytes pro Sekunde
+        if remaining_bytes > 0 and average_speed_bps > 0:
+            eta_seconds = int(remaining_bytes / average_speed_bps)
 
         status["speedSampleAt"] = now
         status["speedSampleBytes"] = int(present_bytes)
-        status["speedBytesPerSecond"] = int(speed_bps)
+
+        status["downloadedBytesThisRun"] = int(downloaded_this_run)
+        status["remainingBytes"] = int(remaining_bytes)
+        status["downloadElapsedSeconds"] = int(elapsed_seconds)
+
+        # Exakt letztes Intervall
+        status["currentDownloadBytesPerSecond"] = int(current_speed_bps)
+
+        # Echte Durchschnittsgeschwindigkeit seit erstem sichtbaren Byte-Fortschritt
+        status["averageDownloadBytesPerSecond"] = int(average_speed_bps)
+
+        # Legacy/geglättet
+        status["speedBytesPerSecond"] = int(smoothed_speed_bps)
+
+        # Dauer in Sekunden, kein Timestamp
+        status["etaSeconds"] = eta_seconds
 
         progress = int(status.get("progress") or 0)
 
@@ -858,6 +1021,18 @@ class PluginModel(BaseModel):
         status["heartbeatAt"] = cls._now_ms()
         status["presentBytes"] = int(present_bytes)
         status["monitorBytes"] = int(monitor_bytes)
+        current_file = status.get("currentFile")
+        current_file_expected = int(status.get("currentFileExpectedBytes") or 0)
+        current_file_start_present = int(status.get("currentFileStartPresentBytes") or 0)
+
+        if current_file and current_file_expected > 0:
+            current_file_present = max(0, int(present_bytes) - current_file_start_present)
+            current_file_present = min(current_file_present, current_file_expected)
+
+            status["currentFilePresentBytes"] = int(current_file_present)
+            status["currentFileRemainingBytes"] = int(
+                max(0, current_file_expected - current_file_present)
+            )
         status["finalPresentBytes"] = max(
             int(status.get("finalPresentBytes") or 0),
             int(sizes.get("finalBytes") or 0)
@@ -867,12 +1042,6 @@ class PluginModel(BaseModel):
             int(sizes.get("cacheBytes") or 0)
         )
         status["progress"] = max(1, min(99, progress))
-
-        if expected_bytes > 0 and present_bytes > 0 and speed_bps > 0:
-            remaining = max(0, expected_bytes - present_bytes)
-            status["etaSeconds"] = int(remaining / speed_bps)
-        else:
-            status["etaSeconds"] = None
 
         if message:
             status["message"] = message
