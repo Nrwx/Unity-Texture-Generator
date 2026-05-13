@@ -354,7 +354,7 @@ semver @ file:///C:/b/abs_6bgol0at6h/croot/semver_1736542515243/work
 Send2Trash @ file:///C:/b/abs_7e73ol18dl/croot/send2trash_1736542724140/work
 sentry-sdk @ file:///C:/Users/dev-admin/buildout/croot/sentry-sdk_1735879083852/work
 service-identity @ file:///C:/b/abs_2bq9_6ah3e/croot/service_identity_1749714991616/work
-setuptools==78.1.0
+setuptools==82.0.1
 shellingham @ file:///C:/Users/dev-admin/perseverance-python-buildout/croot/shellingham_1729046672855/work
 sip @ file:///C:/b/abs_b6twfwtueg/croot/sip_1736544693649/work
 six @ file:///C:/b/abs_149wuyuo1o/croot/six_1744271521515/work
@@ -380,7 +380,7 @@ statsmodels @ file:///C:/b/abs_c797jbabmm/croot/statsmodels_1734018887218/work
 streamlit @ file:///C:/b/abs_a5vo_b5ysk/croot/streamlit-split_1748963606986/work/streamlit
 superqt @ file:///C:/b/abs_11kt812ym3/croot/superqt_1743709210824/work
 svgwrite==1.4.3
-sympy==1.13.1
+sympy==1.14.0
 tables @ file:///C:/b/abs_e0h8gc4hz7/croot/pytables_1748452085563/work
 tabulate @ file:///C:/Users/dev-admin/perseverance-python-buildout/croot/tabulate_1729056893645/work
 tbb==2022.3.0
@@ -400,9 +400,9 @@ toml @ file:///tmp/build/80754af9/toml_1616166611790/work
 tomli @ file:///C:/Users/dev-admin/perseverance-python-buildout/croot/tomli_1729047129961/work
 tomlkit @ file:///C:/Users/dev-admin/buildout/perseverance-python-buildout/croot/tomlkit_1731700037073/work
 toolz @ file:///C:/b/abs_57avamxh36/croot/toolz_1736796279321/work
-torch==2.6.0
-torchaudio==2.6.0
-torchvision==0.21.0
+torch==2.7.1+cu118
+torchaudio==2.7.1+cu118
+torchvision==0.22.1+cu118
 tornado @ file:///C:/b/abs_7dzpc171lf/croot/tornado_1748956950306/work
 tqdm @ file:///C:/b/abs_0eh9b6xugj/croot/tqdm_1738945553987/work
 traitlets @ file:///C:/Users/dev-admin/perseverance-python-buildout/croot/traitlets_1729038154689/work
@@ -427,7 +427,7 @@ webencodings==0.5.1
 websocket-client @ file:///C:/Users/dev-admin/perseverance-python-buildout/croot/websocket-client_1729041881346/work
 Werkzeug @ file:///C:/b/abs_c7bupijx2_/croot/werkzeug_1737448709012/work
 whatthepatch @ file:///C:/Users/dev-admin/perseverance-python-buildout/croot/whatthepatch_1729057332458/work
-wheel==0.45.1
+wheel==0.47.0
 widgetsnbextension @ file:///C:/Users/dev-admin/buildout/croot/widgetsnbextension_1735847225457/work
 win_inet_pton @ file:///C:/Users/dev-admin/perseverance-python-buildout/croot/win_inet_pton_1729038644686/work
 wrapt @ file:///C:/b/abs_68gzx33lzh/croot/wrapt_1736543196433/work

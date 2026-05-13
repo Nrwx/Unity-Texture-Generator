@@ -107,15 +107,15 @@
         },
         "torch": {
           "status": "up-to-date",
-          "version": "2.6.0"
+          "version": "2.7.1+cu118"
         },
         "torchaudio": {
           "status": "up-to-date",
-          "version": "2.6.0"
+          "version": "2.7.1+cu118"
         },
         "torchvision": {
           "status": "up-to-date",
-          "version": "0.21.0"
+          "version": "0.22.1+cu118"
         },
         "tzlocal": {
           "status": "up-to-date",

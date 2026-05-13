@@ -663,6 +663,44 @@ export function pluginModel(props, emit) {
         return `${formatBytes(present)} / ${formatBytes(expected)}`;
     };
 
+    const statusClass = (plugin) => {
+        const color = statusColor(plugin);
+
+        if (color === "success") return "plugin-card--success";
+        if (color === "error") return "plugin-card--error";
+        if (color === "warning") return "plugin-card--warning";
+        if (color === "primary") return "plugin-card--primary";
+        if (color === "info") return "plugin-card--info";
+
+        return "plugin-card--default";
+    };
+
+    const currentFileProgressPercent = (plugin) => {
+        const status = plugin?.status || {};
+        const expected = Number(status.currentFileExpectedBytes || 0);
+        const present = Number(status.currentFilePresentBytes || 0);
+
+        if (expected <= 0) return 0;
+
+        return Math.max(0, Math.min(100, Math.round((present / expected) * 100)));
+    };
+
+    const hasDownloadDetails = (plugin) => {
+        const status = plugin?.status || {};
+
+        return Boolean(
+            status.currentFile ||
+            status.expectedBytes ||
+            status.presentBytes ||
+            status.remainingBytes ||
+            status.networkReceiveBitsPerSecond ||
+            status.networkReceiveBitsPerSecondCurrent ||
+            status.averageDownloadBytesPerSecond ||
+            status.etaSeconds ||
+            status.networkEtaSeconds
+        );
+    };
+
     const remainingText = (plugin) => {
         const status = plugin?.status || {};
         const remaining = Number(status.remainingBytes || 0);
@@ -921,6 +959,10 @@ export function pluginModel(props, emit) {
         networkCurrentText,
 
         formatDuration,
+
+        statusClass,
+        currentFileProgressPercent,
+        hasDownloadDetails,
 
         installButtonText,
         installButtonColor,

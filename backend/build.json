@@ -18,7 +18,7 @@
     "project_name": "unity-texture-generator"
   },
   "dependencies": {
-    "last_build": "2026-05-12T16:49:48.044711Z",
+    "last_build": "2026-05-13T21:58:09.553841Z",
     "config": {
       "library_policy": {
         "auto_update": true,
@@ -139,15 +139,15 @@
         "freeze": false
       },
       "torch": {
-        "version": "2.6.0",
+        "version": "2.7.1+cu118",
         "freeze": false
       },
       "torchaudio": {
-        "version": "2.6.0",
+        "version": "2.7.1+cu118",
         "freeze": false
       },
       "torchvision": {
-        "version": "0.21.0",
+        "version": "0.22.1+cu118",
         "freeze": false
       },
       "tzlocal": {
