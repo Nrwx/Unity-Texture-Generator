@@ -1,30 +1,45 @@
 <template>
   <div v-show="state" class="brush-canvas-wrapper absolute inset w-h">
-    <canvas
-        ref="canvas"
-        class="brush-canvas absolute"
-        :id="canvasId"
-        :width="selectedLayer?.width || 0"
-        :height="selectedLayer?.height || 0"
+    <div
+        class="brush-layer-wrapper absolute"
         :style="{
+            width: `${selectedLayer?.width || 0}px`,
+            height: `${selectedLayer?.height || 0}px`,
             opacity: selectedLayer?.opacity || 0,
             zIndex: selectedLayer?.order || 0,
-            transform: buildMatrix(selectedLayer?.matrix || {})
+            transform: buildMatrix(selectedLayer?.matrix || {}),
+            transformOrigin: 'center center'
+        }"
+    >
+      <canvas
+          ref="canvas"
+          class="brush-canvas absolute"
+          :id="canvasId"
+          :width="selectedLayer?.width || 0"
+          :height="selectedLayer?.height || 0"
+          :style="{
+              left: '0px',
+              top: '0px',
+              width: `${selectedLayer?.width || 0}px`,
+              height: `${selectedLayer?.height || 0}px`
           }"
-    />
+      />
+
+      <img
+          v-if="cursor !== ''"
+          :src="cursor"
+          alt="Maskierter Pinsel"
+          class="brush-cursor absolute cursor-none"
+          :style="setCursor"
+      />
+    </div>
+
     <Menu
         :visible="visible"
         :menuPos="menuPos"
         :settings="data"
         :brushes="brushes"
         @update:menu-event="emitEvent"
-    />
-    <img
-        v-if="cursor !== ''"
-        :src="cursor"
-        alt="Maskierter Pinsel"
-        class="brush-cursor absolute cursor-none"
-        :style="setCursor"
     />
   </div>
 </template>

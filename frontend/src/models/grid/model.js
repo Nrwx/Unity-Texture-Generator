@@ -117,7 +117,7 @@ export function gridModel(props, emit) {
         let x = clientX - rect.left - cx;
         let y = clientY - rect.top - cy;
 
-        const s = grid.value.container.matrix.a ||grid.value.container.matrix.d;
+        const s = grid.value.container.matrix.a || grid.value.container.matrix.d;
         x /= s;
         y /= s;
 
