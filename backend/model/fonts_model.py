@@ -1,7 +1,11 @@
 # model/fonts_model.py
-import os, shutil, zipfile, uuid, tempfile
+import os, shutil, zipfile, uuid, tempfile, html
 from flask import jsonify
 from werkzeug.utils import secure_filename
+from fontTools.ttLib import TTFont
+from fontTools.pens.svgPathPen import SVGPathPen
+from fontTools.pens.transformPen import TransformPen
+from fontTools.misc.transform import Transform
 from PIL import Image, ImageDraw, ImageFont
 from model.base.main import BaseModel
 from generated.paths import ASSETS_FONT_FOLDER, PUBLIC_FONT_FOLDER
@@ -72,10 +76,47 @@ class FontsModel(BaseModel):
             return cls.handle_error(e)
 
     @classmethod
+    def _find_font_path(cls, font_id):
+        font_path = None
+
+        for group in FONTS:
+            for child in group.get("children", []):
+                if child.get("id") == font_id:
+                    font_path = os.path.join(
+                        PUBLIC_FONT_FOLDER,
+                        group["id"],
+                        os.path.basename(child["path"])
+                    )
+                    break
+
+            if font_path:
+                break
+
+        if not font_path:
+            fallback_group = next(
+                (g for g in FONTS if g.get("name") == "Microsoft Sans Serif.zip"),
+                None
+            )
+
+            if fallback_group and fallback_group.get("children"):
+                fallback_child = fallback_group["children"][0]
+                font_path = os.path.join(
+                    PUBLIC_FONT_FOLDER,
+                    fallback_group["id"],
+                    os.path.basename(fallback_child["path"])
+                )
+
+        if font_path and os.path.exists(font_path):
+            return font_path
+
+        return None
+
+    @classmethod
     def render(cls, layer):
         try:
             if layer.get("type") != 1:
                 return None
+
             text = layer.get("text", "")
             font_id = layer.get("font")
             font_size = int(layer.get("fontSize", 20))
@@ -83,20 +124,7 @@ class FontsModel(BaseModel):
             width = int(layer.get("width", 200))
             height = int(layer.get("height", 50))
 
-            font_path = None
-            for group in FONTS:
-                for child in group.get("children", []):
-                    if child["id"] == font_id:
-                        font_path = os.path.join(PUBLIC_FONT_FOLDER, group["id"], os.path.basename(child["path"]))
-                        break
-                if font_path:
-                    break
-
-            if not font_path:
-                fallback_group = next((g for g in FONTS if g["name"] == "Microsoft Sans Serif.zip"), None)
-                if fallback_group and fallback_group.get("children"):
-                    fallback_child = fallback_group["children"][0]
-                    font_path = os.path.join(PUBLIC_FONT_FOLDER, fallback_group["id"], os.path.basename(fallback_child["path"]))
+            font_path = cls._find_font_path(font_id)
 
             try:
                 if font_path and os.path.exists(font_path):
@@ -109,9 +137,174 @@ class FontsModel(BaseModel):
             img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
             draw = ImageDraw.Draw(img)
             draw.text((0, 0), text, font=font, fill=color)
+
             return img
+
         except Exception as e:
             return cls.handle_error(e)
+
+    @classmethod
+    def render_svg_paths(cls, layer):
+        """
+        Wandelt einen Font-Layer in echte SVG-Pfade um.
+
+        Ergebnis:
+            <path d="..." fill="#..." />
+
+        Vorteil:
+            - bleibt vektorbasiert
+            - braucht beim Öffnen keine installierte Font
+            - Photoshop/Illustrator/Inkscape/Browser können es anzeigen
+
+        Einschränkung:
+            - einfache Glyph-Positionierung
+            - kein komplexes Shaping für Arabisch, Devanagari, Ligaturen etc.
+            - Kerning wird basic unterstützt, falls klassische kern-Tabelle vorhanden ist
+        """
+        try:
+            if layer.get("type") != 1:
+                return ""
+
+            text = str(layer.get("text", "") or "")
+            if not text:
+                return ""
+
+            font_id = layer.get("font")
+            font_size = int(layer.get("fontSize", 20))
+            color = str(layer.get("color", "#000000") or "#000000")
+
+            font_path = cls._find_font_path(font_id)
+            if not font_path:
+                return ""
+
+            font = TTFont(font_path)
+            glyph_set = font.getGlyphSet()
+            cmap = font.getBestCmap() or {}
+
+            units_per_em = font["head"].unitsPerEm
+            scale = font_size / units_per_em
+
+            hmtx = font["hmtx"].metrics if "hmtx" in font else {}
+
+            ascender = 0
+            descender = 0
+            line_gap = 0
+
+            if "hhea" in font:
+                ascender = font["hhea"].ascent
+                descender = font["hhea"].descent
+                line_gap = font["hhea"].lineGap
+            elif "OS/2" in font:
+                ascender = font["OS/2"].sTypoAscender
+                descender = font["OS/2"].sTypoDescender
+                line_gap = font["OS/2"].sTypoLineGap
+
+            baseline = ascender * scale
+            line_height = (ascender - descender + line_gap) * scale
+
+            if line_height <= 0:
+                line_height = font_size * 1.2
+
+            kerning = cls._read_basic_kerning(font)
+
+            x = 0.0
+            y = baseline
+            previous_glyph_name = None
+
+            path_parts = []
+
+            for char in text:
+                if char == "\n":
+                    x = 0.0
+                    y += line_height
+                    previous_glyph_name = None
+                    continue
+
+                codepoint = ord(char)
+                glyph_name = cmap.get(codepoint)
+
+                if not glyph_name:
+                    # Fallback Advance für unbekannte Zeichen
+                    x += font_size * 0.5
+                    previous_glyph_name = None
+                    continue
+
+                if previous_glyph_name:
+                    kern_value = kerning.get((previous_glyph_name, glyph_name), 0)
+                    x += kern_value * scale
+
+                glyph = glyph_set[glyph_name]
+
+                pen = SVGPathPen(glyph_set)
+
+                # Font-Koordinaten sind Y-up.
+                # SVG ist Y-down.
+                # Deshalb d = -scale und y = baseline.
+                transform = Transform(
+                    scale,
+                    0,
+                    0,
+                    -scale,
+                    x,
+                    y
+                )
+
+                transformed_pen = TransformPen(pen, transform)
+                glyph.draw(transformed_pen)
+
+                d = pen.getCommands()
+
+                if d:
+                    path_parts.append(d)
+
+                advance_width = hmtx.get(glyph_name, (units_per_em * 0.5, 0))[0]
+                x += advance_width * scale
+
+                previous_glyph_name = glyph_name
+
+            if not path_parts:
+                return ""
+
+            path_data = " ".join(path_parts)
+
+            safe_fill = html.escape(color, quote=True)
+
+            return f'<path d="{path_data}" fill="{safe_fill}" />'
+
+        except Exception as e:
+            try:
+                log(f"Font SVG Path Export fehlgeschlagen: {e}", "EXPORT", "WARNING", "⚠️")
+            except Exception:
+                pass
+
+            return ""
+
+    @staticmethod
+    def _read_basic_kerning(font):
+        """
+        Liest einfache klassische 'kern'-Tabelle.
+
+        Moderne OpenType-GPOS-Kerning wird hier nicht vollständig behandelt.
+        Für normale UI-Fonts reicht das oft erstmal.
+        """
+        kerning = {}
+
+        try:
+            if "kern" not in font:
+                return kerning
+
+            for table in font["kern"].kernTables:
+                if not hasattr(table, "kernTable"):
+                    continue
+
+                for pair, value in table.kernTable.items():
+                    left, right = pair
+                    kerning[(left, right)] = value
+
+        except Exception:
+            pass
+
+        return kerning
 
     @classmethod
     def _copy_standard_assets(cls):

@@ -18,7 +18,7 @@
     "project_name": "unity-texture-generator"
   },
   "dependencies": {
-    "last_build": "2026-05-13T21:58:09.553841Z",
+    "last_build": "2026-05-14T18:19:33.922537Z",
     "config": {
       "library_policy": {
         "auto_update": true,
@@ -68,6 +68,10 @@
       },
       "cairosvg": {
         "version": "2.8.2",
+        "freeze": false
+      },
+      "fonttools": {
+        "version": "4.63.0",
         "freeze": false
       },
       "chardet": {
@@ -559,6 +563,8 @@
             "paperSize",
             "landscape",
             "margin",
+            "raster",
+            "pdfFitMode",
             "mipmap",
             "ddsCompress"
           ],

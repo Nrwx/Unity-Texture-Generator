@@ -7,6 +7,19 @@ export const statusBarItems = [
         id: uuid(),
         key: "select",
         icon: "mdi-cursor-default-outline",
+        color: "#5ba669",
+        priority: 10,
+        active: computed(() => {
+            return windowStates.cursor.value;
+        }),
+        temporary: false,
+        hidden: false,
+        tooltip: "Auswahl aktiv",
+    },
+    {
+        id: uuid(),
+        key: "select",
+        icon: "mdi-select",
         color: "#4f8cff",
         priority: 10,
         active: computed(() => {
@@ -14,7 +27,7 @@ export const statusBarItems = [
         }),
         temporary: false,
         hidden: false,
-        tooltip: "Auswahl aktiv",
+        tooltip: "Maskierung aktiv",
     },
     {
         id: uuid(),

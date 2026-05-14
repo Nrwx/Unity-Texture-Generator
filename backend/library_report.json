@@ -37,6 +37,10 @@
           "status": "up-to-date",
           "version": "2.8.2"
         },
+        "fonttools": {
+          "status": "up-to-date",
+          "version": "4.63.0"
+        },
         "chardet": {
           "status": "up-to-date",
           "version": "5.2.0"

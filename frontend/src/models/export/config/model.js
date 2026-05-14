@@ -10,6 +10,8 @@ export const exportData = ref({
         compress: false,
         mipmap: true,
         inlineCss: false,
+        raster: false,
+        pdfFitMode: false,
         paperSize: 'A4',
         landscape: false,
         ddsCompress: "DXT3",

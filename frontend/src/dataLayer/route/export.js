@@ -12,6 +12,8 @@ export const updateExport = async (data) => {
         formData.append("compress", data.compress);
         formData.append("inlineCss", data.inlineCss);
         formData.append("paperSize", data.paperSize);
+        formData.append("raster", data.raster);
+        formData.append("pdfFitMode", data.pdfFitMode);
         formData.append("landscape", data.landscape);
         formData.append("margin", data.margin);
         formData.append("mipmap", data.mipmap);

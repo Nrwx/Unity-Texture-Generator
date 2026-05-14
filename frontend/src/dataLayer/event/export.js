@@ -44,6 +44,12 @@ export const exportEvent = (route) => ({
     "export:margin": async (payload) => {
         route.exportData.value.margin = payload;
     },
+    "export:raster": async (payload) => {
+        route.exportData.value.raster = payload;
+    },
+    "export:pdfFitMode": async (payload) => {
+        route.exportData.value.pdfFitMode = payload;
+    },
     "export:update": async (payload) => {
         const data = {
             mode: payload.mode,

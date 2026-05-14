@@ -55,6 +55,8 @@ export function exportModel(props, emit) {
         compress: exportData.value.compress,
         inlineCss: exportData.value.inlineCss,
         paperSize: exportData.value.paperSize,
+        raster: exportData.value.raster,
+        pdfFitMode: exportData.value.pdfFitMode,
         landscape: exportData.value.landscape,
         margin: exportData.value.margin,
         mipmap: exportData.value.mipmap,
@@ -162,6 +164,33 @@ export function exportModel(props, emit) {
                 ],
                 title: 'Ausrichtung',
                 subtitle: 'Exportiert das Dokument im Querformat statt Hochformat.',
+            },
+            raster: {
+                type: 'select',
+                label: 'PDF Render-Modus',
+                prependIcon: 'mdi-vector-square',
+                event: 'export:raster',
+                active: exportData.value.mode === 2,
+                options: [
+                    { title: 'Raster-PDF', value: true },
+                    { title: 'Vektor-PDF', value: false }
+                ],
+                title: 'PDF Render-Modus',
+                subtitle: 'Raster-PDF nutzt das fertige Composite. Vektor-PDF erhält SVG-Formen und Textpfade als Vektoren.',
+            },
+            pdfFitMode: {
+                type: 'select',
+                label: 'PDF Einpassung',
+                prependIcon: 'mdi-fit-to-page-outline',
+                event: 'export:pdfFitMode',
+                active: exportData.value.mode === 2,
+                options: [
+                    { title: 'Einpassen', value: 'contain' },
+                    { title: 'Ausfüllen', value: 'cover' },
+                    { title: 'Strecken', value: 'stretch' }
+                ],
+                title: 'PDF Einpassung',
+                subtitle: 'Einpassen zeigt alles vollständig. Ausfüllen füllt die Seite und kann beschneiden. Strecken verzerrt exakt auf die Seite.',
             },
             margin: {
                 type: 'number',

@@ -277,6 +277,8 @@ PARAMETERS = {
         #PDF EXPORT
         "paperSize": {"type": str, "default": ""},
         "landscape": {"type": bool, "default": False},
+        "raster": {"type": bool, "default": True},
+        "pdfFitMode": {"type": str, "default": "contain"},
         "margin": {"type": int, "default": 10},
     },
     "render": {

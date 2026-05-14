@@ -114,7 +114,7 @@ filelock==3.18.0
 flake8 @ file:///C:/Users/dev-admin/perseverance-python-buildout/croot/flake8_1729054074515/work
 Flask==3.0.3
 flask-cors==6.0.1
-fonttools @ file:///C:/b/abs_4crkswws2h/croot/fonttools_1737040078745/work
+fonttools==4.63.0
 frozendict @ file:///C:/Users/dev-admin/perseverance-python-buildout/croot/frozendict_1729090952168/work
 frozenlist @ file:///C:/b/abs_06ctmb1zeo/croot/frozenlist_1730903113463/work
 fsspec @ file:///C:/b/abs_69yqxz6g_2/croot/fsspec_1747117728825/work
