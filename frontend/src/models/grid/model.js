@@ -344,7 +344,6 @@ export function gridModel(props, emit) {
                         .filter(g => g.type === 'vertical')
                         .map(g => g.position),
                     0,
-                    props.settings.width / 2,
                     props.settings.width
                 ])).sort((a, b) => a - b);
 
@@ -353,7 +352,6 @@ export function gridModel(props, emit) {
                         .filter(g => g.type === 'horizontal')
                         .map(g => g.position),
                     0,
-                    props.settings.height / 2,
                     props.settings.height
                 ])).sort((a, b) => a - b);
 

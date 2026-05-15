@@ -22,18 +22,119 @@ export function guideModel(props, emit) {
         return Math.max(min, Math.min(max, value));
     };
 
-    const convertUnitToPixels = (unit, value, dpi) => {
+    const getUnitSuffix = () => {
+        const unit = props.settings.unit || "px";
+
+        if (unit === "px") return "";
+
+        return unit;
+    };
+
+    const getUnitFactor = () => {
+        const unit = props.settings.unit || "px";
+        const dpi = props.settings.dpi || 96;
+
         switch (unit) {
             case "in":
-                return value * dpi;
+                return dpi;
             case "mm":
-                return (value / 25.4) * dpi;
+                return dpi / 25.4;
             case "cm":
-                return (value / 2.54) * dpi;
+                return dpi / 2.54;
             case "px":
             default:
-                return value;
+                return 1;
         }
+    };
+
+    const formatRulerLabel = (valuePx) => {
+        const unit = props.settings.unit || "px";
+        const factor = getUnitFactor();
+        const value = valuePx / factor;
+
+        if (unit === "px") {
+            return `${Math.round(value)}`;
+        }
+
+        if (Math.abs(value) >= 10) {
+            return `${Number(value.toFixed(1))}${getUnitSuffix()}`;
+        }
+
+        return `${Number(value.toFixed(2))}${getUnitSuffix()}`;
+    };
+
+    /**
+     * Gibt schöne Werte zurück:
+     * 1, 2, 5, 10, 20, 50, 100, 200, 500 ...
+     */
+    const getNiceStep = (rawStep) => {
+        if (!Number.isFinite(rawStep) || rawStep <= 0) {
+            return 50;
+        }
+
+        const exponent = Math.floor(Math.log10(rawStep));
+        const base = Math.pow(10, exponent);
+        const fraction = rawStep / base;
+
+        let niceFraction;
+
+        if (fraction <= 1) {
+            niceFraction = 1;
+        } else if (fraction <= 2) {
+            niceFraction = 2;
+        } else if (fraction <= 5) {
+            niceFraction = 5;
+        } else {
+            niceFraction = 10;
+        }
+
+        return niceFraction * base;
+    };
+
+    const getRulerStep = (scale) => {
+        const safeScale = Math.max(0.0001, scale || 1);
+
+        /**
+         * Mindestabstand zwischen beschrifteten Labels in Screen-Pixeln.
+         * Größer = weniger Labels.
+         * Kleiner = mehr Labels.
+         */
+        const minLabelDistancePx = 72;
+
+        const rawMajorStepPx = minLabelDistancePx / safeScale;
+        const majorStepPx = getNiceStep(rawMajorStepPx);
+
+        /**
+         * Kleine Zwischenstriche zwischen den großen Label-Marks.
+         */
+        const minorStepPx = majorStepPx / 5;
+
+        return {
+            major: majorStepPx,
+            minor: minorStepPx
+        };
+    };
+
+    const createRulerMarks = (size, scale) => {
+        const marks = [];
+        const { major, minor } = getRulerStep(scale);
+
+        for (let value = 0; value <= size + minor / 2; value += minor) {
+            const roundedValue = Math.round(value * 10000) / 10000;
+
+            const majorIndex = Math.round(roundedValue / major);
+            const majorValue = majorIndex * major;
+
+            const isMajor = Math.abs(roundedValue - majorValue) < minor * 0.001;
+
+            marks.push({
+                value: roundedValue,
+                major: isMajor,
+                label: isMajor ? formatRulerLabel(roundedValue) : ""
+            });
+        }
+
+        return marks;
     };
 
     const syncGuidesToContainer = async () => {
@@ -146,45 +247,21 @@ export function guideModel(props, emit) {
     };
 
     const columnPositions = computed(() => {
-        const positions = [];
-        const unit = props.settings.unit || "px";
-        const dpi = props.settings.dpi || 96;
+        guideSyncTick.value;
 
-        let stepInUnits = 1;
-
-        if (unit === "px") stepInUnits = 50;
-        else if (unit === "in") stepInUnits = 0.5;
-        else if (unit === "mm") stepInUnits = 10;
-        else if (unit === "cm") stepInUnits = 1;
-
-        const step = convertUnitToPixels(unit, stepInUnits, dpi);
-
-        for (let x = 0; x <= props.settings.width; x += step) {
-            positions.push(x);
-        }
-
-        return positions;
+        return createRulerMarks(
+            props.settings.width,
+            props.container.a || 1
+        );
     });
 
     const rowPositions = computed(() => {
-        const positions = [];
-        const unit = props.settings.unit || "px";
-        const dpi = props.settings.dpi || 96;
+        guideSyncTick.value;
 
-        let stepInUnits = 1;
-
-        if (unit === "px") stepInUnits = 50;
-        else if (unit === "in") stepInUnits = 0.5;
-        else if (unit === "mm") stepInUnits = 10;
-        else if (unit === "cm") stepInUnits = 1;
-
-        const step = convertUnitToPixels(unit, stepInUnits, dpi);
-
-        for (let y = 0; y <= props.settings.height; y += step) {
-            positions.push(y);
-        }
-
-        return positions;
+        return createRulerMarks(
+            props.settings.height,
+            props.container.d || 1
+        );
     });
 
     const startDraggingGuide = async (helper, event) => {
@@ -290,10 +367,6 @@ export function guideModel(props, emit) {
     };
 
     const getGuideStyle = (g) => {
-        /**
-         * Reaktiver Trigger:
-         * Wenn guideSyncTick geändert wird, berechnet Vue die Styles neu.
-         */
         guideSyncTick.value;
 
         const main = getMainEl();
@@ -330,7 +403,29 @@ export function guideModel(props, emit) {
 
         const angle = Math.atan2(dy, dx) * 180 / Math.PI;
 
-        const visualLength = Math.sqrt(mainWidth * mainWidth + mainHeight * mainHeight) * 2;
+        const mainDiagonal = Math.sqrt(
+            mainWidth * mainWidth +
+            mainHeight * mainHeight
+        );
+
+        const canvasVisualWidth = props.settings.width * (props.container.a || 1);
+        const canvasVisualHeight = props.settings.height * (props.container.d || 1);
+
+        const canvasDiagonal = Math.sqrt(
+            canvasVisualWidth * canvasVisualWidth +
+            canvasVisualHeight * canvasVisualHeight
+        );
+
+        const offsetDistance = Math.sqrt(
+            (props.container.x || 0) * (props.container.x || 0) +
+            (props.container.y || 0) * (props.container.y || 0)
+        );
+
+        /**
+         * Sehr lang, damit die Guide auch bei A4, Zoom, Rotation
+         * und verschobenem Canvas optisch nicht abgeschnitten wird.
+         */
+        const visualLength = (Math.max(mainDiagonal, canvasDiagonal) + offsetDistance) * 4;
 
         const startX = p1.x - ux * visualLength / 2;
         const startY = p1.y - uy * visualLength / 2;

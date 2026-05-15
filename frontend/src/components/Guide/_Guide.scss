@@ -1,42 +1,120 @@
 /* Guide */
-.guide-overlay {
-  position: absolute;
-  inset: 0;
-  overflow: visible;
-  pointer-events: none;
-  z-index: 9998;
-}
 
 .guide {
   position: absolute;
-  z-index: +1;
+  z-index: 1;
   background: blue;
   opacity: 0.7;
   pointer-events: all;
 }
+
 /* Lineale */
+
 .ruler {
   position: absolute;
   background-color: #333;
   color: white;
   font-size: 12px;
   z-index: 1;
+  overflow: hidden;
+  user-select: none;
 }
 
 .x-axis {
   top: 0;
+  left: 0;
   height: 20px;
   width: 100%;
 }
 
 .y-axis {
+  top: 0;
   left: 0;
   width: 20px;
   height: 100%;
 }
 
-.ruler-mark {
+/*
+  Der Track bleibt der bewegte Bereich.
+  Er wandert weiterhin mit container.x / container.y.
+*/
+
+.ruler-track {
   position: relative;
+  flex: none;
+}
+
+.x-track {
+  height: 100%;
+}
+
+.y-track {
+  width: 100%;
+}
+
+/*
+  Marks sind absolute Punkte im bewegten Track.
+  Dadurch bleibt das alte Ruler-Verhalten erhalten,
+  aber die Abstände können dynamisch sein.
+*/
+
+.ruler-mark {
+  position: absolute;
   font-size: 10px;
   color: #ddd;
+  line-height: 1;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+/* X-Achse */
+
+.x-mark {
+  top: 0;
+  height: 100%;
+  border-left: 1px solid rgba(221, 221, 221, 0.65);
+}
+
+.x-mark.is-minor {
+  height: 35%;
+  opacity: 0.45;
+}
+
+.x-mark.is-major {
+  height: 100%;
+  opacity: 1;
+}
+
+.x-mark span {
+  position: absolute;
+  top: 3px;
+  left: 4px;
+  white-space: nowrap;
+}
+
+/* Y-Achse */
+
+.y-mark {
+  left: 0;
+  width: 100%;
+  border-top: 1px solid rgba(221, 221, 221, 0.65);
+}
+
+.y-mark.is-minor {
+  width: 35%;
+  opacity: 0.45;
+}
+
+.y-mark.is-major {
+  width: 100%;
+  opacity: 1;
+}
+
+.y-mark span {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  white-space: nowrap;
+  transform: rotate(-90deg) translateX(-100%);
+  transform-origin: left top;
 }
