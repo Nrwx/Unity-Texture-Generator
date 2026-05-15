@@ -73,8 +73,7 @@ export function gridModel(props, emit) {
             return { x: 0, y: 0 };
         }
 
-        const world = getAnchorWorld();
-        return worldToScreen(world.x, world.y);
+        return getAnchorWorld();
     });
 
     const isDraggingAnchor = ref(false);
@@ -111,52 +110,34 @@ export function gridModel(props, emit) {
     const screenToWorld = (clientX, clientY) => {
         const rect = grid.value.container.ref.getBoundingClientRect();
 
-        const cx = rect.width / 2;
-        const cy = rect.height / 2;
+        const width = props.settings.width;
+        const height = props.settings.height;
 
-        let x = clientX - rect.left - cx;
-        let y = clientY - rect.top - cy;
+        const cx = width / 2;
+        const cy = height / 2;
 
-        const s = grid.value.container.matrix.a || grid.value.container.matrix.d;
-        x /= s;
-        y /= s;
+        const m = grid.value.container.matrix;
+        const scale = m.a || 1;
 
-        const a = (-grid.value.container.matrix.rotate * Math.PI) / 180;
-        const cos = Math.cos(a);
-        const sin = Math.sin(a);
+        let x = clientX - rect.left;
+        let y = clientY - rect.top;
 
-        const rx = x * cos - y * sin;
-        const ry = x * sin + y * cos;
+        x /= scale;
+        y /= scale;
 
-        return {
-            x: rx + cx - grid.value.container.matrix.x,
-            y: ry + cy - grid.value.container.matrix.y
-        };
-    };
+        const angle = (-m.rotate * Math.PI) / 180;
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
 
-    const worldToScreen = (x, y) => {
-        const rect = grid.value.container.ref.getBoundingClientRect();
+        const dx = x - cx;
+        const dy = y - cy;
 
-        const cx = rect.width / 2;
-        const cy = rect.height / 2;
-
-        let sx = x - cx + grid.value.container.matrix.x;
-        let sy = y - cy + grid.value.container.matrix.y;
-
-        const a = (grid.value.container.matrix.rotate * Math.PI) / 180;
-        const cos = Math.cos(a);
-        const sin = Math.sin(a);
-
-        const rx = sx * cos - sy * sin;
-        const ry = sx * sin + sy * cos;
-
-        const s = grid.value.container.matrix.a ||grid.value.container.matrix.d;
-        sx = rx * s;
-        sy = ry * s;
+        const rx = dx * cos - dy * sin + cx;
+        const ry = dx * sin + dy * cos + cy;
 
         return {
-            x: sx + cx,
-            y: sy + cy
+            x: rx - m.x,
+            y: ry - m.y
         };
     };
 
