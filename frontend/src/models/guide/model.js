@@ -1,71 +1,161 @@
-import { computed, nextTick, onBeforeUnmount, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { eventRegister } from "@/dataLayer/event";
 
 export function guideModel(props, emit) {
     const guide = ref(null);
 
+    /**
+     * Vue trackt window.getComputedStyle(canvas).transform nicht reaktiv.
+     * Deshalb erzwingen wir über guideSyncTick ein Re-Render,
+     * sobald sich die weitergereichte Container-Matrix ändert.
+     */
+    const guideSyncTick = ref(0);
+    let guideSyncFrame = null;
+
     const emitEvent = (event, payload) => {
         emit("update:guides-event", event, payload);
     };
 
-    const { register } = eventRegister('listener:guide-panel', emitEvent);
+    const { register } = eventRegister("listener:guide-panel", emitEvent);
+
+    const clamp = (value, min, max) => {
+        return Math.max(min, Math.min(max, value));
+    };
 
     const convertUnitToPixels = (unit, value, dpi) => {
         switch (unit) {
-            case 'in': return value * dpi;
-            case 'mm': return (value / 25.4) * dpi;
-            case 'cm': return (value / 2.54) * dpi;
-            case 'px':
+            case "in":
+                return value * dpi;
+            case "mm":
+                return (value / 25.4) * dpi;
+            case "cm":
+                return (value / 2.54) * dpi;
+            case "px":
             default:
                 return value;
         }
     };
 
-    const getCanvasCenter = () => ({
-        x: props.container.x + (props.settings.width * props.container.a) / 2,
-        y: props.container.y + (props.settings.height * props.container.d) / 2,
-    });
+    const syncGuidesToContainer = async () => {
+        await nextTick();
 
-    const rotatePoint = (x, y, cx, cy, angleDeg) => {
-        const rad = (angleDeg * Math.PI) / 180;
-        const cos = Math.cos(rad);
-        const sin = Math.sin(rad);
+        if (guideSyncFrame) {
+            cancelAnimationFrame(guideSyncFrame);
+        }
 
-        const dx = x - cx;
-        const dy = y - cy;
+        guideSyncFrame = requestAnimationFrame(() => {
+            guideSyncTick.value++;
+            guideSyncFrame = null;
+        });
+    };
+
+    const onGuideViewportResize = () => {
+        syncGuidesToContainer();
+    };
+
+    const getCanvasEl = () => {
+        return document.getElementById(props.canvasId);
+    };
+
+    const getMainEl = () => {
+        return document.getElementById(props.mainId);
+    };
+
+    const parseTransformOrigin = (value) => {
+        const parts = value.split(" ");
 
         return {
-            x: cx + dx * cos - dy * sin,
-            y: cy + dx * sin + dy * cos,
+            x: parseFloat(parts[0]) || 0,
+            y: parseFloat(parts[1]) || 0
+        };
+    };
+
+    const getElementOffsetTo = (element, target) => {
+        let x = element.offsetLeft || 0;
+        let y = element.offsetTop || 0;
+
+        let parent = element.offsetParent;
+
+        while (parent && parent !== target) {
+            x += parent.offsetLeft || 0;
+            y += parent.offsetTop || 0;
+            parent = parent.offsetParent;
+        }
+
+        return { x, y };
+    };
+
+    const getCanvasToMainMatrix = () => {
+        const canvas = getCanvasEl();
+        const main = getMainEl();
+
+        if (!canvas || !main) {
+            return new DOMMatrix();
+        }
+
+        const style = window.getComputedStyle(canvas);
+
+        const origin = parseTransformOrigin(style.transformOrigin);
+
+        const cssMatrix =
+            style.transform && style.transform !== "none"
+                ? new DOMMatrix(style.transform)
+                : new DOMMatrix();
+
+        const offset = getElementOffsetTo(canvas, main);
+
+        return new DOMMatrix()
+            .translate(offset.x + origin.x, offset.y + origin.y)
+            .multiply(cssMatrix)
+            .translate(-origin.x, -origin.y);
+    };
+
+    const canvasPointToMain = (x, y) => {
+        const point = new DOMPoint(x, y).matrixTransform(getCanvasToMainMatrix());
+
+        return {
+            x: point.x,
+            y: point.y
+        };
+    };
+
+    const mainPointToCanvas = (x, y) => {
+        const inverse = getCanvasToMainMatrix().inverse();
+
+        const point = new DOMPoint(x, y).matrixTransform(inverse);
+
+        return {
+            x: point.x,
+            y: point.y
         };
     };
 
     const getLocalPoint = (event) => {
-        const center = getCanvasCenter();
-        const rotated = rotatePoint(
-            event.clientX,
-            event.clientY,
-            center.x,
-            center.y,
-            -(props.container.rotate || 0)
-        );
+        const main = getMainEl();
 
-        return {
-            x: rotated.x - (props.container.x || 0),
-            y: rotated.y - (props.container.y || 0),
-        };
+        if (!main) {
+            return { x: 0, y: 0 };
+        }
+
+        const mainRect = main.getBoundingClientRect();
+
+        const mainX = event.clientX - mainRect.left;
+        const mainY = event.clientY - mainRect.top;
+
+        return mainPointToCanvas(mainX, mainY);
     };
 
     const columnPositions = computed(() => {
         const positions = [];
-        const unit = props.settings.unit || 'px';
+        const unit = props.settings.unit || "px";
         const dpi = props.settings.dpi || 96;
 
         let stepInUnits = 1;
-        if (unit === 'px') stepInUnits = 50;
-        else if (unit === 'in') stepInUnits = 0.5;
-        else if (unit === 'mm') stepInUnits = 10;
-        else if (unit === 'cm') stepInUnits = 1;
+
+        if (unit === "px") stepInUnits = 50;
+        else if (unit === "in") stepInUnits = 0.5;
+        else if (unit === "mm") stepInUnits = 10;
+        else if (unit === "cm") stepInUnits = 1;
 
         const step = convertUnitToPixels(unit, stepInUnits, dpi);
 
@@ -78,14 +168,15 @@ export function guideModel(props, emit) {
 
     const rowPositions = computed(() => {
         const positions = [];
-        const unit = props.settings.unit || 'px';
+        const unit = props.settings.unit || "px";
         const dpi = props.settings.dpi || 96;
 
         let stepInUnits = 1;
-        if (unit === 'px') stepInUnits = 50;
-        else if (unit === 'in') stepInUnits = 0.5;
-        else if (unit === 'mm') stepInUnits = 10;
-        else if (unit === 'cm') stepInUnits = 1;
+
+        if (unit === "px") stepInUnits = 50;
+        else if (unit === "in") stepInUnits = 0.5;
+        else if (unit === "mm") stepInUnits = 10;
+        else if (unit === "cm") stepInUnits = 1;
 
         const step = convertUnitToPixels(unit, stepInUnits, dpi);
 
@@ -99,93 +190,201 @@ export function guideModel(props, emit) {
     const startDraggingGuide = async (helper, event) => {
         await nextTick();
         event.preventDefault();
+        event.stopPropagation();
+
         guide.value = helper;
-        register('add', document, 'mousemove', dragGuide);
-        register('add', document, 'mouseup', stopDraggingGuide);
+
+        register("add", document, "mousemove", dragGuide);
+        register("add", document, "mouseup", stopDraggingGuide);
     };
 
     const startGuide = async (type, event) => {
         await nextTick();
         event.preventDefault();
+        event.stopPropagation();
 
         const point = getLocalPoint(event);
-        const position = type === 'horizontal' ? point.y : point.x;
+
+        let position = type === "horizontal" ? point.y : point.x;
+
+        if (type === "horizontal") {
+            position = clamp(position, 0, props.settings.height);
+        } else {
+            position = clamp(position, 0, props.settings.width);
+        }
+
+        const tolerance = 5 / (props.container.a || 1);
 
         const index = props.guides.findIndex(
-            g => g.type === type && Math.abs(g.position - position) < 5
+            g => g.type === type && Math.abs(g.position - position) < tolerance
         );
 
         if (index !== -1) {
             props.guides.splice(index, 1);
         } else {
-            const newGuide = { id: Date.now(), type, position };
+            const newGuide = {
+                id: Date.now(),
+                type,
+                position
+            };
+
             props.guides.push(newGuide);
+
             await startDraggingGuide(newGuide, event);
         }
 
-        emitEvent('app:update-guide', props.guides);
+        emitEvent("app:update-guide", props.guides);
+        syncGuidesToContainer();
     };
 
     const dragGuide = (event) => {
         event.preventDefault();
+
         if (!guide.value) return;
 
         const point = getLocalPoint(event);
-        const newPosition = guide.value.type === 'horizontal' ? point.y : point.x;
+
+        let newPosition =
+            guide.value.type === "horizontal"
+                ? point.y
+                : point.x;
+
+        if (guide.value.type === "horizontal") {
+            newPosition = clamp(newPosition, 0, props.settings.height);
+        } else {
+            newPosition = clamp(newPosition, 0, props.settings.width);
+        }
 
         if (guide.value.position !== newPosition) {
             guide.value.position = newPosition;
+            syncGuidesToContainer();
         }
     };
 
     const stopDraggingGuide = () => {
         if (!guide.value) return;
 
-        const isOnXAxis = guide.value.type === 'horizontal' && guide.value.position <= 20;
-        const isOnYAxis = guide.value.type === 'vertical' && guide.value.position <= 20;
+        const removeThreshold = 20 / (props.container.a || 1);
+
+        const isOnXAxis =
+            guide.value.type === "horizontal" &&
+            guide.value.position <= removeThreshold;
+
+        const isOnYAxis =
+            guide.value.type === "vertical" &&
+            guide.value.position <= removeThreshold;
 
         if (isOnXAxis || isOnYAxis) {
             const guidesRef = props.guides.filter(g => g.id !== guide.value.id);
-            emitEvent('app:update-guide', guidesRef);
+            emitEvent("app:update-guide", guidesRef);
         } else {
-            emitEvent('app:update-guide', props.guides);
+            emitEvent("app:update-guide", props.guides);
         }
 
         guide.value = null;
-        register('remove', document, 'mousemove', dragGuide);
-        register('remove', document, 'mouseup', stopDraggingGuide);
+
+        register("remove", document, "mousemove", dragGuide);
+        register("remove", document, "mouseup", stopDraggingGuide);
+
+        syncGuidesToContainer();
     };
 
     const getGuideStyle = (g) => {
-        const rotation = props.container.rotate || 0;
+        /**
+         * Reaktiver Trigger:
+         * Wenn guideSyncTick geändert wird, berechnet Vue die Styles neu.
+         */
+        guideSyncTick.value;
 
-        return g.type === 'horizontal'
-            ? {
-                top: `${g.position + props.container.y}px`,
-                left: '0',
-                right: '0',
-                width: '100%',
-                height: '1px',
-                background: 'blue',
-                position: 'absolute',
-                cursor: 'row-resize',
-                transform: `rotate(${rotation}deg)`,
-            }
-            : {
-                left: `${g.position + props.container.x}px`,
-                top: '0',
-                bottom: '0',
-                height: '100%',
-                width: '1px',
-                background: 'blue',
-                position: 'absolute',
-                cursor: 'col-resize',
-                transform: `rotate(${rotation}deg)`,
-            };
+        const main = getMainEl();
+
+        if (!main) {
+            return {};
+        }
+
+        const mainWidth = main.clientWidth;
+        const mainHeight = main.clientHeight;
+
+        let p1;
+        let p2;
+
+        if (g.type === "horizontal") {
+            p1 = canvasPointToMain(0, g.position);
+            p2 = canvasPointToMain(props.settings.width, g.position);
+        } else {
+            p1 = canvasPointToMain(g.position, 0);
+            p2 = canvasPointToMain(g.position, props.settings.height);
+        }
+
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+
+        const length = Math.sqrt(dx * dx + dy * dy);
+
+        if (!length) {
+            return {};
+        }
+
+        const ux = dx / length;
+        const uy = dy / length;
+
+        const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+        const visualLength = Math.sqrt(mainWidth * mainWidth + mainHeight * mainHeight) * 2;
+
+        const startX = p1.x - ux * visualLength / 2;
+        const startY = p1.y - uy * visualLength / 2;
+
+        return {
+            position: "absolute",
+            left: `${startX}px`,
+            top: `${startY}px`,
+            width: `${visualLength}px`,
+            height: "1px",
+            background: "blue",
+            transform: `rotate(${angle}deg)`,
+            transformOrigin: "0 0",
+            cursor: g.type === "horizontal" ? "row-resize" : "col-resize",
+            pointerEvents: "auto"
+        };
     };
 
+    watch(
+        () => [
+            props.container.x,
+            props.container.y,
+            props.container.a,
+            props.container.b,
+            props.container.c,
+            props.container.d,
+            props.container.rotate,
+            props.settings.width,
+            props.settings.height,
+            props.settings.unit,
+            props.settings.dpi
+        ],
+        () => {
+            syncGuidesToContainer();
+        },
+        {
+            immediate: true
+        }
+    );
+
+    onMounted(() => {
+        window.addEventListener("resize", onGuideViewportResize);
+        syncGuidesToContainer();
+    });
+
     onBeforeUnmount(() => {
-        register('removeAll');
+        if (guideSyncFrame) {
+            cancelAnimationFrame(guideSyncFrame);
+            guideSyncFrame = null;
+        }
+
+        window.removeEventListener("resize", onGuideViewportResize);
+
+        register("removeAll");
     });
 
     return {
@@ -208,6 +407,14 @@ export const guideProps = {
     },
     container: {
         type: Object,
+        required: true
+    },
+    canvasId: {
+        type: String,
+        required: true
+    },
+    mainId: {
+        type: String,
         required: true
     }
 };

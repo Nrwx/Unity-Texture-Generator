@@ -107,65 +107,163 @@ export function gridModel(props, emit) {
         };
     };
 
-    const screenToWorld = (clientX, clientY) => {
-        const rect = grid.value.container.ref.getBoundingClientRect();
+    const getCanvasEl = () => {
+        return grid.value.container.ref;
+    };
 
-        const width = props.settings.width;
-        const height = props.settings.height;
+    const getMainEl = () => {
+        return grid.value.main.ref;
+    };
 
-        const cx = width / 2;
-        const cy = height / 2;
-
-        const m = grid.value.container.matrix;
-        const scale = m.a || 1;
-
-        let x = clientX - rect.left;
-        let y = clientY - rect.top;
-
-        x /= scale;
-        y /= scale;
-
-        const angle = (-m.rotate * Math.PI) / 180;
-        const cos = Math.cos(angle);
-        const sin = Math.sin(angle);
-
-        const dx = x - cx;
-        const dy = y - cy;
-
-        const rx = dx * cos - dy * sin + cx;
-        const ry = dx * sin + dy * cos + cy;
+    const parseTransformOrigin = (value) => {
+        const parts = value.split(" ");
 
         return {
-            x: rx - m.x,
-            y: ry - m.y
+            x: parseFloat(parts[0]) || props.settings.width / 2,
+            y: parseFloat(parts[1]) || props.settings.height / 2
         };
     };
 
-    const setZoomAt = (clientX, clientY, nextScale) => {
-        const rect = grid.value.container.ref.getBoundingClientRect();
+    const getElementOffsetTo = (element, target) => {
+        let x = element.offsetLeft || 0;
+        let y = element.offsetTop || 0;
 
-        const cx = rect.width / 2;
-        const cy = rect.height / 2;
+        let parent = element.offsetParent;
+
+        while (parent && parent !== target) {
+            x += parent.offsetLeft || 0;
+            y += parent.offsetTop || 0;
+            parent = parent.offsetParent;
+        }
+
+        return { x, y };
+    };
+
+    const getCanvasLayoutData = () => {
+        const canvas = getCanvasEl();
+        const main = getMainEl();
+
+        if (!canvas || !main) {
+            return null;
+        }
+
+        const style = window.getComputedStyle(canvas);
+        const origin = parseTransformOrigin(style.transformOrigin);
+        const offset = getElementOffsetTo(canvas, main);
+
+        return {
+            canvas,
+            main,
+            origin,
+            offset
+        };
+    };
+
+    const getCanvasToMainMatrix = () => {
+        const data = getCanvasLayoutData();
+
+        if (!data) {
+            return new DOMMatrix();
+        }
+
+        const style = window.getComputedStyle(data.canvas);
+
+        const cssMatrix =
+            style.transform && style.transform !== "none"
+                ? new DOMMatrix(style.transform)
+                : new DOMMatrix();
+
+        return new DOMMatrix()
+            .translate(data.offset.x + data.origin.x, data.offset.y + data.origin.y)
+            .multiply(cssMatrix)
+            .translate(-data.origin.x, -data.origin.y);
+    };
+
+    const mainPointToCanvas = (x, y) => {
+        const inverse = getCanvasToMainMatrix().inverse();
+        const point = new DOMPoint(x, y).matrixTransform(inverse);
+
+        return {
+            x: point.x,
+            y: point.y
+        };
+    };
+
+    const clientPointToMain = (clientX, clientY) => {
+        const main = getMainEl();
+
+        if (!main) {
+            return { x: 0, y: 0 };
+        }
+
+        const mainRect = main.getBoundingClientRect();
+
+        return {
+            x: clientX - mainRect.left,
+            y: clientY - mainRect.top
+        };
+    };
+
+    const screenToWorld = (clientX, clientY) => {
+        const mainPoint = clientPointToMain(clientX, clientY);
+
+        return mainPointToCanvas(mainPoint.x, mainPoint.y);
+    };
+
+    const setZoomAt = (clientX, clientY, nextScale) => {
+        const data = getCanvasLayoutData();
+
+        if (!data) return;
 
         const m = grid.value.container.matrix;
 
-        const px = clientX - rect.left - cx;
-        const py = clientY - rect.top - cy;
-
+        /**
+         * Diese Canvas-Koordinate soll unter der Maus stabil bleiben.
+         */
         const world = screenToWorld(clientX, clientY);
 
-        const rot = (m.rotate * Math.PI) / 180;
-        const cos = Math.cos(rot);
-        const sin = Math.sin(rot);
+        /**
+         * Mausposition im Koordinatensystem von .main-layer.
+         */
+        const target = clientPointToMain(clientX, clientY);
 
-        const invX = px * cos + py * sin;
-        const invY = -px * sin + py * cos;
+        const originX = data.origin.x;
+        const originY = data.origin.y;
 
+        const localX = world.x - originX;
+        const localY = world.y - originY;
+
+        /**
+         * Aktuelle Rotation bleibt erhalten.
+         */
+        const angle = (m.rotate || 0) * Math.PI / 180;
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+
+        /**
+         * transform: matrix(scale, 0, 0, scale, x, y) rotate(angle)
+         *
+         * Bedeutet praktisch:
+         * 1. Punkt um transformOrigin rotieren
+         * 2. skalieren
+         * 3. translation x/y addieren
+         */
+        const rotatedX = localX * cos - localY * sin;
+        const rotatedY = localX * sin + localY * cos;
+
+        const scaledX = rotatedX * nextScale;
+        const scaledY = rotatedY * nextScale;
+
+        /**
+         * Gesucht ist m.x / m.y, sodass:
+         *
+         * target = canvasLayoutOffset + transformOrigin + scaledRotatedPoint + translation
+         */
         m.a = nextScale;
         m.d = nextScale;
 
-        m.x = cx + invX / nextScale - world.x;
-        m.y = cy + invY / nextScale - world.y;
+        m.x = target.x - data.offset.x - originX - scaledX;
+        m.y = target.y - data.offset.y - originY - scaledY;
     };
 
     const zoomByStep = (clientX, clientY, direction = 1) => {
@@ -220,17 +318,10 @@ export function gridModel(props, emit) {
         cursor.value.y = Math.round(current.y);
 
         if (props.layerStates.translate.value) {
-            const mainRect = grid.value.main.ref.getBoundingClientRect();
-            const containerRect = grid.value.container.ref.getBoundingClientRect();
-            const containerX = containerRect.left - mainRect.left;
-            const containerY = containerRect.top - mainRect.top;
-            const containerWidth = containerRect.width;
-            const containerHeight = containerRect.height;
-
             const hasGuides = props.guides && props.guides.length > 0;
 
-            let newX = frameBox.value.left + dx + containerX;
-            let newY = frameBox.value.top + dy + containerY;
+            let newX = frameBox.value.left + dx;
+            let newY = frameBox.value.top + dy;
 
             const width = frameBox.value.width;
             const height = frameBox.value.height;
@@ -241,6 +332,7 @@ export function gridModel(props, emit) {
                     center: newX + width / 2,
                     right: newX + width
                 };
+
                 const edgesY = {
                     top: newY,
                     center: newY + height / 2,
@@ -251,45 +343,53 @@ export function gridModel(props, emit) {
                     ...props.guides
                         .filter(g => g.type === 'vertical')
                         .map(g => g.position),
-                    containerX,
-                    containerX + containerWidth / 2,
-                    containerX + containerWidth
+                    0,
+                    props.settings.width / 2,
+                    props.settings.width
                 ])).sort((a, b) => a - b);
 
                 const horizontalGuides = Array.from(new Set([
                     ...props.guides
                         .filter(g => g.type === 'horizontal')
                         .map(g => g.position),
-                    containerY,
-                    containerY + containerHeight / 2,
-                    containerY + containerHeight
+                    0,
+                    props.settings.height / 2,
+                    props.settings.height
                 ])).sort((a, b) => a - b);
 
-                const guideIntersections = [];
-                for (const x of verticalGuides) {
-                    for (const y of horizontalGuides) {
-                        guideIntersections.push({ x, y });
-                    }
-                }
+                const scale = grid.value.container.matrix.a || 1;
 
-                const SNAP_TOLERANCE = 8;
+                // 8 Screen-Pixel Toleranz, aber in Canvas-World-Pixel umgerechnet.
+                const SNAP_TOLERANCE = 8 / scale;
 
                 let bestSnapDeltaX = 0;
                 let bestSnapDistanceX = Infinity;
+
                 let bestSnapDeltaY = 0;
                 let bestSnapDistanceY = Infinity;
 
-                for (const intersection of guideIntersections) {
+                for (const guideX of verticalGuides) {
                     for (const keyX in edgesX) {
-                        const deltaX = intersection.x - edgesX[keyX];
-                        if (Math.abs(deltaX) <= SNAP_TOLERANCE && Math.abs(deltaX) < bestSnapDistanceX) {
+                        const deltaX = guideX - edgesX[keyX];
+
+                        if (
+                            Math.abs(deltaX) <= SNAP_TOLERANCE &&
+                            Math.abs(deltaX) < bestSnapDistanceX
+                        ) {
                             bestSnapDistanceX = Math.abs(deltaX);
                             bestSnapDeltaX = deltaX;
                         }
                     }
+                }
+
+                for (const guideY of horizontalGuides) {
                     for (const keyY in edgesY) {
-                        const deltaY = intersection.y - edgesY[keyY];
-                        if (Math.abs(deltaY) <= SNAP_TOLERANCE && Math.abs(deltaY) < bestSnapDistanceY) {
+                        const deltaY = guideY - edgesY[keyY];
+
+                        if (
+                            Math.abs(deltaY) <= SNAP_TOLERANCE &&
+                            Math.abs(deltaY) < bestSnapDistanceY
+                        ) {
                             bestSnapDistanceY = Math.abs(deltaY);
                             bestSnapDeltaY = deltaY;
                         }
@@ -299,9 +399,6 @@ export function gridModel(props, emit) {
                 newX += bestSnapDeltaX;
                 newY += bestSnapDeltaY;
             }
-
-            newX -= containerX;
-            newY -= containerY;
 
             const offsetX = Math.round(newX - frameBox.value.left);
             const offsetY = Math.round(newY - frameBox.value.top);

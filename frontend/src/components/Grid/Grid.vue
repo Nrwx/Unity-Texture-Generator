@@ -7,6 +7,8 @@
           :guides="guides"
           :settings="settings"
           :container="grid.container.matrix"
+          :canvas-id="grid.container.id"
+          :main-id="grid.main.id"
           @update:guides-event="emitEvent"
       />
 
