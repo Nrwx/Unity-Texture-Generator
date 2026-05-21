@@ -22,16 +22,16 @@
     />
 
     <!-- Resize Handles -->
-    <circle class="resize-handle" cx="0" cy="0" r="8" @mousedown="onResize('top-left', $event)" />
-    <circle class="resize-handle" :cx="frameBox.width" cy="0" r="8" @mousedown="onResize('top-right', $event)" />
-    <circle class="resize-handle" cx="0" :cy="frameBox.height" r="8" @mousedown="onResize('bottom-left', $event)" />
-    <circle class="resize-handle" :cx="frameBox.width" :cy="frameBox.height" r="8" @mousedown="onResize('bottom-right', $event)" />
+    <circle class="resize-handle" cx="0" cy="0" r="8" @pointerdown.stop.prevent="onResize('top-left', $event)" />
+    <circle class="resize-handle" :cx="frameBox.width" cy="0" r="8" @pointerdown.stop.prevent="onResize('top-right', $event)" />
+    <circle class="resize-handle" cx="0" :cy="frameBox.height" r="8" @pointerdown.stop.prevent="onResize('bottom-left', $event)" />
+    <circle class="resize-handle" :cx="frameBox.width" :cy="frameBox.height" r="8" @pointerdown.stop.prevent="onResize('bottom-right', $event)" />
 
     <!-- Rotate Handles -->
-    <circle class="rotate-handle" :cx="frameBox.width / 2" cy="0" r="6" @mousedown="onRotate('top', $event)" />
-    <circle class="rotate-handle" :cx="frameBox.width / 2" :cy="frameBox.height" r="6" @mousedown="onRotate('bottom', $event)" />
-    <circle class="rotate-handle" cx="0" :cy="frameBox.height / 2" r="6" @mousedown="onRotate('left', $event)" />
-    <circle class="rotate-handle" :cx="frameBox.width" :cy="frameBox.height / 2" r="6" @mousedown="onRotate('right', $event)" />
+    <circle class="rotate-handle" :cx="frameBox.width / 2" cy="0" r="6" @pointerdown.stop.prevent="onRotate('top', $event)" />
+    <circle class="rotate-handle" :cx="frameBox.width / 2" :cy="frameBox.height" r="6" @pointerdown.stop.prevent="onRotate('bottom', $event)" />
+    <circle class="rotate-handle" cx="0" :cy="frameBox.height / 2" r="6" @pointerdown.stop.prevent="onRotate('left', $event)" />
+    <circle class="rotate-handle" :cx="frameBox.width" :cy="frameBox.height / 2" r="6" @pointerdown.stop.prevent="onRotate('right', $event)" />
   </svg>
   <!-- Center -->
   <div
@@ -45,7 +45,7 @@
         transform: 'translate(-50%, -50%)',
         pointerEvents: 'auto'
       }"
-      @mousedown="onAnchor($event)"
+      @pointerdown.stop.prevent="onAnchor($event)"
   />
 </template>
 

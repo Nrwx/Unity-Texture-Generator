@@ -10,17 +10,20 @@ export const createCursor = async (cursorData) => {
         // Restliche Daten hinzufügen
         Object.entries(cursorData).forEach(([key, value]) => {
             formData.append(key, value);
+            console.log(key, value)
         });
 
-        const data = await api.post('/cursor', formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data'
+        if(cursorData.id && cursorData.id !== "") {
+            const data = await api.post('/cursor', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+            if (data) {
+                return data;
             }
-        });
-
-        if (data) {
-            return data;
         }
+
     } catch (err) {
         console.error('Fehler beim Erstellen des Cursors:', err);
     }

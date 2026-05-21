@@ -74,18 +74,18 @@ export function scrollbarCreate(idOrArray){
 
         el.addEventListener('scroll', onScroll);
         window.addEventListener('resize', onResize);
-        thumb.addEventListener('mousedown', onMouseDown);
-        document.addEventListener('mouseup', onMouseUp);
-        document.addEventListener('mousemove', onMouseMove);
+        thumb.addEventListener('pointerdown', onMouseDown);
+        document.addEventListener('pointerup', onMouseUp);
+        document.addEventListener('pointermove', onMouseMove);
 
         updateThumb(); fadeOut();
 
         const cleanup=()=>{
             el.removeEventListener('scroll',onScroll);
             window.removeEventListener('resize',onResize);
-            thumb.removeEventListener('mousedown',onMouseDown);
-            document.removeEventListener('mouseup',onMouseUp);
-            document.removeEventListener('mousemove',onMouseMove);
+            thumb.removeEventListener('pointerdown',onMouseDown);
+            document.removeEventListener('pointerup',onMouseUp);
+            document.removeEventListener('pointermove',onMouseMove);
             track.remove();
             activeScrollbars.delete(id);
         };

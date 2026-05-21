@@ -257,10 +257,36 @@ PARAMETERS = {
     },
     "modifier": {
         "method": {"type": str, "required": True},
+        # shared
         "id": {"type": str, "default": ""},
+        # fill
         "x": {"type": int, "default": 0},
         "y": {"type": int, "default": 0},
         "color": {"type": str, "default": "#000000"},
+        "tolerance": {"type": int, "default": 0},
+        # crop
+        "crop_left": {"type": int, "default": 0},
+        "crop_top": {"type": int, "default": 0},
+        "crop_right": {"type": int, "default": 0},
+        "crop_bottom": {"type": int, "default": 0},
+        # resize
+        "resize_index": {"type": int, "default": 0},
+        "resize_width": {"type": int, "default": 0},
+        "resize_height": {"type": int, "default": 0},
+        "resize_keep_aspect_ratio": {"type": int, "default": 1},
+        "resize_is_custom": {"type": int, "default": 0},
+        "resize_mode": {"type": int, "default": 0},
+        "upscale_method": {"type": int, "default": 1},
+        # cutout
+        "cutout": {"type": int, "default": 0},
+        # none | layer | select
+        "mask_type": {"type": str, "default": "none"},
+        # select mask data
+        "select_mask_x": {"type": int, "default": 0},
+        "select_mask_y": {"type": int, "default": 0},
+        "select_mask_width": {"type": int, "default": 0},
+        "select_mask_height": {"type": int, "default": 0},
+        "select_mask_shape": {"type": str, "default": "rectangle"},
     },
     "export": {
         "method": {"type": str, "required": True},

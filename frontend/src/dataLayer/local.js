@@ -45,6 +45,11 @@ export const localData = {
     selectedLayer: ref([]),
     brush: ref([]),
     cursor: ref(''),
+    cursorVector: ref({
+        key: "empty",
+        viewBoxSize: 1,
+        paths: [],
+    }),
     fonts: ref([]),
     plugins: ref([]),
     loadedFonts: ref(new Set()),
@@ -95,8 +100,11 @@ export const localData = {
     animation: ref([]),
     tile: ref({x: 1, y: 1}),
     selectedShape: ref('rectangle'),
+    selectedTool: ref('shape'),
+    selectedOperation: ref('auto'),
     selectedBlendMode: ref(0),
     selectItemsBox: ref(null),
+    selectMaskBox: ref(null),
 }
 
 export const tempData = {
@@ -107,6 +115,7 @@ export const tempData = {
     brushLayer: ref(null),
     timelineId: ref(null),
     keys: ref([]),
+    activeLayer: ref(null),
     heldKeys: ref(new Map()),
 }
 

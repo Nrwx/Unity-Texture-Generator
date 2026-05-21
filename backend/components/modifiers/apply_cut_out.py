@@ -1,28 +1,35 @@
 import numpy as np
 from PIL import Image
 
-def apply_cut_out(mode, image: Image.Image):
 
-    if mode == 1:
-        # Convert image to numpy array if needed
-        if isinstance(image, Image.Image):
-            image = np.array(image)
-        else:
-            image = image.copy()
+def apply_cut_out(image: Image.Image, mask: Image.Image, invert=True) -> Image.Image:
+    """
+    Erzeugt Transparenz anhand einer Maske.
 
-        # Ensure both image and mask are in the same size
-        image = image.convert("RGBA")
-        mask = mask.resize(image.size).convert("L")
+    invert=True:
+        Schwarz = behalten
+        Weiß = ausschneiden
 
-        # Create an alpha mask from the grayscale mask
-        alpha_data = np.array(mask, dtype=np.uint8)
+    invert=False:
+        Weiß = behalten
+        Schwarz = ausschneiden
+    """
 
-        # Scale grayscale values to transparency levels (0 = transparent, 255 = opaque)
-        alpha_data = 255 - alpha_data  # Invert the mask to match the black exclusion rule
+    if isinstance(image, np.ndarray):
+        image = Image.fromarray(image)
 
-        # Add alpha channel to the original image
-        image_data = np.array(image)
-        image_data[:, :, 3] = alpha_data
+    if isinstance(mask, np.ndarray):
+        mask = Image.fromarray(mask)
 
-        # Return image data as numpy array
-        return image_data
+    image = image.convert("RGBA")
+    mask = mask.resize(image.size).convert("L")
+
+    alpha_data = np.array(mask, dtype=np.uint8)
+
+    if invert:
+        alpha_data = 255 - alpha_data
+
+    image_data = np.array(image)
+    image_data[:, :, 3] = alpha_data
+
+    return Image.fromarray(image_data.astype(np.uint8), "RGBA")

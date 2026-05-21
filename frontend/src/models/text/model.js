@@ -110,8 +110,8 @@ export function textModel(props, emit) {
         props.layer.initHeight = 1;
         props.layer.initFontSize = 0.40;
 
-        register('add', overlay.value, 'mousemove', handleDraw);
-        register('add', overlay.value, 'mouseup', stopDraw);
+        register('add', overlay.value, 'pointermove', handleDraw);
+        register('add', overlay.value, 'pointerup', stopDraw);
     };
 
 
@@ -130,8 +130,8 @@ export function textModel(props, emit) {
 
     const stopDraw = async () => {
         drawing.value = false;
-        register('remove', overlay.value, 'mousemove', handleDraw);
-        register('remove', overlay.value, 'mouseup', stopDraw);
+        register('remove', overlay.value, 'pointermove', handleDraw);
+        register('remove', overlay.value, 'pointerup', stopDraw);
 
         if (props.layer.width > 10 && props.layer.height > 10) {
             props.layer.initWidth = props.layer.width;
@@ -176,8 +176,8 @@ export function textModel(props, emit) {
         initialMouseY.value = e.clientY;
         initialWidth.value = props.layer.width;
         initialHeight.value = props.layer.height;
-        register('add', overlay.value, 'mousemove', handleTextResize);
-        register('add', overlay.value, 'mouseup', stopTextResize);
+        register('add', overlay.value, 'pointermove', handleTextResize);
+        register('add', overlay.value, 'pointerup', stopTextResize);
     };
 
     const handleTextResize = (e) => {
@@ -230,8 +230,8 @@ export function textModel(props, emit) {
 
 
     const stopTextResize = () => {
-        register('remove', overlay.value, 'mousemove', handleTextResize);
-        register('remove', overlay.value, 'mouseup', stopTextResize);
+        register('remove', overlay.value, 'pointermove', handleTextResize);
+        register('remove', overlay.value, 'pointerup', stopTextResize);
         console.log('STOPPED')
     };
 
@@ -261,17 +261,17 @@ export function textModel(props, emit) {
             cancel.value = document.getElementById(cancelId.value);
 
             if (overlay.value) {
-                register('add', overlay.value, 'mousedown', handleOverlayClick);
+                register('add', overlay.value, 'pointerdown', handleOverlayClick);
             }
             if (container.value) {
                 register('add', container.value, 'dblclick', editAgain);
             }
             if (textarea.value) {
                 register('add', textarea.value, 'input', adjustHeight);
-                register('add', textarea.value, 'mousedown', stopPropagation);
+                register('add', textarea.value, 'pointerdown', stopPropagation);
             }
             if (resize.value) {
-                register('add', resize.value, 'mousedown', startTextResize);
+                register('add', resize.value, 'pointerdown', startTextResize);
             }
             if (confirm.value) {
                 register('add', confirm.value, 'click', confirmText);

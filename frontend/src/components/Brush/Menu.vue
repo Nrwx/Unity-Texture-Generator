@@ -67,23 +67,9 @@ export default defineComponent({
   components: {MenuItem},
   props: brushMenuProps,
   setup(props, { emit }) {
-    const {settingsItems, brushItems, config, sliderColor, tabs, activeTab, blendModes, presetName, menuStyle, angleRad, savePreset, uploadBrush, emitEvent} = brushMenuModel(props, emit);
+    const model = brushMenuModel(props, emit);
 
-    return {
-      settingsItems,
-      brushItems,
-      config,
-      sliderColor,
-      tabs,
-      activeTab,
-      blendModes,
-      presetName,
-      menuStyle,
-      angleRad,
-      savePreset,
-      uploadBrush,
-      emitEvent
-    };
+    return {...model};
   }
 });
 </script>

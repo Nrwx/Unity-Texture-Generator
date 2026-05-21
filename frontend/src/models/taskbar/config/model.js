@@ -103,6 +103,15 @@ export const taskbarItemLeft = [
                 hidden: false,
                 event: 'select:mask-shape',
                 val: 'ellipse'
+            },
+            {
+                id: uuid(),
+                title: 'Masken-Pinsel',
+                icon: 'mdi-brush',
+                active: false,
+                hidden: false,
+                event: 'select:mask-tool',
+                val: 'maskBrush'
             }
         ]
     },

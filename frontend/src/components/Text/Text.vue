@@ -72,26 +72,9 @@ export default defineComponent({
   name: "TextComponent",
   props: textProps,
   setup(props, { emit }) {
-    const {drawing, container, containerId, wrapperStyle, textareaStyle, drawn, overlay, overlayId, textarea, textareaId, cancel, cancelId, confirm, confirmId, resize, resizeId, selectionSvgStyle, predictedFontSize } = textModel(props, emit);
+    const model = textModel(props, emit);
     return {
-      drawing,
-      container,
-      containerId,
-      drawn,
-      wrapperStyle,
-      textareaStyle,
-      overlay,
-      overlayId,
-      textarea,
-      textareaId,
-      confirm,
-      cancel,
-      cancelId,
-      confirmId,
-      resize,
-      resizeId,
-      selectionSvgStyle,
-      predictedFontSize
+      ...model
     };
   },
 });

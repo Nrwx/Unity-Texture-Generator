@@ -79,6 +79,7 @@ export const brushEvent = (route) => ({
             size: route.brushSettings.value.size,
             opacity: route.brushSettings.value.opacity
         }
+
         if(cursor) {
             await route.emit("generate:cursor", cursor);
         }

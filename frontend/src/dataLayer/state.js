@@ -52,6 +52,7 @@ export const loadingStates = {
 
 export const modifierStates = {
     fill: ref(false),
+    resize: ref(false)
 };
 
 export const timelineStates = {

@@ -316,4 +316,7 @@ export const windowStateEvent = (route) => ({
     "mini-timeline:state": async (payload) => {
         route.windowStates.miniTimeline.value = payload;
     },
+    "modifier-resize:state": async (payload) => {
+        route.modifierStates.resize.value = payload;
+    },
 });

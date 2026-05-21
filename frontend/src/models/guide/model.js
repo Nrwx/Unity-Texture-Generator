@@ -271,8 +271,8 @@ export function guideModel(props, emit) {
 
         guide.value = helper;
 
-        register("add", document, "mousemove", dragGuide);
-        register("add", document, "mouseup", stopDraggingGuide);
+        register("add", document, "pointermove", dragGuide);
+        register("add", document, "pointerup", stopDraggingGuide);
     };
 
     const startGuide = async (type, event) => {
@@ -360,8 +360,8 @@ export function guideModel(props, emit) {
 
         guide.value = null;
 
-        register("remove", document, "mousemove", dragGuide);
-        register("remove", document, "mouseup", stopDraggingGuide);
+        register("remove", document, "pointermove", dragGuide);
+        register("remove", document, "pointerup", stopDraggingGuide);
 
         syncGuidesToContainer();
     };

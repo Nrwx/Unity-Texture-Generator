@@ -1,72 +1,344 @@
-import { computed, nextTick, ref, watch } from 'vue';
+import { nextTick, ref, watch } from 'vue';
 import { eventRegister } from "@/dataLayer/event";
 import { nowMs } from "@/utils/dayJs";
 import { matrixCombine } from "@/utils/matrix";
-
-const brushCache = new Map();
+import { useMouse } from "@/composables/mouse/model";
 
 export function brushModel(props, emit) {
     const canvas = ref(null);
     const ctx = ref(null);
 
-    const visible = ref(false);
-    const menuPos = ref({ x: 0, y: 0 });
+    /**
+     * Optionales Input-Ziel.
+     * Wenn props.wrapper gesetzt ist, kommen pointerdown/move vom Wrapper,
+     * gerendert wird aber weiterhin nur auf canvas.
+     */
+    const inputTarget = ref(null);
 
     const currentSize = ref(props.data.size);
     const currentAngle = ref(0);
     const currentOpacity = ref(0);
 
+    /**
+     * lastPos bleibt aus Kompatibilitätsgründen vorhanden,
+     * wird aber NICHT mehr vom drawLoop verändert.
+     */
     const lastPos = ref(null);
+
+    /**
+     * Separater Input-State.
+     * Render-Queue darf niemals Pointer-State überschreiben.
+     */
+    const prevInputPos = ref(null);
+    const lastInputPos = ref(null);
     const lastTime = ref(null);
     const pointerMoved = ref(false);
-    const currentBrush = ref(null);
+    const activePointerId = ref(null);
+
+
+    const brushCursorEl = ref(null);
+
+    const getBrushCursorEl = () => {
+        if (!brushCursorEl.value) {
+            brushCursorEl.value = document.querySelector(".brush-cursor");
+        }
+
+        return brushCursorEl.value;
+    };
+
+    const updateBrushCursorDynamics = ({ size, rotation, opacity }) => {
+        const el = getBrushCursorEl();
+
+        if (!el) return;
+
+        const safeOpacity = Math.min(1, Math.max(0, opacity ?? 1));
+
+        el.style.setProperty("--brush-cursor-dynamic-size", `${Math.max(1, size)}px`);
+        el.style.setProperty("--brush-cursor-dynamic-angle", `${rotation || 0}deg`);
+
+        el.style.setProperty(
+            "--brush-cursor-dynamic-border-opacity",
+            `${Math.min(1, Math.max(0.55, safeOpacity * 1.2))}`
+        );
+
+        el.style.setProperty(
+            "--brush-cursor-dynamic-blue-opacity",
+            `${Math.min(1, Math.max(0.45, safeOpacity * 1.35))}`
+        );
+    };
+
+    const resetBrushCursorDynamics = () => {
+        const el = getBrushCursorEl();
+
+        if (!el) return;
+
+        el.style.removeProperty("--brush-cursor-dynamic-size");
+        el.style.removeProperty("--brush-cursor-dynamic-angle");
+        el.style.removeProperty("--brush-cursor-dynamic-opacity");
+        el.style.removeProperty("--brush-cursor-dynamic-border-opacity");
+        el.style.removeProperty("--brush-cursor-dynamic-blue-opacity");
+
+        brushCursorEl.value = null;
+    };
+
+    /**
+     * Verhindert Doppel-Stamps bei echtem Single Click.
+     * Production-Brush-Verhalten:
+     * pointerdown erzeugt genau einen Tap-Stamp.
+     * pointerup erzeugt nur dann einen Fallback-Stamp, wenn noch gar keiner gesetzt wurde.
+     */
+    const strokeStamped = ref(false);
+
+    /**
+     * Restdistanz zwischen Stamps.
+     * Dadurch bleiben Stamps über mehrere Pointer-Events hinweg gleichmäßig.
+     */
+    const stampRemainder = ref(0);
+
+    /**
+     * Queue mit Read-Index statt shift().
+     * shift() ist bei großen Arrays extrem teuer.
+     */
     const drawQueue = ref([]);
+    const queueReadIndex = ref(0);
     const animating = ref(false);
 
-    const localMouse = ref({ x: 0, y: 0 });
+    const supportsPointerRawUpdate = ref(false);
+    const moveEventName = ref('pointermove');
 
-    const setCursor = computed(() => {
-        if (!props.cursor && !props.state && !props.data.id) return {};
+    const MIN_PRESSURE = 0.015;
+    const MIN_ALPHA = 0.003;
+    const MIN_SIZE = 0.35;
 
-        let size = props.data.size;
-        let angle = 0;
-        let opacity = 1;
+    /**
+     * Nicht zu hoch setzen.
+     * drawImage() bleibt teuer.
+     */
+    const MAX_STAMPS_PER_FRAME = 1600;
 
-        if (props.data.fadeDynamics) {
-            opacity = currentOpacity.value;
-        }
+    /**
+     * Mehr Budget, damit Curves nicht sichtbar mehrere Sekunden nachlaufen.
+     */
+    const FRAME_BUDGET_MS = 14;
 
-        if (props.data.sizeDynamics) {
-            size = currentSize.value;
-        }
+    /**
+     * Emergency-Limit.
+     */
+    const MAX_QUEUE = 30000;
 
-        if (props.data.angleDynamics) {
-            angle = currentAngle.value;
-        }
+    /**
+     * Wichtig:
+     * Bei sehr schnellen Strichen darf Spacing nicht zu klein werden,
+     * sonst erzeugst du tausende Dabs pro Sekunde.
+     */
+    const FAST_STROKE_MIN_SPACING = 0.75;
 
-        if (props.data.rotationRandom) {
-            angle = currentAngle.value;
-        }
-
-        return {
-            position: 'absolute',
-            opacity: opacity,
-            left: `${localMouse.value.x}px`,
-            top: `${localMouse.value.y}px`,
-            width: `${size}px`,
-            height: `${size}px`,
-            pointerEvents: 'none',
-            zIndex: 9999,
-            userSelect: 'none',
-            cursor: 'none',
-            transform: `translate(-50%, -50%) rotate(${angle}deg)`,
-            transformOrigin: 'center center'
-        };
-    });
+    /**
+     * Production-Input-Filter:
+     * Kleine Pointer-Micro-Bewegungen bei Klicks/Pen-Jitter sollen keinen echten Stroke starten.
+     */
+    const MIN_STROKE_DIST = 0.75;
 
     const emitEvent = (event, payload) => emit('update:component-event', event, payload);
 
     const { register } = eventRegister('listener:brush', emitEvent);
+
+    const mouse = useMouse({
+        register,
+        elementId: props.canvasId,
+        mode: "local",
+    });
+
+    const clamp = (v, min = 0, max = 1) => {
+        return Math.min(max, Math.max(min, Number.isFinite(v) ? v : min));
+    };
+
+    const lerp = (a, b, t) => {
+        return a + (b - a) * t;
+    };
+
+    const getMoveThreshold = () => {
+        /**
+         * Dynamischer Threshold:
+         * Kleine Brushes bleiben präzise.
+         * Große Brushes ignorieren mehr Handzittern.
+         */
+        return clamp((props.data.size ?? 1) * 0.015, 0.75, 3);
+    };
+
+    const easePressure = (pressure) => {
+        const p = clamp(pressure, MIN_PRESSURE, 1);
+
+        /**
+         * Unterer Druckbereich wird dadurch feinfühliger.
+         */
+        return Math.pow(p, 0.72);
+    };
+
+    const getBrushPressure = (e) => {
+        const userPressure = props.data.pressure ?? 1;
+        let raw = e?.pressure;
+
+        /**
+         * Mouse soll volle Kraft bekommen.
+         * Pen darf nie komplett 0 werden.
+         */
+        if (raw == null || raw <= 0) {
+            raw = e?.pointerType === 'pen' ? MIN_PRESSURE : 1;
+        }
+
+        return clamp(raw * userPressure, MIN_PRESSURE, 1);
+    };
+
+    const getBaseSpacing = (size = props.data.size) => {
+        const spacing = props.data.spacing ?? 10;
+        const safeSize = Math.max(size ?? 1, MIN_SIZE);
+
+        return Math.max(0.25, (spacing / 100) * safeSize);
+    };
+
+    const getDynamicSpacing = (size, pressure, speed) => {
+        const baseSpacing = getBaseSpacing(size);
+
+        /**
+         * Bei wenig Druck etwas dichter, bei hohem Druck normaler.
+         */
+        const pressureSpacing = lerp(1.15, 0.78, easePressure(pressure));
+
+        /**
+         * Wichtig:
+         * Bei schnellen Strichen NICHT immer dichter werden.
+         * Sonst explodiert die Queue.
+         *
+         * Bis mittlere Geschwindigkeit etwas dichter,
+         * bei extremer Geschwindigkeit wieder leicht gröber.
+         */
+        const speedNorm = clamp(speed / 8, 0, 1);
+
+        const speedSpacing = speedNorm < 0.65
+            ? lerp(1, 0.72, speedNorm / 0.65)
+            : lerp(0.72, 1.05, (speedNorm - 0.65) / 0.35);
+
+        return Math.max(
+            FAST_STROKE_MIN_SPACING,
+            baseSpacing * pressureSpacing * speedSpacing
+        );
+    };
+
+    const computeAlpha = (pressure, speed) => {
+        const opacity = clamp(props.data.opacity ?? 1, MIN_ALPHA, 1);
+        const flow = clamp(props.data.flow ?? 1, MIN_ALPHA, 1);
+
+        if (!props.data.fadeDynamics) {
+            return clamp(opacity, MIN_ALPHA, 1);
+        }
+
+        const p = easePressure(pressure);
+
+        /**
+         * Speed-Fade bewusst mild.
+         * Bei sehr schnellen Strichen darf der Brush nicht verschwinden.
+         */
+        const speedNorm = clamp(speed / 8, 0, 1);
+        const speedFade = lerp(1, 0.88, speedNorm);
+
+        const alpha = opacity * flow * p * speedFade;
+
+        return clamp(alpha, MIN_ALPHA, 1);
+    };
+
+    const computeSize = (pressure, speed) => {
+        const baseSize = Math.max(props.data.size ?? 1, MIN_SIZE);
+
+        if (!props.data.sizeDynamics) {
+            return baseSize;
+        }
+
+        const p = easePressure(pressure);
+
+        /**
+         * Niedriger Druck = klein, aber niemals 0.
+         */
+        const minSizeRatio = 0.055;
+        const dynamicSize = baseSize * lerp(minSizeRatio, 1, p);
+
+        /**
+         * Bei schnellen Bewegungen nur minimal stabilisieren.
+         */
+        const speedNorm = clamp(speed / 8, 0, 1);
+        const stabilizedSize = dynamicSize * lerp(1, 0.96, speedNorm);
+
+        return Math.max(MIN_SIZE, stabilizedSize);
+    };
+
+    const computeAngle = (dx, dy) => {
+        let angle = ((props.data.angle || 0) * Math.PI) / 180;
+
+        if (props.data.angleDynamics) {
+            const dynamicAngle = Math.atan2(dy, dx);
+
+            angle += dynamicAngle;
+            currentAngle.value = dynamicAngle * (180 / Math.PI);
+        }
+
+        if (props.data.rotationRandom) {
+            const randomAngle = Math.random() * Math.PI * 2;
+
+            angle += randomAngle;
+            currentAngle.value = randomAngle * (180 / Math.PI);
+        }
+
+        return angle;
+    };
+
+    const midpoint = (a, b) => {
+        return {
+            x: (a.x + b.x) * 0.5,
+            y: (a.y + b.y) * 0.5,
+        };
+    };
+
+    const quadAt = (p0, p1, p2, t) => {
+        const mt = 1 - t;
+
+        return {
+            x: mt * mt * p0.x + 2 * mt * t * p1.x + t * t * p2.x,
+            y: mt * mt * p0.y + 2 * mt * t * p1.y + t * t * p2.y,
+        };
+    };
+
+    const resolveInputTarget = () => {
+        if (!props.wrapper) {
+            return canvas.value;
+        }
+
+        if (typeof props.wrapper === 'string') {
+            const el = document.getElementById(props.wrapper);
+
+            if (!el) {
+                console.warn(`BRUSH WRAPPER NOT FOUND: ${props.wrapper}`);
+                return canvas.value;
+            }
+
+            return el;
+        }
+
+        if (
+            typeof HTMLElement !== 'undefined' &&
+            props.wrapper instanceof HTMLElement
+        ) {
+            return props.wrapper;
+        }
+
+        /**
+         * Falls aus Vue mal ein ref-artiges Objekt kommt.
+         */
+        if (props.wrapper?.value instanceof HTMLElement) {
+            return props.wrapper.value;
+        }
+
+        return canvas.value;
+    };
 
     const setup = async () => {
         canvas.value = document.getElementById(props.canvasId);
@@ -75,7 +347,22 @@ export function brushModel(props, emit) {
             return console.warn('BRUSH CANVAS NOT INITIALIZED');
         }
 
-        ctx.value = canvas.value.getContext('2d');
+        inputTarget.value = resolveInputTarget();
+
+        supportsPointerRawUpdate.value =
+            typeof window !== 'undefined' &&
+            'onpointerrawupdate' in window;
+
+        moveEventName.value = supportsPointerRawUpdate.value
+            ? 'pointerrawupdate'
+            : 'pointermove';
+
+        mouse.init();
+
+        ctx.value = canvas.value.getContext('2d', {
+            alpha: true,
+            desynchronized: true,
+        });
 
         Object.assign(ctx.value, {
             lineCap: 'round',
@@ -83,85 +370,13 @@ export function brushModel(props, emit) {
         });
     };
 
-    const parseColor = (() => {
-        const cache = {};
-        const context = document.createElement('canvas').getContext('2d');
-
-        return (str) => {
-            if (cache[str]) return cache[str];
-
-            context.fillStyle = str;
-            context.fillRect(0, 0, 1, 1);
-
-            const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data;
-
-            cache[str] = {
-                r,
-                g,
-                b,
-                a: a / 255
-            };
-
-            return cache[str];
-        };
-    })();
-
-    const prepareBrush = async (data) => {
-        const key = `${data.url}|${data.color}`;
-
-        if (brushCache.has(key)) {
-            return brushCache.get(key);
-        }
-
-        emitEvent('generate:cursor', {
-            id: data.id,
-            size: data.size,
-            opacity: data.opacity ?? 1.0,
-            rotation: data.angle || 0
+    const enqueue = ({ x, y, alpha, size, angle, flipX, flipY }) => {
+        updateBrushCursorDynamics({
+            size,
+            rotation: currentAngle.value,
+            opacity: alpha,
         });
 
-        const img = await new Promise((res, rej) => {
-            const i = new Image();
-            i.crossOrigin = 'Anonymous';
-            i.src = data.url;
-            i.onload = () => res(i);
-            i.onerror = rej;
-        });
-
-        const off = document.createElement('canvas');
-        Object.assign(off, {
-            width: img.width,
-            height: img.height
-        });
-
-        const octx = off.getContext('2d');
-        octx.drawImage(img, 0, 0);
-
-        const imgData = octx.getImageData(0, 0, img.width, img.height);
-        const c = parseColor(data.color);
-
-        for (let i = 0; i < imgData.data.length; i += 4) {
-            const gray = imgData.data[i];
-
-            imgData.data[i] = c.r;
-            imgData.data[i + 1] = c.g;
-            imgData.data[i + 2] = c.b;
-            imgData.data[i + 3] = gray;
-        }
-
-        octx.putImageData(imgData, 0, 0);
-
-        brushCache.set(key, off);
-
-        return off;
-    };
-
-    const getSpacing = () => {
-        const { spacing, size } = props.data;
-        return Math.max(0.5, (spacing / 100) * size);
-    };
-
-    const enqueue = async ({ x, y, alpha, size, angle, flipX, flipY }) => {
         drawQueue.value.push({
             x,
             y,
@@ -171,6 +386,24 @@ export function brushModel(props, emit) {
             flipX,
             flipY
         });
+
+        /**
+         * Wenn die Queue zu groß wird:
+         * Nicht alles langsam abarbeiten.
+         * Wir komprimieren die noch nicht gerenderten Stamps.
+         */
+        const pending = drawQueue.value.length - queueReadIndex.value;
+
+        if (pending > MAX_QUEUE) {
+            const compacted = [];
+
+            for (let i = queueReadIndex.value; i < drawQueue.value.length; i += 2) {
+                compacted.push(drawQueue.value[i]);
+            }
+
+            drawQueue.value = compacted;
+            queueReadIndex.value = 0;
+        }
 
         if (!animating.value) {
             drawLoop();
@@ -214,10 +447,24 @@ export function brushModel(props, emit) {
     };
 
     const drawLoop = () => {
+        if (animating.value) return;
+
         animating.value = true;
 
-        requestAnimationFrame(() => {
-            while (ctx.value && currentBrush.value && drawQueue.value.length) {
+        const frame = () => {
+            if (!ctx.value || !props.currentBrush) {
+                animating.value = false;
+                return;
+            }
+
+            const frameStart = performance.now();
+            let rendered = 0;
+
+            while (
+                queueReadIndex.value < drawQueue.value.length &&
+                rendered < MAX_STAMPS_PER_FRAME &&
+                performance.now() - frameStart < FRAME_BUDGET_MS
+                ) {
                 const {
                     x,
                     y,
@@ -226,18 +473,21 @@ export function brushModel(props, emit) {
                     angle,
                     flipX,
                     flipY
-                } = drawQueue.value.shift();
+                } = drawQueue.value[queueReadIndex.value++];
 
-                const sc = (props.data.scatter / 100) * size;
+                const sc = ((props.data.scatter ?? 0) / 100) * size;
                 const sx = (Math.random() - 0.5) * sc;
                 const sy = (Math.random() - 0.5) * sc;
 
-                const jitter = (props.data.jitter / 100) * size;
-                const finalSize = Math.max(1, size + (Math.random() - 0.5) * jitter);
+                const jitter = ((props.data.jitter ?? 0) / 100) * size;
+                const finalSize = Math.max(
+                    MIN_SIZE,
+                    size + (Math.random() - 0.5) * jitter
+                );
 
                 ctx.value.save();
 
-                ctx.value.globalAlpha = alpha;
+                ctx.value.globalAlpha = clamp(alpha, MIN_ALPHA, 1);
                 ctx.value.globalCompositeOperation = props.eraser
                     ? 'destination-out'
                     : props.data.blendMode;
@@ -247,7 +497,7 @@ export function brushModel(props, emit) {
                 ctx.value.rotate(angle);
 
                 ctx.value.drawImage(
-                    currentBrush.value,
+                    props.currentBrush,
                     -finalSize / 2,
                     -finalSize / 2,
                     finalSize,
@@ -256,11 +506,41 @@ export function brushModel(props, emit) {
 
                 ctx.value.restore();
 
-                lastPos.value = { x, y };
+                rendered++;
             }
 
-            animating.value = false;
-        });
+            /**
+             * Wenn alles verarbeitet ist, Queue wirklich leeren.
+             */
+            if (queueReadIndex.value >= drawQueue.value.length) {
+                drawQueue.value = [];
+                queueReadIndex.value = 0;
+                animating.value = false;
+                return;
+            }
+
+            /**
+             * Bereits gerenderte Stamps gelegentlich entfernen,
+             * aber nicht pro Stamp.
+             */
+            if (queueReadIndex.value > 5000) {
+                drawQueue.value = drawQueue.value.slice(queueReadIndex.value);
+                queueReadIndex.value = 0;
+            }
+
+            requestAnimationFrame(frame);
+        };
+
+        requestAnimationFrame(frame);
+    };
+
+    const waitForQueueDrain = async () => {
+        while (
+            queueReadIndex.value < drawQueue.value.length ||
+            animating.value
+            ) {
+            await new Promise(resolve => requestAnimationFrame(resolve));
+        }
     };
 
     const buildMatrix = (m) => {
@@ -268,258 +548,294 @@ export function brushModel(props, emit) {
         return `matrix(${matrix.a}, ${matrix.b}, ${matrix.c}, ${matrix.d}, ${matrix.x}, ${matrix.y})`;
     };
 
-    const parseTransformOrigin = (el) => {
-        const style = window.getComputedStyle(el);
-        const parts = style.transformOrigin.split(" ");
-
-        return {
-            x: Number.parseFloat(parts[0]) || 0,
-            y: Number.parseFloat(parts[1]) || 0
-        };
+    const onCanvasPointerMove = async (e) => {
+        await mouse.move(e);
     };
 
-    const getElementTransformMatrix = (el) => {
-        const style = window.getComputedStyle(el);
-
-        if (!style.transform || style.transform === "none") {
-            return new DOMMatrix();
-        }
-
-        return new DOMMatrix(style.transform);
-    };
-
-    const getNodeLocalMatrix = (node) => {
-        const origin = parseTransformOrigin(node);
-        const transform = getElementTransformMatrix(node);
-
-        return new DOMMatrix()
-            .translateSelf(node.offsetLeft || 0, node.offsetTop || 0)
-            .translateSelf(origin.x, origin.y)
-            .multiplySelf(transform)
-            .translateSelf(-origin.x, -origin.y);
-    };
-
-    const getAncestorsToDocumentMatrix = (el) => {
-        let matrix = new DOMMatrix();
-
+    const getFastPoint = (e) => {
         /**
-         * Wichtig:
-         * Wir starten NICHT bei el selbst, sondern beim offsetParent.
-         * Dadurch wird die Container-Transformation gegengerechnet,
-         * aber die eigene Layer-/Canvas-Transformation bleibt erstmal außen vor.
+         * Deutlich schneller als mouse.move(),
+         * weil kein kompletter async Context erzeugt wird.
          */
-        let node = el.offsetParent;
-
-        while (node && node instanceof HTMLElement) {
-            const localMatrix = getNodeLocalMatrix(node);
-            matrix = localMatrix.multiply(matrix);
-            node = node.offsetParent;
-        }
-
-        return matrix;
+        return mouse.point(e);
     };
 
-    const clientToPreLayerPoint = (event) => {
-        const el = canvas.value;
+    const stampTap = (e, p) => {
+        const pressure = getBrushPressure(e);
+        const size = computeSize(pressure, 0);
+        const alpha = computeAlpha(pressure, 0);
+        const angle = ((props.data.angle || 0) * Math.PI) / 180;
 
-        if (!el) {
-            return { x: 0, y: 0 };
-        }
+        currentSize.value = size;
+        currentOpacity.value = alpha;
+        currentAngle.value = props.data.angle || 0;
 
-        const documentPoint = new DOMPoint(
-            event.clientX + window.scrollX,
-            event.clientY + window.scrollY
-        );
+        enqueue({
+            x: p.x,
+            y: p.y,
+            alpha,
+            size,
+            angle,
+            flipX: props.data.flipX,
+            flipY: props.data.flipY,
+        });
 
-        /**
-         * Container/Parents invers.
-         * Ergebnis: Punkt im Koordinatenraum des Layer-Parents.
-         */
-        const ancestorsToDocument = getAncestorsToDocumentMatrix(el);
-        const documentToAncestors = ancestorsToDocument.inverse();
-
-        const parentPoint = documentPoint.matrixTransform(documentToAncestors);
-
-        /**
-         * Jetzt nur noch die Layout-Position des Brush-Layers abziehen.
-         * Noch KEINE eigene Layer-Transform invertieren.
-         */
-        return {
-            x: parentPoint.x - (el.offsetLeft || 0),
-            y: parentPoint.y - (el.offsetTop || 0)
-        };
+        strokeStamped.value = true;
     };
 
-    const clientToCanvasPoint = (event) => {
-        return clientToPreLayerPoint(event);
-    };
+    const processPointerSample = (e) => {
+        if (!props.drawing || !lastInputPos.value) return;
+        if (activePointerId.value != null && e.pointerId !== activePointerId.value) return;
 
-    const onCanvasPointerMove = (e) => {
-        localMouse.value = clientToCanvasPoint(e);
-    };
+        const current = getFastPoint(e);
 
-    const onPointerDown = async (e) => {
-        if (visible.value || (e.pointerType === 'mouse' && e.button !== 0)) return;
-        if (!props.state) return;
+        if (!current) return;
 
-        e.preventDefault();
+        const now = e.timeStamp || nowMs();
+        const dt = Math.max(1, now - (lastTime.value || now));
 
-        register('add', window, 'pointermove', onPointerMove);
-        register('add', window, 'pointerup', onPointerUp);
-        register('add', canvas.value, 'pointerleave', onPointerUp);
+        const curr = { ...current };
+        const last = lastInputPos.value;
+        const prev = prevInputPos.value || last;
 
-        emitEvent('drawing-state', true);
-
-        localMouse.value = clientToCanvasPoint(e);
-        lastPos.value = { ...localMouse.value };
-
-        lastTime.value = nowMs();
-        pointerMoved.value = false;
-
-        currentBrush.value = await prepareBrush(props.data);
-    };
-
-    const onPointerMove = async (e) => {
-        if (!props.drawing || !lastPos.value) return;
-
-        e.preventDefault();
-
-        pointerMoved.value = true;
-
-        const now = nowMs();
-
-        const curr = clientToCanvasPoint(e);
-        localMouse.value = curr;
-
-        if (!curr) return;
-
-        const rawPressure = e.pressure != null ? e.pressure : props.data.pressure;
-        const finalPressure = Math.min(rawPressure * props.data.pressure);
-
-        const dx = curr.x - lastPos.value.x;
-        const dy = curr.y - lastPos.value.y;
+        const dx = curr.x - last.x;
+        const dy = curr.y - last.y;
         const dist = Math.hypot(dx, dy);
 
-        const dt = now - lastTime.value || 16;
-        lastTime.value = now;
-
-        const steps = Math.max(1, Math.floor(dist / getSpacing()));
-
-        for (let i = 1; i <= steps; i++) {
-            const x = lastPos.value.x + dx * (i / steps);
-            const y = lastPos.value.y + dy * (i / steps);
-
-            let alpha = props.data.opacity;
-
-            if (props.data.fadeDynamics) {
-                alpha *= props.data.flow;
-
-                const distFactorRaw = Math.min(dist / steps, 1);
-                const timeFactorRaw = Math.min(dt * steps, 1);
-                const pressureFactor = Math.pow(finalPressure, 1.0);
-
-                const easeIn = t => t * t * t;
-
-                const distFactor = easeIn(distFactorRaw);
-                const timeFactor = easeIn(timeFactorRaw);
-
-                const fadeDist = 1 - distFactor * 0.7;
-                const fadeTime = 1 - timeFactor * 0.7;
-
-                const fade = fadeDist * fadeTime * pressureFactor;
-
-                alpha *= fade;
-
-                currentOpacity.value = alpha;
-            }
-
-            alpha = Math.min(Math.max(alpha, 0), 1);
-
-            let size = props.data.size;
-
-            if (props.data.sizeDynamics) {
-                const progress = dt / steps;
-                size *= 1 + progress * finalPressure;
-                size = Math.min(size - steps, props.data.size);
-                currentSize.value = size;
-            }
-
-            let angle = (props.data.angle || 0) * (Math.PI / 180);
-
-            if (props.data.angleDynamics) {
-                const dynamicAngle = Math.atan2(dy, dx);
-                angle += dynamicAngle;
-                currentAngle.value = dynamicAngle * (180 / Math.PI);
-            }
-
-            if (props.data.rotationRandom) {
-                const randomAngle = Math.random() * Math.PI * 2;
-                angle += randomAngle;
-                currentAngle.value = randomAngle * (180 / Math.PI);
-            }
-
-            await enqueue({
-                x,
-                y,
-                alpha,
-                size,
-                angle,
-                flipX: props.data.flipX,
-                flipY: props.data.flipY
-            });
+        /**
+         * Micro-Movement ignorieren.
+         * Dadurch erzeugt ein normaler Single Click nicht 3-5 Stamps.
+         */
+        if (dist < MIN_STROKE_DIST) {
+            return;
         }
 
+        const moveThreshold = getMoveThreshold();
+
+        /**
+         * Erst ab sinnvoller Bewegung gilt der Stroke wirklich als bewegt.
+         * Das verhindert den zusätzlichen Finish-Stamp bei fast stehenden Klicks.
+         */
+        if (dist >= moveThreshold) {
+            pointerMoved.value = true;
+        }
+
+        lastTime.value = now;
+
+        const speed = dist / dt;
+        const pressure = getBrushPressure(e);
+
+        const size = computeSize(pressure, speed);
+        const alpha = computeAlpha(pressure, speed);
+        const spacing = getDynamicSpacing(size, pressure, speed);
+
+        currentSize.value = size;
+        currentOpacity.value = alpha;
+
+        /**
+         * Quadratic Curve:
+         * Dadurch bleiben schnelle Skizzenstriche gebogen,
+         * statt als gerade Verbindung zwischen Event-Punkten zu enden.
+         */
+        const start = midpoint(prev, last);
+        const control = last;
+        const end = midpoint(last, curr);
+
+        const approxCurveLength =
+            Math.hypot(control.x - start.x, control.y - start.y) +
+            Math.hypot(end.x - control.x, end.y - control.y);
+
+        let travel = stampRemainder.value;
+        const total = approxCurveLength;
+
+        /**
+         * Safety:
+         * Ein einzelnes Sample darf niemals tausende Stamps erzeugen.
+         */
+        let localStampCount = 0;
+        const maxLocalStamps = 256;
+
+        while (travel <= total && localStampCount < maxLocalStamps) {
+            const t = clamp(total <= 0 ? 1 : travel / total, 0, 1);
+            const p = quadAt(start, control, end, t);
+
+            const t2 = clamp(t + 0.01, 0, 1);
+            const p2 = quadAt(start, control, end, t2);
+
+            const adx = p2.x - p.x;
+            const ady = p2.y - p.y;
+
+            enqueue({
+                x: p.x,
+                y: p.y,
+                alpha,
+                size,
+                angle: computeAngle(adx || dx, ady || dy),
+                flipX: props.data.flipX,
+                flipY: props.data.flipY,
+            });
+
+            travel += spacing;
+            localStampCount++;
+        }
+
+        stampRemainder.value = travel - total;
+
+        prevInputPos.value = last;
+        lastInputPos.value = curr;
         lastPos.value = curr;
     };
 
-    const onPointerUp = async (e) => {
-        if (!props.drawing) return;
-
-        if (!pointerMoved.value) {
-            await onPointerMove(e);
-        }
-
-        emitEvent('drawing-state', false);
-
-        lastPos.value = null;
-        pointerMoved.value = false;
-
-        register('remove', window, 'pointerup', onPointerUp);
-        register('remove', window, 'pointermove', onPointerMove);
-        register('remove', canvas.value, 'pointerleave', onPointerUp);
-    };
-
-    const openContextMenu = async (e) => {
-        if (!props.state) return;
+    const onPointerMove = (e) => {
+        if (!props.drawing || !lastInputPos.value) return;
+        if (activePointerId.value != null && e.pointerId !== activePointerId.value) return;
 
         e.preventDefault();
 
-        const point = clientToCanvasPoint(e);
+        /**
+         * Browser liefern bei schnellen Pointerbewegungen echte Zwischenpunkte.
+         * Wir verarbeiten aber nicht blind alle, weil sonst die Queue explodiert.
+         */
+        const samples =
+            typeof e.getCoalescedEvents === 'function'
+                ? e.getCoalescedEvents()
+                : [];
 
-        menuPos.value = {
-            x: Math.round(point.x),
-            y: Math.round(point.y)
-        };
+        if (!samples.length) {
+            processPointerSample(e);
+            return;
+        }
 
-        visible.value = true;
+        /**
+         * Genug Samples für Kurvenqualität,
+         * aber nicht so viele, dass eine Curve Sekunden nachläuft.
+         */
+        const maxSamples = 12;
+        const step = Math.max(1, Math.ceil(samples.length / maxSamples));
 
-        await nextTick();
+        for (let i = 0; i < samples.length; i += step) {
+            processPointerSample(samples[i]);
+        }
 
-        register('add', window, 'click', closeContextMenu);
+        /**
+         * Letztes Sample immer verarbeiten,
+         * damit der Stroke exakt am Pointer endet.
+         */
+        const lastSample = samples[samples.length - 1];
+
+        if (lastSample && samples.length > 1) {
+            processPointerSample(lastSample);
+        }
     };
 
-    const closeContextMenu = (e) => {
-        const menu = document.querySelector('.brush-context-menu');
+    const onPointerDown = async (e) => {
+        if (props.brushMenu || (e.pointerType === 'mouse' && e.button !== 0)) return;
+        if (!props.state || !props.currentBrush) return;
 
-        if (menu && !menu.contains(e.target)) {
-            visible.value = false;
-            register('remove', window, 'click', closeContextMenu);
+        e.preventDefault();
+
+        activePointerId.value = e.pointerId;
+
+        const target = inputTarget.value || canvas.value;
+
+        /**
+         * Dadurch läuft der Stroke weiter,
+         * auch wenn der Pointer außerhalb vom Canvas oder Wrapper ist.
+         */
+        if (target?.setPointerCapture && e.pointerId != null) {
+            try {
+                target.setPointerCapture(e.pointerId);
+            } catch (_) {
+                // Browser kann Pointer Capture in Sonderfällen ablehnen.
+            }
         }
+
+        register('add', target, moveEventName.value, onPointerMove);
+        register('add', window, 'pointerup', onPointerUp);
+        register('add', window, 'pointercancel', onPointerCancel);
+
+        emitEvent('drawing-state', true);
+
+        await mouse.down(e, async ({ current }) => {
+            if (!current) return;
+
+            const p = { ...current };
+
+            prevInputPos.value = p;
+            lastInputPos.value = p;
+            lastPos.value = p;
+
+            stampRemainder.value = 0;
+            lastTime.value = e.timeStamp || nowMs();
+            pointerMoved.value = false;
+            strokeStamped.value = false;
+
+            /**
+             * Production-Verhalten:
+             * Ein Tap startet sofort mit genau einem Stamp.
+             */
+            stampTap(e, p);
+        });
+    };
+
+    const finishStroke = async (e, cancelled = false) => {
+        if (!props.drawing && !lastInputPos.value) return;
+        if (activePointerId.value != null && e.pointerId !== activePointerId.value) return;
+
+        /**
+         * Fallback nur, wenn aus irgendeinem Grund noch kein Stamp gesetzt wurde.
+         * Normaler Single Click erzeugt dadurch NICHT mehr doppelt.
+         */
+        if (!cancelled && !pointerMoved.value && !strokeStamped.value && lastInputPos.value) {
+            stampTap(e, lastInputPos.value);
+        }
+
+        const target = inputTarget.value || canvas.value;
+
+        if (target?.releasePointerCapture && activePointerId.value != null) {
+            try {
+                target.releasePointerCapture(activePointerId.value);
+            } catch (_) {
+                // Ignore.
+            }
+        }
+
+        await mouse.up(e);
+
+        emitEvent("drawing-state", false);
+
+        resetBrushCursorDynamics();
+
+        prevInputPos.value = null;
+        lastInputPos.value = null;
+        lastPos.value = null;
+        stampRemainder.value = 0;
+        pointerMoved.value = false;
+        strokeStamped.value = false;
+        activePointerId.value = null;
+
+        register("remove", window, "pointerup", onPointerUp);
+        register("remove", window, "pointercancel", onPointerCancel);
+
+        if (target) {
+            register("remove", target, moveEventName.value, onPointerMove);
+        }
+    };
+
+    const onPointerUp = async (e) => {
+        await finishStroke(e, false);
+    };
+
+    const onPointerCancel = async (e) => {
+        await finishStroke(e, true);
     };
 
     async function _init(unregister = false) {
         if (unregister) {
-            if (drawQueue.value.length > 0) return;
+            /**
+             * Nicht committen, solange noch Stamps offen sind.
+             */
+            await waitForQueueDrain();
 
             const render = await createLayer();
 
@@ -534,13 +850,27 @@ export function brushModel(props, emit) {
             await nextTick();
 
             ctx.value = null;
+            inputTarget.value = null;
             register('removeAll');
         } else {
             await setup();
 
-            register('add', canvas.value, 'pointerdown', onPointerDown);
-            register('add', canvas.value, 'pointermove', onCanvasPointerMove);
-            register('add', canvas.value, 'contextmenu', openContextMenu, { prevent: true });
+            const target = inputTarget.value || canvas.value;
+
+            register('add', target, 'pointerdown', onPointerDown);
+            register('add', target, 'pointermove', onCanvasPointerMove);
+
+            /**
+             * Wichtig für Touch/Pen:
+             * Verhindert Browser-Gesten während des Zeichnens.
+             */
+            if (canvas.value) {
+                canvas.value.style.touchAction = 'none';
+            }
+
+            if (target) {
+                target.style.touchAction = 'none';
+            }
 
             register('pause');
 
@@ -564,11 +894,6 @@ export function brushModel(props, emit) {
 
     return {
         canvas,
-        visible,
-        menuPos,
-
-        setCursor,
-
         buildMatrix,
         emitEvent
     };
@@ -576,6 +901,8 @@ export function brushModel(props, emit) {
 
 export const brushProps = {
     state: { type: Boolean, required: true },
+    brushMenu: { type: Boolean, required: true },
+    currentBrush: { type: Object, required: true },
     drawing: { type: Boolean, required: true },
     viewport: { type: Object, required: true },
     selectedLayer: { type: Object, required: true },
@@ -585,4 +912,16 @@ export const brushProps = {
     canvasId: { type: String, required: true },
     mouse: { type: Object, required: false },
     eraser: { type: Boolean, required: false, default: false },
+
+    /**
+     * Optional:
+     * ID oder HTMLElement vom äußeren Input-Container.
+     *
+     * Beispiel:
+     * <Brush :wrapper="grid.main.id" />
+     *
+     * Dadurch können große Brushes auch außerhalb vom eigentlichen Canvas
+     * angesetzt und bewegt werden, während weiterhin auf dem Canvas gerendert wird.
+     */
+    wrapper: { type: [String, Object], required: false, default: null },
 };

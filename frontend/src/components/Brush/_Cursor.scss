@@ -1,0 +1,108 @@
+@use "../../view/scss/_Var" as v;
+
+.brush-cursor {
+  position: absolute;
+  pointer-events: none;
+  user-select: none;
+  cursor: none;
+  contain: layout paint style;
+  will-change: transform, left, top, width, height, opacity;
+  z-index: v.$modify_index;
+
+  --brush-cursor-border-width: 1.05px;
+  --brush-cursor-blue: #31a8ff;
+}
+
+.brush-cursor__svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.brush-cursor__vector-path {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+  stroke-linecap: butt;
+  stroke-linejoin: round;
+}
+
+.brush-cursor__vector-path--shadow {
+  stroke: rgba(0, 0, 0, 0.98);
+  stroke-width: 2.05px;
+  opacity: 0.96;
+  filter: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.brush-cursor__vector-path--white {
+  stroke: rgba(255, 255, 255, 0.96);
+  stroke-width: var(--brush-cursor-border-width);
+  opacity: var(
+                  --brush-cursor-dynamic-border-opacity,
+                  var(--brush-cursor-border-opacity, 0.96)
+  );
+  filter: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.brush-cursor__vector-path--sweep {
+  stroke: var(--brush-cursor-blue);
+  stroke-width: 1.25px;
+  stroke-linecap: butt;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  fill: none;
+  filter: none;
+}
+
+.brush-cursor__vector-path--sweep-a {
+  opacity: calc(
+          var(--brush-cursor-dynamic-blue-opacity, var(--brush-cursor-blue-opacity, 1))
+          * 0.18
+  );
+}
+
+.brush-cursor__vector-path--sweep-b {
+  opacity: calc(
+          var(--brush-cursor-dynamic-blue-opacity, var(--brush-cursor-blue-opacity, 1))
+          * 0.38
+  );
+}
+
+.brush-cursor__vector-path--sweep-c {
+  opacity: calc(
+          var(--brush-cursor-dynamic-blue-opacity, var(--brush-cursor-blue-opacity, 1))
+          * 0.95
+  );
+}
+
+.brush-cursor__dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 3px;
+  height: 3px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow:
+          0 0 0 1px rgba(0, 0, 0, 0.95),
+          0 0 3px rgba(255, 255, 255, 0.35);
+  pointer-events: none;
+}
+
+.brush-cursor--tiny .brush-cursor__dot {
+  width: 2px;
+  height: 2px;
+}
+
+.brush-cursor--small .brush-cursor__dot {
+  width: 2.5px;
+  height: 2.5px;
+}

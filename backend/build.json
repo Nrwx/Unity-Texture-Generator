@@ -18,7 +18,7 @@
     "project_name": "unity-texture-generator"
   },
   "dependencies": {
-    "last_build": "2026-05-15T04:18:39.646112Z",
+    "last_build": "2026-05-21T13:46:55.436222Z",
     "config": {
       "library_policy": {
         "auto_update": true,
@@ -848,6 +848,30 @@
             "tolerance"
           ],
           "function": "fill"
+        },
+        "resize": {
+          "keys": [
+            "id",
+            "crop_left",
+            "crop_top",
+            "crop_right",
+            "crop_bottom",
+            "resize_index",
+            "resize_width",
+            "resize_height",
+            "resize_keep_aspect_ratio",
+            "resize_is_custom",
+            "resize_mode",
+            "upscale_method",
+            "cutout",
+            "mask_type",
+            "select_mask_x",
+            "select_mask_y",
+            "select_mask_width",
+            "select_mask_height",
+            "select_mask_shape"
+          ],
+          "function": "resize"
         }
       },
       "api": {

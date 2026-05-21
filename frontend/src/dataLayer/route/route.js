@@ -31,7 +31,7 @@ export { fetchFont } from "./font";
 
 export { fetchShader } from "./shader";
 
-export { fillModifier } from  "./modifier";
+export { fillModifier, resizeModifier } from  "./modifier";
 
 export { viewportSetup, fetchViewport } from "./viewport";
 

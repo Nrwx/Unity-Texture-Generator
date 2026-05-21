@@ -16,13 +16,24 @@ export const modifierEvent = (route) => ({
             await route.emit("fetch-layer");
         }
     },
+    "modifier:image-applied": async (payload) => {
+        const response = await route.api.resizeModifier(payload);
+        if (response) {
+            route.tempData.activeLayer.value = null;
+            route.localData.selectItemsBox.value = null;
+            route.localData.selectMaskBox.value = null;
+            await route.emit('modifier-resize:state', false);
+            await route.emit("fetch-layer");
+        }
+    },
     "select:mask-shape": async (payload) => {
         route.localData.selectedShape.value = payload
-        console.log(route.localData.selectedShape.value)
     },
     "update:select-items-box": async (payload) => {
         route.localData.selectItemsBox.value = payload
-        console.log(route.localData.selectItemsBox.value)
+    },
+    "update:select-mask-box": async (payload) => {
+        route.localData.selectMaskBox.value = payload
     },
     "pen:bezier-mode": async (payload) => {
         route.localData.bezier.value = payload

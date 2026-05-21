@@ -17,6 +17,13 @@ export const contextMenuEvent = (route) => ({
         else if(action === 'text-path') {
             await route.emit('renderer:text-to-path', {mode: 'text-path', id: contextId})
         }
+        else if(action === 'crop-image') {
+            const l = route.localData.layers.value.find(x => x.id === contextId);
+            if (l) {
+                route.tempData.activeLayer.value = l;
+                await route.emit('modifier-resize:state', true);
+            }
+        }
         else if(action === 'copy') {
             route.emit('context-menu-copy', {state: true, id: contextId})
             console.log('Element kopiert', contextId)

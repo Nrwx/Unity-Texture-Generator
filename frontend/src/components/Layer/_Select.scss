@@ -1,6 +1,15 @@
 .center-crosshair {
-  pointer-events: all;
-  cursor: pointer;
+  pointer-events: auto;
+  cursor: grab;
   background: #00aaff;
   border-radius: 50%;
+}
+
+.center-crosshair:active {
+  cursor: grabbing;
+}
+
+.resize-handle,
+.rotate-handle {
+  pointer-events: auto;
 }

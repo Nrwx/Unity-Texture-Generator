@@ -1,8 +1,13 @@
-import {computed, onBeforeUnmount, onMounted, ref} from "vue";
+import {computed, nextTick, onBeforeUnmount, onMounted, ref} from "vue";
 import {uuid} from "@/utils/uuid";
 import {eventRegister} from "@/dataLayer/event";
+import {useMouse} from "@/composables/mouse/model";
 
 export function gridModel(props, emit) {
+
+    const cache = {
+        brush: new Map()
+    }
 
     const grid = ref({
         wrapper: {
@@ -26,10 +31,197 @@ export function gridModel(props, emit) {
                 transformOrigin: "center center",
             }))
         }
-    })
+    });
 
-    const cursor = ref({ x: 0, y: 0 });
-    const lastMouse = ref({x: 0, y: 0})
+    const ui = ref({
+        brush: {
+            cursor: {
+                position: { x: 0, y: 0 },
+                dynamic: {
+                  size: 0,
+                  rotation: 0,
+                  opacity: 1,
+                },
+                current: null
+            },
+
+            menu: {
+                active: false,
+                position: { x: 0, y: 0 },
+            },
+        },
+    });
+
+    const writeUi = (path, val) => {
+        const keys = path.split(".");
+        const lastKey = keys.pop();
+
+        let target = ui.value;
+
+        for (const key of keys) {
+            if (!(key in target)) {
+                target[key] = {};
+            }
+
+            target = target[key];
+        }
+
+        target[lastKey] = val;
+    };
+
+    const emitEvent = (event, payload) => { emit("component-event", event, payload);};
+    const { register } = eventRegister('listener:grid', emitEvent);
+
+    const mouse = useMouse({
+        register,
+        mainId: grid.value.main.id,
+        canvasId: props.canvasId,
+        width: props.settings.width,
+        height: props.settings.height,
+        mode: "world"
+    });
+
+    const {
+        cursor,
+        lastMouse,
+        screenToWorld
+    } = mouse;
+
+    const getFirstBrushItem = () => {
+        const category = props.brushes?.find(item => item?.children?.length);
+        const child = category?.children?.[0];
+
+        if (!category || !child) return null;
+
+        return {
+            id: child.id,
+            name: child.name,
+            categoryId: category.id,
+            categoryName: category.name,
+            url: '/brush' + child.path,
+        };
+    };
+
+    const normalizeNumber = (value, fallback, min = -Infinity, max = Infinity) => {
+        const n = Number(value);
+
+        if (!Number.isFinite(n)) return fallback;
+
+        return Math.min(max, Math.max(min, n));
+    };
+
+    const prepareBrush = async (data) => {
+        const item = getFirstBrushItem();
+
+        const brushId = data?.id !== "" && data?.id != null
+            ? data.id
+            : item?.id;
+
+        const brushUrl = data?.url !== "" && data?.url != null
+            ? data.url
+            : item?.url;
+
+        if (!brushId || !brushUrl) {
+            console.warn("prepareBrush: Kein gültiger Brush gefunden", {
+                data,
+                item
+            });
+
+            return null;
+        }
+
+        const size = Math.round(
+            normalizeNumber(data?.size ?? props.brushSettings.size, 64, 1, 2048)
+        );
+
+        const opacity = normalizeNumber(data?.opacity, 1.0, 0.001, 1.0);
+        const rotation = normalizeNumber(data?.angle, 0, -360, 360);
+        const color = data?.color || "#000000";
+
+        const img = await new Promise((res, rej) => {
+            const i = new Image();
+
+            i.crossOrigin = 'Anonymous';
+            i.onload = () => res(i);
+            i.onerror = rej;
+            i.src = brushUrl;
+        });
+
+        emitEvent('generate:cursor', {
+            id: brushId,
+            size,
+            opacity,
+            rotation
+        });
+
+        const key = [
+            brushUrl,
+            color,
+            size,
+            opacity,
+            rotation,
+            brushId
+        ].join("|");
+
+        if (cache.brush.has(key)) {
+            return cache.brush.get(key);
+        }
+
+        const off = document.createElement('canvas');
+
+        Object.assign(off, {
+            width: img.width,
+            height: img.height
+        });
+
+        const octx = off.getContext('2d', {
+            willReadFrequently: true
+        });
+
+        octx.drawImage(img, 0, 0);
+
+        const imgData = octx.getImageData(0, 0, img.width, img.height);
+        const c = parseColor(color);
+
+        for (let i = 0; i < imgData.data.length; i += 4) {
+            const gray = imgData.data[i];
+
+            imgData.data[i] = c.r;
+            imgData.data[i + 1] = c.g;
+            imgData.data[i + 2] = c.b;
+            imgData.data[i + 3] = gray;
+        }
+
+        octx.putImageData(imgData, 0, 0);
+
+        cache.brush.set(key, off);
+
+        return off;
+    };
+
+    const parseColor = (() => {
+        const cache = {};
+        const context = document.createElement('canvas').getContext('2d');
+
+        return (str) => {
+            if (cache[str]) return cache[str];
+
+            context.fillStyle = str;
+            context.fillRect(0, 0, 1, 1);
+
+            const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data;
+
+            cache[str] = {
+                r,
+                g,
+                b,
+                a: a / 255
+            };
+
+            return cache[str];
+        };
+    })();
+
     const resizeDirection = ref('');
     const rotationStartAngle = ref(0);
     const fineSnapAngle = 360 / 64; // 5.625° pro Schritt
@@ -60,11 +252,6 @@ export function gridModel(props, emit) {
         scale: 1
     });
 
-
-    const emitEvent = (event, payload) => {
-        emit("component-event", event, payload);
-    };
-
     const anchorPoint = ref({ x: 0.5, y: 0.5 });
     const anchorScreen = computed(() => {
         const box = frameBox.value;
@@ -87,8 +274,6 @@ export function gridModel(props, emit) {
 
     const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
-    const { register } = eventRegister('listener:grid', emitEvent);
-
     const cycleAlignMode = (e) => {
         if (props.layerStates.align.value) {
             alignModeStep.value = (alignModeStep.value + 1) % 3;
@@ -107,125 +292,16 @@ export function gridModel(props, emit) {
         };
     };
 
-    const getCanvasEl = () => {
-        return grid.value.container.ref;
-    };
-
-    const getMainEl = () => {
-        return grid.value.main.ref;
-    };
-
-    const parseTransformOrigin = (value) => {
-        const parts = value.split(" ");
-
-        return {
-            x: parseFloat(parts[0]) || props.settings.width / 2,
-            y: parseFloat(parts[1]) || props.settings.height / 2
-        };
-    };
-
-    const getElementOffsetTo = (element, target) => {
-        let x = element.offsetLeft || 0;
-        let y = element.offsetTop || 0;
-
-        let parent = element.offsetParent;
-
-        while (parent && parent !== target) {
-            x += parent.offsetLeft || 0;
-            y += parent.offsetTop || 0;
-            parent = parent.offsetParent;
-        }
-
-        return { x, y };
-    };
-
-    const getCanvasLayoutData = () => {
-        const canvas = getCanvasEl();
-        const main = getMainEl();
-
-        if (!canvas || !main) {
-            return null;
-        }
-
-        const style = window.getComputedStyle(canvas);
-        const origin = parseTransformOrigin(style.transformOrigin);
-        const offset = getElementOffsetTo(canvas, main);
-
-        return {
-            canvas,
-            main,
-            origin,
-            offset
-        };
-    };
-
-    const getCanvasToMainMatrix = () => {
-        const data = getCanvasLayoutData();
-
-        if (!data) {
-            return new DOMMatrix();
-        }
-
-        const style = window.getComputedStyle(data.canvas);
-
-        const cssMatrix =
-            style.transform && style.transform !== "none"
-                ? new DOMMatrix(style.transform)
-                : new DOMMatrix();
-
-        return new DOMMatrix()
-            .translate(data.offset.x + data.origin.x, data.offset.y + data.origin.y)
-            .multiply(cssMatrix)
-            .translate(-data.origin.x, -data.origin.y);
-    };
-
-    const mainPointToCanvas = (x, y) => {
-        const inverse = getCanvasToMainMatrix().inverse();
-        const point = new DOMPoint(x, y).matrixTransform(inverse);
-
-        return {
-            x: point.x,
-            y: point.y
-        };
-    };
-
-    const clientPointToMain = (clientX, clientY) => {
-        const main = getMainEl();
-
-        if (!main) {
-            return { x: 0, y: 0 };
-        }
-
-        const mainRect = main.getBoundingClientRect();
-
-        return {
-            x: clientX - mainRect.left,
-            y: clientY - mainRect.top
-        };
-    };
-
-    const screenToWorld = (clientX, clientY) => {
-        const mainPoint = clientPointToMain(clientX, clientY);
-
-        return mainPointToCanvas(mainPoint.x, mainPoint.y);
-    };
 
     const setZoomAt = (clientX, clientY, nextScale) => {
-        const data = getCanvasLayoutData();
+        const data = mouse.getCanvasLayoutData();
 
         if (!data) return;
 
         const m = grid.value.container.matrix;
 
-        /**
-         * Diese Canvas-Koordinate soll unter der Maus stabil bleiben.
-         */
-        const world = screenToWorld(clientX, clientY);
-
-        /**
-         * Mausposition im Koordinatensystem von .main-layer.
-         */
-        const target = clientPointToMain(clientX, clientY);
+        const world = mouse.screenToWorld(clientX, clientY);
+        const target = mouse.clientPointToMain(clientX, clientY);
 
         const originX = data.origin.x;
         const originY = data.origin.y;
@@ -233,32 +309,16 @@ export function gridModel(props, emit) {
         const localX = world.x - originX;
         const localY = world.y - originY;
 
-        /**
-         * Aktuelle Rotation bleibt erhalten.
-         */
-        const angle = (m.rotate || 0) * Math.PI / 180;
+        const angle = ((m.rotate || 0) * Math.PI) / 180;
         const cos = Math.cos(angle);
         const sin = Math.sin(angle);
 
-        /**
-         * transform: matrix(scale, 0, 0, scale, x, y) rotate(angle)
-         *
-         * Bedeutet praktisch:
-         * 1. Punkt um transformOrigin rotieren
-         * 2. skalieren
-         * 3. translation x/y addieren
-         */
         const rotatedX = localX * cos - localY * sin;
         const rotatedY = localX * sin + localY * cos;
 
         const scaledX = rotatedX * nextScale;
         const scaledY = rotatedY * nextScale;
 
-        /**
-         * Gesucht ist m.x / m.y, sodass:
-         *
-         * target = canvasLayoutOffset + transformOrigin + scaledRotatedPoint + translation
-         */
         m.a = nextScale;
         m.d = nextScale;
 
@@ -288,168 +348,194 @@ export function gridModel(props, emit) {
 
     const stopZoomScrub = () => {
         isZoomScrubbing.value = false;
-        register('remove', window, 'mousemove', zoomMouseMove);
-        register('remove', window, 'mouseup', stopZoomScrub);
+        register('remove', window, 'pointermove', zoomMouseMove);
+        register('remove', window, 'pointerup', stopZoomScrub);
+    };
+
+    const openBrushMenu = async (event) => {
+        if (!props.brush) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const point = mouse.screenToWorld(event.clientX, event.clientY);
+        ui.value.brush.menu.position = {
+            x: Math.round(point.x),
+            y: Math.round(point.y),
+        };
+        ui.value.brush.menu.active = true;
+        await nextTick();
+        register("add", window, "click", closeBrushMenu);
+    };
+
+    const closeBrushMenu = (event) => {
+        const menu = document.querySelector('.brush-context-menu');
+        if (menu && menu.contains(event.target)) {
+            return;
+        }
+        ui.value.brush.menu.active = false;
+        register("remove", window, "click", closeBrushMenu);
+    };
+
+    const onWrapperContextMenu = async (event) => {
+        if (!props.brush) return;
+        await openBrushMenu(event);
     };
 
     const mouseMove = async (event) => {
-        if (isDraggingAnchor.value) {
-            const world = screenToWorld(event.clientX, event.clientY);
-            const box = frameBox.value;
+        await mouse.move(event, async ({current, dx, dy, dxStart, dyStart, client, lastClient,}) => {
 
-            anchorPoint.value = {
-                x: (world.x - box.left) / box.width,
-                y: (world.y - box.top) / box.height
-            };
-
-            // clamp (optional aber sinnvoll)
-            anchorPoint.value.x = Math.max(0, Math.min(1, anchorPoint.value.x));
-            anchorPoint.value.y = Math.max(0, Math.min(1, anchorPoint.value.y));
-
-            return;
-        }
-        const current = screenToWorld(event.clientX, event.clientY);
-        const previous = screenToWorld(lastMouse.value.x, lastMouse.value.y);
-
-        const dx = current.x - previous.x;
-        const dy = current.y - previous.y;
-
-        cursor.value.x = Math.round(current.x);
-        cursor.value.y = Math.round(current.y);
-
-        if (props.layerStates.translate.value) {
-            const hasGuides = props.guides && props.guides.length > 0;
-
-            let newX = frameBox.value.left + dx;
-            let newY = frameBox.value.top + dy;
-
-            const width = frameBox.value.width;
-            const height = frameBox.value.height;
-
-            if (hasGuides) {
-                const edgesX = {
-                    left: newX,
-                    center: newX + width / 2,
-                    right: newX + width
+            if (props.brush) {
+                ui.value.brush.cursor.position = {
+                    x: Math.round(current.x),
+                    y: Math.round(current.y),
                 };
-
-                const edgesY = {
-                    top: newY,
-                    center: newY + height / 2,
-                    bottom: newY + height
-                };
-
-                const verticalGuides = Array.from(new Set([
-                    ...props.guides
-                        .filter(g => g.type === 'vertical')
-                        .map(g => g.position),
-                    0,
-                    props.settings.width
-                ])).sort((a, b) => a - b);
-
-                const horizontalGuides = Array.from(new Set([
-                    ...props.guides
-                        .filter(g => g.type === 'horizontal')
-                        .map(g => g.position),
-                    0,
-                    props.settings.height
-                ])).sort((a, b) => a - b);
-
-                const scale = grid.value.container.matrix.a || 1;
-
-                // 8 Screen-Pixel Toleranz, aber in Canvas-World-Pixel umgerechnet.
-                const SNAP_TOLERANCE = 8 / scale;
-
-                let bestSnapDeltaX = 0;
-                let bestSnapDistanceX = Infinity;
-
-                let bestSnapDeltaY = 0;
-                let bestSnapDistanceY = Infinity;
-
-                for (const guideX of verticalGuides) {
-                    for (const keyX in edgesX) {
-                        const deltaX = guideX - edgesX[keyX];
-
-                        if (
-                            Math.abs(deltaX) <= SNAP_TOLERANCE &&
-                            Math.abs(deltaX) < bestSnapDistanceX
-                        ) {
-                            bestSnapDistanceX = Math.abs(deltaX);
-                            bestSnapDeltaX = deltaX;
-                        }
-                    }
-                }
-
-                for (const guideY of horizontalGuides) {
-                    for (const keyY in edgesY) {
-                        const deltaY = guideY - edgesY[keyY];
-
-                        if (
-                            Math.abs(deltaY) <= SNAP_TOLERANCE &&
-                            Math.abs(deltaY) < bestSnapDistanceY
-                        ) {
-                            bestSnapDistanceY = Math.abs(deltaY);
-                            bestSnapDeltaY = deltaY;
-                        }
-                    }
-                }
-
-                newX += bestSnapDeltaX;
-                newY += bestSnapDeltaY;
             }
 
-            const offsetX = Math.round(newX - frameBox.value.left);
-            const offsetY = Math.round(newY - frameBox.value.top);
+            if (isDraggingAnchor.value) {
+                const box = frameBox.value;
 
-            props.selectedLayer.forEach(layer => {
-                if (props.layerStates.align.value) {
-                    if (alignModeStep.value === 1) {
-                        layer.matrix.x = (layer.matrix.x ?? 0) + offsetX;
-                    } else if (alignModeStep.value === 2) {
-                        layer.matrix.y = (layer.matrix.y ?? 0) + offsetY;
+                anchorPoint.value = {
+                    x: (current.x - box.left) / box.width,
+                    y: (current.y - box.top) / box.height,
+                };
+
+                anchorPoint.value.x = clamp(anchorPoint.value.x, 0, 1);
+                anchorPoint.value.y = clamp(anchorPoint.value.y, 0, 1);
+
+                return;
+            }
+
+            if (props.layerStates.translate.value) {
+                const hasGuides = props.guides && props.guides.length > 0;
+
+                let newX = frameBox.value.left + dx;
+                let newY = frameBox.value.top + dy;
+
+                const width = frameBox.value.width;
+                const height = frameBox.value.height;
+
+                if (hasGuides) {
+                    const edgesX = {
+                        left: newX,
+                        center: newX + width / 2,
+                        right: newX + width,
+                    };
+
+                    const edgesY = {
+                        top: newY,
+                        center: newY + height / 2,
+                        bottom: newY + height,
+                    };
+
+                    const verticalGuides = Array.from(new Set([
+                        ...props.guides
+                            .filter(g => g.type === "vertical")
+                            .map(g => g.position),
+                        0,
+                        props.settings.width,
+                    ])).sort((a, b) => a - b);
+
+                    const horizontalGuides = Array.from(new Set([
+                        ...props.guides
+                            .filter(g => g.type === "horizontal")
+                            .map(g => g.position),
+                        0,
+                        props.settings.height,
+                    ])).sort((a, b) => a - b);
+
+                    const scale = grid.value.container.matrix.a || 1;
+                    const SNAP_TOLERANCE = 8 / scale;
+
+                    let bestSnapDeltaX = 0;
+                    let bestSnapDistanceX = Infinity;
+
+                    let bestSnapDeltaY = 0;
+                    let bestSnapDistanceY = Infinity;
+
+                    for (const guideX of verticalGuides) {
+                        for (const keyX in edgesX) {
+                            const deltaX = guideX - edgesX[keyX];
+
+                            if (
+                                Math.abs(deltaX) <= SNAP_TOLERANCE &&
+                                Math.abs(deltaX) < bestSnapDistanceX
+                            ) {
+                                bestSnapDistanceX = Math.abs(deltaX);
+                                bestSnapDeltaX = deltaX;
+                            }
+                        }
+                    }
+
+                    for (const guideY of horizontalGuides) {
+                        for (const keyY in edgesY) {
+                            const deltaY = guideY - edgesY[keyY];
+
+                            if (
+                                Math.abs(deltaY) <= SNAP_TOLERANCE &&
+                                Math.abs(deltaY) < bestSnapDistanceY
+                            ) {
+                                bestSnapDistanceY = Math.abs(deltaY);
+                                bestSnapDeltaY = deltaY;
+                            }
+                        }
+                    }
+
+                    newX += bestSnapDeltaX;
+                    newY += bestSnapDeltaY;
+                }
+
+                const offsetX = Math.round(newX - frameBox.value.left);
+                const offsetY = Math.round(newY - frameBox.value.top);
+
+                props.selectedLayer.forEach(layer => {
+                    if (props.layerStates.align.value) {
+                        if (alignModeStep.value === 1) {
+                            layer.matrix.x = (layer.matrix.x ?? 0) + offsetX;
+                        } else if (alignModeStep.value === 2) {
+                            layer.matrix.y = (layer.matrix.y ?? 0) + offsetY;
+                        } else {
+                            layer.matrix.x = (layer.matrix.x ?? 0) + offsetX;
+                            layer.matrix.y = (layer.matrix.y ?? 0) + offsetY;
+                        }
                     } else {
                         layer.matrix.x = (layer.matrix.x ?? 0) + offsetX;
                         layer.matrix.y = (layer.matrix.y ?? 0) + offsetY;
                     }
-                } else {
-                    layer.matrix.x = (layer.matrix.x ?? 0) + offsetX;
-                    layer.matrix.y = (layer.matrix.y ?? 0) + offsetY;
-                }
-            });
-        } else if (props.containerStates.translate.value) {
-            const dx = event.clientX - lastMouse.value.x;
-            const dy = event.clientY - lastMouse.value.y;
-            grid.value.container.matrix.x += dx;
-            grid.value.container.matrix.y += dy;
-        } else if (props.containerStates.rotate.value || props.layerStates.rotate.value) {
-            await rotate(event);
-        } else if (props.layerStates.scale.value) {
-            const start = screenToWorld(
-                resizeStartMouse.value.x,
-                resizeStartMouse.value.y
-            );
+                });
 
-            const dxAbs = current.x - start.x;
-            const dyAbs = current.y - start.y;
+                return;
+            }
 
-            await resize(dxAbs, dyAbs);
-        }
+            if (props.containerStates.translate.value) {
+                grid.value.container.matrix.x += client.x - lastClient.x;
+                grid.value.container.matrix.y += client.y - lastClient.y;
+                return;
+            }
 
-        lastMouse.value.x = event.clientX;
-        lastMouse.value.y = event.clientY;
+            if (props.containerStates.rotate.value || props.layerStates.rotate.value) {
+                await rotate(event);
+                return;
+            }
+
+            if (props.layerStates.scale.value) {
+                await resize(dxStart, dyStart);
+            }
+        });
     };
 
     const startRotate = async (direction, event) => {
-        emitEvent('layer:transform-menu', true)
-        emitEvent('layer:rotate', true)
+        event.preventDefault();
+        event.stopPropagation();
+
+        emitEvent("layer:transform-menu", true);
+        emitEvent("layer:rotate", true);
 
         rotationPivot.value = getAnchorWorld();
         rotationStartAngle.value = calculateRotation(event.clientX, event.clientY);
 
-        lastMouse.value.x = event.clientX;
-        lastMouse.value.y = event.clientY;
+        mouse.setStart(event);
+        mouse.setLast(event);
 
-        register('add', window, 'mouseup', stopTransform);
+        register("add", window, "pointerup", stopTransform);
     };
 
 
@@ -533,18 +619,17 @@ export function gridModel(props, emit) {
         event.stopPropagation();
 
         isDraggingAnchor.value = true;
-        lastMouse.value.x = event.clientX;
-        lastMouse.value.y = event.clientY;
 
-        register("add", window, "mouseup", stopAnchorDrag);
+        mouse.setStart(event);
+        mouse.setLast(event);
+
+        register("add", window, "pointerup", stopAnchorDrag);
     };
 
     const stopAnchorDrag = () => {
         isDraggingAnchor.value = false;
-        register("remove", window, "mouseup", stopAnchorDrag);
+        register("remove", window, "pointerup", stopAnchorDrag);
     };
-
-    const resizeStartMouse = ref({ x: 0, y: 0 });
 
     const PADDING = 20;
 
@@ -560,23 +645,23 @@ export function gridModel(props, emit) {
     };
 
     const startResize = async (corner, event) => {
-        emitEvent('layer:transform-menu', true);
-        emitEvent('layer:scale', true);
+        event.preventDefault();
+        event.stopPropagation();
+
+        emitEvent("layer:transform-menu", true);
+        emitEvent("layer:scale", true);
 
         resizeDirection.value = corner;
         resizeDirectionAnchor(corner);
 
-        resizeStartMouse.value.x = event.clientX;
-        resizeStartMouse.value.y = event.clientY;
-
-        lastMouse.value.x = event.clientX;
-        lastMouse.value.y = event.clientY;
+        mouse.setStart(event);
+        mouse.setLast(event);
 
         props.selectedLayer.forEach(layer => {
             storeLayer(layer);
         });
 
-        register('add', window, 'mouseup', stopTransform);
+        register("add", window, "pointerup", stopTransform);
     };
 
     const MIN_SIZE = 2;
@@ -642,6 +727,7 @@ export function gridModel(props, emit) {
     };
 
     const resetSelection = (event) => {
+        if (event.button === 2) return;
         if (props.brush || props.timeline) return;
         event.preventDefault();
         if (!grid.value.container.ref.contains(event.target) && !event.ctrlKey
@@ -733,8 +819,12 @@ export function gridModel(props, emit) {
         syncAnchorToSelection();
     };
 
-    const mouseDown = (event) => {
+    const mouseDown = async (event) => {
         event.preventDefault();
+        if (props.brush) {
+            ui.value.brush.cursor.current = await prepareBrush(props.brushSettings);
+            return;
+        }
         if (props.containerStates.scale.value) {
             if (event.button === 0 || event.button === 2) {
                 event.preventDefault();
@@ -749,8 +839,8 @@ export function gridModel(props, emit) {
                     scale: grid.value.container.matrix.a || 1
                 };
 
-                register('add', window, 'mousemove', zoomMouseMove);
-                register('add', window, 'mouseup', stopZoomScrub);
+                register('add', window, 'pointermove', zoomMouseMove);
+                register('add', window, 'pointerup', stopZoomScrub);
             }
             return;
         }
@@ -758,7 +848,7 @@ export function gridModel(props, emit) {
     };
 
     const stopTransform = () => {
-        register('remove', window, 'mouseup', stopTransform);
+        register('remove', window, 'pointerup', stopTransform);
         alignModeStep.value = 0;
         rotationPivot.value = null;
         if (props.timeline || props.timelineRecord) emitEvent("timeline:set-keyframe");
@@ -768,7 +858,7 @@ export function gridModel(props, emit) {
 
     const getResizeDirection = (clientX, clientY) => {
         const box = frameBox.value;
-        const mouse = screenToWorld(clientX, clientY);
+        const mousePoint = mouse.screenToWorld(clientX, clientY);
 
         const left = box.left;
         const right = box.left + box.width;
@@ -776,10 +866,10 @@ export function gridModel(props, emit) {
         const bottom = box.top + box.height;
 
         const distances = {
-            left: Math.abs(mouse.x - left),
-            right: Math.abs(mouse.x - right),
-            top: Math.abs(mouse.y - top),
-            bottom: Math.abs(mouse.y - bottom)
+            left: Math.abs(mousePoint.x - left),
+            right: Math.abs(mousePoint.x - right),
+            top: Math.abs(mousePoint.y - top),
+            bottom: Math.abs(mousePoint.y - bottom),
         };
 
         return Object.entries(distances)
@@ -926,11 +1016,11 @@ export function gridModel(props, emit) {
         if (key === "s") {
             if (props.selectedLayer.length) {
                 emitEvent('backup:action', 'Bild Skalieren');
-                const direction = props.layerStates.direction.value ? resizeDirection.value : getResizeDirection(lastMouse.value.x, lastMouse.value.y);
-                await startResize(direction, {
-                    clientX: lastMouse.value.x,
-                    clientY: lastMouse.value.y
-                });
+                const direction = props.layerStates.direction.value
+                    ? resizeDirection.value
+                    : getResizeDirection(lastMouse.value.x, lastMouse.value.y);
+
+                await startResize(direction, mouse.createEventFromLast());
             }
             emitEvent('apply-key-down', e);
         }
@@ -988,16 +1078,19 @@ export function gridModel(props, emit) {
             grid.value.main.ref = document.getElementById(grid.value.main.id);
             grid.value.container.ref = document.getElementById(props.canvasId);
 
+            mouse.init();
+
             if (grid.value.wrapper.ref) {
                 const rect = grid.value.wrapper.ref.getBoundingClientRect();
                 grid.value.wrapper.width = rect.width;
                 grid.value.wrapper.height = rect.height;
-                register('add', grid.value.wrapper.ref, 'mousedown', resetSelection);
+                register('add', grid.value.wrapper.ref, 'pointerdown', resetSelection);
+                register('add', grid.value.wrapper.ref, 'contextmenu', onWrapperContextMenu);
             }
 
             if (grid.value.container.ref) {
-                register('add', grid.value.container.ref, 'mousedown', mouseDown);
-                register('add', window, 'mousemove', mouseMove);
+                register('add', grid.value.container.ref, 'pointerdown', mouseDown);
+                register('add', window, 'pointermove', mouseMove);
                 register('add', window, 'keydown', keyDown);
                 register('add', window , 'keyup', keyUp);
             }
@@ -1021,9 +1114,12 @@ export function gridModel(props, emit) {
 
     return {
         grid,
+        ui,
+        frameBox,
         cursor,
         anchorScreen,
         emitEvent,
+        writeUi,
         toggleSelection,
         startAnchorDrag,
         startRotate,
@@ -1031,8 +1127,7 @@ export function gridModel(props, emit) {
         onPositionUpdate,
         onRotationUpdate,
         onScaleUpdate,
-        onReset,
-        frameBox
+        onReset
     };
 }
 
@@ -1048,6 +1143,10 @@ export const gridProps = {
     },
     status: {
         type: Array,
+        required: true,
+    },
+    cursorVector: {
+        type: Object,
         required: true,
     },
     rule: {
@@ -1100,6 +1199,10 @@ export const gridProps = {
     },
     select: {
         type: Boolean,
+        required: true,
+    },
+    selectBox: {
+        type: Object,
         required: true,
     },
     text: {

@@ -2,7 +2,7 @@
   <!-- X-Achse Ruler -->
   <div
       class="ruler x-axis d-flex justify-center align-center"
-      @mousedown="startGuide('horizontal', $event)"
+      @pointerdown.stop.prevent="startGuide('horizontal', $event)"
   >
     <div
         class="ruler-track x-track"
@@ -31,7 +31,7 @@
   <!-- Y-Achse Ruler -->
   <div
       class="ruler y-axis d-flex justify-center align-center"
-      @mousedown="startGuide('vertical', $event)"
+      @pointerdown.stop.prevent="startGuide('vertical', $event)"
   >
     <div
         class="ruler-track y-track"
@@ -63,7 +63,7 @@
       :key="guide.id"
       class="guide"
       :style="getGuideStyle(guide)"
-      @mousedown="startDraggingGuide(guide, $event)"
+      @pointerdown.stop.prevent="startDraggingGuide(guide, $event)"
   ></div>
 </template>
 
