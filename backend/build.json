@@ -18,7 +18,7 @@
     "project_name": "unity-texture-generator"
   },
   "dependencies": {
-    "last_build": "2026-05-22T12:08:58.982031Z",
+    "last_build": "2026-05-22T00:29:28.063146Z",
     "config": {
       "library_policy": {
         "auto_update": true,
@@ -210,7 +210,7 @@
           "value": "serve_static"
         },
         "2": {
-          "url": "/download/<filename>",
+          "url": "/download/<path:filename>",
           "methods": [
             "GET"
           ],
@@ -1116,6 +1116,24 @@
           "url": "",
           "function": "handle_material",
           "value": "dispatch"
+        },
+        "1": {
+          "methods": [
+            "GET"
+          ],
+          "url": "/texture/<material_id>/<filename>",
+          "function": "get_material_texture",
+          "keys": "material_id, filename",
+          "value": "_controller._serve_texture"
+        },
+        "2": {
+          "methods": [
+            "GET"
+          ],
+          "url": "/package/<material_id>/<filename>",
+          "function": "get_material_package",
+          "keys": "material_id, filename",
+          "value": "_controller._serve_package"
         }
       },
       "method_map": {
@@ -1132,7 +1150,8 @@
             "rotate_preview",
             "blend_mode",
             "shadow_method",
-            "use_nodes"
+            "use_nodes",
+            "values"
           ],
           "function": "create_cube"
         },
@@ -1149,7 +1168,8 @@
             "rotate_preview",
             "blend_mode",
             "shadow_method",
-            "use_nodes"
+            "use_nodes",
+            "values"
           ],
           "function": "update"
         },
@@ -1426,7 +1446,8 @@
             "rotate_preview",
             "blend_mode",
             "shadow_method",
-            "use_nodes"
+            "use_nodes",
+            "values"
           ],
           "function": "material_preview"
         },

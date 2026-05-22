@@ -305,6 +305,15 @@
                           hide-details
                           @update:model-value="setSurfaceSlotOffset(field.key, $event)"
                       />
+
+                      <v-select
+                          :model-value="getMapSlot(field.key)?.channel || 'rgba'"
+                          :items="['rgba', 'rgb']"
+                          label="Mode"
+                          density="compact"
+                          hide-details
+                          @update:model-value="setSurfaceSlotChannel(field.key, $event)"
+                      />
                     </div>
 
                     <div class="mem-slot-node-actions">
@@ -460,7 +469,7 @@
                       <v-icon>mdi-blur</v-icon>
                     </span>
 
-                                <span class="mem-toggle-text">
+                    <span class="mem-toggle-text">
                       <strong>Shade Smooth</strong>
                       <small>Glättet die sichtbare Flächeninterpolation.</small>
                     </span>
@@ -487,7 +496,7 @@
                       <v-icon>mdi-terrain</v-icon>
                     </span>
 
-                                <span class="mem-toggle-text">
+                    <span class="mem-toggle-text">
                       <strong>Displacement</strong>
                       <small>Aktiviert Höhenversatz über Materialdaten.</small>
                     </span>
@@ -894,6 +903,27 @@
                       <div class="mem-uv-toggle-row">
                         <label
                             class="mem-toggle-card"
+                            :class="{ active: (getMapSlot('baseColor')?.channel || 'rgba') === 'rgba' }"
+                        >
+              <span class="mem-toggle-icon">
+                <v-icon>mdi-alpha-a-box-outline</v-icon>
+              </span>
+
+                          <span class="mem-toggle-text">
+                <strong>Bitmap Mode</strong>
+              </span>
+
+                          <v-select
+                              :model-value="getMapSlot('baseColor')?.channel || 'rgba'"
+                              :items="['rgba', 'rgb']"
+                              density="compact"
+                              hide-details
+                              @update:model-value="setSurfaceSlotChannel('baseColor', $event)"
+                          />
+                        </label>
+
+                        <label
+                            class="mem-toggle-card"
                             :class="{ active: activeUvFace.flip_x }"
                         >
               <span class="mem-toggle-icon">
@@ -1130,7 +1160,9 @@
                         <button
                             v-if="!node.locked"
                             type="button"
-                            class="mem-mini-btn"
+                            class="mem-node-close"
+                            title="Node entfernen"
+                            @mousedown.stop
                             @click.stop="removeShaderNode(node.id)"
                         >
                           ×
@@ -1201,7 +1233,7 @@
                     <template v-if="activeShaderNode.type === 'bitmap'">
                       <v-select
                           :model-value="normalizeNodeSettings(activeShaderNode).channel"
-                          :items="['rgba', 'rgb', 'r', 'g', 'b', 'a']"
+                          :items="['rgba', 'rgb']"
                           label="Channel"
                           density="compact"
                           hide-details
@@ -1214,6 +1246,17 @@
                           density="compact"
                           hide-details
                           @update:model-value="updateNodeSetting(activeShaderNode, 'name', $event)"
+                      />
+                    </template>
+
+                    <template v-if="activeShaderNode.type === 'multitexture'">
+                      <v-select
+                          :model-value="normalizeNodeSettings(activeShaderNode).channel"
+                          :items="['rgba', 'rgb']"
+                          label="Mode"
+                          density="compact"
+                          hide-details
+                          @update:model-value="updateNodeSetting(activeShaderNode, 'channel', $event)"
                       />
                     </template>
 

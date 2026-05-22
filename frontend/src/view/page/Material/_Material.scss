@@ -1132,6 +1132,30 @@ button {
   }
 }
 
+.mem-node-close {
+  position: absolute;
+  top: -9px;
+  right: -9px;
+  z-index: 6;
+
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(20, 20, 24, 0.92);
+  color: #fff;
+  cursor: pointer;
+}
+
+.mem-node-close:hover {
+  transform: scale(1.05);
+}
+
 .mem-node-type-badge {
   display: inline-flex;
   align-items: center;

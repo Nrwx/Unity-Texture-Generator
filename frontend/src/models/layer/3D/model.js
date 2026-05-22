@@ -11,7 +11,7 @@ import {
     CUBE_FACES, drawTextureFace,
     faceDepth,
     polygonArea,
-    resolvePrincipled, resolveTextureUrl
+    resolvePrincipled
 } from "@/view/models/page/material/core/model";
 
 export function layer3DModel(props, emit) {
@@ -25,6 +25,22 @@ export function layer3DModel(props, emit) {
 
     const emitEvent = (event, payload) => {
         emit("component-event", event, payload);
+    };
+
+    const isMaterialConnected = layer => {
+        const graph =
+            layer?.shader_graph ||
+            layer?.shader?.graph ||
+            {};
+
+        const edges = graph?.edges || [];
+
+        return edges.some(edge => (
+            edge?.from?.node === "principled-bsdf" &&
+            edge?.from?.socket === "bsdf" &&
+            edge?.to?.node === "material-output" &&
+            edge?.to?.socket === "surface"
+        ));
     };
 
     const stopLoop = () => {
@@ -61,6 +77,20 @@ export function layer3DModel(props, emit) {
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, width, height);
 
+        if (!isMaterialConnected(props.layer)) {
+            ctx.save();
+            ctx.fillStyle = "rgba(255,255,255,0.08)";
+            ctx.strokeStyle = "rgba(255,123,123,0.65)";
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([6, 6]);
+            ctx.strokeRect(12, 12, width - 24, height - 24);
+            ctx.fillStyle = "rgba(255,123,123,0.78)";
+            ctx.font = "12px sans-serif";
+            ctx.fillText("Material Output disconnected", 22, 34);
+            ctx.restore();
+            return;
+        }
+
         const surface = resolvePrincipled(
             props.layer?.surface ||
             props.layer?.material ||
@@ -69,7 +99,7 @@ export function layer3DModel(props, emit) {
 
         const uv = props.layer?.uv || {};
 
-        const vertices = createCubeVertices(width, height, rotation);
+        const vertices = createCubeVertices(width, height, rotation, props.layer?.geometry || {});
 
         const faces = [...CUBE_FACES]
             .map(face => ({
@@ -77,7 +107,7 @@ export function layer3DModel(props, emit) {
                 points: face.indices.map(index => vertices[index]),
                 depth: faceDepth(face, vertices),
             }))
-            .filter(face => polygonArea(face.points) > 0)
+            .filter(face => Math.abs(polygonArea(face.points)) > 0.001)
             .sort((a, b) => a.depth - b.depth);
 
         ctx.save();
@@ -91,16 +121,17 @@ export function layer3DModel(props, emit) {
 
             applyCanvasShader(ctx, points, surface, face.shade);
 
-            const faceTextureImage = getTextureImageForFace(props.layer, face.name);
+            const faceTexture = getTextureForFace(props.layer, face.name);
 
-            if (faceTextureImage) {
+            if (faceTexture?.image) {
                 drawTextureFace(
                     ctx,
-                    faceTextureImage,
+                    faceTexture.image,
                     face,
                     points,
                     uv,
-                    surface.alpha
+                    surface.alpha,
+                    faceTexture.channel || "rgba"
                 );
 
                 ctx.save();
@@ -141,37 +172,97 @@ export function layer3DModel(props, emit) {
         }
     };
 
-    const resolveLayerTextureImages = async layer => {
-        const baseMap = layer?.bitmap_maps?.baseColor;
-        const uv = layer?.uv || {};
+    const getLayerTextureEntries = layer => {
+        const uvEntries = new Map();
 
-        const entries = [];
+        Object.entries(layer?.uv?.faces || {}).forEach(([faceName, face]) => {
+            const bitmap = face?.bitmap || {};
 
-        if (baseMap?.source_type === "multitexture") {
-            (baseMap.texture_groups || []).forEach(group => {
-                entries.push({
-                    key: group.url,
-                    url: group.url,
-                    faces: group.faces || [],
-                });
-            });
-        } else if (baseMap?.source_type === "single" && baseMap.url) {
-            entries.push({
-                key: baseMap.url,
-                url: baseMap.url,
-                faces: Object.keys(uv.faces || {}),
-            });
-        } else {
-            const fallback = resolveTextureUrl(layer);
+            if (!bitmap.url) {
+                return;
+            }
 
-            if (fallback) {
-                entries.push({
-                    key: fallback,
-                    url: fallback,
-                    faces: Object.keys(uv.faces || {}),
+            if (!uvEntries.has(bitmap.url)) {
+                uvEntries.set(bitmap.url, {
+                    key: bitmap.url,
+                    url: bitmap.url,
+                    faces: [],
+                    channel: bitmap.channel || "rgba",
                 });
             }
+
+            uvEntries.get(bitmap.url).faces.push(faceName);
+        });
+
+        if (uvEntries.size) {
+            return Array.from(uvEntries.values());
         }
+
+        const graphNodes = layer?.shader_graph?.nodes || layer?.shader?.graph?.nodes || [];
+        const entries = [];
+
+        graphNodes.forEach(node => {
+            const settings = node?.settings || {};
+
+            if (Array.isArray(settings.texture_groups)) {
+                settings.texture_groups.forEach(group => {
+                    if (!group?.url) {
+                        return;
+                    }
+
+                    entries.push({
+                        key: group.url,
+                        url: group.url,
+                        faces: group.faces || [],
+                        channel: group.channel || settings.channel || "rgba",
+                    });
+                });
+
+                return;
+            }
+
+            if (node?.type === "bitmap" && settings.url) {
+                entries.push({
+                    key: settings.url,
+                    url: settings.url,
+                    faces: Object.keys(layer?.uv?.faces || {}),
+                    channel: settings.channel || "rgba",
+                });
+            }
+        });
+
+        Object.values(layer?.bitmap_maps || {}).forEach(slot => {
+            if (Array.isArray(slot?.texture_groups)) {
+                slot.texture_groups.forEach(group => {
+                    if (!group?.url) {
+                        return;
+                    }
+
+                    entries.push({
+                        key: group.url,
+                        url: group.url,
+                        faces: group.faces || Object.keys(layer?.uv?.faces || {}),
+                        channel: group.channel || slot.channel || "rgba",
+                    });
+                });
+                return;
+            }
+
+            if (slot?.url) {
+                entries.push({
+                    key: slot.url,
+                    url: slot.url,
+                    faces: Object.keys(layer?.uv?.faces || {}),
+                    channel: slot.channel || "rgba",
+                });
+            }
+        });
+
+        return entries;
+    };
+
+    const resolveLayerTextureImages = async layer => {
+        const entries = getLayerTextureEntries(layer);
 
         const loaded = {};
 
@@ -185,42 +276,41 @@ export function layer3DModel(props, emit) {
         return loaded;
     };
 
-    const getTextureImageForFace = (layer, faceName) => {
-        const baseMap = layer?.bitmap_maps?.baseColor;
+    const getTextureForFace = (layer, faceName) => {
         const faceUv = layer?.uv?.faces?.[faceName];
 
         if (faceUv?.bitmap?.url && textureImages[faceUv.bitmap.url]?.image) {
-            return textureImages[faceUv.bitmap.url].image;
+            return {
+                ...textureImages[faceUv.bitmap.url],
+                channel: faceUv.bitmap.channel || textureImages[faceUv.bitmap.url].channel || "rgba",
+            };
         }
 
-        if (baseMap?.source_type === "multitexture") {
-            const group = (baseMap.texture_groups || []).find(item => (
-                Array.isArray(item.faces) && item.faces.includes(faceName)
-            ));
+        const mapped = Object.values(textureImages).find(item => (
+            item.image &&
+            Array.isArray(item.faces) &&
+            item.faces.includes(faceName)
+        ));
 
-            if (group?.url && textureImages[group.url]?.image) {
-                return textureImages[group.url].image;
-            }
-        }
-
-        if (baseMap?.url && textureImages[baseMap.url]?.image) {
-            return textureImages[baseMap.url].image;
-        }
-
-        const first = Object.values(textureImages).find(item => item.image);
-
-        return first?.image || null;
+        return mapped || Object.values(textureImages).find(item => item.image) || null;
     };
 
     const loop = () => {
         if (!running) {
+            frameId = null;
             return;
         }
 
-        if (props.rotate || props.layer?.preview?.idle_rotation?.enabled) {
-            rotation += props.layer?.preview?.idle_rotation?.speed || 0.006;
+        const shouldAnimate =
+            props.rotate ||
+            props.layer?.preview?.idle_rotation?.enabled;
+
+        if (!shouldAnimate) {
+            frameId = null;
+            return;
         }
 
+        rotation += props.layer?.preview?.idle_rotation?.speed || 0.006;
         draw();
 
         frameId = requestAnimationFrame(loop);
@@ -241,23 +331,44 @@ export function layer3DModel(props, emit) {
         }
 
         running = true;
-        loop();
+
+        // wichtig: immer einmal zeichnen, auch ohne Rotation
+        draw();
+
+        const shouldAnimate =
+            props.rotate ||
+            props.layer?.preview?.idle_rotation?.enabled;
+
+        if (shouldAnimate) {
+            frameId = requestAnimationFrame(loop);
+        }
+    };
+
+    let initTimer = null;
+
+    const requestInit = () => {
+        if (initTimer) {
+            clearTimeout(initTimer);
+        }
+
+        initTimer = setTimeout(async () => {
+            initTimer = null;
+            await init();
+        }, 80);
     };
 
     watch(
         () => [
             props.layer?.id,
+            props.layer?.time,
             props.layer?.url,
             props.layer?.texture?.url,
             props.layer?.bitmap_maps?.baseColor?.url,
-            JSON.stringify(props.layer?.surface || {}),
-            JSON.stringify(props.layer?.bitmap_maps || {}),
-            JSON.stringify(props.layer?.uv || {}),
-            JSON.stringify(props.layer?.shader_graph || {}),
             props.rotate,
+            props.layer?.preview?.idle_rotation?.enabled,
         ].join("|"),
-        async () => {
-            await init();
+        () => {
+            requestInit();
         }
     );
 
@@ -267,6 +378,12 @@ export function layer3DModel(props, emit) {
 
     onBeforeUnmount(() => {
         initToken += 1;
+
+        if (initTimer) {
+            clearTimeout(initTimer);
+            initTimer = null;
+        }
+
         stopLoop();
     });
 

@@ -504,7 +504,7 @@ class RenderModel(BaseModel):
     @classmethod
     def material_preview(
         cls,
-        source_layer_id,
+        source_layer_id="",
         name="Cube Material",
         surface="{}",
         geometry="{}",
@@ -516,6 +516,8 @@ class RenderModel(BaseModel):
         blend_mode="BLEND",
         shadow_method="HASHED",
         use_nodes=True,
+        values="{}",
+        **extra
     ):
         try:
             source_layer = next(
@@ -527,7 +529,6 @@ class RenderModel(BaseModel):
                 return {"error": f"Source layer '{source_layer_id}' not found."}, 404
 
             package = MaterialModel.build_material_package(
-                layer_id="",
                 source_layer_id=source_layer_id,
                 name=name,
                 surface=surface,
@@ -540,6 +541,8 @@ class RenderModel(BaseModel):
                 blend_mode=blend_mode,
                 shadow_method=shadow_method,
                 use_nodes=use_nodes,
+                values=values,
+                **extra
             )
 
             preview_layer = {

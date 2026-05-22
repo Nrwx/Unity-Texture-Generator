@@ -1,18 +1,8 @@
 import {computed, onBeforeUnmount, onMounted, reactive, ref, watch,} from "vue";
+import {clamp} from "@/utils/tools";
+import {uuid} from "@/utils/uuid";
 
 const PREVIEW_DEBOUNCE_MS = 220;
-
-const uuid = () => crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
-
-const clamp = (value, min, max) => {
-    const number = Number(value);
-
-    if (!Number.isFinite(number)) {
-        return min;
-    }
-
-    return Math.min(Math.max(number, min), max);
-};
 
 const hexToRgbaArray = (hex = "#ffffff", alpha = 1) => {
     const value = String(hex || "#ffffff").replace("#", "");
@@ -78,6 +68,8 @@ const SURFACE_FIELDS = [
 ];
 
 const NODE_TYPES = [
+    { type: "principled", label: "Principled BSDF", icon: "mdi-material-design" },
+    { type: "output", label: "Material Output", icon: "mdi-export" },
     { type: "bitmap", label: "Bitmap", icon: "mdi-image" },
     { type: "uv-map", label: "Map UV", icon: "mdi-vector-square" },
     { type: "filter", label: "Filter", icon: "mdi-filter" },
@@ -171,7 +163,10 @@ const createBitmapMaps = () => {
             // for multi texture / cubemap
             faces: {},
             mapped_faces: [],
+            texture_groups: [],
 
+            filename: "",
+            cached: false,
             channel: "rgba",
             strength: 1,
             offset: 0,
@@ -206,6 +201,7 @@ const createCubeFace = (face, x, y, width = 0.25, height = 1 / 3) => ({
         name: "",
         width: 0,
         height: 0,
+        channel: "rgba",
     },
 });
 
@@ -215,6 +211,9 @@ const createUv = () => ({
     active_face: "front",
     selected_faces: ["front"],
     atlas: "cross",
+
+    target_slot: "baseColor",
+    target_slots: ["baseColor"],
 
     faces: {
         top: createCubeFace("top", 0.25, 0),
@@ -282,6 +281,30 @@ const createShaderGraph = () => ({
     ],
 });
 
+const clonePlain = value => {
+    try {
+        return JSON.parse(JSON.stringify(value));
+    } catch (_error) {
+        return value;
+    }
+};
+
+const hasTextureSlot = slot => {
+    if (!slot) {
+        return false;
+    }
+
+    if (slot.url || slot.layer_id) {
+        return true;
+    }
+
+    if (Array.isArray(slot.texture_groups) && slot.texture_groups.some(group => group?.url || group?.layer_id)) {
+        return true;
+    }
+
+    return false;
+};
+
 export function materialEditorModel(props, emit) {
     const previewTimer = ref(null);
     const previewRequestId = ref(0);
@@ -300,6 +323,8 @@ export function materialEditorModel(props, emit) {
     const uvViewportRef = ref(null);
     const activeSnapEdgeId = ref("");
     const SNAP_EDGE_DISTANCE = 34;
+    const pauseAutoSync = ref(false);
+    const nodePositionMemory = reactive({});
 
     const uvViewport = reactive({
         zoom: 1,
@@ -376,6 +401,46 @@ export function materialEditorModel(props, emit) {
         return [0, 2, 5].includes(Number(layer.type));
     };
 
+    const getNodePosition = (node, fallback = { x: 0, y: 0 }) => {
+        if (!node?.id) {
+            return cloneData(fallback);
+        }
+
+        if (nodePositionMemory[node.id]) {
+            return cloneData(nodePositionMemory[node.id]);
+        }
+
+        if (node.position) {
+            return cloneData(node.position);
+        }
+
+        return cloneData(fallback);
+    };
+
+    const rememberNodePosition = node => {
+        if (!node?.id) {
+            return;
+        }
+
+        nodePositionMemory[node.id] = cloneData(
+            node.position || { x: 0, y: 0 }
+        );
+    };
+
+    const rememberAllNodePositions = () => {
+        values.shader_graph.nodes.forEach(node => {
+            rememberNodePosition(node);
+        });
+    };
+
+    const applyRememberedNodePositions = () => {
+        values.shader_graph.nodes.forEach(node => {
+            if (nodePositionMemory[node.id]) {
+                node.position = cloneData(nodePositionMemory[node.id]);
+            }
+        });
+    };
+
     const resolveLayerTextureUrl = layer => {
         if (!layer) {
             return "";
@@ -384,11 +449,20 @@ export function materialEditorModel(props, emit) {
         return (
             layer.masked ||
             layer.texture?.url ||
-            layer.material?.textures?.base_color?.url ||
-            layer.thumbnail ||
             layer.url ||
             layer.svg ||
             ""
+        );
+    };
+
+    const resolveLayerThumbnailUrl = layer => {
+        if (!layer) {
+            return "";
+        }
+
+        return (
+            layer.thumbnail ||
+            resolveLayerTextureUrl(layer)
         );
     };
 
@@ -423,6 +497,10 @@ export function materialEditorModel(props, emit) {
     });
 
     const sourceLayerThumbnail = computed(() => {
+        return resolveLayerThumbnailUrl(selectedSourceLayer.value);
+    });
+
+    const sourceLayerTextureUrl = computed(() => {
         return resolveLayerTextureUrl(selectedSourceLayer.value);
     });
 
@@ -569,6 +647,7 @@ export function materialEditorModel(props, emit) {
 
         multitexture: {
             mode: "cubemap-url-group-composite",
+            channel: "rgba",
             strength: 1,
             offset: 0,
             blend: "replace",
@@ -696,19 +775,22 @@ export function materialEditorModel(props, emit) {
 
     const normalizeValues = () => ({
         name: values.name || "Cube Material",
-        surface: values.surface,
-        geometry: values.geometry,
-        bitmap_maps: values.bitmap_maps,
-        uv: values.uv,
+
+        surface: clonePlain(values.surface),
+        geometry: clonePlain(values.geometry),
+        bitmap_maps: clonePlain(values.bitmap_maps),
+        uv: clonePlain(values.uv),
         shader_graph: {
-            ...values.shader_graph,
+            ...clonePlain(values.shader_graph),
             material_connected: materialConnected.value,
         },
-        cube_size: clamp(Number(values.cube_size), 64, 1024),
+
+        cube_size: clamp(Number(values.cube_size || 256), 64, 4096),
         rotate_preview: values.rotate_preview === true,
+
         blend_mode: values.blend_mode || "BLEND",
         shadow_method: values.shadow_method || "HASHED",
-        use_nodes: values.use_nodes === true,
+        use_nodes: values.use_nodes !== false,
     });
 
     const previewLayer = computed(() => {
@@ -717,6 +799,8 @@ export function materialEditorModel(props, emit) {
         return {
             id: `preview-${props.layer?.id || selectedSourceLayer.value?.id || "material"}`,
             source: selectedSourceLayer.value?.id || props.layer?.id || "",
+            source_layer_id: selectedSourceLayer.value?.id || props.layer?.id || "",
+
             name: normalized.name,
             type: 5,
 
@@ -726,8 +810,8 @@ export function materialEditorModel(props, emit) {
             width: 512,
             height: 512,
 
-            url: normalized.bitmap_maps.baseColor?.url || sourceLayerThumbnail.value,
-            thumbnail: normalized.bitmap_maps.baseColor?.url || sourceLayerThumbnail.value,
+            url: sourceLayerTextureUrl.value,
+            thumbnail: sourceLayerThumbnail.value,
 
             surface: normalized.surface,
             geometry: normalized.geometry,
@@ -743,14 +827,18 @@ export function materialEditorModel(props, emit) {
 
             shader: {
                 shader: "canvas-principled-node-graph",
-                version: 3,
+                version: 4,
+                material_connected: materialConnected.value,
                 inputs: normalized.surface,
+                surface: normalized.surface,
+                geometry: normalized.geometry,
                 bitmap_maps: normalized.bitmap_maps,
+                uv: normalized.uv,
                 graph: normalized.shader_graph,
             },
 
             texture: {
-                url: normalized.bitmap_maps.baseColor?.url || sourceLayerThumbnail.value,
+                url: sourceLayerTextureUrl.value,
             },
 
             preview: {
@@ -760,6 +848,13 @@ export function materialEditorModel(props, emit) {
                     speed: 0.006,
                     tilt: 0.42,
                 },
+            },
+
+            settings: {
+                blend_mode: normalized.blend_mode,
+                shadow_method: normalized.shadow_method,
+                use_nodes: normalized.use_nodes,
+                cube_size: normalized.cube_size,
             },
 
             time: previewStableTime.value,
@@ -798,6 +893,22 @@ export function materialEditorModel(props, emit) {
         return edge ? getGraphNode(edge.from.node) : null;
     };
 
+    const getGeneratedUvNodePositions = () => {
+        return values.shader_graph.nodes.reduce((acc, node) => {
+            if (node.generated === true && node.system === "uv-cubemap") {
+                acc[node.id] = cloneData(node.position || { x: 0, y: 0 });
+            }
+
+            return acc;
+        }, {});
+    };
+
+    const getPreservedNodePosition = (positions, nodeId, fallback) => {
+        return positions[nodeId]
+            ? cloneData(positions[nodeId])
+            : fallback;
+    };
+
     const getSurfaceSlotOffset = key => {
         const node = getSurfaceSlotSourceNode(key);
 
@@ -824,6 +935,40 @@ export function materialEditorModel(props, emit) {
         }
 
         requestPreviewDebounced();
+    };
+
+    const setSurfaceSlotChannel = (key, channel) => {
+        const nextChannel = ["rgb", "rgba"].includes(channel) ? channel : "rgba";
+
+        values.bitmap_maps[key] = {
+            ...values.bitmap_maps[key],
+            channel: nextChannel,
+            texture_groups: (values.bitmap_maps[key]?.texture_groups || []).map(group => ({
+                ...group,
+                channel: nextChannel,
+            })),
+        };
+
+        Object.values(values.uv.faces || {}).forEach(face => {
+            if (face?.bitmap?.url) {
+                face.bitmap.channel = nextChannel;
+            }
+        });
+
+        const node = getSurfaceSlotSourceNode(key);
+
+        if (node) {
+            node.settings = normalizeNodeSettings(node);
+            node.settings.channel = nextChannel;
+
+            if (Array.isArray(node.settings.texture_groups)) {
+                node.settings.texture_groups = node.settings.texture_groups.map(group => ({
+                    ...group,
+                    channel: nextChannel,
+                }));
+            }
+        }
+
     };
 
     const syncSurfaceOffsetsFromNodes = () => {
@@ -1068,6 +1213,68 @@ export function materialEditorModel(props, emit) {
         return 220;
     };
 
+    const createLayerBitmapPayload = layer => {
+        if (!layer?.id) {
+            return null;
+        }
+
+        const url = resolveLayerTextureUrl(layer);
+
+        if (!url) {
+            return null;
+        }
+
+        return {
+            enabled: true,
+            source_type: "single",
+
+            layer_id: layer.id,
+            url,
+            name: layer.name || layer.id,
+
+            node_id: "bitmap-baseColor",
+            uv_node_id: "",
+
+            faces: {},
+            mapped_faces: [],
+            texture_groups: [],
+
+            filename: layer.texture?.filename || "",
+            cached: layer.texture?.cached === true,
+
+            channel: values.bitmap_maps.baseColor?.channel || "rgba",
+            strength: values.bitmap_maps.baseColor?.strength ?? 1,
+            offset: values.bitmap_maps.baseColor?.offset ?? 0,
+            invert: values.bitmap_maps.baseColor?.invert === true,
+            blend: values.bitmap_maps.baseColor?.blend || "replace",
+        };
+    };
+
+    const ensureBaseColorSourceTexture = () => {
+        const baseSlot = values.bitmap_maps.baseColor;
+
+        // Wenn der User bewusst schon eine BaseColor Bitmap / Shader / UV-Map gesetzt hat,
+        // nicht überschreiben.
+        if (hasTextureSlot(baseSlot)) {
+            return;
+        }
+
+        const layer = selectedSourceLayer.value || props.layer;
+
+        const bitmap = createLayerBitmapPayload(layer);
+
+        if (!bitmap) {
+            return;
+        }
+
+        values.bitmap_maps.baseColor = {
+            ...baseSlot,
+            ...bitmap,
+        };
+
+        ensureBitmapNodeForSlot("baseColor");
+    };
+
     const getNodeCenter = node => {
         const width = getNodeWidth(node);
         const inputCount = Object.keys(node.inputs || {}).length;
@@ -1191,7 +1398,7 @@ export function materialEditorModel(props, emit) {
         values.shader_graph.edges = values.shader_graph.edges.filter(item => item.id !== edge.id);
 
         values.shader_graph.edges.push({
-            id: uuid(),
+            id: uuid('shader-node'),
             from: edge.from,
             to: {
                 node: node.id,
@@ -1200,7 +1407,7 @@ export function materialEditorModel(props, emit) {
         });
 
         values.shader_graph.edges.push({
-            id: uuid(),
+            id: uuid('shader-node'),
             from: {
                 node: node.id,
                 socket: outputSocket,
@@ -1412,9 +1619,13 @@ export function materialEditorModel(props, emit) {
             return;
         }
 
-        if (node.locked) {
+        if (node.locked === true) {
             return;
         }
+
+        pauseAutoSync.value = true;
+
+        activeShaderNodeId.value = node.id;
 
         const start = getCanvasPoint(event);
         const origin = {
@@ -1427,6 +1638,8 @@ export function materialEditorModel(props, emit) {
             start,
             origin,
         };
+
+        rememberNodePosition(node);
 
         window.addEventListener("mousemove", moveNode);
         window.addEventListener("mouseup", stopMoveNode);
@@ -1445,10 +1658,13 @@ export function materialEditorModel(props, emit) {
 
         const point = getCanvasPoint(event);
 
-        node.position = {
+        const nextPosition = {
             x: draggingNode.value.origin.x + point.x - draggingNode.value.start.x,
             y: draggingNode.value.origin.y + point.y - draggingNode.value.start.y,
         };
+
+        node.position = nextPosition;
+        nodePositionMemory[node.id] = cloneData(nextPosition);
 
         const snapEdge = getClosestEdgeForNode(node);
         activeSnapEdgeId.value = snapEdge?.id || "";
@@ -1458,6 +1674,11 @@ export function materialEditorModel(props, emit) {
         const draggedNodeId = draggingNode.value?.id || "";
         const snapEdgeId = activeSnapEdgeId.value;
 
+        if (draggedNodeId) {
+            const node = getGraphNode(draggedNodeId);
+            rememberNodePosition(node);
+        }
+
         draggingNode.value = null;
 
         window.removeEventListener("mousemove", moveNode);
@@ -1465,11 +1686,15 @@ export function materialEditorModel(props, emit) {
 
         if (draggedNodeId && snapEdgeId) {
             insertNodeIntoEdge(draggedNodeId, snapEdgeId);
-            return;
         }
 
         activeSnapEdgeId.value = "";
-        requestPreviewDebounced();
+
+        queueMicrotask(() => {
+            pauseAutoSync.value = false;
+            applyRememberedNodePositions();
+            requestPreviewDebounced();
+        });
     };
 
     const startConnection = (event, node, socket, direction) => {
@@ -1541,7 +1766,7 @@ export function materialEditorModel(props, emit) {
             };
         }
 
-        if (!from || !to) {
+        if (!from || !to || !canConnectSockets(from, to)) {
             cancelConnection();
             return;
         }
@@ -1552,7 +1777,7 @@ export function materialEditorModel(props, emit) {
         ));
 
         values.shader_graph.edges.push({
-            id: uuid(),
+            id: uuid('shader-node'),
             core: (
                 from.node === "principled-bsdf" &&
                 from.socket === "bsdf" &&
@@ -1572,6 +1797,7 @@ export function materialEditorModel(props, emit) {
         }
 
         cancelConnection();
+        reconcileShaderGraph();
         requestPreviewDebounced();
     };
 
@@ -1596,6 +1822,7 @@ export function materialEditorModel(props, emit) {
             syncSurfaceSlotFromShaderGraph(edge.to.socket);
         }
 
+        reconcileShaderGraph();
         requestPreviewDebounced();
     };
 
@@ -1666,7 +1893,7 @@ export function materialEditorModel(props, emit) {
 
         if (!exists) {
             values.shader_graph.edges.push({
-                id: uuid(),
+                id: uuid('shader-node'),
                 from: {
                     node: nodeId,
                     socket: outputSocket,
@@ -1692,6 +1919,21 @@ export function materialEditorModel(props, emit) {
         ));
     };
 
+    const pruneDisconnectedAutoBitmapNodes = () => {
+        const connectedNodeIds = new Set(
+            values.shader_graph.edges.map(edge => edge.from.node)
+        );
+
+        SURFACE_FIELDS.forEach(field => {
+            const nodeId = `bitmap-${field.key}`;
+            const node = getGraphNode(nodeId);
+
+            if (node && !connectedNodeIds.has(nodeId)) {
+                values.shader_graph.nodes = values.shader_graph.nodes.filter(item => item.id !== nodeId);
+            }
+        });
+    };
+
     const clearMapSlot = key => {
         values.bitmap_maps[key] = {
             enabled: false,
@@ -1706,7 +1948,10 @@ export function materialEditorModel(props, emit) {
 
             faces: {},
             mapped_faces: [],
+            texture_groups: [],
 
+            filename: "",
+            cached: false,
             channel: "rgba",
             strength: 1,
             offset: 0,
@@ -1716,7 +1961,15 @@ export function materialEditorModel(props, emit) {
 
         removeAutoBitmapNode(key);
 
-        if (key === "baseColor") {
+        if (Array.isArray(values.uv.target_slots)) {
+            values.uv.target_slots = values.uv.target_slots.filter(slotKey => slotKey !== key);
+        }
+
+        if (values.uv.target_slot === key) {
+            values.uv.target_slot = values.uv.target_slots?.[0] || "baseColor";
+        }
+
+        if (!getUvTargetSlots().some(slotKey => values.bitmap_maps[slotKey]?.uv_node_id === "uv-cubemap-layout")) {
             removeGeneratedUvShaderNodes();
         }
 
@@ -1738,12 +1991,16 @@ export function materialEditorModel(props, emit) {
             layer_id: layer.id,
             url,
             name: layer.name || layer.id,
+            filename: layer.texture?.filename || "",
+            cached: layer.texture?.cached === true,
 
             node_id: `bitmap-${key}`,
             uv_node_id: "",
 
             faces: {},
             mapped_faces: [],
+            texture_groups: [],
+            channel: values.bitmap_maps[key]?.channel || "rgba",
         };
 
         ensureBitmapNodeForSlot(key);
@@ -1774,10 +2031,204 @@ export function materialEditorModel(props, emit) {
         draggingSourceLayerId.value = "";
     };
 
+    const isMaterialOutputEdge = edge => (
+        edge?.from?.node === "principled-bsdf" &&
+        edge?.from?.socket === "bsdf" &&
+        edge?.to?.node === "material-output" &&
+        edge?.to?.socket === "surface"
+    );
+
+    const getSocketType = (nodeId, socket, direction) => {
+        const node = getGraphNode(nodeId);
+
+        if (!node) {
+            return "";
+        }
+
+        const sockets = direction === "input"
+            ? node.inputs || {}
+            : node.outputs || {};
+
+        const definition = sockets[socket];
+
+        if (definition && typeof definition === "object") {
+            return definition.type || "";
+        }
+
+        if (node.type === "principled" && socket === "bsdf" && direction === "output") {
+            return "shader";
+        }
+
+        if (node.type === "output" && socket === "surface" && direction === "input") {
+            return "shader";
+        }
+
+        return "";
+    };
+
+    const canConnectSockets = (from, to) => {
+        const fromType = getSocketType(from.node, from.socket, "output");
+        const toType = getSocketType(to.node, to.socket, "input");
+
+        if (!fromType || !toType) {
+            return true;
+        }
+
+        if (to.node === "material-output" && to.socket === "surface") {
+            return fromType === "shader" && toType === "shader";
+        }
+
+        if (to.node === "principled-bsdf") {
+            if (to.socket === "surface") {
+                return fromType === "shader";
+            }
+
+            if (["color", "image"].includes(fromType) && ["color", "float"].includes(toType)) {
+                return true;
+            }
+
+            if (["float", "value"].includes(fromType) && ["float", "color"].includes(toType)) {
+                return true;
+            }
+        }
+
+        if (fromType === toType) {
+            return true;
+        }
+
+        return ["color", "image", "float", "value"].includes(fromType) &&
+            ["color", "image", "float", "value"].includes(toType);
+    };
+
+    const reconcileShaderGraph = () => {
+        rememberAllNodePositions();
+
+        if (!getGraphNode("principled-bsdf")) {
+            values.shader_graph.nodes.push(createPrincipledNode());
+        }
+
+        if (!getGraphNode("material-output")) {
+            values.shader_graph.nodes.push(createOutputNode());
+        }
+
+        values.shader_graph.nodes = values.shader_graph.nodes.map(node => {
+            if (node.id === "principled-bsdf" || node.type === "principled") {
+                const base = createPrincipledNode();
+
+                return {
+                    ...base,
+                    ...node,
+                    id: "principled-bsdf",
+                    type: "principled",
+                    locked: node.locked === true,
+                    position: getNodePosition(node, base.position),
+                    inputs: base.inputs,
+                    outputs: base.outputs,
+                    settings: {
+                        ...base.settings,
+                        ...(node.settings || {}),
+                    },
+                };
+            }
+
+            if (node.id === "material-output" || node.type === "output") {
+                const base = createOutputNode();
+
+                return {
+                    ...base,
+                    ...node,
+                    id: "material-output",
+                    type: "output",
+
+                    // Wichtig: Output bleibt bewegbar.
+                    locked: node.locked === true ? true : false,
+
+                    position: getNodePosition(node, base.position),
+                    inputs: base.inputs,
+                    outputs: {},
+                    settings: {
+                        ...base.settings,
+                        ...(node.settings || {}),
+                    },
+                };
+            }
+
+            return {
+                ...node,
+                locked: node.locked === true,
+                position: getNodePosition(node, node.position || { x: 280, y: 140 }),
+            };
+        });
+
+        const seen = new Set();
+
+        values.shader_graph.edges = values.shader_graph.edges.filter(edge => {
+            const key = `${edge.from.node}:${edge.from.socket}->${edge.to.node}:${edge.to.socket}`;
+
+            if (seen.has(key)) {
+                return false;
+            }
+
+            seen.add(key);
+            return true;
+        });
+
+        const nodeIds = new Set(values.shader_graph.nodes.map(node => node.id));
+
+        values.shader_graph.edges = values.shader_graph.edges.filter(edge => (
+            nodeIds.has(edge.from.node) &&
+            nodeIds.has(edge.to.node)
+        ));
+
+        values.shader_graph.edges = values.shader_graph.edges.map(edge => ({
+            ...edge,
+            core: isMaterialOutputEdge(edge),
+        }));
+
+        if (!pauseAutoSync.value) {
+            SURFACE_FIELDS.forEach(field => {
+                syncSurfaceSlotFromShaderGraph(field.key);
+            });
+
+            syncSurfaceOffsetsFromNodes();
+        }
+
+        applyRememberedNodePositions();
+    };
+
     const addShaderNode = type => {
+        if (type === "principled") {
+            if (!getGraphNode("principled-bsdf")) {
+                values.shader_graph.nodes.push(createPrincipledNode());
+            }
+
+            activeShaderNodeId.value = "principled-bsdf";
+            reconcileShaderGraph();
+            requestPreviewDebounced();
+            return;
+        }
+
+        if (type === "output") {
+            let node = getGraphNode("material-output");
+
+            if (!node) {
+                node = createOutputNode();
+                node.locked = false;
+                values.shader_graph.nodes.push(node);
+            } else {
+                node.locked = false;
+                node.position = getNodePosition(node, node.position || createOutputNode().position);
+            }
+
+            activeShaderNodeId.value = "material-output";
+            reconcileShaderGraph();
+            requestPreviewDebounced();
+            return;
+        }
+
         ensureCoreNodes();
 
-        const id = uuid();
+        const id = uuid('shader-node');
 
         const node = {
             id,
@@ -1826,7 +2277,18 @@ export function materialEditorModel(props, emit) {
     const removeShaderNode = id => {
         const node = getGraphNode(id);
 
-        if (!node || node.locked) {
+        if (!node) {
+            return;
+        }
+
+        if (node.id === "material-output" || node.type === "output" || node.locked) {
+            values.shader_graph.edges = values.shader_graph.edges.filter(edge => (
+                edge.from.node !== id &&
+                edge.to.node !== id
+            ));
+
+            reconcileShaderGraph();
+            requestPreviewDebounced();
             return;
         }
 
@@ -1838,6 +2300,7 @@ export function materialEditorModel(props, emit) {
         values.shader_graph.nodes = values.shader_graph.nodes.filter(item => item.id !== id);
 
         activeShaderNodeId.value = "principled-bsdf";
+        reconcileShaderGraph();
         requestPreviewDebounced();
     };
 
@@ -1851,7 +2314,7 @@ export function materialEditorModel(props, emit) {
             return;
         }
 
-        const id = uuid();
+        const id = uuid('shader-node');
 
         const node = {
             id,
@@ -1894,7 +2357,7 @@ export function materialEditorModel(props, emit) {
         values.shader_graph.edges = values.shader_graph.edges.filter(edge => edge.id !== sourceEdge.id);
 
         values.shader_graph.edges.push({
-            id: uuid(),
+            id: uuid('shader-node'),
             from: sourceEdge.from,
             to: {
                 node: id,
@@ -1903,7 +2366,7 @@ export function materialEditorModel(props, emit) {
         });
 
         values.shader_graph.edges.push({
-            id: uuid(),
+            id: uuid('shader-node'),
             from: {
                 node: id,
                 socket: Array.isArray(values.surface[slotKey]) ? "color" : "value",
@@ -1912,6 +2375,7 @@ export function materialEditorModel(props, emit) {
         });
 
         activeShaderNodeId.value = id;
+        reconcileShaderGraph();
         requestPreviewDebounced();
     };
 
@@ -1928,6 +2392,9 @@ export function materialEditorModel(props, emit) {
             name: layer.name || layer.id,
             width: Number(layer.width || 0),
             height: Number(layer.height || 0),
+            filename: layer.texture?.filename || "",
+            cached: layer.texture?.cached === true,
+            channel: values.bitmap_maps[getUvTargetSlots()[0]]?.channel || "rgba",
         };
     };
 
@@ -1936,18 +2403,21 @@ export function materialEditorModel(props, emit) {
             return;
         }
 
-        selectedUvFaces.value.forEach(face => {
-            assignLayerToUvFace(face, layer);
-        });
+        pauseAutoSync.value = true;
 
-        if (!values.bitmap_maps.baseColor.url) {
-            assignLayerToMap("baseColor", layer);
+        try {
+            selectedUvFaces.value.forEach(face => {
+                assignLayerToUvFace(face, layer);
+            });
+
+            syncUvCubeMapToShaderGraph();
+            await drawUvCanvas();
+        } finally {
+            queueMicrotask(() => {
+                pauseAutoSync.value = false;
+                requestPreviewDebounced();
+            });
         }
-
-        syncUvCubeMapToShaderGraph();
-
-        await drawUvCanvas();
-        requestPreviewDebounced();
     };
 
     const cloneData = value => {
@@ -1956,6 +2426,84 @@ export function materialEditorModel(props, emit) {
         }
 
         return JSON.parse(JSON.stringify(value));
+    };
+
+    const mergeBitmapMaps = incoming => {
+        const defaults = createBitmapMaps();
+        const source = incoming || {};
+
+        Object.keys(defaults).forEach(key => {
+            defaults[key] = {
+                ...defaults[key],
+                ...(source[key] || {}),
+            };
+        });
+
+        return defaults;
+    };
+
+    const loadMaterialPackage = async layer => {
+        const packageUrl = layer?.package?.url;
+
+        if (!packageUrl) {
+            return null;
+        }
+
+        try {
+            const response = await fetch(packageUrl, {
+                cache: "no-store",
+            });
+
+            if (!response.ok) {
+                return null;
+            }
+
+            return await response.json();
+        } catch (_error) {
+            return null;
+        }
+    };
+
+    const hydrateFromMaterialLayer = async layer => {
+        if (!layer || Number(layer.type) !== 5) {
+            return;
+        }
+
+        const materialPackage = await loadMaterialPackage(layer);
+        const source = materialPackage || layer;
+
+        values.name = layer.name || values.name;
+        values.surface = {
+            ...createSurface(),
+            ...(cloneData(source.surface || source.material?.principled_bsdf || {})),
+        };
+        values.geometry = {
+            ...createGeometry(),
+            ...(cloneData(source.geometry || source.material?.geometry || {})),
+        };
+        values.bitmap_maps = mergeBitmapMaps(cloneData(source.bitmap_maps || source.material?.bitmap_maps || {}));
+        values.uv = {
+            ...createUv(),
+            ...(cloneData(source.uv || {})),
+            faces: {
+                ...createUv().faces,
+                ...(cloneData(source.uv?.faces || {})),
+            },
+        };
+        values.shader_graph = {
+            ...createShaderGraph(),
+            ...(cloneData(source.shader_graph || source.shader?.graph || {})),
+        };
+        rememberAllNodePositions();
+        values.cube_size = Number(source.settings?.cube_size || values.cube_size || 256);
+        values.rotate_preview = source.preview?.rotate ?? source.preview?.idle_rotation?.enabled ?? values.rotate_preview;
+        values.blend_mode = source.settings?.blend_mode || values.blend_mode;
+        values.shadow_method = source.settings?.shadow_method || values.shadow_method;
+        values.use_nodes = source.settings?.use_nodes ?? values.use_nodes;
+
+        ensureCoreNodes();
+        syncSurfaceSlotFromUvCubeMap();
+        syncAllSurfaceSlotsFromShaderGraph();
     };
 
     const CUBE_FACE_ORDER = ["front", "back", "left", "right", "top", "bottom"];
@@ -2005,8 +2553,138 @@ export function materialEditorModel(props, emit) {
         return groups.length > 1 ? "multitexture" : "single";
     };
 
-    const getPrimaryUvTextureGroup = () => {
-        return getMappedUvTextureGroups()[0] || null;
+    const getIncomingShaderEdge = (nodeId, sockets = []) => {
+        return values.shader_graph.edges.find(edge => (
+            edge.to.node === nodeId &&
+            (!sockets.length || sockets.includes(edge.to.socket))
+        ));
+    };
+
+    const resolveShaderGraphSource = (nodeId, seen = new Set()) => {
+        if (!nodeId || seen.has(nodeId)) {
+            return null;
+        }
+
+        seen.add(nodeId);
+
+        const node = getGraphNode(nodeId);
+
+        if (!node) {
+            return null;
+        }
+
+        const settings = normalizeNodeSettings(node);
+
+        if (node.type === "bitmap") {
+            if (!settings.url && !settings.layer_id) {
+                return null;
+            }
+
+            return {
+                source_type: "single",
+                enabled: true,
+                node_id: node.id,
+                layer_id: settings.layer_id || "",
+                url: settings.url || "",
+                name: settings.name || node.label || node.id,
+                filename: settings.filename || "",
+                cached: settings.cached === true,
+                channel: settings.channel || "rgba",
+                strength: settings.strength ?? 1,
+                offset: settings.offset ?? 0,
+                invert: settings.invert === true,
+                blend: settings.blend || "replace",
+                texture_groups: [],
+            };
+        }
+
+        if (node.type === "multitexture") {
+            const configuredGroups = Array.isArray(settings.texture_groups)
+                ? settings.texture_groups
+                : [];
+
+            const textureGroups = configuredGroups
+                .map((group, index) => {
+                    const inputSocket = group.slot || `texture_${index + 1}`;
+                    const sourceEdge = getIncomingShaderEdge(node.id, [inputSocket]);
+                    const resolved = resolveShaderGraphSource(sourceEdge?.from?.node, new Set(seen));
+                    const merged = resolved?.url
+                        ? {
+                            ...group,
+                            url: resolved.url,
+                            layer_id: resolved.layer_id || group.layer_id || "",
+                            name: resolved.name || group.name || "Texture",
+                            filename: resolved.filename || group.filename || "",
+                            cached: resolved.cached === true,
+                            channel: resolved.channel || group.channel || settings.channel || "rgba",
+                        }
+                        : group;
+
+                    if (!merged.url) {
+                        return null;
+                    }
+
+                    return {
+                        slot: merged.slot || inputSocket,
+                        url: merged.url,
+                        name: merged.name || merged.layer_id || "Texture",
+                        layer_id: merged.layer_id || "",
+                        filename: merged.filename || "",
+                        cached: merged.cached === true,
+                        channel: merged.channel || settings.channel || "rgba",
+                        faces: Array.isArray(merged.faces) ? merged.faces : [],
+                    };
+                })
+                .filter(Boolean);
+
+            if (!textureGroups.length) {
+                return null;
+            }
+
+            return {
+                source_type: "multitexture",
+                enabled: true,
+                node_id: node.id,
+                layer_id: "",
+                url: "",
+                name: settings.name || node.label || "Cube MultiTexture",
+                filename: "",
+                cached: textureGroups.every(group => group.cached === true),
+                channel: settings.channel || "rgba",
+                strength: settings.strength ?? 1,
+                offset: settings.offset ?? 0,
+                invert: settings.invert === true,
+                blend: settings.blend || "replace",
+                texture_groups: textureGroups,
+            };
+        }
+
+        const sourceEdge = getIncomingShaderEdge(node.id, [
+            "image",
+            "color",
+            "value",
+            "factor",
+            "uv",
+            "surface",
+            "texture",
+        ]);
+        const resolved = resolveShaderGraphSource(sourceEdge?.from?.node, seen);
+
+        if (!resolved) {
+            return null;
+        }
+
+        return {
+            ...resolved,
+            source_type: "shader",
+            node_id: node.id,
+            name: node.label || resolved.name || node.id,
+            channel: settings.channel || resolved.channel || "rgba",
+            strength: settings.strength ?? resolved.strength ?? 1,
+            offset: settings.offset ?? resolved.offset ?? 0,
+            invert: settings.invert === true || resolved.invert === true,
+            blend: settings.blend || resolved.blend || "replace",
+        };
     };
 
     const syncSurfaceSlotFromShaderGraph = slotKey => {
@@ -2041,105 +2719,183 @@ export function materialEditorModel(props, emit) {
             sourceNode.system === "uv-cubemap";
 
         if (isGeneratedUv) {
-            syncSurfaceSlotFromUvCubeMap();
+            syncSurfaceSlotFromUvCubeMap(slotKey);
+            return;
+        }
+
+        const resolved = resolveShaderGraphSource(sourceNode.id);
+
+        if (!resolved) {
             return;
         }
 
         values.bitmap_maps[slotKey] = {
             ...values.bitmap_maps[slotKey],
             enabled: true,
-            source_type: "shader",
+            source_type: resolved.source_type,
             node_id: sourceNode.id,
             uv_node_id: "",
-            name: sourceNode.label || sourceNode.id,
-            url: sourceNode.settings?.url || "",
-            layer_id: sourceNode.settings?.layer_id || "",
+            name: resolved.name || sourceNode.label || sourceNode.id,
+            url: resolved.url || "",
+            layer_id: resolved.layer_id || "",
+            filename: resolved.filename || "",
+            cached: resolved.cached === true,
+            faces: resolved.faces || values.bitmap_maps[slotKey]?.faces || {},
+            mapped_faces: resolved.mapped_faces || values.bitmap_maps[slotKey]?.mapped_faces || [],
+            texture_groups: resolved.texture_groups || [],
+            channel: resolved.channel || values.bitmap_maps[slotKey]?.channel || "rgba",
+            strength: resolved.strength ?? values.bitmap_maps[slotKey]?.strength ?? 1,
+            offset: resolved.offset ?? values.bitmap_maps[slotKey]?.offset ?? 0,
+            invert: resolved.invert === true,
+            blend: resolved.blend || values.bitmap_maps[slotKey]?.blend || "replace",
         };
     };
 
-    const syncSurfaceSlotFromUvCubeMap = () => {
-        const mappedFaces = getMappedUvFaces();
-        const textureGroups = getMappedUvTextureGroups();
-        const textureMode = getUvTextureMode();
-        const primaryGroup = getPrimaryUvTextureGroup();
+    const syncAllSurfaceSlotsFromShaderGraph = () => {
+        SURFACE_FIELDS.forEach(field => {
+            syncSurfaceSlotFromShaderGraph(field.key);
+        });
+    };
 
-        if (!mappedFaces.length || textureMode === "none") {
-            if (
-                values.bitmap_maps.baseColor?.source_type === "multitexture" ||
-                values.bitmap_maps.baseColor?.uv_node_id === "uv-cubemap-layout"
-            ) {
-                values.bitmap_maps.baseColor = {
-                    ...values.bitmap_maps.baseColor,
-                    enabled: false,
-                    source_type: "none",
-                    layer_id: "",
-                    url: "",
-                    name: "",
-                    node_id: "",
-                    uv_node_id: "",
-                    faces: {},
-                    mapped_faces: [],
-                    texture_groups: [],
-                };
-            }
+    const getUvTargetSlots = () => {
+        const targetSlots = Array.isArray(values.uv.target_slots) && values.uv.target_slots.length
+            ? values.uv.target_slots
+            : [values.uv.target_slot || "baseColor"];
 
+        const valid = targetSlots.filter(slotKey => Boolean(values.bitmap_maps[slotKey]));
+
+        return valid.length ? Array.from(new Set(valid)) : ["baseColor"];
+    };
+
+    const prepareMaterialValues = () => {
+        pauseAutoSync.value = true;
+
+        try {
+            ensureCoreNodes();
+
+            // Wichtig: Source-Layer als echte BaseColor-Map in den Contract schreiben.
+            ensureBaseColorSourceTexture();
+
+            // UV zuerst in bitmap_maps schreiben.
+            syncUvToActiveSlots();
+
+            // Danach UV-Nodes aus aktuellen bitmap_maps / uv erzeugen.
+            syncUvCubeMapToShaderGraph();
+
+            // Graph bereinigen und Slot-Zustände ableiten.
+            reconcileShaderGraph();
+            syncAllSurfaceSlotsFromShaderGraph();
+            syncSurfaceOffsetsFromNodes();
+
+            pruneDisconnectedAutoBitmapNodes();
+
+            return normalizeValues();
+        } finally {
+            queueMicrotask(() => {
+                pauseAutoSync.value = false;
+            });
+        }
+    };
+
+    const syncSurfaceSlotFromUvCubeMap = slotKey => {
+        if (slotKey) {
+            syncUvToBitmapSlot(slotKey);
             return;
         }
 
-        const firstBitmap = primaryGroup?.bitmap || {};
-        const isMultiTexture = textureMode === "multitexture";
+        syncUvToActiveSlots();
+    };
 
-        values.bitmap_maps.baseColor = {
-            ...values.bitmap_maps.baseColor,
+    const syncUvToActiveSlots = () => {
+        getUvTargetSlots().forEach(syncUvToBitmapSlot);
+    };
 
-            enabled: true,
-            source_type: isMultiTexture ? "multitexture" : "single",
+    const syncUvToBitmapSlot = slotKey => {
+        const slot = values.bitmap_maps[slotKey];
 
-            layer_id: isMultiTexture ? "" : firstBitmap.layer_id || "",
-            url: isMultiTexture ? "" : firstBitmap.url || "",
-            name: isMultiTexture
-                ? `Cube MultiTexture (${textureGroups.length} textures / ${mappedFaces.length} faces)`
-                : firstBitmap.name || "SingleTexture",
+        if (!slot) {
+            return;
+        }
 
-            node_id: isMultiTexture
+        const faces = values.uv.faces || {};
+        const groups = new Map();
+        const mappedFaces = [];
+
+        Object.entries(faces).forEach(([faceName, face]) => {
+            const bitmap = face?.bitmap || {};
+            const url = bitmap.url || "";
+            const layerId = bitmap.layer_id || "";
+            const key = url || layerId;
+
+            if (!key) {
+                return;
+            }
+
+            mappedFaces.push(faceName);
+
+            if (!groups.has(key)) {
+                groups.set(key, {
+                    url,
+                    layer_id: layerId,
+                    name: bitmap.name || layerId || "Texture",
+                    filename: bitmap.filename || "",
+                    cached: bitmap.cached === true,
+                    channel: bitmap.channel || slot.channel || "rgba",
+                    faces: [],
+                });
+            }
+
+            groups.get(key).faces.push(faceName);
+        });
+
+        const textureGroups = Array.from(groups.values());
+
+        values.bitmap_maps[slotKey] = {
+            ...slot,
+            enabled: textureGroups.length > 0,
+            source_type: textureGroups.length > 1 ? "multitexture" : textureGroups.length === 1 ? "single" : "none",
+
+            layer_id: textureGroups.length === 1 ? textureGroups[0].layer_id : "",
+            url: textureGroups.length === 1 ? textureGroups[0].url : "",
+            name: textureGroups.length > 1
+                ? `${slotKey} MultiTexture`
+                : textureGroups[0]?.name || "",
+
+            node_id: textureGroups.length > 1
                 ? "uv-cubemap-multitexture"
-                : "uv-cubemap-single-bitmap",
+                : textureGroups.length === 1
+                    ? "uv-cubemap-single-bitmap"
+                    : "",
 
-            uv_node_id: "uv-cubemap-layout",
+            uv_node_id: textureGroups.length > 0 ? "uv-cubemap-layout" : "",
 
-            faces: cloneData(values.uv.faces),
-            mapped_faces: cloneData(mappedFaces),
-            texture_groups: cloneData(textureGroups.map(group => ({
-                url: group.url,
-                name: group.bitmap?.name || group.bitmap?.layer_id || "Texture",
-                layer_id: group.bitmap?.layer_id || "",
-                faces: group.faces,
-            }))),
+            faces,
+            mapped_faces: mappedFaces,
+            texture_groups: textureGroups,
 
-            channel: values.bitmap_maps.baseColor.channel || "rgba",
-            strength: values.bitmap_maps.baseColor.strength ?? 1,
-            offset: values.bitmap_maps.baseColor.offset ?? 0,
-            invert: values.bitmap_maps.baseColor.invert === true,
-            blend: values.bitmap_maps.baseColor.blend || "replace",
+            channel: slot.channel || "rgba",
+            strength: slot.strength ?? 1,
+            offset: slot.offset ?? 0,
+            invert: slot.invert === true,
+            blend: slot.blend || "replace",
         };
+
     };
 
     const removeGeneratedUvShaderNodes = () => {
-        const generatedIds = values.shader_graph.nodes
+        rememberAllNodePositions();
+
+        const generatedUvNodeIds = values.shader_graph.nodes
             .filter(node => node.generated === true && node.system === "uv-cubemap")
             .map(node => node.id);
 
-        if (!generatedIds.length) {
-            return;
-        }
-
         values.shader_graph.edges = values.shader_graph.edges.filter(edge => (
-            !generatedIds.includes(edge.from.node) &&
-            !generatedIds.includes(edge.to.node)
+            !generatedUvNodeIds.includes(edge.from.node) &&
+            !generatedUvNodeIds.includes(edge.to.node)
         ));
 
         values.shader_graph.nodes = values.shader_graph.nodes.filter(node => (
-            !generatedIds.includes(node.id)
+            !(node.generated === true && node.system === "uv-cubemap")
         ));
     };
 
@@ -2156,7 +2912,7 @@ export function materialEditorModel(props, emit) {
         }
 
         values.shader_graph.edges.push({
-            id: uuid(),
+            id: uuid('shader-node'),
             from,
             to,
             ...extra,
@@ -2169,13 +2925,21 @@ export function materialEditorModel(props, emit) {
         const mappedFaces = getMappedUvFaces();
         const textureGroups = getMappedUvTextureGroups();
         const textureMode = getUvTextureMode();
+        const targetSlots = getUvTargetSlots();
+        const primarySlotKey = targetSlots[0] || "baseColor";
+        const primarySlot = values.bitmap_maps[primarySlotKey] || {};
+        const primaryChannel = primarySlot.channel || "rgba";
+        rememberAllNodePositions();
+        const preservedUvNodePositions = getGeneratedUvNodePositions();
 
         removeGeneratedUvShaderNodes();
-        syncSurfaceSlotFromUvCubeMap();
+        syncUvToActiveSlots();
 
         if (!mappedFaces.length || textureMode === "none") {
             return;
         }
+
+        targetSlots.forEach(removeAutoBitmapNode);
 
         const uvNodeId = "uv-cubemap-layout";
 
@@ -2186,10 +2950,14 @@ export function materialEditorModel(props, emit) {
             locked: false,
             generated: true,
             system: "uv-cubemap",
-            position: {
-                x: 70,
-                y: 430,
-            },
+            position: getPreservedNodePosition(
+                preservedUvNodePositions,
+                uvNodeId,
+                getNodePosition(
+                    getGraphNode(uvNodeId),
+                    { x: 70, y: 430 }
+                ),
+            ),
             inputs: {},
             outputs: {
                 uv: { type: "uv" },
@@ -2200,6 +2968,8 @@ export function materialEditorModel(props, emit) {
                 active_face: values.uv.active_face,
                 selected_faces: cloneData(values.uv.selected_faces),
                 atlas: values.uv.atlas,
+                target_slot: primarySlotKey,
+                target_slots: cloneData(targetSlots),
                 texture_mode: textureMode,
                 faces: cloneData(values.uv.faces),
                 mapped_faces: cloneData(mappedFaces),
@@ -2207,6 +2977,9 @@ export function materialEditorModel(props, emit) {
                     url: group.url,
                     name: group.bitmap?.name || group.bitmap?.layer_id || "Texture",
                     layer_id: group.bitmap?.layer_id || "",
+                    filename: group.bitmap?.filename || "",
+                    cached: group.bitmap?.cached === true,
+                    channel: group.bitmap?.channel || primaryChannel,
                     faces: group.faces,
                 }))),
             },
@@ -2214,12 +2987,30 @@ export function materialEditorModel(props, emit) {
 
         values.shader_graph.nodes.push(uvNode);
 
-        /**
-         * SINGLE TEXTURE:
-         * All mapped faces use the same URL.
-         * Result:
-         * UV Coordinates -> one Bitmap -> Principled BSDF
-         */
+        const connectGeneratedOutputToSlots = sourceNodeId => {
+            values.shader_graph.edges = values.shader_graph.edges.filter(edge => !(
+                edge.to.node === "principled-bsdf" &&
+                targetSlots.includes(edge.to.socket)
+            ));
+
+            targetSlots.forEach(slotKey => {
+                connectEdgeUnique(
+                    {
+                        node: sourceNodeId,
+                        socket: "color",
+                    },
+                    {
+                        node: "principled-bsdf",
+                        socket: slotKey,
+                    },
+                    {
+                        generated: true,
+                        system: "uv-cubemap",
+                    },
+                );
+            });
+        };
+
         if (textureMode === "single") {
             const group = textureGroups[0];
             const bitmap = group.bitmap || {};
@@ -2232,10 +3023,14 @@ export function materialEditorModel(props, emit) {
                 locked: false,
                 generated: true,
                 system: "uv-cubemap",
-                position: {
-                    x: 350,
-                    y: 430,
-                },
+                position: getPreservedNodePosition(
+                    preservedUvNodePositions,
+                    bitmapNodeId,
+                    getNodePosition(
+                        getGraphNode(bitmapNodeId),
+                        { x: 350, y: 430 }
+                    ),
+                ),
                 inputs: {
                     uv: { type: "uv" },
                 },
@@ -2245,11 +3040,15 @@ export function materialEditorModel(props, emit) {
                 },
                 settings: {
                     mode: "single-texture-cubemap-uv",
+                    slot: primarySlotKey,
+                    target_slot: primarySlotKey,
+                    target_slots: cloneData(targetSlots),
                     layer_id: bitmap.layer_id || "",
                     url: bitmap.url || "",
                     name: bitmap.name || "SingleTexture",
                     width: bitmap.width || 0,
                     height: bitmap.height || 0,
+                    channel: bitmap.channel || primaryChannel,
                     faces: cloneData(values.uv.faces),
                     mapped_faces: cloneData(mappedFaces),
                     texture_faces: cloneData(group.faces),
@@ -2271,35 +3070,11 @@ export function materialEditorModel(props, emit) {
                 },
             );
 
-            values.shader_graph.edges = values.shader_graph.edges.filter(edge => !(
-                edge.to.node === "principled-bsdf" &&
-                edge.to.socket === "baseColor"
-            ));
-
-            connectEdgeUnique(
-                {
-                    node: bitmapNodeId,
-                    socket: "color",
-                },
-                {
-                    node: "principled-bsdf",
-                    socket: "baseColor",
-                },
-                {
-                    generated: true,
-                    system: "uv-cubemap",
-                },
-            );
-
+            connectGeneratedOutputToSlots(bitmapNodeId);
+            reconcileShaderGraph();
             return;
         }
 
-        /**
-         * MULTI TEXTURE:
-         * At least two different URLs exist.
-         * Result:
-         * UV Coordinates -> Bitmap per URL group -> MultiTexture -> Principled BSDF
-         */
         const multiTextureNodeId = "uv-cubemap-multitexture";
 
         const multiTextureNode = {
@@ -2309,10 +3084,14 @@ export function materialEditorModel(props, emit) {
             locked: false,
             generated: true,
             system: "uv-cubemap",
-            position: {
-                x: 720,
-                y: 430,
-            },
+            position: getPreservedNodePosition(
+                preservedUvNodePositions,
+                multiTextureNodeId,
+                getNodePosition(
+                    getGraphNode(multiTextureNodeId),
+                    { x: 720, y: 430 }
+                ),
+            ),
             inputs: textureGroups.reduce((acc, group, index) => {
                 acc[`texture_${index + 1}`] = { type: "color" };
                 return acc;
@@ -2323,6 +3102,10 @@ export function materialEditorModel(props, emit) {
             },
             settings: {
                 mode: "cubemap-url-group-composite",
+                slot: primarySlotKey,
+                target_slot: primarySlotKey,
+                target_slots: cloneData(targetSlots),
+                channel: primaryChannel,
                 atlas: values.uv.atlas,
                 faces: cloneData(values.uv.faces),
                 mapped_faces: cloneData(mappedFaces),
@@ -2331,6 +3114,9 @@ export function materialEditorModel(props, emit) {
                     url: group.url,
                     name: group.bitmap?.name || group.bitmap?.layer_id || `Texture ${index + 1}`,
                     layer_id: group.bitmap?.layer_id || "",
+                    filename: group.bitmap?.filename || "",
+                    cached: group.bitmap?.cached === true,
+                    channel: group.bitmap?.channel || primaryChannel,
                     faces: group.faces,
                 }))),
             },
@@ -2348,10 +3134,14 @@ export function materialEditorModel(props, emit) {
                 locked: false,
                 generated: true,
                 system: "uv-cubemap",
-                position: {
-                    x: 350,
-                    y: 350 + index * 92,
-                },
+                position: getPreservedNodePosition(
+                    preservedUvNodePositions,
+                    bitmapNodeId,
+                    getNodePosition(
+                        getGraphNode(bitmapNodeId),
+                        { x: 350, y: 350 + index * 92 }
+                    ),
+                ),
                 inputs: {
                     uv: { type: "uv" },
                 },
@@ -2362,11 +3152,14 @@ export function materialEditorModel(props, emit) {
                 settings: {
                     mode: "texture-group-cubemap-uv",
                     group_index: index,
+                    target_slot: primarySlotKey,
+                    target_slots: cloneData(targetSlots),
                     layer_id: bitmap.layer_id || "",
                     url: bitmap.url || "",
                     name: bitmap.name || `Texture Group ${index + 1}`,
                     width: bitmap.width || 0,
                     height: bitmap.height || 0,
+                    channel: bitmap.channel || primaryChannel,
                     faces: cloneData(values.uv.faces),
                     mapped_faces: cloneData(group.faces),
                 },
@@ -2404,26 +3197,9 @@ export function materialEditorModel(props, emit) {
         });
 
         values.shader_graph.nodes.push(multiTextureNode);
-
-        values.shader_graph.edges = values.shader_graph.edges.filter(edge => !(
-            edge.to.node === "principled-bsdf" &&
-            edge.to.socket === "baseColor"
-        ));
-
-        connectEdgeUnique(
-            {
-                node: multiTextureNodeId,
-                socket: "color",
-            },
-            {
-                node: "principled-bsdf",
-                socket: "baseColor",
-            },
-            {
-                generated: true,
-                system: "uv-cubemap",
-            },
-        );
+        connectGeneratedOutputToSlots(multiTextureNodeId);
+        reconcileShaderGraph();
+        applyRememberedNodePositions();
     };
 
     const selectUvLayer = async layer => {
@@ -2854,7 +3630,7 @@ export function materialEditorModel(props, emit) {
 
         emitEvent("material:preview", {
             layer: selectedSourceLayer.value,
-            values: normalizeValues(),
+            values: prepareMaterialValues(),
             requestId: previewRequestId.value,
         });
     };
@@ -2874,21 +3650,26 @@ export function materialEditorModel(props, emit) {
             return;
         }
 
+        const materialValues = prepareMaterialValues();
+
         if (isEditingMaterialLayer.value && props.layer?.id) {
             emitEvent("material:update", {
+                id: props.layer.id,
                 layer: props.layer,
-                values: normalizeValues(),
+                values: materialValues,
             });
             return;
         }
 
         if (!selectedSourceLayer.value?.id) {
+            console.warn("[MaterialEditor submit] no selected source layer");
             return;
         }
 
         emitEvent("material:create-cube", {
+            source_layer_id: selectedSourceLayer.value.id,
             layer: selectedSourceLayer.value,
-            values: normalizeValues(),
+            values: materialValues,
         });
     };
 
@@ -2903,10 +3684,11 @@ export function materialEditorModel(props, emit) {
     };
 
     watch(
-        () => JSON.stringify(normalizeValues()),
-        () => {
-            requestPreviewDebounced();
-        }
+        () => props.layer?.id,
+        async () => {
+            await hydrateFromMaterialLayer(props.layer);
+        },
+        { immediate: true }
     );
 
     watch(
@@ -2915,34 +3697,93 @@ export function materialEditorModel(props, emit) {
             settings: node.settings,
         }))),
         () => {
-            syncSurfaceOffsetsFromNodes();
-        }
+            if (pauseAutoSync.value) {
+                return;
+            }
+
+            pauseAutoSync.value = true;
+
+            try {
+                syncSurfaceOffsetsFromNodes();
+            } finally {
+                queueMicrotask(() => {
+                    pauseAutoSync.value = false;
+                    requestPreviewDebounced();
+                });
+            }
+        },
+        { flush: "post" }
+    );
+
+    const materialSnapshot = computed(() => JSON.stringify({
+        name: values.name,
+        surface: values.surface,
+        geometry: values.geometry,
+        bitmap_maps: values.bitmap_maps,
+        uv: values.uv,
+        shader_graph: values.shader_graph,
+        cube_size: values.cube_size,
+        rotate_preview: values.rotate_preview,
+        blend_mode: values.blend_mode,
+        shadow_method: values.shadow_method,
+        use_nodes: values.use_nodes,
+    }));
+
+    watch(
+        materialSnapshot,
+        () => {
+            if (pauseAutoSync.value) {
+                return;
+            }
+
+            requestPreviewDebounced();
+        },
+        { flush: "post" }
     );
 
     watch(
         () => [
+            ui.activeTab,
             values.uv.view_mode,
             values.uv.active_face,
             JSON.stringify(values.uv.faces),
         ].join("|"),
         async () => {
-            syncUvCubeMapToShaderGraph();
-            syncSurfaceSlotFromUvCubeMap();
+            if (pauseAutoSync.value) {
+                return;
+            }
 
             if (ui.activeTab === "uv") {
                 await drawUvCanvas();
             }
         },
-        { immediate: true }
+        {
+            immediate: true,
+            flush: "post",
+        }
     );
 
     watch(
         () => JSON.stringify(values.shader_graph.edges),
         () => {
-            SURFACE_FIELDS.forEach(field => {
-                syncSurfaceSlotFromShaderGraph(field.key);
-            });
-        }
+            if (pauseAutoSync.value) {
+                return;
+            }
+
+            pauseAutoSync.value = true;
+
+            try {
+                SURFACE_FIELDS.forEach(field => {
+                    syncSurfaceSlotFromShaderGraph(field.key);
+                });
+            } finally {
+                queueMicrotask(() => {
+                    pauseAutoSync.value = false;
+                    requestPreviewDebounced();
+                });
+            }
+        },
+        { flush: "post" }
     );
 
     watch(
@@ -2957,10 +3798,6 @@ export function materialEditorModel(props, emit) {
 
             if (!materialSourceLayerId.value && source?.id) {
                 materialSourceLayerId.value = source.id;
-            }
-
-            if (source?.id && !values.bitmap_maps.baseColor.url) {
-                assignLayerToMap("baseColor", source);
             }
 
             ensureCoreNodes();
@@ -3032,6 +3869,7 @@ export function materialEditorModel(props, emit) {
         getSurfaceSlotSourceNode,
         getSurfaceSlotOffset,
         setSurfaceSlotOffset,
+        setSurfaceSlotChannel,
         syncSurfaceOffsetsFromNodes,
         requestPreviewDebounced,
         nodeCanvasRef,

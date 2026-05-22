@@ -42,13 +42,8 @@ export const createImage = (src) => {
 };
 
 export const resolveTextureUrl = layer => {
-    const baseMap = layer?.bitmap_maps?.baseColor;
-
     return (
-        baseMap?.url ||
         layer?.texture?.url ||
-        layer?.material?.textures?.base_color?.url ||
-        layer?.thumbnail ||
         layer?.url ||
         layer?.svg ||
         ""
@@ -96,14 +91,28 @@ export const resolvePrincipled = material => {
     };
 };
 
-export const createCubeVertices = (width, height, rotation = 0) => {
+export const createCubeVertices = (width, height, rotation = 0, geometry = {}) => {
     const cx = width / 2;
     const cy = height / 2;
     const size = Math.min(width, height) * 0.33;
 
-    const yaw = rotation;
-    const pitch = -0.55 + Math.sin(rotation * 0.65) * 0.12;
-    const roll = Math.sin(rotation * 0.37) * 0.08;
+    const toRadians = value => (Number(value || 0) * Math.PI) / 180;
+    const maxDimension = Math.max(
+        Math.abs(Number(geometry.width || 1)),
+        Math.abs(Number(geometry.height || 1)),
+        Math.abs(Number(geometry.depth || 1)),
+        0.001
+    );
+
+    const geometryScale = [
+        (Number(geometry.width || 1) * Number(geometry.scale_x || 1)) / maxDimension,
+        (Number(geometry.height || 1) * Number(geometry.scale_y || 1)) / maxDimension,
+        (Number(geometry.depth || 1) * Number(geometry.scale_z || 1)) / maxDimension,
+    ];
+
+    const yaw = rotation + toRadians(geometry.rotation_y);
+    const pitch = -0.55 + Math.sin(rotation * 0.65) * 0.12 + toRadians(geometry.rotation_x);
+    const roll = Math.sin(rotation * 0.37) * 0.08 + toRadians(geometry.rotation_z);
 
     const vertices3d = [
         [-1, -1, -1],
@@ -124,6 +133,10 @@ export const createCubeVertices = (width, height, rotation = 0) => {
     const cosZ = Math.cos(roll);
 
     return vertices3d.map(([x, y, z]) => {
+        x *= geometryScale[0];
+        y *= geometryScale[1];
+        z *= geometryScale[2];
+
         let rx = x * cosY - z * sinY;
         let rz = x * sinY + z * cosY;
         let ry = y;
@@ -275,7 +288,7 @@ export const getFaceUv = (uv, faceName) => {
     };
 };
 
-export const drawTextureFace = (ctx, image, face, points, uv, alpha = 1) => {
+export const drawTextureFace = (ctx, image, face, points, uv, alpha = 1, channel = "rgba") => {
     if (!image) {
         return;
     }
@@ -286,10 +299,11 @@ export const drawTextureFace = (ctx, image, face, points, uv, alpha = 1) => {
     const imageWidth = image.naturalWidth || image.width;
     const imageHeight = image.naturalHeight || image.height;
 
-    const sx = faceUv.x * imageWidth;
-    const sy = faceUv.y * imageHeight;
-    const sw = faceUv.width * imageWidth;
-    const sh = faceUv.height * imageHeight;
+    const faceOwnsBitmap = Boolean(faceUv.bitmap?.url);
+    const sx = faceOwnsBitmap ? 0 : faceUv.x * imageWidth;
+    const sy = faceOwnsBitmap ? 0 : faceUv.y * imageHeight;
+    const sw = (faceOwnsBitmap ? 1 : faceUv.width) * imageWidth;
+    const sh = (faceOwnsBitmap ? 1 : faceUv.height) * imageHeight;
 
     if (sw <= 0 || sh <= 0) {
         return;
@@ -330,6 +344,11 @@ export const drawTextureFace = (ctx, image, face, points, uv, alpha = 1) => {
     ctx.rotate((faceUv.rotate * Math.PI) / 180);
     ctx.scale(scaleX, scaleY);
     ctx.translate(-sw / 2 + tx, -sh / 2 + ty);
+
+    if (channel === "rgb") {
+        ctx.fillStyle = "rgb(255, 255, 255)";
+        ctx.fillRect(0, 0, sw, sh);
+    }
 
     ctx.drawImage(
         image,
