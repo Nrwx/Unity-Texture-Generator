@@ -90,6 +90,13 @@ class RenderModel(BaseModel):
         hue_variation=0,
         invert_colors=False,
         color_lookup=0,
+
+        mask_type="none",
+        select_mask_x=0,
+        select_mask_y=0,
+        select_mask_width=0,
+        select_mask_height=0,
+        select_mask_shape="rectangle"
     ):
         try:
             if not LAYERS:
@@ -138,12 +145,21 @@ class RenderModel(BaseModel):
                 if layer.get("id") == id:
                     layer_img = ModifierModel.apply_color_stack(
                         image=layer_img,
+                        layer=layer,
+
                         brightness=brightness,
                         contrast=contrast,
                         color_shift=color_shift,
                         hue_variation=hue_variation,
                         invert_colors=invert_colors,
                         color_lookup=color_lookup,
+
+                        mask_type=mask_type,
+                        select_mask_x=select_mask_x,
+                        select_mask_y=select_mask_y,
+                        select_mask_width=select_mask_width,
+                        select_mask_height=select_mask_height,
+                        select_mask_shape=select_mask_shape,
                     )
 
                 channel_config = layer.get("channel", {})

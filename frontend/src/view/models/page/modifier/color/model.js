@@ -54,6 +54,130 @@ export function modifierColorModel(props, emit) {
     const imageWidth = computed(() => Number(props.layer?.width || 0));
     const imageHeight = computed(() => Number(props.layer?.height || 0));
 
+    const getLayerViewportPosition = () => {
+        return {
+            x: Number(
+                props.layer?.x ??
+                props.layer?.left ??
+                props.layer?.position?.x ??
+                0
+            ),
+            y: Number(
+                props.layer?.y ??
+                props.layer?.top ??
+                props.layer?.position?.y ??
+                0
+            ),
+        };
+    };
+
+    const getViewportBox = () => {
+        return {
+            x: 0,
+            y: 0,
+            width: Number(props.viewport?.width || imageWidth.value || 0),
+            height: Number(props.viewport?.height || imageHeight.value || 0),
+        };
+    };
+
+    const intersectBoxes = (a, b) => {
+        if (!a || !b) {
+            return null;
+        }
+
+        const left = Math.max(a.x, b.x);
+        const top = Math.max(a.y, b.y);
+        const right = Math.min(a.x + a.width, b.x + b.width);
+        const bottom = Math.min(a.y + a.height, b.y + b.height);
+
+        if (right <= left || bottom <= top) {
+            return null;
+        }
+
+        return {
+            x: left,
+            y: top,
+            width: right - left,
+            height: bottom - top,
+        };
+    };
+
+    const getSelectMaskLayerBox = () => {
+        if (!props.selectMask || !imageWidth.value || !imageHeight.value) {
+            return null;
+        }
+
+        const viewportBox = getViewportBox();
+
+        const selectBox = {
+            x: Number(props.selectMask.x || 0),
+            y: Number(props.selectMask.y || 0),
+            width: Number(props.selectMask.width || 0),
+            height: Number(props.selectMask.height || 0),
+        };
+
+        if (selectBox.width <= 0 || selectBox.height <= 0) {
+            return null;
+        }
+
+        const visibleSelectBox = intersectBoxes(selectBox, viewportBox);
+
+        if (!visibleSelectBox) {
+            return null;
+        }
+
+        const layerPosition = getLayerViewportPosition();
+
+        const layerBox = {
+            x: layerPosition.x,
+            y: layerPosition.y,
+            width: imageWidth.value,
+            height: imageHeight.value,
+        };
+
+        const overlap = intersectBoxes(visibleSelectBox, layerBox);
+
+        if (!overlap) {
+            return null;
+        }
+
+        return {
+            x: overlap.x - layerBox.x,
+            y: overlap.y - layerBox.y,
+            width: overlap.width,
+            height: overlap.height,
+        };
+    };
+
+    const selectionStyle = computed(() => {
+        const box = getSelectMaskLayerBox();
+
+        if (!box) {
+            return {
+                display: "none",
+            };
+        }
+
+        return {
+            left: `${(box.x / imageWidth.value) * 100}%`,
+            top: `${(box.y / imageHeight.value) * 100}%`,
+            width: `${(box.width / imageWidth.value) * 100}%`,
+            height: `${(box.height / imageHeight.value) * 100}%`,
+        };
+    });
+
+    const maskDescription = computed(() => {
+        if (maskType.value === "select") {
+            return "Der Color Modifier wird auf die aktive Selection angewendet.";
+        }
+
+        if (maskType.value === "layer") {
+            return "Die vorhandene layer.mask wird als Bearbeitungsmaske verwendet.";
+        }
+
+        return "Der Color Modifier wirkt auf die gesamte Ebene.";
+    });
+
     const imageSizeLabel = computed(() => {
         if (!imageWidth.value || !imageHeight.value) {
             return "Keine Ebene";
@@ -133,6 +257,47 @@ export function modifierColorModel(props, emit) {
     const buildPayload = () => ({
         layer: props.layer,
         values: normalizeValues(),
+        mask: {
+            type: maskType.value,
+            select: props.selectMask,
+            shape: props.selectMaskShape || "rectangle",
+        },
+    });
+
+    const hasSelectMask = computed(() => {
+        return (
+            !!props.selectMask &&
+            Number(props.selectMask.width || 0) > 0 &&
+            Number(props.selectMask.height || 0) > 0
+        );
+    });
+
+    const hasLayerMask = computed(() => {
+        return !!props.layer?.mask && String(props.layer.mask).trim() !== "";
+    });
+
+    const maskType = computed(() => {
+        if (hasSelectMask.value) {
+            return "select";
+        }
+
+        if (hasLayerMask.value) {
+            return "layer";
+        }
+
+        return "none";
+    });
+
+    const maskLabel = computed(() => {
+        if (maskType.value === "select") {
+            return "Selection Mask";
+        }
+
+        if (maskType.value === "layer") {
+            return "Layer Mask";
+        }
+
+        return "Ganze Ebene";
     });
 
     const drawSrcToCanvas = async (src) => {
@@ -265,6 +430,20 @@ export function modifierColorModel(props, emit) {
         { immediate: true }
     );
 
+    watch(
+        () => [
+            props.selectMask?.x,
+            props.selectMask?.y,
+            props.selectMask?.width,
+            props.selectMask?.height,
+            props.selectMaskShape,
+            props.layer?.mask,
+        ],
+        () => {
+            requestPreviewDebounced();
+        }
+    );
+
     onMounted(async () => {
         resetAll();
 
@@ -291,9 +470,17 @@ export function modifierColorModel(props, emit) {
         imageHeight,
         imageSizeLabel,
 
+        selectionStyle,
+
         colorLookupModes,
         panelItems,
         operationSummary,
+
+        hasSelectMask,
+        hasLayerMask,
+        maskType,
+        maskLabel,
+        maskDescription,
 
         emitEvent,
         selectPanel,
@@ -333,6 +520,21 @@ export const modifierColorProps = {
         type: String,
         required: false,
         default: "",
+    },
+    selectMask: {
+        type: Object,
+        required: false,
+        default: null,
+    },
+    selectMaskShape: {
+        type: String,
+        required: false,
+        default: "rectangle",
+    },
+    viewport: {
+        type: Object,
+        required: false,
+        default: null,
     },
     theme: {
         type: String,

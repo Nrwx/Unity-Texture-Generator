@@ -17,8 +17,9 @@
           </div>
         </div>
 
-        <div class="clm-status">
-          {{ loadingPreview ? "Preview..." : operationSummary }}
+        <div class="clm-status" :class="`is-${maskType}`">
+          <span />
+          {{ loadingPreview ? "Preview..." : maskLabel }}
         </div>
       </div>
     </template>
@@ -44,22 +45,48 @@
 
           <div class="clm-stage">
             <div class="clm-checker">
-              <canvas
-                  ref="previewCanvas"
-                  class="clm-canvas"
-              />
-
-              <div
-                  v-if="loadingPreview"
-                  class="clm-preview-loading"
-              >
-                <v-progress-circular
-                    indeterminate
-                    size="28"
+              <div class="clm-image">
+                <canvas
+                    ref="previewCanvas"
+                    class="clm-canvas"
                 />
 
-                <span>Preview wird gerendert…</span>
+                <div
+                    v-if="hasSelectMask"
+                    class="clm-selection"
+                    :class="`shape-${selectMaskShape}`"
+                    :style="selectionStyle"
+                />
+
+                <div
+                    v-if="loadingPreview"
+                    class="clm-preview-loading"
+                >
+                  <v-progress-circular
+                      indeterminate
+                      size="28"
+                  />
+
+                  <span>Preview wird gerendert…</span>
+                </div>
               </div>
+            </div>
+          </div>
+
+          <div class="clm-meta">
+            <div>
+              <span>Mask</span>
+              <strong>{{ maskLabel }}</strong>
+            </div>
+
+            <div>
+              <span>Size</span>
+              <strong>{{ imageSizeLabel }}</strong>
+            </div>
+
+            <div>
+              <span>Stack</span>
+              <strong>{{ operationSummary }}</strong>
             </div>
           </div>
         </section>
@@ -78,6 +105,23 @@
               <span>{{ item.title }}</span>
             </button>
           </nav>
+
+          <div class="clm-mask-source">
+            <div :class="{ active: maskType === 'select' }">
+              <v-icon size="18">mdi-selection-drag</v-icon>
+              <span>Selection</span>
+            </div>
+
+            <div :class="{ active: maskType === 'layer' }">
+              <v-icon size="18">mdi-layers-triple</v-icon>
+              <span>Layer Mask</span>
+            </div>
+
+            <div :class="{ active: maskType === 'none' }">
+              <v-icon size="18">mdi-image-outline</v-icon>
+              <span>Ganze Ebene</span>
+            </div>
+          </div>
 
           <Transition name="clm-view" mode="out-in">
             <div
@@ -101,25 +145,41 @@
               </div>
 
               <div class="clm-section">
-                <v-slider
-                    v-model="modifier.values.brightness"
-                    label="Helligkeit"
-                    :min="0"
-                    :max="200"
-                    :step="1"
-                    thumb-label
-                    hide-details
-                />
+                <div class="clm-control-card">
+                  <header>
+                    <strong>Helligkeit</strong>
+                    <small>{{ modifier.values.brightness }}</small>
+                  </header>
 
-                <v-slider
-                    v-model="modifier.values.contrast"
-                    label="Kontrast"
-                    :min="0"
-                    :max="100"
-                    :step="1"
-                    thumb-label
-                    hide-details
-                />
+                  <v-slider
+                      v-model="modifier.values.brightness"
+                      label="Helligkeit"
+                      :min="0"
+                      thumb-color="#78A8FFFF"
+                      :max="200"
+                      :step="1"
+                      thumb-label
+                      hide-details
+                  />
+                </div>
+
+                <div class="clm-control-card">
+                  <header>
+                    <strong>Kontrast</strong>
+                    <small>{{ modifier.values.contrast }}</small>
+                  </header>
+
+                  <v-slider
+                      v-model="modifier.values.contrast"
+                      label="Kontrast"
+                      :min="0"
+                      thumb-color="#78A8FFFF"
+                      :max="100"
+                      :step="1"
+                      thumb-label
+                      hide-details
+                  />
+                </div>
               </div>
             </div>
 
@@ -144,15 +204,23 @@
               </div>
 
               <div class="clm-section">
-                <v-slider
-                    v-model="modifier.values.color_shift"
-                    label="Farbverschiebung"
-                    :min="-100"
-                    :max="100"
-                    :step="1"
-                    thumb-label
-                    hide-details
-                />
+                <div class="clm-control-card">
+                  <header>
+                    <strong>Farbverschiebung</strong>
+                    <small>{{ modifier.values.color_shift }}</small>
+                  </header>
+
+                  <v-slider
+                      v-model="modifier.values.color_shift"
+                      label="Farbverschiebung"
+                      :min="-100"
+                      :max="100"
+                      thumb-color="#78A8FFFF"
+                      :step="1"
+                      thumb-label
+                      hide-details
+                  />
+                </div>
               </div>
             </div>
 
@@ -177,15 +245,23 @@
               </div>
 
               <div class="clm-section">
-                <v-slider
-                    v-model="modifier.values.hue_variation"
-                    label="Farbtonvariation"
-                    :min="-180"
-                    :max="180"
-                    :step="1"
-                    thumb-label
-                    hide-details
-                />
+                <div class="clm-control-card">
+                  <header>
+                    <strong>Farbtonvariation</strong>
+                    <small>{{ modifier.values.hue_variation }}°</small>
+                  </header>
+
+                  <v-slider
+                      v-model="modifier.values.hue_variation"
+                      label="Farbtonvariation"
+                      :min="-180"
+                      :max="180"
+                      thumb-color="#78A8FFFF"
+                      :step="1"
+                      thumb-label
+                      hide-details
+                  />
+                </div>
               </div>
             </div>
 
@@ -213,14 +289,14 @@
                   class="clm-toggle-card"
                   :class="{ active: modifier.values.invert_colors }"
               >
-                <span class="clm-toggle-icon">
-                  <v-icon size="23">mdi-invert-colors</v-icon>
-                </span>
+    <span class="clm-toggle-icon">
+      <v-icon size="23">mdi-invert-colors</v-icon>
+    </span>
 
                 <span class="clm-toggle-text">
-                  <strong>Invertieren</strong>
-                  <small>Backend rendert nach jeder Änderung neu.</small>
-                </span>
+      <strong>Invertieren</strong>
+      <small>Backend rendert nach jeder Änderung neu.</small>
+    </span>
 
                 <v-switch
                     v-model="modifier.values.invert_colors"
@@ -251,13 +327,18 @@
               </div>
 
               <div class="clm-section">
-                <v-select
-                    v-model="modifier.values.color_lookup"
-                    :items="colorLookupModes"
-                    label="Filmfarben-Filter"
-                    density="compact"
-                    hide-details
-                />
+                <div class="clm-lookup-card">
+                  <strong>Filmfarben-Filter</strong>
+                  <small>Aktiver Modus: {{ modifier.values.color_lookup }}</small>
+
+                  <v-select
+                      v-model="modifier.values.color_lookup"
+                      :items="colorLookupModes"
+                      label="Filmfarben-Filter"
+                      density="compact"
+                      hide-details
+                  />
+                </div>
               </div>
             </div>
           </Transition>
@@ -269,6 +350,7 @@
       <div class="clm-actions">
         <v-btn
             variant="text"
+            class="clm-cancel"
             @click="emitEvent(config.emit, false)"
         >
           Abbrechen
@@ -281,6 +363,7 @@
         </span>
 
         <v-btn
+            class="clm-apply"
             :loading="loading"
             @click="submit"
         >

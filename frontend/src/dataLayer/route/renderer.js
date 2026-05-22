@@ -20,36 +20,34 @@ export const renderer = async (config) => {
 };
 
 export const colorPreview = async (payload = {}) => {
-    const { layer, values } = payload;
+    const { layer, values, mask } = payload;
 
     if (!layer?.id || !values) {
         return null;
     }
 
-    try {
-        const formData = new FormData();
+    const formData = new FormData();
 
-        formData.append("method", "color-preview");
-        formData.append("id", layer.id);
+    formData.append("method", "color-preview");
+    formData.append("id", layer.id);
 
-        formData.append("brightness", values.brightness);
-        formData.append("contrast", values.contrast);
-        formData.append("color_shift", values.color_shift);
-        formData.append("hue_variation", values.hue_variation);
-        formData.append("invert_colors", values.invert_colors ? "true" : "false");
-        formData.append("color_lookup", values.color_lookup);
+    formData.append("brightness", values.brightness);
+    formData.append("contrast", values.contrast);
+    formData.append("color_shift", values.color_shift);
+    formData.append("hue_variation", values.hue_variation);
+    formData.append("invert_colors", values.invert_colors ? "true" : "false");
+    formData.append("color_lookup", values.color_lookup);
 
-        const response = await api.post("/renderer", formData, {
-            headers: { "Content-Type": "multipart/form-data" },
-        });
+    formData.append("mask_type", mask?.type || "none");
+    formData.append("select_mask_x", mask?.select?.x || 0);
+    formData.append("select_mask_y", mask?.select?.y || 0);
+    formData.append("select_mask_width", mask?.select?.width || 0);
+    formData.append("select_mask_height", mask?.select?.height || 0);
+    formData.append("select_mask_shape", mask?.shape || "rectangle");
 
-        return response?.data || response;
-    } catch (error) {
-        console.error(
-            "Fehler bei Color Preview:",
-            error.response?.data || error.message
-        );
+    const response = await api.post("/renderer", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+    });
 
-        throw error;
-    }
+    return response?.data || response;
 };

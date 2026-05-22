@@ -222,24 +222,24 @@ class ModifierModel(BaseModel):
     def apply_color_stack(
         cls,
         image,
+        layer=None,
+
         brightness=100,
         contrast=50,
         color_shift=0,
         hue_variation=0,
         invert_colors=False,
         color_lookup=0,
-    ):
-        """
-        Zentrale Color-Pipeline für Apply und Renderer-Preview.
-        Verwendet exakt die vorhandenen Module:
-        - apply_brightness_contrast
-        - apply_color_shift
-        - apply_hue_rotation
-        - apply_invert_colors
-        - apply_color_lookup
-        """
 
+        mask_type="none",
+        select_mask_x=0,
+        select_mask_y=0,
+        select_mask_width=0,
+        select_mask_height=0,
+        select_mask_shape="rectangle",
+    ):
         image = image.convert("RGBA")
+        original = image.copy()
         alpha = image.getchannel("A")
 
         rgb_image = image.convert("RGB")
@@ -263,7 +263,7 @@ class ModifierModel(BaseModel):
 
         img = apply_invert_colors(
             img,
-            invert_colors=bool(int(invert_colors or 0)),
+            invert_colors=invert_colors,
         )
 
         img = apply_color_lookup(
@@ -272,21 +272,47 @@ class ModifierModel(BaseModel):
         )
 
         if isinstance(img, Image.Image):
-            result = img.convert("RGBA")
+            modified = img.convert("RGBA")
         else:
             img = np.array(img)
 
             if img.ndim == 2:
-                result = Image.fromarray(img.astype(np.uint8)).convert("RGBA")
+                modified = Image.fromarray(img.astype(np.uint8)).convert("RGBA")
             elif len(img.shape) == 3 and img.shape[2] == 4:
-                result = Image.fromarray(img.astype(np.uint8)).convert("RGBA")
+                modified = Image.fromarray(img.astype(np.uint8)).convert("RGBA")
             else:
-                result = Image.fromarray(img.astype(np.uint8)).convert("RGBA")
+                modified = Image.fromarray(img.astype(np.uint8)).convert("RGBA")
 
-        if result.size == alpha.size:
-            result.putalpha(alpha)
+        if modified.size == alpha.size:
+            modified.putalpha(alpha)
 
-        return result
+        if str(mask_type) == "none":
+            return modified
+
+        if not layer:
+            return modified
+
+        mask = cls.resolve_mask(
+            layer=layer,
+            image_size=image.size,
+            mask_type=mask_type,
+            select_mask_x=select_mask_x,
+            select_mask_y=select_mask_y,
+            select_mask_width=select_mask_width,
+            select_mask_height=select_mask_height,
+            select_mask_shape=select_mask_shape,
+        )
+
+        if mask is None:
+            return original
+
+        result = Image.composite(
+            modified,
+            original,
+            mask.convert("L")
+        )
+
+        return result.convert("RGBA")
 
     @classmethod
     def color(
@@ -298,6 +324,13 @@ class ModifierModel(BaseModel):
         hue_variation=0,
         invert_colors=False,
         color_lookup=0,
+
+        mask_type="none",
+        select_mask_x=0,
+        select_mask_y=0,
+        select_mask_width=0,
+        select_mask_height=0,
+        select_mask_shape="rectangle",
     ):
         try:
             layer = next((l for l in LAYERS if l["id"] == id), None)
@@ -320,12 +353,21 @@ class ModifierModel(BaseModel):
 
             result = cls.apply_color_stack(
                 image=image,
+                layer=layer,
+
                 brightness=brightness,
                 contrast=contrast,
                 color_shift=color_shift,
                 hue_variation=hue_variation,
                 invert_colors=invert_colors,
                 color_lookup=color_lookup,
+
+                mask_type=mask_type,
+                select_mask_x=select_mask_x,
+                select_mask_y=select_mask_y,
+                select_mask_width=select_mask_width,
+                select_mask_height=select_mask_height,
+                select_mask_shape=select_mask_shape,
             )
 
             new_id = str(uuid.uuid4())

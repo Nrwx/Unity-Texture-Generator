@@ -336,5 +336,11 @@ export const windowStateEvent = (route) => ({
     },
     "modifier-color:state": async (payload) => {
         route.modifierStates.color.value = payload;
+        if(!payload){
+            route.tempData.activeLayer.value = null;
+            route.tempData.preview.value.src = "";
+            route.tempData.preview.value.counter = 0;
+            route.loadingStates.modifierColor.value = false;
+        }
     },
 });

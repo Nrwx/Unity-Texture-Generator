@@ -320,14 +320,22 @@ PARAMETERS = {
         "id": {"type": str, "default": ""},
         "image_base64": {"type": str, "default": ""},
         "size": {"type": int, "default": 128},
-        # COLOR MODIFIER PREVIEW PARAMS START
+
+        # COLOR MODIFIER PREVIEW
         "brightness": {"type": int, "default": 100},
         "contrast": {"type": int, "default": 50},
         "color_shift": {"type": int, "default": 0},
         "hue_variation": {"type": int, "default": 0},
         "invert_colors": {"type": bool, "default": False},
         "color_lookup": {"type": int, "default": 0},
-        # COLOR MODIFIER PREVIEW PARAMS END
+
+        # MASK
+        "mask_type": {"type": str, "default": "none"},
+        "select_mask_x": {"type": int, "default": 0},
+        "select_mask_y": {"type": int, "default": 0},
+        "select_mask_width": {"type": int, "default": 0},
+        "select_mask_height": {"type": int, "default": 0},
+        "select_mask_shape": {"type": str, "default": "rectangle"}
     },
     "path": {
         "method": {"type": str, "required": True},

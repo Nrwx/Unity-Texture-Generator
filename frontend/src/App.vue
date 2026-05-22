@@ -38,7 +38,7 @@
       <!-- Cut/Crop/Resize Modifier -->
       <ResizeModifier v-model:state="modifierStates.resize.value" v-model:viewport="localData.viewport.value" v-model:layer="tempData.activeLayer.value" v-model:select-mask="localData.selectMaskBox.value" v-model:select-mask-shape="localData.selectedShape.value" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
       <!-- Color/Lookup/Invert/Brightness Modifier -->
-      <ColorModifier v-model:state="modifierStates.color.value" v-model:loading="loadingStates.modifierColor.value" v-model:loading-preview="loadingStates.modifierColorPreview.value" v-model:layer="tempData.activeLayer.value" v-model:select-mask="localData.selectMaskBox.value" v-model:select-mask-shape="localData.selectedShape.value"  v-model:preview-src="tempData.preview.value.src" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
+      <ColorModifier v-model:state="modifierStates.color.value" v-model:loading="loadingStates.modifierColor.value" v-model:viewport="localData.viewport.value" v-model:loading-preview="loadingStates.modifierColorPreview.value" v-model:layer="tempData.activeLayer.value" v-model:select-mask="localData.selectMaskBox.value" v-model:select-mask-shape="localData.selectedShape.value"  v-model:preview-src="tempData.preview.value.src" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
       <!-- Rechte Taskbar -->
       <Taskbar @taskbar-event="taskbarEvent('right', $event)" align="right"  @component-event="componentEvent" v-model:items="itemsRight" v-model:theme="appData.theme.value" />
       <!-- Rechter Drawer -->

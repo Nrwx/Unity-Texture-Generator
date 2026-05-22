@@ -80,31 +80,35 @@ export const resizeModifier = async ({ layer, crop, resize, cutout, selectMask, 
     }
 };
 
-export const colorModifier = async ({ layer, values }) => {
-    try {
-        const formData = new FormData();
+export const colorModifier = async (payload = {}) => {
+    const { layer, values, mask } = payload;
 
-        formData.append("method", "color");
-        formData.append("id", layer.id);
-
-        formData.append("brightness", values.brightness);
-        formData.append("contrast", values.contrast);
-        formData.append("color_shift", values.color_shift);
-        formData.append("hue_variation", values.hue_variation);
-        formData.append("invert_colors", values.invert_colors ? 1 : 0);
-        formData.append("color_lookup", values.color_lookup);
-
-        const response = await api.post("/modifier", formData, {
-            headers: { "Content-Type": "multipart/form-data" },
-        });
-
-        return response?.data || response;
-    } catch (error) {
-        console.error(
-            "Fehler beim Color Modifier:",
-            error.response?.data || error.message
-        );
-
-        throw error;
+    if (!layer?.id || !values) {
+        return null;
     }
+
+    const formData = new FormData();
+
+    formData.append("method", "color");
+    formData.append("id", layer.id);
+
+    formData.append("brightness", values.brightness);
+    formData.append("contrast", values.contrast);
+    formData.append("color_shift", values.color_shift);
+    formData.append("hue_variation", values.hue_variation);
+    formData.append("invert_colors", values.invert_colors ? "true" : "false");
+    formData.append("color_lookup", values.color_lookup);
+
+    formData.append("mask_type", mask?.type || "none");
+    formData.append("select_mask_x", mask?.select?.x || 0);
+    formData.append("select_mask_y", mask?.select?.y || 0);
+    formData.append("select_mask_width", mask?.select?.width || 0);
+    formData.append("select_mask_height", mask?.select?.height || 0);
+    formData.append("select_mask_shape", mask?.shape || "rectangle");
+
+    const response = await api.post("/modifier", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    return response?.data || response;
 };
