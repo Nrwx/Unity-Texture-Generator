@@ -31,5 +31,3 @@ export const textLayer = ref({
     mask: ''
 });
 
-export const editText = ref(null);
-

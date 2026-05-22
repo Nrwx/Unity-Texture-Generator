@@ -21,6 +21,7 @@
           :hidden="layer.hidden"
           style="top: 0; left: 0;"
           @click="emitSelectLayer(layer, $event)"
+          @dblclick.stop="emitEditTextLayer(layer, $event)"
           :class="{ 'absolute': index >= 0, 'selected': selectedLayer.includes(layer) }"
           :data-context-id="layer.id"
           :key="layer.time"

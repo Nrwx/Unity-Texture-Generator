@@ -168,6 +168,10 @@ export const windowStateEvent = (route) => ({
             }
         }
     },
+    "text-edit-state": async (payload) => {
+        if(!payload) await route.emit('edit-text-layer', null);
+        route.windowStates.textEdit.value = payload;
+    },
 
     "brush-state": async (payload) => {
         if (typeof payload === "boolean") {

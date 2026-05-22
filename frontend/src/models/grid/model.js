@@ -1213,6 +1213,14 @@ export const gridProps = {
         type: Object,
         required: true,
     },
+    editText: {
+        type: Boolean,
+        required: true,
+    },
+    editTextLayer: {
+        type: Object,
+        required: true,
+    },
     selectMode: {
         type: String,
         required: true,

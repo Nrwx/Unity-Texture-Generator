@@ -18,7 +18,7 @@
     "project_name": "unity-texture-generator"
   },
   "dependencies": {
-    "last_build": "2026-05-21T13:46:55.436222Z",
+    "last_build": "2026-05-22T10:09:38.087996Z",
     "config": {
       "library_policy": {
         "auto_update": true,
@@ -704,6 +704,25 @@
             "mask"
           ],
           "function": "addText"
+        },
+        "updateText": {
+          "keys": [
+            "id",
+            "width",
+            "height",
+            "color",
+            "font",
+            "fontFamily",
+            "fontSize",
+            "fontWeight",
+            "letterSpacing",
+            "lineHeight",
+            "text",
+            "textAlign",
+            "textDecoration",
+            "textTransform"
+          ],
+          "function": "updateText"
         },
         "addPath": {
           "keys": [

@@ -67,6 +67,37 @@ export const addTextLayer = async (layer) => {
     }
 };
 
+export const updateTextLayer = async (layer) => {
+    try {
+        const formData = new FormData();
+        formData.append("method", "updateText");
+        formData.append("id", layer.id);
+        formData.append("width", layer.width);
+        formData.append("height",  layer.height);
+        formData.append("color", layer.color);
+        formData.append("fontFamily", layer.fontFamily);
+        formData.append("font", layer.font);
+        formData.append("fontSize", layer.fontSize);
+        formData.append("fontWeight",  layer.fontWeight);
+        formData.append("letterSpacing",  layer.letterSpacing);
+        formData.append("lineHeight", layer.lineHeight);
+        formData.append("text", layer.text);
+        formData.append("textAlign", layer.textAlign);
+        formData.append("textDecoration",  layer.textDecoration);
+        formData.append("textTransform", layer.textTransform);
+
+        const response = await api.post('/layer', formData, {
+            headers: {'Content-Type': 'multipart/form-data'},
+        });
+
+        if(response) {
+            return true
+        }
+    } catch (error) {
+        console.error("Error adding layer:", error.response?.data || error.message);
+    }
+};
+
 export const addPathLayer = async (layer) => {
     try {
         const formData = new FormData();

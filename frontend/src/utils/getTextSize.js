@@ -28,13 +28,16 @@ export function getTextSize(textEl, layer, overlayEl, opts = {}) {
         div.style.fontFamily = style.fontFamily;
         div.style.fontSize = style.fontSize;
         div.style.fontWeight = style.fontWeight;
+        div.style.fontStyle = style.fontStyle;
+        div.style.fontVariant = style.fontVariant;
         div.style.lineHeight = style.lineHeight;
         div.style.letterSpacing = style.letterSpacing;
-        div.style.fontStyle = style.fontStyle;
         div.style.textTransform = style.textTransform;
-        div.style.padding = '0';
-        div.style.border = '0';
-        div.style.margin = '0';
+        div.style.textDecoration = style.textDecoration;
+
+        div.style.padding = "0";
+        div.style.border = "0";
+        div.style.margin = "0";
 
         const text = el.value || el.innerText || '';
         div.textContent = text.length ? text : ' ';

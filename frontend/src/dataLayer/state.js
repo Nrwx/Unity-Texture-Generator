@@ -24,6 +24,7 @@ export const windowStates = {
     selectItems: ref(false),
     taskEdit: ref(false),
     text: ref(false),
+    textEdit: ref(false),
     notify: ref(false),
     typing: ref(false),
     cursor: ref(false),

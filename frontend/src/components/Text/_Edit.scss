@@ -1,6 +1,6 @@
 @import '../../view/scss/_Var.scss';
 
-.drawing-overlay {
+.edit-text-overlay {
   top: 0;
   left: 0;
   bottom: 0;
@@ -8,27 +8,17 @@
 
   width: 100%;
   height: 100%;
-  z-index: $modify_index;
 
-  cursor: crosshair;
-
-  // bleibt sehr transparent, aber gibt leichtes Editor-/Canvas-Gefühl
-  background:
-          linear-gradient(135deg, rgba(33, 150, 243, 0.025), transparent 35%),
-          linear-gradient(315deg, rgba(25, 118, 210, 0.025), transparent 38%);
-}
-
-.selection-svg {
-  z-index: 999;
-  overflow: visible;
+  z-index: $modify_index + 5;
   pointer-events: none;
-
-  filter:
-          drop-shadow(0 2px 5px rgba(33, 150, 243, 0.24))
-          drop-shadow(0 0 8px rgba(33, 150, 243, 0.12));
 }
 
-.text-layer {
+.edit-text-layer {
+  pointer-events: auto;
+  overflow: visible;
+
+  border-radius: 9px;
+
   background:
           linear-gradient(
                           180deg,
@@ -39,20 +29,11 @@
   -webkit-backdrop-filter: blur(5px) saturate(125%);
   backdrop-filter: blur(5px) saturate(125%);
 
-  overflow: visible;
-
-  border-radius: 9px;
-
   box-shadow:
           0 5px 16px rgba(33, 150, 243, 0.14),
           0 1px 2px rgba(0, 0, 0, 0.10),
           inset 0 1px 0 rgba(255, 255, 255, 0.28),
           inset 0 -1px 0 rgba(33, 150, 243, 0.08);
-
-  transition:
-          box-shadow 0.18s ease,
-          background-color 0.18s ease,
-          filter 0.18s ease;
 
   &:focus-within {
     box-shadow:
@@ -63,10 +44,11 @@
   }
 }
 
-.custom-textarea {
+.edit-textarea {
   flex-grow: 1;
 
   width: 100%;
+  height: 100%;
   min-height: 2.5em;
 
   resize: none;
@@ -81,7 +63,6 @@
 
   color: inherit;
 
-  // Photoshop/PHPStorm-artige helle Arbeitsfläche, aber transparent
   background:
           linear-gradient(
                           180deg,
@@ -126,7 +107,7 @@
   }
 }
 
-.action-buttons {
+.edit-action-buttons {
   position: absolute;
 
   bottom: -32px;
@@ -159,7 +140,7 @@
           inset 0 -1px 0 rgba(33, 150, 243, 0.10);
 }
 
-.action-buttons :deep(.v-btn) {
+.edit-action-buttons :deep(.v-btn) {
   border: 1px solid rgba(255, 255, 255, 0.20);
 
   box-shadow:
@@ -184,43 +165,5 @@
 
   &:active {
     transform: translateY(0) scale(0.96);
-  }
-}
-
-.resize-handle {
-  position: absolute;
-
-  width: 16px;
-  height: 16px;
-
-  bottom: 4px;
-  right: 4px;
-
-  cursor: se-resize;
-  opacity: 0.55;
-
-  border-radius: 4px;
-
-  background:
-          linear-gradient(
-                          135deg,
-                          rgba(33, 150, 243, 0.10),
-                          rgba(255, 255, 255, 0.04)
-          ) !important;
-
-  transition:
-          opacity 0.18s ease,
-          transform 0.18s ease,
-          background-color 0.18s ease,
-          filter 0.18s ease;
-
-  &:hover {
-    opacity: 1;
-    transform: scale(1.06);
-    filter: drop-shadow(0 0 4px rgba(33, 150, 243, 0.35));
-  }
-
-  &:active {
-    transform: scale(0.96);
   }
 }

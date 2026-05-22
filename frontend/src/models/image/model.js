@@ -48,6 +48,16 @@ export function imageModel(props, emit) {
         emit("update:select-layer", payload, event);
     };
 
+    const emitEditTextLayer = (layer, event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (layer.type !== 1) return;
+
+        emitEvent("edit-text-layer", layer);
+        emitEvent("text-edit-state", true);
+    };
+
     const emitEvent = (event, payload) => {
         emit("update:image-event", event, payload);
     };
@@ -258,6 +268,7 @@ export function imageModel(props, emit) {
     return {
         containerRef,
         emitSelectLayer,
+        emitEditTextLayer,
         getLiveLayer,
         getLayerStyle,
         getTextLayerStyle,

@@ -39,6 +39,8 @@
             <div v-if="!selectedLayer.length" class="center-crosshair"></div>
 
             <Text :state="text" @update:component-event="emitEvent" :layer="textLayer"/>
+
+            <Edit :state="editText" :layer="editTextLayer" @update:component-event="emitEvent"/>
             <!-- Formzeichnung -->
             <Path :viewport="viewport" :state="pathDrag" :selected="selectedPath" :mouse="cursor" @update:component-event="emitEvent"/>
             <!-- Zeichnung -->
@@ -48,7 +50,7 @@
           </div>
 
           <SelectVector
-              v-if="selectedLayer.length"
+              v-if="selectedLayer.length && !editText"
               :frameBox="frameBox"
               :anchor="anchorScreen"
               @resize="startResize"
@@ -142,6 +144,7 @@ import Status from "@/components/Status/Status";
 import Menu from "@/components/Brush/Menu";
 import Box from "@/components/Selection/Box";
 import Cursor from "@/components/Brush/Cursor";
+import Edit from "@/components/Text/Edit";
 
 export default defineComponent({
   name: "GridComponent",
@@ -154,6 +157,7 @@ export default defineComponent({
     Brush,
     Cursor,
     Text,
+    Edit,
     Image,
     Selection,
     Control,

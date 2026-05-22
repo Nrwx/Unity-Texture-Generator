@@ -458,6 +458,47 @@ class LayerModel(BaseModel):
             return cls.handle_error(e)
 
     @classmethod
+    def updateText(cls, id, width, height, color, font, fontFamily, fontSize, fontWeight, letterSpacing, lineHeight, text, textAlign, textDecoration, textTransform):
+        try:
+
+            layer = next((l for l in LAYERS if l["id"] == id), None)
+            if not layer:
+                return {"error": "Layer not found"}, 404
+
+            if width:
+                layer["width"] = width
+            if height:
+                layer["height"] = height
+            if color:
+                layer["color"] = color
+            if font:
+                layer["font"] = font
+            if fontFamily:
+                layer["fontFamily"] = fontFamily
+            if fontSize:
+                layer["fontSize"] = fontSize
+            if fontWeight:
+                layer["fontWeight"] = fontWeight
+            if letterSpacing:
+                layer["letterSpacing"] = letterSpacing
+            if lineHeight:
+                layer["lineHeight"] = lineHeight
+            if text:
+                layer["text"] = text
+            if textAlign:
+                layer["textAlign"] = textAlign
+            if textDecoration:
+                layer["textDecoration"] = textDecoration
+            if textTransform:
+                layer["textTransform"] = textTransform
+            layer["time"] = time('unix_ms')
+
+            print(LAYERS)
+            return layer, 200
+        except Exception as e:
+            return cls.handle_error(e)
+
+    @classmethod
     def addPath(cls, points, connections, stroke, strokeWidth, strokeDashArray, strokeDash,
                 strokeDashType, fill, fillOpacity, gradient, closed, name):
 

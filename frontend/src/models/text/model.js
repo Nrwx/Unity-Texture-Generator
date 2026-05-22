@@ -184,8 +184,8 @@ export function textModel(props, emit) {
         const dx = e.clientX - initialMouseX.value;
         const dy = e.clientY - initialMouseY.value;
 
-        const newWidth = Math.max(50, initialWidth.value + dx);
-        const newHeight = Math.max(30, initialHeight.value + dy);
+        const newWidth = Math.max(50, Math.round(initialWidth.value + dx));
+        const newHeight = Math.max(30, Math.round(initialHeight.value + dy));
 
         props.layer.width = newWidth;
         props.layer.height = newHeight;
@@ -201,15 +201,21 @@ export function textModel(props, emit) {
 
         // Shrink
         if (newWidth < widthShrinkThreshold || newHeight < heightShrinkThreshold) {
-            const shrunkFontSize = Math.max(12, props.layer.initFontSize * ratio);
+            const shrunkFontSize = Math.round(
+                Math.max(12, props.layer.initFontSize * ratio)
+            );
+
             if (shrunkFontSize < props.layer.fontSize) {
                 props.layer.fontSize = shrunkFontSize;
             }
         }
 
-        // Grow (but not beyond initFontSize)
+        // Grow, aber nicht über initFontSize
         if (newWidth > widthGrowThreshold || newHeight > heightGrowThreshold) {
-            const grownFontSize = Math.min(props.layer.initFontSize, props.layer.initFontSize * ratio);
+            const grownFontSize = Math.round(
+                Math.min(props.layer.initFontSize, props.layer.initFontSize * ratio)
+            );
+
             if (grownFontSize > props.layer.fontSize) {
                 props.layer.fontSize = grownFontSize;
             }
@@ -247,8 +253,14 @@ export function textModel(props, emit) {
     };
 
     const predictedFontSize = computed(() => {
-        const ratio = Math.min(props.layer.width / props.layer.initWidth || 1, props.layer.height / props.layer.initHeight || 1);
-        return Math.max(12, props.layer.initFontSize * ratio);
+        const ratio = Math.min(
+            props.layer.width / props.layer.initWidth || 1,
+            props.layer.height / props.layer.initHeight || 1
+        );
+
+        return Math.round(
+            Math.max(12, props.layer.initFontSize * ratio)
+        );
     });
 
     const init = async () => {

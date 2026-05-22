@@ -4,6 +4,7 @@ export const layerEvent = (route) => ({
         const response = await route.api.fetchLayers();
         if (response) {
             route.localData.layers.value = response;
+            if(route.tempData.editTextLayer.value) await route.emit('text-edit-state', false);
             if(route.tempData.brushLayer.value){
                 await route.emit("reset:brush-ctx", route.tempData.brushCanvasId.value);
             }
@@ -152,6 +153,15 @@ export const textLayerEvent = (route) => ({
             await route.emit("fetch-layer");
         }
     },
+    "update-text-layer": async (payload) => {
+        const response = await route.api.updateTextLayer(payload);
+        if (response) {
+            await route.emit("fetch-layer");
+        }
+    },
+    "edit-text-layer": async (payload) => {
+        route.tempData.editTextLayer.value = {...route.textLayer.value, ...payload};
+    },
 });
 
 export const brushLayerEvent = (route) => ({
@@ -216,31 +226,43 @@ export const brushLayerEvent = (route) => ({
 export const textModifierEvent = (route) => ({
     "apply-font-size": (payload) => {
         route.textLayer.value.fontSize = payload;
+        if (route.tempData.editTextLayer.value) route.tempData.editTextLayer.value.fontSize = payload;
     },
     "apply-font-family": (payload) => {
         route.textLayer.value.fontFamily = payload.value;
         route.textLayer.value.font = payload.id
+        if (route.tempData.editTextLayer.value) {
+            route.tempData.editTextLayer.value.fontFamily = payload.value;
+            route.tempData.editTextLayer.value.font = payload.id;
+        }
     },
     "apply-font-weight": (payload) => {
         route.textLayer.value.fontWeight = payload;
+        if (route.tempData.editTextLayer.value) route.tempData.editTextLayer.value.fontWeight = payload;
     },
     "apply-font-text-align": (payload) => {
         route.textLayer.value.textAlign = payload;
+        if (route.tempData.editTextLayer.value) route.tempData.editTextLayer.value.textAlign = payload;
     },
     "apply-font-line-height": (payload) => {
         route.textLayer.value.lineHeight = payload;
+        if (route.tempData.editTextLayer.value) route.tempData.editTextLayer.value.lineHeight = payload;
     },
     "apply-font-letter-spacing": (payload) => {
         route.textLayer.value.letterSpacing = payload;
+        if (route.tempData.editTextLayer.value) route.tempData.editTextLayer.value.letterSpacing = payload;
     },
     "apply-font-text-transform": (payload) => {
         route.textLayer.value.textTransform = payload;
+        if (route.tempData.editTextLayer.value) route.tempData.editTextLayer.value.textTransform = payload;
     },
     "apply-font-text-decoration": (payload) => {
         route.textLayer.value.textDecoration = payload;
+        if (route.tempData.editTextLayer.value) route.tempData.editTextLayer.value.textDecoration = payload;
     },
     "apply-font-color": (payload) => {
         route.textLayer.value.color = payload;
+        if (route.tempData.editTextLayer.value) route.tempData.editTextLayer.value.color = payload;
     },
 });
 

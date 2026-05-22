@@ -116,6 +116,7 @@ export const tempData = {
     timelineId: ref(null),
     keys: ref([]),
     activeLayer: ref(null),
+    editTextLayer: ref(null),
     heldKeys: ref(new Map()),
 }
 

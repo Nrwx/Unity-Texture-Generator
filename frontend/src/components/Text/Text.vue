@@ -18,17 +18,17 @@
           :height="layer.height"
           rx="10"
           ry="10"
-          fill="rgba(33, 150, 243, 0.03)"
-          stroke="#2196f3"
+          fill="rgba(33, 150, 243, 0.035)"
+          stroke="rgba(33, 150, 243, 0.95)"
           stroke-width="2"
-          stroke-dasharray="6 3"
+          stroke-dasharray="7 4"
       />
       <text
           x="6"
           y="-8"
           fill="#2196f3"
           font-size="12"
-          font-weight="500"
+          font-weight="600"
       >
         {{ layer.width }} × {{ layer.height }} px — {{ Math.round(predictedFontSize) }} px
       </text>
@@ -45,6 +45,7 @@
               class="custom-textarea"
               ref="textarea"
               :style="textareaStyle"
+              placeholder="Text..."
           />
         <div class="action-buttons d-flex justify-center align-center">
           <v-btn ref="confirm" :id="confirmId" icon size="20" variant="flat" color="#87ff8c80" title="Bestätigen">
