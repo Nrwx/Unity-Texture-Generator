@@ -997,7 +997,7 @@ export function layer3DModel(props, emit) {
             ? layer.texture_sequence.filter(item => item?.url)
             : [];
 
-        if (layer?.sequence_enabled === true && sequence.length) {
+        if (layer?.sequence_enabled === true && sequence.length > 1) {
             const interval = Math.max(16, Number(layer.sequence_interval_ms) || 100);
             const step = Math.floor((particleAge * 1000) / interval);
             const index = layer.sequence_mode === "random"

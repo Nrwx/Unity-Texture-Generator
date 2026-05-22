@@ -427,13 +427,11 @@
         />
 
         <div class="mem-particle-sequence-head">
-          <v-btn
-              :variant="activeParticleLayer.sequence_enabled ? 'tonal' : 'outlined'"
-              size="small"
-              @click="updateActiveParticleLayerPatch({ sequence_enabled: !activeParticleLayer.sequence_enabled })"
-          >
-            Sequence
-          </v-btn>
+          <span
+              class="mem-particle-sequence-status"
+              :class="{ online: activeLayerSequenceOnline }"
+              :title="activeLayerSequenceOnline ? 'Sequence online' : 'Sequence offline'"
+          />
 
           <v-select
               :model-value="activeParticleLayer.sequence_mode"
@@ -456,7 +454,7 @@
             @update:model-value="updateActiveParticleLayerPatch({ sequence_interval_ms: Number($event) || 100 })"
         />
 
-        <div class="mem-particle-sequence-list">
+        <div v-if="activeLayerTextureSequence.length" class="mem-particle-sequence-list">
           <div
               v-for="(item, index) in activeLayerTextureSequence"
               :key="item.id"

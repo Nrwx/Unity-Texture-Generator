@@ -348,6 +348,10 @@ export function particleSystemModel(props, emit) {
             ? activeParticleLayer.value.texture_sequence
             : []
     ));
+    const activeLayerSequenceOnline = computed(() => (
+        activeParticleLayer.value?.sequence_enabled === true &&
+        activeLayerTextureSequence.value.filter(item => item?.url).length > 1
+    ));
 
     const ensureParticleLayers = () => {
         state.particleSystem = {
@@ -1267,6 +1271,7 @@ export function particleSystemModel(props, emit) {
         particleLayers,
         activeParticleLayer,
         activeLayerTextureSequence,
+        activeLayerSequenceOnline,
         textureLayerOptions,
         setParticleValue,
         setParticleNumber,
