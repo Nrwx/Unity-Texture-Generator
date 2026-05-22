@@ -111,8 +111,8 @@ export const createCubeVertices = (width, height, rotation = 0, geometry = {}) =
     ];
 
     const yaw = rotation + toRadians(geometry.rotation_y);
-    const pitch = -0.55 + Math.sin(rotation * 0.65) * 0.12 + toRadians(geometry.rotation_x);
-    const roll = Math.sin(rotation * 0.37) * 0.08 + toRadians(geometry.rotation_z);
+    const pitch = -0.55 + toRadians(geometry.rotation_x);
+    const roll = toRadians(geometry.rotation_z);
 
     const vertices3d = [
         [-1, -1, -1],
@@ -195,17 +195,41 @@ export const applyCanvasShader = (ctx, points, surface, shade = 1) => {
     const metallic = clamp(surface.metallic ?? 0, 0, 1);
     const roughness = clamp(surface.roughness ?? 0.4, 0, 1);
     const specular = clamp(surface.specular ?? 0.5, 0, 1);
+    const specularTint = clamp(surface.specularTint ?? 0, 0, 1);
+    const subsurface = clamp(surface.subsurface ?? 0, 0, 1);
+    const anisotropic = clamp(surface.anisotropic ?? 0, 0, 1);
+    const anisotropicRotation = clamp(surface.anisotropicRotation ?? 0, 0, 1);
+    const sheen = clamp(surface.sheen ?? 0, 0, 1);
+    const sheenTint = clamp(surface.sheenTint ?? 0.5, 0, 1);
+    const clearcoat = clamp(surface.clearcoat ?? 0, 0, 1);
+    const clearcoatRoughness = clamp(surface.clearcoatRoughness ?? 0.03, 0, 1);
+    const ior = clamp((Number(surface.ior ?? 1.45) - 1) / 2, 0, 1);
+    const transmission = clamp(surface.transmission ?? 0, 0, 1);
+    const transmissionRoughness = clamp(surface.transmissionRoughness ?? 0, 0, 1);
+    const normal = clamp(surface.normal ?? 0, 0, 1);
+    const clearcoatNormal = clamp(surface.clearcoatNormal ?? 0, 0, 1);
+    const tangent = clamp(surface.tangent ?? 0, 0, 1);
+    const bumpStrength = clamp(surface.bumpStrength ?? 0, 0, 1);
+    const displacementStrength = clamp(surface.displacementStrength ?? 0, 0, 1);
     const emissionStrength = clamp(surface.emissionStrength ?? 0, 0, 20);
     const baseColor = surface.baseColor || [1, 1, 1, 1];
+    const subsurfaceColor = surface.subsurfaceColor || [1, 1, 1, 1];
 
-    const specularBoost = 1 + metallic * 0.22 + specular * 0.08;
-    const roughnessDamping = 1 - roughness * 0.22;
-    const lightFactor = shade * specularBoost * roughnessDamping;
+    const specularBoost = 1 + metallic * 0.22 + specular * 0.12 + clearcoat * 0.16 + ior * 0.08;
+    const roughnessDamping = 1 - roughness * 0.24 - transmissionRoughness * transmission * 0.12;
+    const subsurfaceLift = 1 + subsurface * (1 - Math.abs(1 - shade)) * 0.18;
+    const lightFactor = shade * specularBoost * roughnessDamping * subsurfaceLift;
+
+    const materialColor = [
+        baseColor[0] * (1 - subsurface) + subsurfaceColor[0] * subsurface,
+        baseColor[1] * (1 - subsurface) + subsurfaceColor[1] * subsurface,
+        baseColor[2] * (1 - subsurface) + subsurfaceColor[2] * subsurface,
+    ];
 
     const shaded = [
-        clamp(baseColor[0] * lightFactor, 0, 1),
-        clamp(baseColor[1] * lightFactor, 0, 1),
-        clamp(baseColor[2] * lightFactor, 0, 1),
+        clamp(materialColor[0] * lightFactor + transmission * 0.08, 0, 1),
+        clamp(materialColor[1] * lightFactor + transmission * 0.10, 0, 1),
+        clamp(materialColor[2] * lightFactor + transmission * 0.12, 0, 1),
     ];
 
     ctx.save();
@@ -221,10 +245,10 @@ export const applyCanvasShader = (ctx, points, surface, shade = 1) => {
     });
 
     ctx.closePath();
-    ctx.fillStyle = rgbToCss(shaded, alpha);
+    ctx.fillStyle = rgbToCss(shaded, alpha * (1 - transmission * 0.45));
     ctx.fill();
 
-    if (metallic > 0.01) {
+    if (metallic > 0.01 || clearcoat > 0.01 || anisotropic > 0.01 || specular > 0.01) {
         const bounds = points.reduce(
             (acc, point) => ({
                 minX: Math.min(acc.minX, point.x),
@@ -240,19 +264,44 @@ export const applyCanvasShader = (ctx, points, surface, shade = 1) => {
             }
         );
 
+        const spanX = bounds.maxX - bounds.minX;
+        const spanY = bounds.maxY - bounds.minY;
+        const angle = anisotropicRotation * Math.PI * 2;
         const gradient = ctx.createLinearGradient(
-            bounds.minX,
-            bounds.minY,
-            bounds.maxX,
-            bounds.maxY
+            bounds.minX + spanX * 0.5 - Math.cos(angle) * spanX * 0.5,
+            bounds.minY + spanY * 0.5 - Math.sin(angle) * spanY * 0.5,
+            bounds.minX + spanX * 0.5 + Math.cos(angle) * spanX * 0.5,
+            bounds.minY + spanY * 0.5 + Math.sin(angle) * spanY * 0.5
         );
 
-        gradient.addColorStop(0, `rgba(255,255,255,${0.08 + metallic * 0.18})`);
+        const highlightAlpha = 0.05 + metallic * 0.14 + specular * 0.06 + clearcoat * (0.22 - clearcoatRoughness * 0.12) + anisotropic * 0.10;
+        const tint = specularTint > 0
+            ? [
+                Math.round((255 * (1 - specularTint)) + (baseColor[0] * 255 * specularTint)),
+                Math.round((255 * (1 - specularTint)) + (baseColor[1] * 255 * specularTint)),
+                Math.round((255 * (1 - specularTint)) + (baseColor[2] * 255 * specularTint)),
+            ]
+            : [255, 255, 255];
+
+        gradient.addColorStop(0, `rgba(${tint[0]},${tint[1]},${tint[2]},${highlightAlpha})`);
         gradient.addColorStop(0.5, "rgba(255,255,255,0)");
-        gradient.addColorStop(1, `rgba(255,255,255,${0.04 + metallic * 0.10})`);
+        gradient.addColorStop(1, `rgba(${tint[0]},${tint[1]},${tint[2]},${highlightAlpha * 0.52})`);
 
         ctx.fillStyle = gradient;
         ctx.fill();
+    }
+
+    if (sheen > 0.01 || transmission > 0.01) {
+        const sheenColor = [
+            Math.round((255 * (1 - sheenTint)) + (baseColor[0] * 255 * sheenTint)),
+            Math.round((255 * (1 - sheenTint)) + (baseColor[1] * 255 * sheenTint)),
+            Math.round((255 * (1 - sheenTint)) + (baseColor[2] * 255 * sheenTint)),
+        ];
+
+        ctx.globalCompositeOperation = "screen";
+        ctx.fillStyle = `rgba(${sheenColor[0]}, ${sheenColor[1]}, ${sheenColor[2]}, ${sheen * 0.10 + transmission * 0.08})`;
+        ctx.fill();
+        ctx.globalCompositeOperation = "source-over";
     }
 
     if (emissionStrength > 0) {
@@ -265,7 +314,34 @@ export const applyCanvasShader = (ctx, points, surface, shade = 1) => {
         ctx.globalCompositeOperation = "source-over";
     }
 
-    ctx.strokeStyle = "rgba(255,255,255,0.24)";
+    if (normal > 0.01 || clearcoatNormal > 0.01 || tangent > 0.01 || bumpStrength > 0.01 || displacementStrength > 0.01) {
+        const textureAlpha = normal * 0.04 + clearcoatNormal * 0.03 + tangent * 0.025 + bumpStrength * 0.08 + displacementStrength * 0.10;
+
+        ctx.globalCompositeOperation = "overlay";
+        ctx.strokeStyle = `rgba(255,255,255,${textureAlpha})`;
+        ctx.lineWidth = 1;
+
+        for (let index = 1; index <= 3; index += 1) {
+            const t = index / 4;
+            const left = {
+                x: points[0].x + (points[3].x - points[0].x) * t,
+                y: points[0].y + (points[3].y - points[0].y) * t,
+            };
+            const right = {
+                x: points[1].x + (points[2].x - points[1].x) * t,
+                y: points[1].y + (points[2].y - points[1].y) * t,
+            };
+
+            ctx.beginPath();
+            ctx.moveTo(left.x, left.y);
+            ctx.lineTo(right.x, right.y);
+            ctx.stroke();
+        }
+
+        ctx.globalCompositeOperation = "source-over";
+    }
+
+    ctx.strokeStyle = `rgba(255,255,255,${0.18 + clearcoat * 0.12})`;
     ctx.lineWidth = 1;
     ctx.stroke();
 
@@ -288,11 +364,78 @@ export const getFaceUv = (uv, faceName) => {
     };
 };
 
-export const drawTextureFace = (ctx, image, face, points, uv, alpha = 1, channel = "rgba") => {
+const resolveTextureSettings = (channelOrSettings = "rgba") => {
+    if (typeof channelOrSettings === "object") {
+        return {
+            channel: ["rgb", "rgba"].includes(channelOrSettings.channel) ? channelOrSettings.channel : "rgba",
+            color_mode: ["color", "bw"].includes(channelOrSettings.color_mode) ? channelOrSettings.color_mode : "color",
+            alpha_mode: ["OPAQUE", "BLEND", "HASHED", "CLIP"].includes(channelOrSettings.alpha_mode) ? channelOrSettings.alpha_mode : "BLEND",
+            alpha_clip: clamp(channelOrSettings.alpha_clip ?? 0.5, 0, 1),
+        };
+    }
+
+    return {
+        channel: ["rgb", "rgba"].includes(channelOrSettings) ? channelOrSettings : "rgba",
+        color_mode: "color",
+        alpha_mode: channelOrSettings === "rgb" ? "OPAQUE" : "BLEND",
+        alpha_clip: 0.5,
+    };
+};
+
+const createTextureCanvas = (image, sx, sy, sw, sh, settings) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(sw));
+    canvas.height = Math.max(1, Math.round(sh));
+
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+
+    if (!ctx) {
+        return null;
+    }
+
+    ctx.drawImage(image, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+
+    for (let index = 0; index < data.length; index += 4) {
+        if (settings.color_mode === "bw") {
+            const gray = Math.round(data[index] * 0.299 + data[index + 1] * 0.587 + data[index + 2] * 0.114);
+            data[index] = gray;
+            data[index + 1] = gray;
+            data[index + 2] = gray;
+        }
+
+        if (settings.channel === "rgb" || settings.alpha_mode === "OPAQUE") {
+            data[index + 3] = 255;
+            continue;
+        }
+
+        if (settings.alpha_mode === "CLIP") {
+            data[index + 3] = data[index + 3] / 255 >= settings.alpha_clip ? 255 : 0;
+            continue;
+        }
+
+        if (settings.alpha_mode === "HASHED") {
+            const pixel = index / 4;
+            const x = pixel % canvas.width;
+            const y = Math.floor(pixel / canvas.width);
+            const threshold = (((x * 13 + y * 17) % 16) + 0.5) / 16;
+            data[index + 3] = data[index + 3] / 255 >= threshold ? 255 : 0;
+        }
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+
+    return canvas;
+};
+
+export const drawTextureFace = (ctx, image, face, points, uv, alpha = 1, channelOrSettings = "rgba") => {
     if (!image) {
         return;
     }
 
+    const settings = resolveTextureSettings(channelOrSettings);
     const [p0, p1, , p3] = points;
     const faceUv = getFaceUv(uv, face.name);
 
@@ -345,22 +488,28 @@ export const drawTextureFace = (ctx, image, face, points, uv, alpha = 1, channel
     ctx.scale(scaleX, scaleY);
     ctx.translate(-sw / 2 + tx, -sh / 2 + ty);
 
-    if (channel === "rgb") {
+    if (settings.channel === "rgb" || settings.alpha_mode === "OPAQUE") {
         ctx.fillStyle = "rgb(255, 255, 255)";
         ctx.fillRect(0, 0, sw, sh);
     }
 
-    ctx.drawImage(
-        image,
-        sx,
-        sy,
-        sw,
-        sh,
-        0,
-        0,
-        sw,
-        sh
-    );
+    const textureCanvas = createTextureCanvas(image, sx, sy, sw, sh, settings);
+
+    if (textureCanvas) {
+        ctx.drawImage(textureCanvas, 0, 0, sw, sh);
+    } else {
+        ctx.drawImage(
+            image,
+            sx,
+            sy,
+            sw,
+            sh,
+            0,
+            0,
+            sw,
+            sh
+        );
+    }
 
     ctx.restore();
 };
