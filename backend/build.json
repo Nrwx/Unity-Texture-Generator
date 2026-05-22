@@ -18,7 +18,7 @@
     "project_name": "unity-texture-generator"
   },
   "dependencies": {
-    "last_build": "2026-05-22T10:09:38.087996Z",
+    "last_build": "2026-05-22T14:09:18.976320Z",
     "config": {
       "library_policy": {
         "auto_update": true,
@@ -891,6 +891,18 @@
             "select_mask_shape"
           ],
           "function": "resize"
+        },
+        "color": {
+          "keys": [
+            "id",
+            "brightness",
+            "contrast",
+            "color_shift",
+            "hue_variation",
+            "invert_colors",
+            "color_lookup"
+          ],
+          "function": "color"
         }
       },
       "api": {
@@ -1143,6 +1155,18 @@
         "preview": {
           "keys": [],
           "function": "preview"
+        },
+        "color-preview": {
+          "keys": [
+            "id",
+            "brightness",
+            "contrast",
+            "color_shift",
+            "hue_variation",
+            "invert_colors",
+            "color_lookup"
+          ],
+          "function": "color_preview"
         },
         "thumbnail": {
           "keys": [

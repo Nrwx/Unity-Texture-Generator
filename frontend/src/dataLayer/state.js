@@ -48,12 +48,15 @@ export const windowStates = {
 export const loadingStates = {
     taskEdit: ref(false),
     mixer: ref(false),
-    viewport: ref(false)
+    viewport: ref(false),
+    modifierColor: ref(false),
+    modifierColorPreview: ref(false)
 };
 
 export const modifierStates = {
     fill: ref(false),
-    resize: ref(false)
+    resize: ref(false),
+    color: ref(false)
 };
 
 export const timelineStates = {

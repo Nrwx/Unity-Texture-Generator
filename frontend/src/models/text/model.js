@@ -291,6 +291,7 @@ export function textModel(props, emit) {
             if (cancel.value) {
                 register('add', cancel.value, 'click', cancelText);
             }
+
             register('pause');
 
             return console.log('Text-Component successfully initialized');

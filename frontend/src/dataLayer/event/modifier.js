@@ -26,6 +26,45 @@ export const modifierEvent = (route) => ({
             await route.emit("fetch-layer");
         }
     },
+    "modifier:color-preview": async (payload) => {
+        route.loadingStates.modifierColorPreview.value = true;
+        route.tempData.preview.value.counter = payload.requestId;
+        const response = await route.api.colorPreview(payload);
+        if (
+            response?.src &&
+            route.tempData.preview.value.counter === payload.requestId
+        ) {
+            await route.emit("modifier:color-preview-src", {
+                requestId: payload.requestId,
+                id: response.id,
+                title: response.title,
+                src: response.src
+            });
+        }
+    },
+
+    "modifier:color-preview-src": async (payload) => {
+        route.tempData.preview.value.src = payload.src;
+        route.loadingStates.modifierColorPreview.value = false;
+    },
+
+    "modifier:color-applied": async (payload) => {
+        route.loadingStates.modifierColor.value = true;
+        const response = await route.api.colorModifier(payload);
+
+        if (response) {
+            route.tempData.activeLayer.value = null;
+            route.localData.selectItemsBox.value = null;
+            route.localData.selectMaskBox.value = null;
+            route.tempData.preview.value.src = "";
+            route.tempData.preview.value.counter = 0;
+            route.loadingStates.modifierColor.value = false;
+
+            await route.emit("modifier-color:state", false);
+            await route.emit("fetch-layer");
+        }
+    },
+
     "select:mask-shape": async (payload) => {
         route.localData.selectedShape.value = payload
     },

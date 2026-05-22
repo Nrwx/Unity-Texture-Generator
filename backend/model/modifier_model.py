@@ -23,6 +23,12 @@ from components import (
     apply_cut_out,
     apply_resize,
     apply_mask,
+
+    apply_brightness_contrast,
+    apply_color_shift,
+    apply_hue_rotation,
+    apply_invert_colors,
+    apply_color_lookup
 )
 
 from utils import (
@@ -208,6 +214,149 @@ class ModifierModel(BaseModel):
 
             except Exception as e:
                 return cls.handle_error(e)
+
+        except Exception as e:
+            return cls.handle_error(e)
+
+    @classmethod
+    def apply_color_stack(
+        cls,
+        image,
+        brightness=100,
+        contrast=50,
+        color_shift=0,
+        hue_variation=0,
+        invert_colors=False,
+        color_lookup=0,
+    ):
+        """
+        Zentrale Color-Pipeline für Apply und Renderer-Preview.
+        Verwendet exakt die vorhandenen Module:
+        - apply_brightness_contrast
+        - apply_color_shift
+        - apply_hue_rotation
+        - apply_invert_colors
+        - apply_color_lookup
+        """
+
+        image = image.convert("RGBA")
+        alpha = image.getchannel("A")
+
+        rgb_image = image.convert("RGB")
+        img = np.array(rgb_image)
+
+        img = apply_brightness_contrast(
+            img,
+            brightness=int(brightness or 100),
+            contrast=int(contrast or 50),
+        )
+
+        img = apply_color_shift(
+            img,
+            color_shift=int(color_shift or 0),
+        )
+
+        img = apply_hue_rotation(
+            img,
+            hue_variation=int(hue_variation or 0),
+        )
+
+        img = apply_invert_colors(
+            img,
+            invert_colors=bool(int(invert_colors or 0)),
+        )
+
+        img = apply_color_lookup(
+            img,
+            color_lookup_mode=int(color_lookup or 0),
+        )
+
+        if isinstance(img, Image.Image):
+            result = img.convert("RGBA")
+        else:
+            img = np.array(img)
+
+            if img.ndim == 2:
+                result = Image.fromarray(img.astype(np.uint8)).convert("RGBA")
+            elif len(img.shape) == 3 and img.shape[2] == 4:
+                result = Image.fromarray(img.astype(np.uint8)).convert("RGBA")
+            else:
+                result = Image.fromarray(img.astype(np.uint8)).convert("RGBA")
+
+        if result.size == alpha.size:
+            result.putalpha(alpha)
+
+        return result
+
+    @classmethod
+    def color(
+        cls,
+        id,
+        brightness=100,
+        contrast=50,
+        color_shift=0,
+        hue_variation=0,
+        invert_colors=False,
+        color_lookup=0,
+    ):
+        try:
+            layer = next((l for l in LAYERS if l["id"] == id), None)
+
+            if not layer:
+                return {"error": f"Layer with id '{id}' not found."}, 404
+
+            image_path = os.path.join(PUBLIC_LAYER_FOLDER, f"{id}.png")
+
+            if not os.path.exists(image_path):
+                return {"error": "Image file not found."}, 404
+
+            if not os.path.exists(PUBLIC_BACKUP_FOLDER):
+                os.makedirs(PUBLIC_BACKUP_FOLDER)
+
+            backup_path = os.path.join(PUBLIC_BACKUP_FOLDER, f"{id}.png")
+            shutil.copy2(image_path, backup_path)
+
+            image = Image.open(image_path).convert("RGBA")
+
+            result = cls.apply_color_stack(
+                image=image,
+                brightness=brightness,
+                contrast=contrast,
+                color_shift=color_shift,
+                hue_variation=hue_variation,
+                invert_colors=invert_colors,
+                color_lookup=color_lookup,
+            )
+
+            new_id = str(uuid.uuid4())
+            new_filename = f"{new_id}.png"
+            new_save_path = os.path.join(PUBLIC_LAYER_FOLDER, new_filename)
+
+            result.save(new_save_path)
+
+            os.remove(image_path)
+
+            layer["url"] = f"/download/{new_filename}?ts={time('unix_ms')}"
+            layer["id"] = new_id
+            layer["source"] = id
+            layer["width"] = result.size[0]
+            layer["height"] = result.size[1]
+            layer["thumbnail"] = generate_thumbnail_map(
+                new_id,
+                path=new_save_path,
+                size=64,
+                image=None
+            )
+            layer["time"] = time("unix_ms")
+
+            return {
+                "message": "Farbe erfolgreich bearbeitet.",
+                "id": new_id,
+                "url": layer["url"],
+                "width": layer["width"],
+                "height": layer["height"],
+                "thumbnail": layer["thumbnail"],
+            }, 200
 
         except Exception as e:
             return cls.handle_error(e)

@@ -3,26 +3,6 @@ import {uuid} from "@/utils/uuid";
 import {eventRegister} from "@/dataLayer/event";
 import {getTextSize} from "@/utils/getTextSize";
 
-const DEFAULT_MATRIX = {
-    a: 1,
-    b: 0,
-    c: 0,
-    d: 1,
-    x: 0,
-    y: 0,
-    rotate: 0,
-};
-
-const normalizeMatrix = (matrix = {}) => ({
-    a: Number.isFinite(matrix.a) ? matrix.a : 1,
-    b: Number.isFinite(matrix.b) ? matrix.b : 0,
-    c: Number.isFinite(matrix.c) ? matrix.c : 0,
-    d: Number.isFinite(matrix.d) ? matrix.d : 1,
-    x: Number.isFinite(matrix.x) ? matrix.x : 0,
-    y: Number.isFinite(matrix.y) ? matrix.y : 0,
-    rotate: Number.isFinite(matrix.rotate) ? matrix.rotate : 0,
-});
-
 export function editTextModel(props, emit) {
     const overlay = ref(null);
     const overlayId = ref(uuid());
@@ -196,7 +176,7 @@ export function editTextModel(props, emit) {
     const wrapperStyle = computed(() => {
         if (!props.layer) return {};
 
-        const matrix = normalizeMatrix(props.layer.matrix ?? DEFAULT_MATRIX);
+        const matrix = props.layer.matrix;
 
         return {
             width: `${editorSize.width}px`,
@@ -250,6 +230,8 @@ export function editTextModel(props, emit) {
         if (cancel.value) {
             register("add", cancel.value, "click", cancelEdit);
         }
+
+        register('pause');
     };
 
     const syncDraft = async () => {

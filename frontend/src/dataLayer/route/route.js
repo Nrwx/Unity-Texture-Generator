@@ -31,10 +31,10 @@ export { fetchFont } from "./font";
 
 export { fetchShader } from "./shader";
 
-export { fillModifier, resizeModifier } from  "./modifier";
+export { fillModifier, resizeModifier, colorModifier } from  "./modifier";
 
 export { viewportSetup, fetchViewport } from "./viewport";
 
 export { updateExport } from "./export";
 
-export { renderer } from "./renderer";
+export { renderer, colorPreview } from "./renderer";

@@ -160,7 +160,7 @@ export const textLayerEvent = (route) => ({
         }
     },
     "edit-text-layer": async (payload) => {
-        route.tempData.editTextLayer.value = {...route.textLayer.value, ...payload};
+        route.tempData.editTextLayer.value = payload;
     },
 });
 

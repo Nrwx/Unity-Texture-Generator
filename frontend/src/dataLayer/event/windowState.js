@@ -5,6 +5,8 @@ export const windowStateEvent = (route) => ({
         await route.emit("event:listener", {pause: true, id: 'listener:select-mask'})
         await route.emit("text-state", payload);
         await route.emit("event:listener", {pause: true, id: 'listener:text-create'})
+        await route.emit("text-edit-state", payload);
+        await route.emit("event:listener", {pause: true, id: 'listener:edit-text'})
         await route.emit("brush-state", payload);
         await route.emit("eraser-state", payload);
         await route.emit("event:listener", {pause: true, id: 'listener:brush'})
@@ -169,8 +171,17 @@ export const windowStateEvent = (route) => ({
         }
     },
     "text-edit-state": async (payload) => {
-        if(!payload) await route.emit('edit-text-layer', null);
-        route.windowStates.textEdit.value = payload;
+        if (typeof payload === "boolean") {
+            if(!payload) {
+                await route.emit('edit-text-layer', null);
+                await route.emit("event:listener", {pause: true, id: 'listener:edit-text'})
+            }
+            route.windowStates.textEdit.value = payload;
+            await route.emit("rule:allow-form", payload);
+            if (!route.listener.isActive('listener:edit-text')) {
+                await route.emit("event:listener", {resume: true, id: 'listener:edit-text'})
+            }
+        }
     },
 
     "brush-state": async (payload) => {
@@ -322,5 +333,8 @@ export const windowStateEvent = (route) => ({
     },
     "modifier-resize:state": async (payload) => {
         route.modifierStates.resize.value = payload;
+    },
+    "modifier-color:state": async (payload) => {
+        route.modifierStates.color.value = payload;
     },
 });

@@ -10,7 +10,7 @@ const imageFilterChildren = [
                 active: true,
                 label: 'Helligkeit / Kontrast',
                 icon: 'mdi-brightness-6',
-                action: 'apply:brightness-contrast',
+                action: 'brightness-contrast',
                 modifier: 'apply_brightness_contrast.py',
                 disabled: false
             },

@@ -79,3 +79,32 @@ export const resizeModifier = async ({ layer, crop, resize, cutout, selectMask, 
         throw error;
     }
 };
+
+export const colorModifier = async ({ layer, values }) => {
+    try {
+        const formData = new FormData();
+
+        formData.append("method", "color");
+        formData.append("id", layer.id);
+
+        formData.append("brightness", values.brightness);
+        formData.append("contrast", values.contrast);
+        formData.append("color_shift", values.color_shift);
+        formData.append("hue_variation", values.hue_variation);
+        formData.append("invert_colors", values.invert_colors ? 1 : 0);
+        formData.append("color_lookup", values.color_lookup);
+
+        const response = await api.post("/modifier", formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+        });
+
+        return response?.data || response;
+    } catch (error) {
+        console.error(
+            "Fehler beim Color Modifier:",
+            error.response?.data || error.message
+        );
+
+        throw error;
+    }
+};

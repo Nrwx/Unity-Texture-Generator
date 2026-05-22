@@ -287,6 +287,14 @@ PARAMETERS = {
         "select_mask_width": {"type": int, "default": 0},
         "select_mask_height": {"type": int, "default": 0},
         "select_mask_shape": {"type": str, "default": "rectangle"},
+        # COLOR MODIFIER PARAMS START
+        "brightness": {"type": int, "default": 100},
+        "contrast": {"type": int, "default": 50},
+        "color_shift": {"type": int, "default": 0},
+        "hue_variation": {"type": int, "default": 0},
+        "invert_colors": {"type": bool, "default": False},
+        "color_lookup": {"type": int, "default": 0},
+        # COLOR MODIFIER PARAMS END
     },
     "export": {
         "method": {"type": str, "required": True},
@@ -312,6 +320,14 @@ PARAMETERS = {
         "id": {"type": str, "default": ""},
         "image_base64": {"type": str, "default": ""},
         "size": {"type": int, "default": 128},
+        # COLOR MODIFIER PREVIEW PARAMS START
+        "brightness": {"type": int, "default": 100},
+        "contrast": {"type": int, "default": 50},
+        "color_shift": {"type": int, "default": 0},
+        "hue_variation": {"type": int, "default": 0},
+        "invert_colors": {"type": bool, "default": False},
+        "color_lookup": {"type": int, "default": 0},
+        # COLOR MODIFIER PREVIEW PARAMS END
     },
     "path": {
         "method": {"type": str, "required": True},
