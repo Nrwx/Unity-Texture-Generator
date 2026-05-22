@@ -904,70 +904,108 @@ export class UV {
         const vertices = [];
         const indices = [];
         const stride = Number(mesh.stride || 11);
-
         const vertexById = new Map(layout.vertices.map(vertex => [vertex.id, vertex]));
+        const validTriangleIds = new Set();
+        const droppedTriangles = [];
 
         layout.triangles.forEach(triangle => {
-            triangle.vertex_ids.forEach(vertexId => {
-                const uvVertex = vertexById.get(vertexId);
+            const triangleVertices = (triangle.vertex_ids || [])
+                .map(vertexId => vertexById.get(vertexId))
+                .filter(Boolean);
 
-                if (!uvVertex) {
-                    return;
-                }
+            if (triangleVertices.length !== 3) {
+                droppedTriangles.push({
+                    id: triangle.id,
+                    island_id: triangle.island_id,
+                    vertex_ids: triangle.vertex_ids || [],
+                });
+
+                return;
+            }
+
+            validTriangleIds.add(triangle.id);
+
+            triangleVertices.forEach(uvVertex => {
+                const position = Array.isArray(uvVertex.position) ? uvVertex.position : [0, 0, 0];
+                const normal = Array.isArray(uvVertex.normal) ? uvVertex.normal : [0, 0, 1];
+                const tangent = Array.isArray(uvVertex.tangent) ? uvVertex.tangent : [1, 0, 0];
 
                 vertices.push(
-                    uvVertex.position[0],
-                    uvVertex.position[1],
-                    uvVertex.position[2],
-                    uvVertex.normal[0],
-                    uvVertex.normal[1],
-                    uvVertex.normal[2],
-                    uvVertex.x,
-                    uvVertex.y,
-                    uvVertex.tangent[0],
-                    uvVertex.tangent[1],
-                    uvVertex.tangent[2],
+                    Number(position[0]) || 0,
+                    Number(position[1]) || 0,
+                    Number(position[2]) || 0,
+                    Number(normal[0]) || 0,
+                    Number(normal[1]) || 0,
+                    Number(normal[2]) || 1,
+                    UV.clamp01(uvVertex.x),
+                    UV.clamp01(uvVertex.y),
+                    Number(tangent[0]) || 1,
+                    Number(tangent[1]) || 0,
+                    Number(tangent[2]) || 0,
                 );
 
                 indices.push(indices.length);
             });
         });
 
+        if (droppedTriangles.length) {
+            console.warn("[UV] dropped invalid layout triangles", {
+                count: droppedTriangles.length,
+                droppedTriangles,
+            });
+        }
+
         const typedIndices = indices.length > 65535
             ? new Uint32Array(indices)
             : new Uint16Array(indices);
 
-        return {
+        const nextMesh = {
             ...mesh,
             stride,
             vertices: new Float32Array(vertices),
             indices: typedIndices,
             indexType: typedIndices instanceof Uint32Array ? "uint32" : "uint16",
             count: typedIndices.length,
-            parts: UV.rebuildMeshPartsFromLayout(mesh, layout),
+            parts: UV.rebuildMeshPartsFromLayout(mesh, {
+                ...layout,
+                islands: (layout.islands || []).map(island => ({
+                    ...island,
+                    triangle_ids: (island.triangle_ids || []).filter(id => validTriangleIds.has(id)),
+                })),
+            }),
             bounds: UV.computeBounds(new Float32Array(vertices), stride),
         };
+
+        return nextMesh;
     }
 
     static rebuildMeshPartsFromLayout(mesh, layout) {
         let cursor = 0;
+        const triangleById = new Map((layout.triangles || []).map(triangle => [triangle.id, triangle]));
 
-        return layout.islands.map(island => {
-            const triangleCount = island.triangle_ids.length;
-            const count = triangleCount * 3;
-            const part = {
-                name: island.name,
-                faceName: island.faceName || "front",
-                materialSlot: island.faceName || "front",
-                start: cursor,
-                count,
-                island_id: island.id,
-            };
+        return (layout.islands || [])
+            .map(island => {
+                const triangleCount = (island.triangle_ids || [])
+                    .map(id => triangleById.get(id))
+                    .filter(triangle => Array.isArray(triangle?.vertex_ids) && triangle.vertex_ids.length === 3)
+                    .length;
 
-            cursor += count;
+                const count = triangleCount * 3;
 
-            return part;
-        });
+                const part = {
+                    name: island.name,
+                    faceName: island.faceName || "front",
+                    materialSlot: island.faceName || "front",
+                    start: cursor,
+                    count,
+                    island_id: island.id,
+                };
+
+                cursor += count;
+
+                return part;
+            })
+            .filter(part => part.count > 0);
     }
 
     static moveSelection(uv, dx, dy) {

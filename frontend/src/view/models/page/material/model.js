@@ -607,159 +607,28 @@ export function materialEditorModel(props, emit) {
         syncUvAndPreview();
     };
 
-    const getIslandTriangleSourceKey = (uv, island) => {
-        const triangleIds = new Set(island?.triangle_ids || []);
+    const getIslandUvVertices = island => {
+        const vertexIds = new Set(getIslandVertexIds(island));
 
-        return (uv.triangles || [])
-            .filter(triangle => triangleIds.has(triangle.id))
-            .flatMap(triangle => triangle.source_indices || [])
-            .map(index => Number(index))
-            .filter(Number.isFinite)
-            .sort((a, b) => a - b)
-            .join(":");
+        return (values.uv.vertices || []).filter(vertex => vertexIds.has(vertex.id));
     };
 
-    const findMatchingResetIsland = (resetLayout, currentUv, currentIsland) => {
-        if (!resetLayout?.islands?.length || !currentIsland) {
+    const getIslandUvBounds = vertices => {
+        if (!Array.isArray(vertices) || !vertices.length) {
             return null;
         }
 
-        const currentSourceKey = getIslandTriangleSourceKey(currentUv, currentIsland);
-
-        if (currentSourceKey) {
-            const bySource = resetLayout.islands.find(island => (
-                getIslandTriangleSourceKey(resetLayout, island) === currentSourceKey
-            ));
-
-            if (bySource) {
-                return bySource;
-            }
-        }
-
-        const byPart = resetLayout.islands.find(island => (
-            island.faceName === currentIsland.faceName &&
-            island.partName === currentIsland.partName &&
-            island.primitive === currentIsland.primitive
-        ));
-
-        if (byPart) {
-            return byPart;
-        }
-
-        return resetLayout.islands.find(island => (
-            island.name === currentIsland.name ||
-            island.faceName === currentIsland.faceName
-        )) || null;
-    };
-
-    const normalizeResetIslandToAvailableArea = (vertices, padding = 0.015) => {
-        if (!Array.isArray(vertices) || !vertices.length) {
-            return vertices || [];
-        }
-
-        const minX = Math.min(...vertices.map(getUvVertexX));
-        const maxX = Math.max(...vertices.map(getUvVertexX));
-        const minY = Math.min(...vertices.map(getUvVertexY));
-        const maxY = Math.max(...vertices.map(getUvVertexY));
-
-        const width = Math.max(maxX - minX, 0.000001);
-        const height = Math.max(maxY - minY, 0.000001);
-        const size = Math.max(0.000001, 1 - padding * 2);
-
-        return vertices.map(vertex => {
-            const x = padding + ((getUvVertexX(vertex) - minX) / width) * size;
-            const y = padding + ((getUvVertexY(vertex) - minY) / height) * size;
-
-            return setUvVertexPosition(vertex, x, y);
+        return vertices.reduce((bounds, vertex) => ({
+            minX: Math.min(bounds.minX, getUvVertexX(vertex)),
+            minY: Math.min(bounds.minY, getUvVertexY(vertex)),
+            maxX: Math.max(bounds.maxX, getUvVertexX(vertex)),
+            maxY: Math.max(bounds.maxY, getUvVertexY(vertex)),
+        }), {
+            minX: Infinity,
+            minY: Infinity,
+            maxX: -Infinity,
+            maxY: -Infinity,
         });
-    };
-
-    const replaceIslandLayoutFromReset = (currentUv, currentIsland, resetLayout, resetIsland) => {
-        const currentVertexIds = new Set(getIslandVertexIds(currentIsland));
-        const currentTriangleIds = new Set(currentIsland.triangle_ids || []);
-        const currentEdgeIds = new Set(currentIsland.edge_ids || []);
-
-        const resetVertexIds = new Set(getIslandVertexIds(resetIsland));
-        const resetTriangleIds = new Set(resetIsland.triangle_ids || []);
-        const resetEdgeIds = new Set(resetIsland.edge_ids || []);
-
-        const padding = Number(currentUv.unwrap_padding ?? 0.015);
-
-        const resetVertices = normalizeResetIslandToAvailableArea(
-            (resetLayout.vertices || [])
-                .filter(vertex => resetVertexIds.has(vertex.id))
-                .map(vertex => ({
-                    ...vertex,
-                    selected: true,
-                    island_id: currentIsland.id,
-                })),
-            padding
-        );
-
-        const resetTriangles = (resetLayout.triangles || [])
-            .filter(triangle => resetTriangleIds.has(triangle.id))
-            .map(triangle => ({
-                ...triangle,
-                island_id: currentIsland.id,
-                vertex_ids: [...(triangle.vertex_ids || [])],
-            }))
-            .filter(triangle => triangle.vertex_ids.length >= 3);
-
-        const resetEdges = (resetLayout.edges || [])
-            .filter(edge => resetEdgeIds.has(edge.id))
-            .map(edge => ({
-                ...edge,
-                island_id: currentIsland.id,
-            }));
-
-        const nextVertexIds = resetVertices.map(vertex => vertex.id);
-        const nextTriangleIds = resetTriangles.map(triangle => triangle.id);
-        const nextEdgeIds = resetEdges.map(edge => edge.id);
-
-        return {
-            ...currentUv,
-
-            vertices: [
-                ...(currentUv.vertices || []).filter(vertex => !currentVertexIds.has(vertex.id)),
-                ...resetVertices,
-            ],
-
-            triangles: [
-                ...(currentUv.triangles || []).filter(triangle => !currentTriangleIds.has(triangle.id)),
-                ...resetTriangles,
-            ],
-
-            edges: [
-                ...(currentUv.edges || []).filter(edge => !currentEdgeIds.has(edge.id)),
-                ...resetEdges,
-            ],
-
-            islands: (currentUv.islands || []).map(island => (
-                island.id === currentIsland.id
-                    ? {
-                        ...currentIsland,
-                        vertex_ids: nextVertexIds,
-                        triangle_ids: nextTriangleIds,
-                        edge_ids: nextEdgeIds,
-
-                        // alte UI-/Bitmap-Daten behalten
-                        bitmap: currentIsland.bitmap,
-                        bitmaps: currentIsland.bitmaps,
-
-                        // Transform Reset der Island selbst
-                        translate_x: 0,
-                        translate_y: 0,
-                        scale_x: 1,
-                        scale_y: 1,
-                        rotate: 0,
-                    }
-                    : island
-            )),
-
-            active_island_id: currentIsland.id,
-            selected_island_ids: [currentIsland.id],
-            selected_vertex_ids: nextVertexIds,
-        };
     };
 
     const unwrapActiveUvIsland = async () => {
@@ -769,51 +638,66 @@ export function materialEditorModel(props, emit) {
             return;
         }
 
-        const sourceMesh = values.mesh;
+        const islandVertices = getIslandUvVertices(island);
 
-        if (!sourceMesh?.indices?.length || !sourceMesh?.vertices?.length) {
+        if (!islandVertices.length) {
             return;
         }
 
-        const resetLayout = UV.createPrimitiveLayout(
-            sourceMesh,
-            {
-                ...values.uv,
-                vertices: [],
-                edges: [],
-                triangles: [],
-                islands: [],
-                seams: [],
-            },
-            {
-                geometry: values.geometry,
-                source: "uv-reset-active-island",
-                rootKey: "material",
+        const bounds = getIslandUvBounds(islandVertices);
+
+        if (!bounds) {
+            return;
+        }
+
+        const padding = Number(values.uv.unwrap_padding ?? 0.015);
+        const usable = Math.max(0.000001, 1 - padding * 2);
+
+        const width = Math.max(bounds.maxX - bounds.minX, 0.000001);
+        const height = Math.max(bounds.maxY - bounds.minY, 0.000001);
+        const selectedVertexIds = new Set(islandVertices.map(vertex => vertex.id));
+
+        values.uv.vertices = (values.uv.vertices || []).map(vertex => {
+            if (!selectedVertexIds.has(vertex.id)) {
+                return vertex;
             }
-        );
 
-        const resetIsland = findMatchingResetIsland(resetLayout, values.uv, island);
+            const x = padding + ((getUvVertexX(vertex) - bounds.minX) / width) * usable;
+            const y = padding + ((getUvVertexY(vertex) - bounds.minY) / height) * usable;
 
-        if (!resetIsland) {
-            return;
-        }
-
-        const nextUv = replaceIslandLayoutFromReset(
-            values.uv,
-            island,
-            resetLayout,
-            resetIsland
-        );
-
-        Object.keys(values.uv).forEach(key => {
-            delete values.uv[key];
+            return setUvVertexPosition(
+                {
+                    ...vertex,
+                    selected: true,
+                    island_id: island.id,
+                },
+                x,
+                y
+            );
         });
 
-        Object.assign(values.uv, nextUv);
+        values.uv.islands = (values.uv.islands || []).map(item => (
+            item.id === island.id
+                ? {
+                    ...item,
+                    selected: true,
+                    translate_x: 0,
+                    translate_y: 0,
+                    scale_x: 1,
+                    scale_y: 1,
+                    rotate: 0,
+                }
+                : item
+        ));
 
-        applyUvLayoutToMesh({ source: "uv-reset-active-island" });
+        values.uv.active_island_id = island.id;
+        values.uv.selected_island_ids = [island.id];
+        values.uv.selected_vertex_ids = islandVertices.map(vertex => vertex.id);
+
+        applyUvLayoutToMesh({ source: "uv-normalize-active-island" });
+
         await drawUvCanvas();
-        syncUvAndPreview();
+        requestPreviewDebounced();
     };
 
     const fallbackSourceLayer = computed(() => {
