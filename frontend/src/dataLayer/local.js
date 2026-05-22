@@ -121,6 +121,7 @@ export const tempData = {
         src: "",
         counter: 0
     }),
+    materialPreview: ref(null),
     heldKeys: ref(new Map()),
 }
 

@@ -10,6 +10,7 @@ FOLDER_STRUCTURE = {
         "font": None,
         "shader": None,
         "brush": None,
+        "material": None,
         "plugin": None,
         "static": None,
         "backup": None,

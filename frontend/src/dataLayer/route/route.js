@@ -37,4 +37,6 @@ export { viewportSetup, fetchViewport } from "./viewport";
 
 export { updateExport } from "./export";
 
+export { materialPreview, createMaterialCube, exportBlenderMaterial, updateMaterial } from "./material";
+
 export { renderer, colorPreview, detailsPreview, effectsPreview, distortPreview } from "./renderer";

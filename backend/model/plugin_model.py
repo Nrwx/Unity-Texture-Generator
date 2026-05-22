@@ -2045,6 +2045,82 @@ class PluginModel(BaseModel):
             return cls.handle_error(e)
 
     @classmethod
+    def status(cls, plugin_id=""):
+        try:
+            plugin_id = cls._safe_id(plugin_id)
+
+            if not plugin_id:
+                return {
+                    "pluginId": "",
+                    "state": "Missing",
+                    "installed": False,
+                    "running": False,
+                    "failed": False,
+                    "paused": False,
+                    "progress": 0,
+                    "phase": "missing",
+                    "message": "Plugin-ID fehlt.",
+                    "error": None,
+                }, 400
+
+            scan = cls._scan_data()
+            plugins = scan.get("plugins", [])
+
+            item = next(
+                (plugin for plugin in plugins if plugin.get("pluginId") == plugin_id),
+                None,
+            )
+
+            if not item:
+                return {
+                    "pluginId": plugin_id,
+                    "state": "Missing",
+                    "installed": False,
+                    "running": False,
+                    "failed": False,
+                    "paused": False,
+                    "progress": 0,
+                    "phase": "missing",
+                    "message": "Plugin nicht gefunden.",
+                    "error": None,
+                }, 200
+
+            status = item.get("status", {})
+            phase = status.get("phase") or "idle"
+            error = status.get("error")
+            installed = bool(status.get("installed"))
+            running = bool(status.get("running") or status.get("xhr"))
+            paused = bool(status.get("paused"))
+            progress = int(status.get("progress") or 0)
+
+            if error or phase == "error":
+                state = "Failed"
+            elif paused or phase == "paused":
+                state = "Paused"
+            elif running and phase in ("prepare", "copy", "install", "repair"):
+                state = "Installing"
+            elif installed:
+                state = "Installed"
+            else:
+                state = "Available"
+
+            return {
+                "pluginId": plugin_id,
+                "state": state,
+                "installed": installed,
+                "running": running,
+                "failed": state == "Failed",
+                "paused": state == "Paused",
+                "progress": progress,
+                "phase": phase,
+                "message": status.get("message"),
+                "error": error,
+            }, 200
+
+        except Exception as e:
+            return cls.handle_error(e)
+
+    @classmethod
     def upload(cls):
         try:
             files = request.files

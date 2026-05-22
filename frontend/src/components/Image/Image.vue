@@ -42,6 +42,21 @@
           :alt="layer.name"
           :style="getVectorStyle(layer)"
       />
+
+      <!-- 🧊 3D Material-Layer -->
+      <Layer3D
+          v-else-if="layer.type === 5"
+          :key="layer.time"
+          :layer="layer"
+          :hidden="layer.hidden"
+          :selected="selectedLayer.includes(layer)"
+          :rotate="layer?.preview?.idle_rotation?.enabled === true"
+          class="absolute"
+          :data-context-id="layer.id"
+          :style="getLayer3DStyle(layer)"
+          @click="emitSelectLayer(layer, $event)"
+          @component-event="emitEvent"
+      />
     </template>
   </v-col>
 
@@ -53,12 +68,14 @@
   import { defineComponent } from "vue";
   import {imageModel, imageProps} from "@/models/image/model";
   import Frame from '@/components/Frame/Frame'
+  import Layer3D from '@/components/Layer/Layer3D/Layer3D'
 
   export default defineComponent({
   name: "ImageComponent",
   props: imageProps,
   components: {
-    Frame
+    Frame,
+    Layer3D
   },
   setup(props, { emit }) {
     const model = imageModel(props, emit);

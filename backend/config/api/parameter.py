@@ -462,6 +462,38 @@ PARAMETERS = {
 
         # apply_random_shift.py
         "max_shift_ratio": {"type": float, "default": 0.1},
+        # material preview
+        "source_layer_id": {"type": str, "default": ""},
+        "name": {"type": str, "default": "Cube Material"},
+
+        "source_layer_id": {"type": str, "default": ""},
+        "name": {"type": str, "default": "Cube Material"},
+        "surface": {"type": str, "default": "{}"},
+        "geometry": {"type": str, "default": "{}"},
+        "bitmap_maps": {"type": str, "default": "{}"},
+        "uv": {"type": str, "default": "{}"},
+        "shader_graph": {"type": str, "default": "{}"},
+        "cube_size": {"type": float, "default": 256.0},
+        "rotate_preview": {"type": bool, "default": True},
+        "blend_mode": {"type": str, "default": "BLEND"},
+        "shadow_method": {"type": str, "default": "HASHED"},
+        "use_nodes": {"type": bool, "default": True}
+    },
+    "material": {
+      "method": {"type": str, "required": True},
+      "id": {"type": str, "default": ""},
+      "source_layer_id": {"type": str, "default": ""},
+      "name": {"type": str, "default": "Cube Material"},
+      "surface": {"type": str, "default": "{}"},
+      "geometry": {"type": str, "default": "{}"},
+      "bitmap_maps": {"type": str, "default": "{}"},
+      "uv": {"type": str, "default": "{}"},
+      "shader_graph": {"type": str, "default": "{}"},
+      "cube_size": {"type": float, "default": 256.0},
+      "rotate_preview": {"type": bool, "default": True},
+      "blend_mode": {"type": str, "default": "BLEND"},
+      "shadow_method": {"type": str, "default": "HASHED"},
+      "use_nodes": {"type": bool, "default": True}
     },
     "path": {
         "method": {"type": str, "required": True},

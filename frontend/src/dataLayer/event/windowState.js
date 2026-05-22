@@ -370,4 +370,14 @@ export const windowStateEvent = (route) => ({
             route.loadingStates.modifierDistort.value = false;
         }
     },
+    "material-editor:state": async (payload) => {
+        route.windowStates.material.value = payload;
+        if(!payload){
+            route.tempData.activeLayer.value = null;
+            route.tempData.preview.value.src = "";
+            route.tempData.preview.value.counter = 0;
+            route.tempData.materialPreview.value = null;
+            route.loadingStates.material.value = false;
+        }
+    },
 });

@@ -16,6 +16,7 @@ export const windowStates = {
     layer: ref(false),
     mixer: ref(false),
     canvas: ref(false),
+    material: ref(false),
     setting: ref(false),
     dialog: ref(false),
     fullscreen: ref(false),
@@ -56,7 +57,9 @@ export const loadingStates = {
     modifierColorPreview: ref(false),
     modifierDetailsPreview: ref(false),
     modifierEffectsPreview: ref(false),
-    modifierDistortPreview: ref(false)
+    modifierDistortPreview: ref(false),
+    material: ref(false),
+    materialPreview: ref(false)
 };
 
 export const modifierStates = {

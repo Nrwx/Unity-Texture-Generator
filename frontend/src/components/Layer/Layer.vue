@@ -110,7 +110,7 @@
                               </template>
                               {{ 'Mask ' + layer.name }}
                             </v-tooltip>
-                            <v-avatar v-bind="props" rounded="0" variant="elevated" :class="layer.type !== 1 && layer.type !== 4 ? 'transparent thumbnail' : ''">
+                            <v-avatar v-bind="props" rounded="0" variant="elevated" :class="layer.type !== 1 && layer.type !== 4 && layer.type !== 5 ? 'transparent thumbnail' : ''">
                               <template v-if="layer?.type === 1">
                                 <v-icon>mdi-format-text</v-icon>
                               </template>
@@ -124,6 +124,9 @@
                               </template>
                               <template v-else-if="layer.type === 4">
                                 <v-icon>mdi-folder</v-icon>
+                              </template>
+                              <template v-else-if="layer?.type === 5">
+                                <v-icon color="#70dfb4">mdi-cube-outline</v-icon>
                               </template>
                               <template v-else>
                                 <v-img :cover="false" :src="layer?.thumbnail || layer?.url" :alt="layer.name" />

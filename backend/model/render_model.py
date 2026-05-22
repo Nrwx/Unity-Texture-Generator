@@ -7,6 +7,8 @@ from config.data.constant import LAYERS, VIEWPORT_CONFIG
 from model.base.main import BaseModel
 from model.layer_model import LayerModel
 from model.fonts_model import FontsModel
+from model.material_model import MaterialModel
+
 from model.modifier_model import ModifierModel
 from components import (
     apply_channel,
@@ -495,6 +497,95 @@ class RenderModel(BaseModel):
                 layer_img=layer_img,
                 title="distort-preview",
             )
+
+        except Exception as e:
+            return cls.handle_error(e)
+
+    @classmethod
+    def material_preview(
+        cls,
+        source_layer_id,
+        name="Cube Material",
+        surface="{}",
+        geometry="{}",
+        bitmap_maps="{}",
+        uv="{}",
+        shader_graph="{}",
+        cube_size=256.0,
+        rotate_preview=True,
+        blend_mode="BLEND",
+        shadow_method="HASHED",
+        use_nodes=True,
+    ):
+        try:
+            source_layer = next(
+                (layer for layer in LAYERS if layer.get("id") == source_layer_id),
+                None,
+            )
+
+            if not source_layer:
+                return {"error": f"Source layer '{source_layer_id}' not found."}, 404
+
+            package = MaterialModel.build_material_package(
+                layer_id="",
+                source_layer_id=source_layer_id,
+                name=name,
+                surface=surface,
+                geometry=geometry,
+                bitmap_maps=bitmap_maps,
+                uv=uv,
+                shader_graph=shader_graph,
+                cube_size=cube_size,
+                rotate_preview=rotate_preview,
+                blend_mode=blend_mode,
+                shadow_method=shadow_method,
+                use_nodes=use_nodes,
+            )
+
+            preview_layer = {
+                "id": f"preview-{package['id']}",
+                "source": source_layer_id,
+                "name": name,
+                "type": 5,
+                "renderer": "canvas-cube",
+                "engine": "material",
+
+                "width": int(source_layer.get("width") or cube_size or 256),
+                "height": int(source_layer.get("height") or cube_size or 256),
+
+                "url": package["texture"].get("url"),
+                "thumbnail": package["texture"].get("url"),
+
+                "surface": package["surface"],
+                "geometry": package["geometry"],
+                "bitmap_maps": package["bitmap_maps"],
+                "uv": package["uv"],
+                "shader_graph": package["shader_graph"],
+
+                "material": package["material"],
+                "mesh": package["mesh"],
+                "shader": package["shader"],
+                "texture": package["texture"],
+                "package": package["package"],
+                "preview": package["preview"],
+                "settings": package["settings"],
+
+                "hidden": 0,
+                "opacity": 1,
+                "blend_mode": 0,
+                "color": "#ffffff",
+                "mask": "",
+
+                "time": time("unix_ms"),
+            }
+
+            return {
+                "id": package["id"],
+                "title": "material-preview",
+                "src": preview_layer.get("url"),
+                "layer": preview_layer,
+                "package": package,
+            }, 200
 
         except Exception as e:
             return cls.handle_error(e)

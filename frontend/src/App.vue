@@ -45,6 +45,8 @@
       <EffectsModifier v-model:state="modifierStates.effects.value" v-model:loading="loadingStates.modifierEffects.value" v-model:loading-preview="loadingStates.modifierEffectsPreview.value" v-model:layer="tempData.activeLayer.value" v-model:preview-src="tempData.preview.value.src" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
       <!-- Distort/Wave/Shift/Falloff Modifier -->
       <DistortModifier v-model:state="modifierStates.distort.value" v-model:loading="loadingStates.modifierDistort.value" v-model:loading-preview="loadingStates.modifierDistortPreview.value" v-model:layer="tempData.activeLayer.value" v-model:preview-src="tempData.preview.value.src" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
+      <!-- Material Editor -->
+      <MaterialEditor v-model:state="windowStates.material.value" v-model:layers="localData.layers.value" v-model:loading="loadingStates.material.value" v-model:loading-preview="loadingStates.materialPreview.value" v-model:layer="tempData.activeLayer.value" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
       <!-- Rechte Taskbar -->
       <Taskbar @taskbar-event="taskbarEvent('right', $event)" align="right"  @component-event="componentEvent" v-model:items="itemsRight" v-model:theme="appData.theme.value" />
       <!-- Rechter Drawer -->
@@ -108,6 +110,7 @@ import ColorModifier from "@/view/page/Modifier/Color/Color";
 import DetailsModifier from "@/view/page/Modifier/Details/Details";
 import EffectsModifier from "@/view/page/Modifier/Effects/Effects";
 import DistortModifier from "@/view/page/Modifier/Distort/Distort";
+import MaterialEditor from "@/view/page/Material/Material";
 
 export default {
   name: 'App',
@@ -131,7 +134,8 @@ export default {
     ColorModifier,
     DetailsModifier,
     EffectsModifier,
-    DistortModifier
+    DistortModifier,
+    MaterialEditor
   },
   setup() {
     const itemsLeft = ref(taskbarItemLeft);

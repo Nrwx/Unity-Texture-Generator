@@ -216,6 +216,24 @@ export function imageModel(props, emit) {
         };
     };
 
+    const getLayer3DStyle = (layer) => {
+        const live = getLiveLayer(layer);
+        const matrix = normalizeMatrix(live.matrix ?? DEFAULT_MATRIX);
+
+        return {
+            width: `${layer.width}px`,
+            height: `${layer.height}px`,
+            pointerEvents: "auto",
+
+            opacity: live.opacity ?? 1,
+            zIndex: layer.order ?? layer.zIndex ?? 0,
+            position: "absolute",
+            top: 0,
+            left: 0,
+            transform: `matrix(${matrix.a}, ${matrix.b}, ${matrix.c}, ${matrix.d}, ${matrix.x}, ${matrix.y}) rotate(${matrix.rotate}deg)`,
+        };
+    };
+
     const handleClick = async (event) => {
         if (!props.fillState) {
             return console.log("Fill-event not aktiv");
@@ -266,7 +284,8 @@ export function imageModel(props, emit) {
         getLiveLayer,
         getLayerStyle,
         getTextLayerStyle,
-        getVectorStyle
+        getVectorStyle,
+        getLayer3DStyle
     };
 }
 

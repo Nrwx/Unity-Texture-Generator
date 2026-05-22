@@ -31,6 +31,7 @@ import {timelineEvent} from "@/dataLayer/event/timeline";
 import {taskEvent} from "@/dataLayer/event/task";
 import {shaderEvent} from "@/dataLayer/event/shader";
 import {pluginEvent} from "@/dataLayer/event/plugin";
+import {materialEvent} from "@/dataLayer/event/material";
 
 
 /**
@@ -58,6 +59,7 @@ const eventHandler = (route) => ({
     ...fileEvent(route),
     ...fileSettingEvent(route),
     ...layerEvent(route),
+    ...materialEvent(route),
     ...layerModifierEvent(route),
     ...textLayerEvent(route),
     ...textModifierEvent(route),

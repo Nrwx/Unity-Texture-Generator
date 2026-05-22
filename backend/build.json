@@ -18,7 +18,7 @@
     "project_name": "unity-texture-generator"
   },
   "dependencies": {
-    "last_build": "2026-05-23T13:20:53.403358Z",
+    "last_build": "2026-05-22T12:08:58.982031Z",
     "config": {
       "library_policy": {
         "auto_update": true,
@@ -1059,6 +1059,12 @@
           "function": "pause",
           "value": "dispatch"
         },
+        "status": {
+          "keys": [
+            "pluginId"
+          ],
+          "function": "status"
+        },
         "uninstall": {
           "keys": [
             "pluginId"
@@ -1077,6 +1083,81 @@
           "keys": [],
           "function": "upload",
           "value": "dispatch"
+        }
+      },
+      "api": {
+        "dependency": {
+          "view": [
+            "log"
+          ],
+          "controller": [
+            "log"
+          ],
+          "model": [
+            "syslink",
+            "log"
+          ]
+        }
+      }
+    },
+    {
+      "blueprint": "material",
+      "view_module": "view.material_view",
+      "controller": "controller.material_controller",
+      "model": "model.material_model",
+      "url": "/material",
+      "strict_slashes": false,
+      "active": true,
+      "routes": {
+        "0": {
+          "methods": [
+            "POST"
+          ],
+          "url": "",
+          "function": "handle_material",
+          "value": "dispatch"
+        }
+      },
+      "method_map": {
+        "create-cube": {
+          "keys": [
+            "source_layer_id",
+            "name",
+            "surface",
+            "geometry",
+            "bitmap_maps",
+            "uv",
+            "shader_graph",
+            "cube_size",
+            "rotate_preview",
+            "blend_mode",
+            "shadow_method",
+            "use_nodes"
+          ],
+          "function": "create_cube"
+        },
+        "update": {
+          "keys": [
+            "id",
+            "name",
+            "surface",
+            "geometry",
+            "bitmap_maps",
+            "uv",
+            "shader_graph",
+            "cube_size",
+            "rotate_preview",
+            "blend_mode",
+            "shadow_method",
+            "use_nodes"
+          ],
+          "function": "update"
+        },
+        "export-blender": {
+          "keys": [
+            "id"
+          ],
+          "function": "export_blender"
         }
       },
       "api": {
@@ -1331,6 +1412,23 @@
             "falloff_custom_points"
           ],
           "function": "distort_preview"
+        },
+        "material-preview": {
+          "keys": [
+            "source_layer_id",
+            "name",
+            "surface",
+            "geometry",
+            "bitmap_maps",
+            "uv",
+            "shader_graph",
+            "cube_size",
+            "rotate_preview",
+            "blend_mode",
+            "shadow_method",
+            "use_nodes"
+          ],
+          "function": "material_preview"
         },
         "thumbnail": {
           "keys": [

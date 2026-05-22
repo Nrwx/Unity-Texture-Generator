@@ -250,6 +250,17 @@ export const taskbarItemCenter = [
         }
     },
     {
+        position: 'left',
+        id: uuid(),
+        title: 'Material Editor',
+        subtitle: 'Erstellen und bearbeiten Sie Canvas-Cube-Materialien...',
+        icon: 'mdi-cube-scan',
+        active: false,
+        hidden: false,
+        tooltip: 'Material Editor',
+        event: 'material-editor:state'
+    },
+    {
         position: 'center',
         id: uuid(),
         icon: 'mdi-view-dashboard',
