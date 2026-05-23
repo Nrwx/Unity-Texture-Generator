@@ -186,6 +186,43 @@ class ExportModel(BaseModel):
 
         return None
 
+    @classmethod
+    def _load_snapshot_composite(cls, files, width, height):
+        if not files or "snapshot" not in files:
+            return None
+
+        try:
+            image = Image.open(files["snapshot"].stream).convert("RGBA")
+
+            if image.size != (width, height):
+                resample = getattr(getattr(Image, "Resampling", Image), "LANCZOS", Image.BICUBIC)
+                image = image.resize((width, height), resample)
+
+            return image
+        except Exception:
+            return None
+
+    @classmethod
+    def _render_snapshot_svg_export(cls, composite, output_path, width, height):
+        buffer = BytesIO()
+        composite.save(buffer, format="PNG")
+        encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+
+        svg_data = (
+            f'<svg xmlns="http://www.w3.org/2000/svg" '
+            f'xmlns:xlink="http://www.w3.org/1999/xlink" '
+            f'width="{int(width)}" height="{int(height)}" viewBox="0 0 {int(width)} {int(height)}">'
+            f'<image x="0" y="0" width="{int(width)}" height="{int(height)}" '
+            f'href="data:image/png;base64,{encoded}" '
+            f'xlink:href="data:image/png;base64,{encoded}"/>'
+            f'</svg>'
+        )
+
+        with open(output_path, "w", encoding="utf-8") as file:
+            file.write(svg_data)
+
+        return output_path
+
     # -------------------------------------------------------------------------
     # Timeline Helpers
     # -------------------------------------------------------------------------
@@ -1113,6 +1150,7 @@ class ExportModel(BaseModel):
         videoBitrate=8000,
         videoCrf=16,
         useFileSystem=True,
+        files=None,
     ):
         try:
             if not LAYERS:
@@ -1127,6 +1165,7 @@ class ExportModel(BaseModel):
             preview_id = str(uuid.uuid4())
             filename_base = f"{title or 'export'}_{export_id}"
             export_ext = str(type or "").lower()
+            snapshot_composite = cls._load_snapshot_composite(files, width, height)
 
             export_path = os.path.join(
                 PUBLIC_TEMP_UPLOAD_FOLDER,
@@ -1165,7 +1204,7 @@ class ExportModel(BaseModel):
                         return error
 
                 else:
-                    composite = cls._render_composite(width, height, dpi)
+                    composite = snapshot_composite or cls._render_composite(width, height, dpi)
                     composite.save(preview_path, format="PNG")
 
                 # Raster Export
@@ -1203,15 +1242,23 @@ class ExportModel(BaseModel):
 
                 # SVG Vector Export
                 elif mode == 1 and export_ext == "svg":
-                    cls._render_svg_export(
-                        output_path=export_path,
-                        dpi=dpi,
-                        inlineCss=inlineCss,
-                    )
+                    if snapshot_composite:
+                        cls._render_snapshot_svg_export(
+                            snapshot_composite,
+                            export_path,
+                            width,
+                            height,
+                        )
+                    else:
+                        cls._render_svg_export(
+                            output_path=export_path,
+                            dpi=dpi,
+                            inlineCss=inlineCss,
+                        )
 
                 # PDF Export
                 elif mode == 2 and export_ext == "pdf":
-                    if raster:
+                    if raster or snapshot_composite:
                         pdf_image = alpha_as_bg(composite)
 
                         generate_pdf_map(

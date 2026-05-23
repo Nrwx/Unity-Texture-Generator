@@ -34,6 +34,10 @@ export const updateExport = async (data) => {
         formData.append("videoCrf", data.videoCrf);
         formData.append("useFileSystem", data.useFileSystem);
 
+        if (data.snapshot) {
+            formData.append("snapshot", data.snapshot, "export_snapshot.png");
+        }
+
         const response = await api.post("/export", formData, {
             headers: { "Content-Type": "multipart/form-data" },
         });

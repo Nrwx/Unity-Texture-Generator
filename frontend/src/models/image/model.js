@@ -19,6 +19,14 @@ const normalizeMatrix = (m = {}) => ({
     rotate: Number.isFinite(m.rotate) ? m.rotate : 0
 });
 
+const renderPipelineTransform = matrix => (
+    `translate(${matrix.x}px, ${matrix.y}px) rotate(${-matrix.rotate}deg) scale(${matrix.a}, ${matrix.d})`
+);
+
+const cssMatrixTransform = matrix => (
+    `matrix(${matrix.a}, ${matrix.b}, ${matrix.c}, ${matrix.d}, ${matrix.x}, ${matrix.y}) rotate(${matrix.rotate}deg)`
+);
+
 const applyEasing = (factor, easeType, bezier) => {
     const t = clamp(factor);
     if (easeType === "linear") return t;
@@ -189,6 +197,7 @@ export function imageModel(props, emit) {
     const getVectorStyle = (layer) => {
         const live = getLiveLayer(layer);
         const matrix = normalizeMatrix(live.matrix ?? DEFAULT_MATRIX);
+        const transform = props.exportState ? renderPipelineTransform(matrix) : cssMatrixTransform(matrix);
 
         return {
             width: `${layer.width}px`,
@@ -198,25 +207,33 @@ export function imageModel(props, emit) {
             opacity: live.opacity ?? 1,
             zIndex: layer.zIndex ?? 0,
             position: "absolute",
-            transform: `matrix(${matrix.a}, ${matrix.b}, ${matrix.c}, ${matrix.d}, ${matrix.x}, ${matrix.y}) rotate(${matrix.rotate}deg)`,
+            top: 0,
+            left: 0,
+            transformOrigin: "center center",
+            transform,
         };
     };
 
     const getLayerStyle = (layer) => {
         const live = getLiveLayer(layer);
         const matrix = normalizeMatrix(live.matrix ?? DEFAULT_MATRIX);
+        const transform = props.exportState ? renderPipelineTransform(matrix) : cssMatrixTransform(matrix);
 
         return {
             opacity: live.opacity ?? 1,
             zIndex: layer.zIndex ?? 0,
             position: "absolute",
-            transform: `matrix(${matrix.a}, ${matrix.b}, ${matrix.c}, ${matrix.d}, ${matrix.x}, ${matrix.y}) rotate(${matrix.rotate}deg)`,
+            top: 0,
+            left: 0,
+            transformOrigin: "center center",
+            transform,
         };
     };
 
     const getTextLayerStyle = (layer) => {
         const live = getLiveLayer(layer);
         const matrix = normalizeMatrix(live.matrix ?? DEFAULT_MATRIX);
+        const transform = props.exportState ? renderPipelineTransform(matrix) : cssMatrixTransform(matrix);
 
         return {
             width: `${layer.width}px`,
@@ -236,13 +253,15 @@ export function imageModel(props, emit) {
             top: 0,
             left: 0,
             zIndex: layer.zIndex ?? 0,
-            transform: `matrix(${matrix.a}, ${matrix.b}, ${matrix.c}, ${matrix.d}, ${matrix.x}, ${matrix.y}) rotate(${matrix.rotate}deg)`,
+            transformOrigin: "center center",
+            transform,
         };
     };
 
     const getLayer3DStyle = (layer) => {
         const live = getLiveLayer(layer);
         const matrix = normalizeMatrix(live.matrix ?? DEFAULT_MATRIX);
+        const transform = props.exportState ? renderPipelineTransform(matrix) : cssMatrixTransform(matrix);
 
         return {
             width: `${layer.width}px`,
@@ -254,7 +273,8 @@ export function imageModel(props, emit) {
             position: "absolute",
             top: 0,
             left: 0,
-            transform: `matrix(${matrix.a}, ${matrix.b}, ${matrix.c}, ${matrix.d}, ${matrix.x}, ${matrix.y}) rotate(${matrix.rotate}deg)`,
+            transformOrigin: "center center",
+            transform,
         };
     };
 

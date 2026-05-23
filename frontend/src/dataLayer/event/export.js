@@ -16,6 +16,15 @@ const dataUrlToBlob = async dataUrl => {
     return await response.blob();
 };
 
+const hasLayer3D = route => (route.localData?.layers?.value || []).some(layer => layer?.type === 5);
+
+const updateExportPreview = (route, src, id, title = "Export Preview") => {
+    route.previewData.value.mode = 0;
+    route.previewData.value.title = title;
+    route.previewData.value.id = id;
+    route.previewData.value.src = src;
+};
+
 const toNumberSafe = (value, fallback = 0) => {
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;
@@ -146,6 +155,12 @@ const exportMp4WithTimelineCapture = async (route, data) => {
             await wait(8);
 
             const frameDataUrl = await captureCanvasFrame(route, data.videoResolution);
+            updateExportPreview(
+                route,
+                frameDataUrl,
+                `mp4-frame-${index}-${Date.now()}`,
+                `Frame ${index + 1}/${frames.length}`
+            );
 
             const frame = await dataUrlToBlob(frameDataUrl);
 
@@ -277,6 +292,7 @@ export const exportEvent = (route) => ({
     "export:update": async (payload) => {
         const type = optionValue(payload.type);
         const timeline = route.timelineData?.value || {};
+        route.previewData.value.file = "";
         const data = {
             mode: optionValue(payload.mode),
             quality: payload.quality,
@@ -308,6 +324,16 @@ export const exportEvent = (route) => ({
             videoCrf: payload.videoCrf,
             useFileSystem: payload.useFileSystem,
         };
+
+        if (type !== "MP4" && hasLayer3D(route)) {
+            await nextTick();
+            await waitFrames(3);
+
+            const snapshotResolution = route.localData?.viewport?.value?.width || payload.videoResolution;
+            const snapshotDataUrl = await captureCanvasFrame(route, snapshotResolution);
+            updateExportPreview(route, snapshotDataUrl, `snapshot-${Date.now()}`, payload.title || "Export Preview");
+            data.snapshot = await dataUrlToBlob(snapshotDataUrl);
+        }
 
         const res = type === "MP4"
             ? await exportMp4WithTimelineCapture(route, data)
