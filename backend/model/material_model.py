@@ -2504,6 +2504,20 @@ class MaterialModel(BaseModel):
         if not isinstance(particles, dict):
             particles = {}
 
+        interpolation_defaults = {
+            "lifetime": [{"x": 0, "y": 1}, {"x": 0.5, "y": 1}, {"x": 1, "y": 1}],
+            "randomSize": [{"x": 0, "y": 0}, {"x": 0.5, "y": 0}, {"x": 1, "y": 0}],
+            "size_x": [{"x": 0, "y": 1}, {"x": 0.5, "y": 1}, {"x": 1, "y": 1}],
+            "size_y": [{"x": 0, "y": 1}, {"x": 0.5, "y": 1}, {"x": 1, "y": 1}],
+            "alpha": [{"x": 0, "y": 1}, {"x": 0.5, "y": 1}, {"x": 1, "y": 1}],
+            "gravity": [{"x": 0, "y": 0}, {"x": 0.5, "y": 0}, {"x": 1, "y": 0}],
+            "velocity": [{"x": 0, "y": 0}, {"x": 0.5, "y": 0}, {"x": 1, "y": 0}],
+        }
+        interpolation_attributes = set(interpolation_defaults.keys())
+        incoming_interpolations = data.get("interpolations", {})
+        if not isinstance(incoming_interpolations, dict):
+            incoming_interpolations = {}
+
         def clamp_value(value, minimum, maximum, fallback=0):
             try:
                 number = float(value)
@@ -2514,6 +2528,109 @@ class MaterialModel(BaseModel):
         def clamp_int(value, minimum, maximum, fallback=0):
             return int(clamp_value(value, minimum, maximum, fallback))
 
+        lifetime_value = clamp_value(data.get("lifetime", 1), 0.1, 60, 1)
+        path_follow_data = data.get("path_follow", {})
+        if not isinstance(path_follow_data, dict):
+            path_follow_data = {}
+
+        def default_interpolation_points(value):
+            return [
+                {"x": 0, "y": value},
+                {"x": lifetime_value / 2, "y": value},
+                {"x": lifetime_value, "y": value},
+            ]
+
+        def normalize_interpolation_points(key, default_points):
+            points = (
+                incoming_interpolations.get(key)
+                if isinstance(incoming_interpolations.get(key), list)
+                else default_points
+            )
+            normalized = [
+                {
+                    "x": clamp_value(point.get("x", 0), 0, lifetime_value, 0),
+                    "y": clamp_value(point.get("y", 0), -1000, 1000, 0),
+                }
+                for point in points
+                if isinstance(point, dict)
+            ]
+
+            if normalized:
+                return sorted(normalized, key=lambda item: item.get("x", 0))
+
+            fallback_y = default_points[0].get("y", 0) if default_points else 0
+            return default_interpolation_points(fallback_y)
+
+        def vector_payload(source, fallback=None):
+            fallback = fallback or {}
+            if not isinstance(source, dict):
+                source = {}
+
+            return {
+                "x": clamp_value(source.get("x", fallback.get("x", 0)), -1000, 1000, fallback.get("x", 0)),
+                "y": clamp_value(source.get("y", fallback.get("y", 0)), -1000, 1000, fallback.get("y", 0)),
+                "z": clamp_value(source.get("z", fallback.get("z", 0)), -1000, 1000, fallback.get("z", 0)),
+            }
+
+        def path_point_payload(point, fallback_t=0, index=0):
+            if not isinstance(point, dict):
+                point = {}
+
+            return {
+                "id": str(point.get("id", "") or f"path-point-{index}"),
+                "t": clamp_value(point.get("t", fallback_t), 0, lifetime_value, fallback_t),
+                "translate": vector_payload(point.get("translate", {}), {"x": 0, "y": 0, "z": 0}),
+            }
+
+        path_points = path_follow_data.get("points", [])
+        if not isinstance(path_points, list):
+            path_points = []
+        normalized_path_points = [
+            path_point_payload(point, index=index)
+            for index, point in enumerate(path_points)
+            if isinstance(point, dict)
+        ]
+        if not normalized_path_points:
+            normalized_path_points = [
+                path_point_payload({"t": 0}, 0, 0),
+                path_point_payload({"t": lifetime_value, "translate": {"x": 0, "y": 0.35, "z": 0.2}}, lifetime_value, 1),
+            ]
+        normalized_path_points = sorted(normalized_path_points, key=lambda item: item.get("t", 0))
+        incoming_layers = data.get("layers", [])
+        if not isinstance(incoming_layers, list) or not incoming_layers:
+            incoming_layers = [{
+                "id": "particle-layer-default",
+                "name": "Default Layer",
+                "texture_slot": data.get("texture_slot", "baseColor"),
+                "layer_id": "",
+                "url": "",
+            }]
+
+        normalized_layers = []
+        for index, layer in enumerate(incoming_layers):
+            if not isinstance(layer, dict):
+                continue
+
+            normalized_layers.append({
+                "id": str(layer.get("id", "") or f"particle-layer-{index}"),
+                "name": str(layer.get("name", "") or ("Default Layer" if index == 0 else f"Layer {index + 1}")),
+                "texture_slot": str(layer.get("texture_slot", data.get("texture_slot", "baseColor")) or "baseColor"),
+                "layer_id": str(layer.get("layer_id", "") or ""),
+                "url": str(layer.get("url", "") or ""),
+            })
+
+        if not normalized_layers:
+            normalized_layers = [{
+                "id": "particle-layer-default",
+                "name": "Default Layer",
+                "texture_slot": str(data.get("texture_slot", "baseColor") or "baseColor"),
+                "layer_id": "",
+                "url": "",
+            }]
+
+        active_layer_id = str(data.get("active_layer_id", "") or normalized_layers[0]["id"])
+        active_layer = next((layer for layer in normalized_layers if layer["id"] == active_layer_id), normalized_layers[0])
+
         return {
             "id": str(data.get("id", "") or "particle-system"),
             "version": int(data.get("version", 1) or 1),
@@ -2521,23 +2638,31 @@ class MaterialModel(BaseModel):
             "mode": str(data.get("mode", "texture") or "texture"),
             "source": str(data.get("source", "texture") or "texture"),
             "emitter": str(data.get("emitter", "volume") or "volume"),
-            "texture_slot": str(data.get("texture_slot", "baseColor") or "baseColor"),
+            "texture_slot": str(active_layer.get("texture_slot", data.get("texture_slot", "baseColor")) or "baseColor"),
             "count": clamp_int(data.get("count", 320), 1, 5000, 320),
             "seed": clamp_int(data.get("seed", 1337), 1, 9999999, 1337),
-            "lifetime": clamp_value(data.get("lifetime", 4), 0.1, 60, 4),
+            "lifetime": lifetime_value,
             "age": clamp_value(data.get("age", 1.2), 0, 60, 1.2),
             "time_scale": clamp_value(data.get("time_scale", 1), 0, 8, 1),
             "size": clamp_value(data.get("size", 18), 1, 120, 18),
-            "size_randomness": clamp_value(data.get("size_randomness", 0.45), 0, 1, 0.45),
-            "alpha": clamp_value(data.get("alpha", 0.92), 0, 1, 0.92),
+            "random_size": cls.safe_bool(data.get("random_size", data.get("randomSize", False))),
+            "size_randomness": clamp_value(data.get("size_randomness", 0), 0, 1, 0),
+            "size_x": clamp_value(data.get("size_x", 1), 0.001, 20, 1),
+            "size_y": clamp_value(data.get("size_y", 1), 0.001, 20, 1),
+            "alpha": clamp_value(data.get("alpha", 1), 0, 1, 1),
             "spread_x": clamp_value(data.get("spread_x", 1), 0.001, 20, 1),
             "spread_y": clamp_value(data.get("spread_y", 1), 0.001, 20, 1),
             "spread_z": clamp_value(data.get("spread_z", 1), 0.001, 20, 1),
+            "velocity": clamp_value(data.get("velocity", 0), -10, 10, 0),
             "velocity_x": clamp_value(data.get("velocity_x", 0), -10, 10, 0),
-            "velocity_y": clamp_value(data.get("velocity_y", 0.18), -10, 10, 0.18),
+            "velocity_y": clamp_value(data.get("velocity_y", 0), -10, 10, 0),
             "velocity_z": clamp_value(data.get("velocity_z", 0), -10, 10, 0),
-            "velocity_randomness": clamp_value(data.get("velocity_randomness", 0.35), 0, 10, 0.35),
-            "gravity": clamp_value(data.get("gravity", -0.08), -10, 10, -0.08),
+            "direction_x": clamp_value(data.get("direction_x", 0), -1, 1, 0),
+            "direction_y": clamp_value(data.get("direction_y", 1), -1, 1, 1),
+            "direction_z": clamp_value(data.get("direction_z", 0), -1, 1, 0),
+            "rotation": clamp_value(data.get("rotation", 0), -360, 360, 0),
+            "velocity_randomness": clamp_value(data.get("velocity_randomness", 0), 0, 10, 0),
+            "gravity": clamp_value(data.get("gravity", 0), -10, 10, 0),
             "turbulence": clamp_value(data.get("turbulence", 0.22), 0, 10, 0.22),
             "orbit": clamp_value(data.get("orbit", 0.18), -10, 10, 0.18),
             "mesh_influence": clamp_value(data.get("mesh_influence", 0.65), 0, 1, 0.65),
@@ -2546,6 +2671,22 @@ class MaterialModel(BaseModel):
             "depth_write": cls.safe_bool(data.get("depth_write", False)),
             "sort": data.get("sort", True) is not False,
             "use_mesh_reference": cls.safe_bool(data.get("use_mesh_reference", False)),
+            "interpolation_attribute": str(data.get("interpolation_attribute", "alpha") or "alpha")
+            if str(data.get("interpolation_attribute", "alpha") or "alpha") in interpolation_attributes else "alpha",
+            "interpolations": {
+                key: normalize_interpolation_points(key, default_interpolation_points(default_points[0].get("y", 0)))
+                for key, default_points in interpolation_defaults.items()
+            },
+            "path_follow": {
+                "enabled": cls.safe_bool(path_follow_data.get("enabled", False)),
+                "active_point_id": str(
+                    path_follow_data.get("active_point_id", "")
+                    or normalized_path_points[0].get("id", "")
+                ),
+                "points": normalized_path_points,
+            },
+            "active_layer_id": active_layer.get("id", "particle-layer-default"),
+            "layers": normalized_layers,
             "particles": {
                 "stride": int(particles.get("stride", 6) or 6),
                 "count": clamp_int(particles.get("count", data.get("count", 320)), 0, 5000, 0),
@@ -2553,6 +2694,7 @@ class MaterialModel(BaseModel):
                 "sizes": particles.get("sizes", []) if isinstance(particles.get("sizes", []), list) else [],
                 "alphas": particles.get("alphas", []) if isinstance(particles.get("alphas", []), list) else [],
                 "phases": particles.get("phases", []) if isinstance(particles.get("phases", []), list) else [],
+                "rotations": particles.get("rotations", []) if isinstance(particles.get("rotations", []), list) else [],
                 "compact": cls.safe_bool(particles.get("compact", False)),
             },
             "meta": data.get("meta", {}) if isinstance(data.get("meta", {}), dict) else {},
@@ -2853,6 +2995,7 @@ class MaterialModel(BaseModel):
         )
         mesh = cls.normalize_mesh(payload.get("mesh", {}), fallback_mesh)
         particle_system = cls.normalize_particle_system(payload.get("particle_system", {}))
+        preview_rotate = bool(payload["rotate_preview"]) and not bool(particle_system.get("enabled", False))
 
         shader = cls.build_shader_payload(
             surface=normalized_surface,
@@ -2924,9 +3067,9 @@ class MaterialModel(BaseModel):
             "shader": shader,
 
             "preview": {
-                "rotate": bool(payload["rotate_preview"]),
+                "rotate": preview_rotate,
                 "idle_rotation": {
-                    "enabled": bool(payload["rotate_preview"]),
+                    "enabled": preview_rotate,
                     "speed": 0.006,
                     "tilt": 0.42,
                 },
@@ -3212,7 +3355,7 @@ class MaterialModel(BaseModel):
                 blend_mode=blend_mode,
                 shadow_method=shadow_method,
                 use_nodes=use_nodes,
-                payload=extra,
+                **extra,
             )
 
             width, height = cls.resolve_source_layer_size(

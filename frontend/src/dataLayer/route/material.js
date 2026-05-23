@@ -47,9 +47,11 @@ export const normalizeMaterialValuesForApi = (values = {}) => {
 
         surface: toPlain(plain.surface),
         geometry: toPlain(plain.geometry),
+        mesh: toPlain(plain.mesh),
         light: toPlain(plain.light),
         bitmap_maps: toPlain(plain.bitmap_maps),
         uv: toPlain(plain.uv),
+        particle_system: toPlain(plain.particle_system),
         shader_graph: toPlain(plain.shader_graph),
 
         cube_size: Number(plain.cube_size || 256),
@@ -68,8 +70,10 @@ export const appendMaterialForm = (formData, values = {}) => {
 
     const surfaceJson = stringify(normalized.surface);
     const geometryJson = stringify(normalized.geometry);
+    const meshJson = stringify(normalized.mesh);
     const bitmapMapsJson = stringify(normalized.bitmap_maps);
     const uvJson = stringify(normalized.uv);
+    const particleSystemJson = stringify(normalized.particle_system);
     const shaderGraphJson = stringify(normalized.shader_graph);
     const valuesJson = stringify(normalized);
 
@@ -77,8 +81,10 @@ export const appendMaterialForm = (formData, values = {}) => {
 
     formData.append("surface", surfaceJson);
     formData.append("geometry", geometryJson);
+    formData.append("mesh", meshJson);
     formData.append("bitmap_maps", bitmapMapsJson);
     formData.append("uv", uvJson);
+    formData.append("particle_system", particleSystemJson);
     formData.append("shader_graph", shaderGraphJson);
 
     formData.append("cube_size", String(normalized.cube_size));

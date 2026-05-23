@@ -18,7 +18,7 @@
     "project_name": "unity-texture-generator"
   },
   "dependencies": {
-    "last_build": "2026-05-23T10:43:24.705425Z",
+    "last_build": "2026-05-23T12:51:24.374331Z",
     "config": {
       "library_policy": {
         "auto_update": true,
@@ -1143,8 +1143,10 @@
             "name",
             "surface",
             "geometry",
+            "mesh",
             "bitmap_maps",
             "uv",
+            "particle_system",
             "shader_graph",
             "cube_size",
             "rotate_preview",
@@ -1162,8 +1164,10 @@
             "name",
             "surface",
             "geometry",
+            "mesh",
             "bitmap_maps",
             "uv",
+            "particle_system",
             "shader_graph",
             "cube_size",
             "rotate_preview",
@@ -1441,8 +1445,10 @@
             "name",
             "surface",
             "geometry",
+            "mesh",
             "bitmap_maps",
             "uv",
+            "particle_system",
             "shader_graph",
             "cube_size",
             "rotate_preview",

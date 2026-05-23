@@ -58,7 +58,83 @@ const normalizeColor = value => {
     return [1, 1, 1, 1];
 };
 
+const normalizeInterpolationPoint = (point, maxX = 1) => ({
+    x: clamp(point?.x ?? 0, 0, Math.max(0.001, maxX)),
+    y: Number.isFinite(Number(point?.y)) ? Number(point.y) : 0,
+});
+
+const pointsForValue = (value, maxX = 1) => ([
+    { x: 0, y: value },
+    { x: maxX / 2, y: value },
+    { x: maxX, y: value },
+]);
+
+const createPathPoint = (point = {}, index = 0) => ({
+    id: point.id || uuid("particle-path-point"),
+    t: clamp(point.t ?? index, 0, 1000),
+    translate: {
+        x: Number(point.translate?.x ?? point.x ?? 0) || 0,
+        y: Number(point.translate?.y ?? point.y ?? 0) || 0,
+        z: Number(point.translate?.z ?? point.z ?? 0) || 0,
+    },
+});
+
+const mix = (a, b, t) => a + (b - a) * t;
+const mixVector = (a, b, t) => ({
+    x: mix(a.x, b.x, t),
+    y: mix(a.y, b.y, t),
+    z: mix(a.z, b.z, t),
+});
+
+const normalizeDirection = (x = 0, y = 1, z = 0) => {
+    const length = Math.hypot(Number(x) || 0, Number(y) || 0, Number(z) || 0);
+
+    if (length <= 0.00001) {
+        return { x: 0, y: 1, z: 0 };
+    }
+
+    return {
+        x: (Number(x) || 0) / length,
+        y: (Number(y) || 0) / length,
+        z: (Number(z) || 0) / length,
+    };
+};
+
+const createParticleLayer = (layer = {}, index = 0, textureSlot = "baseColor") => ({
+    id: layer.id || uuid("particle-layer"),
+    name: layer.name || (index === 0 ? "Default Layer" : `Layer ${index + 1}`),
+    texture_slot: String(layer.texture_slot || textureSlot || "baseColor"),
+    layer_id: String(layer.layer_id || ""),
+    url: String(layer.url || ""),
+});
+
 export class ParticleSystem {
+    static INTERPOLATION_ATTRIBUTES = Object.freeze([
+        { key: "lifetime", label: "Lifetime", defaultValue: 1 },
+        { key: "randomSize", label: "Random Size", defaultValue: 0 },
+        { key: "size_x", label: "Size X", defaultValue: 1 },
+        { key: "size_y", label: "Size Y", defaultValue: 1 },
+        { key: "alpha", label: "Alpha", defaultValue: 1 },
+        { key: "gravity", label: "Gravity", defaultValue: 0 },
+        { key: "velocity", label: "Velocity", defaultValue: 0 },
+    ]);
+
+    static DEFAULT_INTERPOLATIONS = Object.freeze(
+        ParticleSystem.INTERPOLATION_ATTRIBUTES.reduce((acc, item) => {
+            acc[item.key] = pointsForValue(item.defaultValue);
+            return acc;
+        }, {})
+    );
+
+    static DEFAULT_PATH_FOLLOW = Object.freeze({
+        enabled: false,
+        active_point_id: "",
+        points: [
+            createPathPoint({ t: 0 }),
+            createPathPoint({ t: 1, translate: { x: 0, y: 0.35, z: 0.2 } }),
+        ],
+    });
+
     static DEFAULTS = Object.freeze({
         enabled: false,
         mode: "texture",
@@ -67,20 +143,28 @@ export class ParticleSystem {
         texture_slot: "baseColor",
         count: 320,
         seed: 1337,
-        lifetime: 4,
+        lifetime: 1,
         age: 1.2,
         time_scale: 1,
         size: 18,
-        size_randomness: 0.45,
-        alpha: 0.92,
+        random_size: false,
+        size_randomness: 0,
+        size_x: 1,
+        size_y: 1,
+        alpha: 1,
         spread_x: 1,
         spread_y: 1,
         spread_z: 1,
+        velocity: 0,
         velocity_x: 0,
-        velocity_y: 0.18,
+        velocity_y: 0,
         velocity_z: 0,
-        velocity_randomness: 0.35,
-        gravity: -0.08,
+        direction_x: 0,
+        direction_y: 1,
+        direction_z: 0,
+        rotation: 0,
+        velocity_randomness: 0,
+        gravity: 0,
         turbulence: 0.22,
         orbit: 0.18,
         mesh_influence: 0.65,
@@ -89,6 +173,19 @@ export class ParticleSystem {
         depth_write: false,
         sort: true,
         use_mesh_reference: false,
+        interpolation_attribute: "alpha",
+        interpolations: ParticleSystem.DEFAULT_INTERPOLATIONS,
+        path_follow: ParticleSystem.DEFAULT_PATH_FOLLOW,
+        active_layer_id: "particle-layer-default",
+        layers: [
+            {
+                id: "particle-layer-default",
+                name: "Default Layer",
+                texture_slot: "baseColor",
+                layer_id: "",
+                url: "",
+            },
+        ],
     });
 
     static create(settings = {}, context = {}) {
@@ -111,27 +208,42 @@ export class ParticleSystem {
             ...ParticleSystem.DEFAULTS,
             ...(settings || {}),
         };
+        const hasOwnInterpolations = Object.prototype.hasOwnProperty.call(settings || {}, "interpolations");
+        const hasOwnPathFollow = Object.prototype.hasOwnProperty.call(settings || {}, "path_follow");
+        const lifetime = clamp(source.lifetime, 0.1, 60);
+
+        const layers = ParticleSystem.normalizeLayers(source.layers, source.texture_slot);
+        const activeLayer = layers.find(layer => layer.id === source.active_layer_id) || layers[0];
+        const textureSlot = String(activeLayer?.texture_slot || source.texture_slot || "baseColor");
 
         return {
             enabled: source.enabled === true,
             mode: ["texture", "mesh", "mixed"].includes(source.mode) ? source.mode : "texture",
             source: ["texture", "mesh", "volume"].includes(source.source) ? source.source : "texture",
             emitter: ["volume", "surface", "vertices", "sphere", "plane"].includes(source.emitter) ? source.emitter : "volume",
-            texture_slot: String(source.texture_slot || "baseColor"),
+            texture_slot: textureSlot,
             count: clampInt(source.count, 1, 5000),
             seed: clampInt(source.seed, 1, 9999999),
-            lifetime: clamp(source.lifetime, 0.1, 60),
+            lifetime,
             age: clamp(source.age, 0, 60),
             time_scale: clamp(source.time_scale, 0, 8),
             size: clamp(source.size, 1, 120),
+            random_size: source.random_size === true || source.randomSize === true,
             size_randomness: clamp(source.size_randomness, 0, 1),
+            size_x: clamp(source.size_x, 0.001, 20),
+            size_y: clamp(source.size_y, 0.001, 20),
             alpha: clamp(source.alpha, 0, 1),
             spread_x: clamp(source.spread_x, 0.001, 20),
             spread_y: clamp(source.spread_y, 0.001, 20),
             spread_z: clamp(source.spread_z, 0.001, 20),
+            velocity: clamp(source.velocity, -10, 10),
             velocity_x: clamp(source.velocity_x, -10, 10),
             velocity_y: clamp(source.velocity_y, -10, 10),
             velocity_z: clamp(source.velocity_z, -10, 10),
+            direction_x: clamp(source.direction_x, -1, 1),
+            direction_y: clamp(source.direction_y, -1, 1),
+            direction_z: clamp(source.direction_z, -1, 1),
+            rotation: clamp(source.rotation, -360, 360),
             velocity_randomness: clamp(source.velocity_randomness, 0, 10),
             gravity: clamp(source.gravity, -10, 10),
             turbulence: clamp(source.turbulence, 0, 10),
@@ -142,7 +254,152 @@ export class ParticleSystem {
             depth_write: source.depth_write === true,
             sort: source.sort !== false,
             use_mesh_reference: source.use_mesh_reference === true,
+            interpolation_attribute: ParticleSystem.hasInterpolationAttribute(source.interpolation_attribute)
+                ? source.interpolation_attribute
+                : "alpha",
+            interpolations: ParticleSystem.normalizeInterpolations(
+                hasOwnInterpolations ? source.interpolations : {},
+                lifetime
+            ),
+            path_follow: ParticleSystem.normalizePathFollow(
+                hasOwnPathFollow ? source.path_follow : {},
+                lifetime
+            ),
+            active_layer_id: activeLayer?.id || "particle-layer-default",
+            layers,
         };
+    }
+
+    static normalizeLayers(layers = [], textureSlot = "baseColor") {
+        const incoming = Array.isArray(layers) && layers.length
+            ? layers
+            : [createParticleLayer({ id: "particle-layer-default", texture_slot: textureSlot }, 0, textureSlot)];
+
+        return incoming
+            .filter(layer => layer && typeof layer === "object")
+            .map((layer, index) => createParticleLayer(layer, index, textureSlot));
+    }
+
+    static hasInterpolationAttribute(key) {
+        return ParticleSystem.INTERPOLATION_ATTRIBUTES.some(item => item.key === key);
+    }
+
+    static normalizeInterpolations(interpolations = {}, lifetime = 1) {
+        const maxX = Math.max(0.001, Number(lifetime) || 1);
+
+        return ParticleSystem.INTERPOLATION_ATTRIBUTES.reduce((acc, item) => {
+            const incoming = Array.isArray(interpolations?.[item.key])
+                ? interpolations[item.key]
+                : pointsForValue(item.defaultValue, maxX);
+            const points = incoming
+                .map(point => normalizeInterpolationPoint(point, maxX))
+                .sort((a, b) => a.x - b.x);
+
+            acc[item.key] = points.length ? points : pointsForValue(item.defaultValue, maxX);
+            return acc;
+        }, {});
+    }
+
+    static evaluateInterpolation(interpolations = {}, key, time, fallback = 0, lifetime = 1) {
+        const points = Array.isArray(interpolations?.[key])
+            ? interpolations[key]
+            : [];
+
+        if (!points.length) {
+            return fallback;
+        }
+
+        const maxX = Math.max(0.001, Number(lifetime) || 1);
+        const x = clamp(time, 0, maxX);
+        const sorted = points.map(point => normalizeInterpolationPoint(point, maxX)).sort((a, b) => a.x - b.x);
+
+        if (x <= sorted[0].x) {
+            return sorted[0].y;
+        }
+
+        for (let index = 1; index < sorted.length; index += 1) {
+            const previous = sorted[index - 1];
+            const next = sorted[index];
+
+            if (x > next.x) {
+                continue;
+            }
+
+            const span = Math.max(0.00001, next.x - previous.x);
+            const amount = (x - previous.x) / span;
+
+            return previous.y + (next.y - previous.y) * amount;
+        }
+
+        return sorted[sorted.length - 1].y;
+    }
+
+    static normalizePathFollow(pathFollow = {}, lifetime = 1) {
+        const maxT = Math.max(0.001, Number(lifetime) || 1);
+        const incoming = Array.isArray(pathFollow?.points) && pathFollow.points.length
+            ? pathFollow.points
+            : [
+                createPathPoint({ t: 0 }),
+                createPathPoint({ t: maxT, translate: { x: 0, y: 0.35, z: 0.2 } }),
+            ];
+        const points = incoming
+            .map((point, index) => createPathPoint({
+                ...point,
+                t: clamp(point?.t ?? index, 0, maxT),
+            }, index))
+            .sort((a, b) => a.t - b.t);
+
+        if (
+            points.length === 2 &&
+            points[0].t === 0 &&
+            points[1].t === 1 &&
+            maxT !== 1 &&
+            pathFollow === ParticleSystem.DEFAULT_PATH_FOLLOW
+        ) {
+            points[1] = createPathPoint({
+                ...points[1],
+                t: maxT,
+            }, 1);
+        }
+
+        return {
+            enabled: pathFollow?.enabled === true,
+            active_point_id: pathFollow?.active_point_id || points[0]?.id || "",
+            points,
+        };
+    }
+
+    static evaluatePathFollow(pathFollow = {}, time = 0) {
+        const points = Array.isArray(pathFollow.points) ? pathFollow.points : [];
+
+        if (!pathFollow.enabled || !points.length) {
+            return createPathPoint();
+        }
+
+        const sorted = points.map(createPathPoint).sort((a, b) => a.t - b.t);
+        const t = clamp(time, sorted[0].t, sorted[sorted.length - 1].t);
+
+        if (t <= sorted[0].t || sorted.length === 1) {
+            return sorted[0];
+        }
+
+        for (let index = 1; index < sorted.length; index += 1) {
+            const previous = sorted[index - 1];
+            const next = sorted[index];
+
+            if (t > next.t) {
+                continue;
+            }
+
+            const amount = (t - previous.t) / Math.max(0.00001, next.t - previous.t);
+            return {
+                id: previous.id,
+                t,
+                translate: mixVector(previous.translate, next.translate, amount),
+            };
+        }
+
+        return sorted[sorted.length - 1];
     }
 
     static generate(settings = {}, context = {}) {
@@ -152,12 +409,30 @@ export class ParticleSystem {
         const sizes = [];
         const alphas = [];
         const phases = [];
+        const rotations = [];
         const mesh = context.mesh || null;
-        const useMesh = config.use_mesh_reference || config.source === "mesh" || ["surface", "vertices"].includes(config.emitter);
+        const pathEnabled = config.path_follow?.enabled === true;
+        const useMesh = !pathEnabled && (
+            config.use_mesh_reference ||
+            config.source === "mesh" ||
+            ["surface", "vertices"].includes(config.emitter)
+        );
 
         for (let index = 0; index < config.count; index += 1) {
             const phase = rand();
-            const life = ((config.age * config.time_scale) / Math.max(config.lifetime, 0.001) + phase) % 1;
+            const lifetimeValue = Math.max(0.1, ParticleSystem.evaluateInterpolation(config.interpolations, "lifetime", phase * config.lifetime, config.lifetime, config.lifetime));
+            const life = ((config.age * config.time_scale) / lifetimeValue + phase) % 1;
+            const lifeTime = life * Math.max(0.001, config.lifetime);
+            const randomSizeValue = config.random_size
+                ? Math.max(0, ParticleSystem.evaluateInterpolation(config.interpolations, "randomSize", lifeTime, config.size_randomness, config.lifetime))
+                : 0;
+            const sizeXValue = Math.max(0.001, ParticleSystem.evaluateInterpolation(config.interpolations, "size_x", lifeTime, config.size_x, config.lifetime));
+            const sizeYValue = Math.max(0.001, ParticleSystem.evaluateInterpolation(config.interpolations, "size_y", lifeTime, config.size_y, config.lifetime));
+            const alphaValue = Math.max(0, ParticleSystem.evaluateInterpolation(config.interpolations, "alpha", lifeTime, config.alpha, config.lifetime));
+            const gravityValue = ParticleSystem.evaluateInterpolation(config.interpolations, "gravity", lifeTime, config.gravity, config.lifetime);
+            const velocityValue = ParticleSystem.evaluateInterpolation(config.interpolations, "velocity", lifeTime, config.velocity, config.lifetime);
+            const direction = normalizeDirection(config.direction_x, config.direction_y, config.direction_z);
+            const pathPoint = ParticleSystem.evaluatePathFollow(config.path_follow, lifeTime);
             const meshPosition = useMesh ? sampleMeshPosition(mesh, rand) : null;
             const theta = rand() * Math.PI * 2;
             const radius = Math.sqrt(rand());
@@ -179,24 +454,34 @@ export class ParticleSystem {
             const swirl = config.orbit * life * Math.PI * 2;
             const c = Math.cos(swirl);
             const s = Math.sin(swirl);
-            const vx = config.velocity_x + (rand() - 0.5) * config.velocity_randomness;
-            const vy = config.velocity_y + (rand() - 0.5) * config.velocity_randomness + config.gravity * life;
-            const vz = config.velocity_z + (rand() - 0.5) * config.velocity_randomness;
+            const vx = config.velocity_x + direction.x * velocityValue + (rand() - 0.5) * config.velocity_randomness;
+            const vy = config.velocity_y + direction.y * velocityValue + (rand() - 0.5) * config.velocity_randomness + gravityValue * life;
+            const vz = config.velocity_z + direction.z * velocityValue + (rand() - 0.5) * config.velocity_randomness;
             const noise = [
                 Math.sin((index + 1) * 12.989 + life * 6.283) * config.turbulence * 0.05,
                 Math.cos((index + 1) * 78.233 + life * 4.19) * config.turbulence * 0.05,
                 Math.sin((index + 1) * 39.425 + life * 7.31) * config.turbulence * 0.05,
             ];
-            const x = base[0] * c - base[2] * s + vx * life + noise[0];
-            const z = base[0] * s + base[2] * c + vz * life + noise[2];
-            const y = base[1] + vy * life + noise[1];
+            const pathTranslate = pathPoint.translate || { x: 0, y: 0, z: 0 };
+            const localPosition = [
+                base[0] * c - base[2] * s + vx * life + noise[0],
+                base[1] + vy * life + noise[1],
+                base[0] * s + base[2] * c + vz * life + noise[2],
+            ];
+            const x = pathEnabled ? localPosition[0] + pathTranslate.x : localPosition[0];
+            const y = pathEnabled ? localPosition[1] + pathTranslate.y : localPosition[1];
+            const z = pathEnabled ? localPosition[2] + pathTranslate.z : localPosition[2];
             const fade = Math.sin(Math.PI * life);
-            const size = config.size * (1 - config.size_randomness * rand()) * (0.55 + fade * 0.45);
+            const size = config.size
+                * ((sizeXValue + sizeYValue) * 0.5)
+                * (1 - randomSizeValue * rand())
+                * (0.55 + fade * 0.45);
 
             positions.push(x, y, z);
             sizes.push(size);
-            alphas.push(config.alpha * Math.max(0.05, fade));
+            alphas.push(alphaValue * Math.max(0.05, fade));
             phases.push(phase);
+            rotations.push(config.rotation * Math.PI / 180);
         }
 
         return {
@@ -206,6 +491,7 @@ export class ParticleSystem {
             sizes,
             alphas,
             phases,
+            rotations,
         };
     }
 
@@ -217,7 +503,7 @@ export class ParticleSystem {
         }, context);
     }
 
-    static toPlain(system = null, { compact = false } = {}) {
+    static toPlain(system = null, { compact = false, context = {} } = {}) {
         const normalized = ParticleSystem.normalize(system || {});
 
         return {
@@ -228,7 +514,7 @@ export class ParticleSystem {
                 stride: 6,
                 count: normalized.count,
                 compact: true,
-            } : clone(system?.particles || ParticleSystem.generate(normalized)),
+            } : ParticleSystem.generate(normalized, context),
             meta: clone(system?.meta || {}),
         };
     }

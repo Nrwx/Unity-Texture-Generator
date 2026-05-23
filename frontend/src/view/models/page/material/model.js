@@ -518,7 +518,7 @@ export function materialEditorModel(props, emit) {
                     state: materialConnected,
                     layer: {
                         ref: previewLayer,
-                        idle: values.rotate_preview
+                        idle: values.particle_system?.enabled === true ? false : values.rotate_preview
                     },
                     loading: {
                         state: loading3DState,
@@ -1721,7 +1721,10 @@ export function materialEditorModel(props, emit) {
 
     const getPlainParticleSystem = ({ compact = false } = {}) => ParticleSystem.toPlain(
         values.particle_system || createParticles(),
-        { compact }
+        {
+            compact,
+            context: { mesh: values.mesh },
+        }
     );
 
     const normalizeValues = ({ preview = false } = {}) => ({
@@ -1741,7 +1744,7 @@ export function materialEditorModel(props, emit) {
         },
 
         cube_size: clamp(Number(values.cube_size || 256), 64, 4096),
-        rotate_preview: values.rotate_preview,
+        rotate_preview: values.particle_system?.enabled === true ? false : values.rotate_preview,
         wireframe_preview: values.wireframe_preview,
         faces_preview: values.faces_preview,
         vertices_preview: values.vertices_preview,

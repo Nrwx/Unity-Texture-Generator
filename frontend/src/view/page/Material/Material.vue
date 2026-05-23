@@ -153,7 +153,9 @@
             <ParticleSystem
                 v-else-if="ui.activeTab === 'particleSystem'"
                 v-model:particle-system="values.particle_system"
+                :texture-layers="textureLayers"
                 @change="handleParticleSystemChange"
+                @assign-texture-slot="assignTextureSlotFromSurface"
             />
 
             <!-- PHYSICS -->

@@ -2567,6 +2567,57 @@ button {
           inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
 }
 
+.mem-particle-curve-head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.mem-particle-curve-box {
+  width: 100%;
+  height: 260px;
+  overflow: visible;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(5, 10, 18, 0.46);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.mem-particle-curve-bg {
+  fill: rgba(255, 255, 255, 0.025);
+}
+
+.mem-particle-curve-grid {
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 0.45;
+  vector-effect: non-scaling-stroke;
+}
+
+.mem-particle-curve-zero {
+  stroke: rgba(255, 255, 255, 0.24);
+  stroke-width: 0.65;
+  vector-effect: non-scaling-stroke;
+}
+
+.mem-particle-curve-line {
+  fill: none;
+  stroke: var(--mem-cyan);
+  stroke-width: 1.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.mem-particle-curve-point {
+  fill: var(--mem-emerald);
+  stroke: rgba(4, 8, 14, 0.92);
+  stroke-width: 0.75;
+  cursor: grab;
+  vector-effect: non-scaling-stroke;
+}
+
 :deep(.v-field) {
   border-radius: 11px !important;
   background: rgba(255, 255, 255, 0.045) !important;

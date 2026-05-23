@@ -529,12 +529,14 @@ precision highp float;
 layout(location = 0) in vec3 aPosition;
 layout(location = 1) in float aSize;
 layout(location = 2) in float aAlpha;
+layout(location = 3) in float aRotation;
 
 uniform mat4 uModel;
 uniform mat4 uViewProj;
 uniform float uDpr;
 
 out float vAlpha;
+out float vRotation;
 
 void main() {
     vec4 world = uModel * vec4(aPosition, 1.0);
@@ -542,6 +544,7 @@ void main() {
     gl_Position = clip;
     gl_PointSize = max(1.0, aSize * uDpr / max(0.35, clip.w));
     vAlpha = aAlpha;
+    vRotation = aRotation;
 }`;
 
 const PARTICLE_FRAGMENT_SHADER = `#version 300 es
@@ -554,10 +557,17 @@ uniform float uAlpha;
 uniform int uSoft;
 
 in float vAlpha;
+in float vRotation;
 out vec4 fragColor;
 
 void main() {
-    vec2 uv = gl_PointCoord;
+    vec2 centeredCoord = gl_PointCoord - 0.5;
+    float c = cos(vRotation);
+    float s = sin(vRotation);
+    vec2 uv = vec2(
+        centeredCoord.x * c - centeredCoord.y * s,
+        centeredCoord.x * s + centeredCoord.y * c
+    ) + 0.5;
     vec2 centered = uv * 2.0 - 1.0;
     float radial = 1.0 - smoothstep(0.72, 1.0, length(centered));
     vec4 texel = uUseParticleMap == 1 ? texture(uParticleMap, uv) : vec4(1.0);
@@ -987,6 +997,7 @@ const normalizeParticleSystem = system => {
     const positions = getArrayValues(particles.positions);
     const sizes = getArrayValues(particles.sizes);
     const alphas = getArrayValues(particles.alphas);
+    const rotations = getArrayValues(particles.rotations);
     const count = Math.min(
         Math.max(0, Math.trunc(Number(particles.count || system.count || 0))),
         Math.floor(positions.length / 3)
@@ -996,7 +1007,7 @@ const normalizeParticleSystem = system => {
         return null;
     }
 
-    const stride = 5;
+    const stride = 6;
     const data = new Float32Array(count * stride);
 
     for (let index = 0; index < count; index += 1) {
@@ -1008,6 +1019,7 @@ const normalizeParticleSystem = system => {
         data[target + 2] = Number(positions[source + 2] || 0);
         data[target + 3] = Math.max(1, Number(sizes[index] || system.size || 12));
         data[target + 4] = Math.min(Math.max(Number(alphas[index] ?? system.alpha ?? 1), 0), 1);
+        data[target + 5] = Number(rotations[index] ?? ((Number(system.rotation) || 0) * Math.PI / 180)) || 0;
     }
 
     return {
@@ -1026,6 +1038,20 @@ const normalizeParticleSystem = system => {
             seed: system.seed,
             age: system.age,
             size: system.size,
+            sizeX: system.size_x,
+            sizeY: system.size_y,
+            randomSize: system.random_size,
+            alpha: system.alpha,
+            gravity: system.gravity,
+            velocity: system.velocity,
+            directionX: system.direction_x,
+            directionY: system.direction_y,
+            directionZ: system.direction_z,
+            rotation: system.rotation,
+            textureSlot: system.texture_slot,
+            layers: system.layers,
+            interpolations: system.interpolations,
+            pathFollow: system.path_follow,
             source: system.source,
             emitter: system.emitter,
             mesh: system.use_mesh_reference,
@@ -1282,6 +1308,8 @@ export class WebGLMaterialRenderer {
             gl.vertexAttribPointer(1, 1, gl.FLOAT, false, stride, 3 * 4);
             gl.enableVertexAttribArray(2);
             gl.vertexAttribPointer(2, 1, gl.FLOAT, false, stride, 4 * 4);
+            gl.enableVertexAttribArray(3);
+            gl.vertexAttribPointer(3, 1, gl.FLOAT, false, stride, 5 * 4);
             gl.bindVertexArray(null);
 
             this.particleBuffers.set(key, buffer);

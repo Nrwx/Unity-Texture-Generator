@@ -2612,3 +2612,237 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+.mem-particle-curve-layout,
+.mem-particle-path-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 190px;
+  gap: 12px;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.mem-particle-layer-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.mem-particle-curve-box {
+  display: block;
+  width: 100%;
+  max-height: 200px;
+  min-height: 180px;
+  overflow: hidden;
+  border: 1px solid rgba(97, 230, 255, 0.22);
+  border-radius: 12px;
+  background:
+          linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+          #02040a;
+  background-size: 12.5% 10%, 12.5% 10%, auto;
+  box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.06),
+          inset 0 0 28px rgba(97, 230, 255, 0.06);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.mem-particle-curve-bg {
+  fill: #02040a;
+}
+
+.mem-particle-curve-grid {
+  stroke: rgba(255, 255, 255, 0.16);
+  stroke-width: 0.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.mem-particle-curve-zero {
+  stroke: rgba(255, 255, 255, 0.36);
+  stroke-width: 0.75;
+  vector-effect: non-scaling-stroke;
+}
+
+.mem-particle-curve-line {
+  fill: none;
+  stroke: var(--mem-cyan);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 5px rgba(97, 230, 255, 0.38));
+  vector-effect: non-scaling-stroke;
+}
+
+.mem-particle-curve-point {
+  fill: var(--mem-emerald);
+  stroke: #02040a;
+  stroke-width: 0.85;
+  cursor: grab;
+  filter: drop-shadow(0 0 5px rgba(112, 223, 180, 0.45));
+  vector-effect: non-scaling-stroke;
+}
+
+.mem-particle-point-list,
+.mem-particle-path-list {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  max-height: 200px;
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid var(--mem-border);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.mem-particle-point-item,
+.mem-particle-path-item {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 4px 8px;
+  min-height: 52px;
+  padding: 7px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--mem-muted);
+  text-align: left;
+
+  strong {
+    align-self: center;
+    color: var(--mem-cyan);
+    font-size: 0.7rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  span,
+  small {
+    overflow: hidden;
+    font-size: 0.62rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &.active,
+  &:hover {
+    border-color: rgba(97, 230, 255, 0.36);
+    background: rgba(97, 230, 255, 0.08);
+    color: var(--mem-text);
+  }
+}
+
+.mem-particle-path-item {
+  grid-template-columns: 52px minmax(0, 1fr);
+  min-height: 38px;
+
+  strong {
+    grid-row: span 2;
+  }
+}
+
+.mem-particle-path-views {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  min-width: 0;
+}
+
+.mem-particle-path-view {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+
+  > strong {
+    color: var(--mem-muted);
+    font-size: 0.68rem;
+    font-weight: 820;
+    text-transform: uppercase;
+  }
+
+  svg {
+    width: 100%;
+    height: 170px;
+    max-height: 200px;
+    overflow: visible;
+    border: 1px solid rgba(97, 230, 255, 0.18);
+    border-radius: 12px;
+    background:
+            linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+            #02040a;
+    background-size: 12.5% 10%, 12.5% 10%, auto;
+    cursor: crosshair;
+    touch-action: none;
+  }
+
+  rect {
+    fill: #02040a;
+  }
+
+  line {
+    stroke: rgba(255, 255, 255, 0.20);
+    stroke-width: 0.55;
+    vector-effect: non-scaling-stroke;
+  }
+
+  polyline {
+    fill: none;
+    stroke: var(--mem-gold);
+    stroke-width: 1.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    filter: drop-shadow(0 0 5px rgba(255, 211, 124, 0.32));
+    vector-effect: non-scaling-stroke;
+  }
+
+  circle {
+    fill: var(--mem-gold);
+    stroke: #02040a;
+    stroke-width: 0.85;
+    cursor: grab;
+    vector-effect: non-scaling-stroke;
+
+    &:active {
+      cursor: grabbing;
+    }
+
+    &.active {
+      fill: var(--mem-emerald);
+      filter: drop-shadow(0 0 7px rgba(112, 223, 180, 0.52));
+    }
+  }
+}
+
+.mem-particle-path-view.timebar {
+  grid-column: 1 / -1;
+
+  svg {
+    height: auto;
+    min-height: 44px;
+    max-height: 58px;
+    aspect-ratio: 10 / 1;
+  }
+}
+
+.mem-particle-path-editor {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  min-width: 0;
+}
+
+@media (max-width: 960px) {
+  .mem-particle-curve-layout,
+  .mem-particle-path-layout,
+  .mem-particle-path-views {
+    grid-template-columns: 1fr;
+  }
+
+  .mem-particle-path-editor {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
