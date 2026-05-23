@@ -10,6 +10,7 @@ import {
 import { settings } from "@/dataLayer/parameter";
 import { clamp } from "@/utils/tools";
 import { createPoint, drawToCanvas } from "@/utils/canvas";
+import {number} from "@/utils/math";
 
 const PREVIEW_DEBOUNCE_MS = 220;
 
@@ -212,8 +213,8 @@ export function modifierDistortModel(props, emit) {
         emit("component-event", event, payload);
     };
 
-    const imageWidth = computed(() => Number(props.layer?.width || 0));
-    const imageHeight = computed(() => Number(props.layer?.height || 0));
+    const imageWidth = computed(() => number(props.layer?.width || 0));
+    const imageHeight = computed(() => number(props.layer?.height || 0));
 
     const imageSizeLabel = computed(() => {
         if (!imageWidth.value || !imageHeight.value) {

@@ -1,4 +1,5 @@
 import {ref, computed, onMounted, watch} from "vue";
+import {number} from "@/utils/math";
 
 /**
  * Props shape:
@@ -41,10 +42,10 @@ export function cacheModel(props, emit) {
 
     // file-percents (files / total.files *100)
     const filePercents = computed(() => {
-        const t = Math.max(1, Number(total.value.files || 0));
-        const af = Math.round((Number(asset.value.files || 0) / t) * 100);
-        const sf = Math.round((Number(session.value.files || 0) / t) * 100);
-        const cf = Math.round((Number(cache.value.files || 0) / t) * 100);
+        const t = Math.max(1, number(total.value.files || 0));
+        const af = Math.round((number(asset.value.files || 0) / t) * 100);
+        const sf = Math.round((number(session.value.files || 0) / t) * 100);
+        const cf = Math.round((number(cache.value.files || 0) / t) * 100);
         const sum = af + sf + cf;
         if (sum === 100) return { asset: af, session: sf, cache: cf };
         const factor = 100 / Math.max(0.0001, sum);
@@ -63,10 +64,10 @@ export function cacheModel(props, emit) {
 
 
 // small helpers
-    const fmtMb = (v) => (v == null ? '0.00' : Number(v).toFixed(2));
+    const fmtMb = (v) => (v == null ? '0.00' : number(v).toFixed(2));
 
 
-    const canClearCache = computed(() => Number(cache.value.files || 0) > 0);
+    const canClearCache = computed(() => number(cache.value.files || 0) > 0);
     const canClearCacheGlobally = computed(() => canClearCache.value);
 
     // emit wrapper
@@ -84,9 +85,9 @@ export function cacheModel(props, emit) {
 
     // normalize percents for size-based visualization
     function normalizePercents(a, s, c) {
-        const A = Math.max(0, Number(a || 0));
-        const S = Math.max(0, Number(s || 0));
-        const C = Math.max(0, Number(c || 0));
+        const A = Math.max(0, number(a || 0));
+        const S = Math.max(0, number(s || 0));
+        const C = Math.max(0, number(c || 0));
         const sum = Math.max(0.0001, A + S + C);
         const fac = 100 / sum;
         const aset = Math.round(A * fac * 100) / 100;
@@ -97,9 +98,9 @@ export function cacheModel(props, emit) {
 
     // compute visuals
     function updateVisuals(animated = true) {
-        const a = Math.max(0, Number(asset.value.percent || 0));
-        const s = Math.max(0, Number(session.value.percent || 0));
-        const c = Math.max(0, Number(cache.value.percent || 0));
+        const a = Math.max(0, number(asset.value.percent || 0));
+        const s = Math.max(0, number(session.value.percent || 0));
+        const c = Math.max(0, number(cache.value.percent || 0));
         const { aset, sset, cset } = normalizePercents(a, s, c);
 
         if (animated) {

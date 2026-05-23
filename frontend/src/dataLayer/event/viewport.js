@@ -1,3 +1,5 @@
+import {number} from "@/utils/math";
+
 export const viewportEvent = (route) => ({
     "viewport:setup": async (payload) => {
         const response = await route.api.viewportSetup(payload);
@@ -26,11 +28,11 @@ export const viewportEvent = (route) => ({
     },
 
     "viewport:width": (payload) => {
-        route.localData.viewport.value.width = Number(payload) || 0;
+        route.localData.viewport.value.width = number(payload) || 0;
     },
 
     "viewport:height": (payload) => {
-        route.localData.viewport.value.height = Number(payload) || 0;
+        route.localData.viewport.value.height = number(payload) || 0;
     },
 
     "viewport:mode": (payload) => {
@@ -38,7 +40,7 @@ export const viewportEvent = (route) => ({
     },
 
     "viewport:dpi": (payload) => {
-        route.localData.viewport.value.dpi = Number(payload) || 72;
+        route.localData.viewport.value.dpi = number(payload) || 72;
     },
 
     "viewport:unit": (payload) => {

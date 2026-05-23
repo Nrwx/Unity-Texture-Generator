@@ -78,6 +78,9 @@ export class Buffer {
             stride: Number(options.stride || 3 * 4),
             indexed: false,
             usage: options.usage || gl.STATIC_DRAW,
+            instanceStride: Number(options.instanceStride || 0),
+            instanceAttributes: options.instanceAttributes,
+            instanceUsage: options.instanceUsage,
             attributes: Array.isArray(options.attributes)
                 ? options.attributes
                 : [

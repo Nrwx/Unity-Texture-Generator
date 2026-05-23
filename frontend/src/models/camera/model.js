@@ -4,6 +4,7 @@ import {
     animatorCameraCommand,
     animatorCameraState,
 } from "@/view/models/page/material/animator/state";
+import {isFiniteNumber} from "@/utils/math";
 
 const DEFAULT_CAMERA = {
     projection: "perspective",
@@ -22,7 +23,7 @@ const DEFAULT_CAMERA = {
 
 const toNumber = (value, fallback = 0) => {
     const number = Number(value);
-    return Number.isFinite(number) ? number : fallback;
+    return isFiniteNumber(number) ? number : fallback;
 };
 
 const normalizeVector = (value = {}, fallback = { x: 0, y: 0, z: 0 }) => ({

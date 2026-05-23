@@ -143,12 +143,12 @@
             </Drag>
           </v-list>
 
-          <Channel v-show="!animatorState && tabIndex === 1 && channel.length > 0" :selected-channel="selectedChannel" :data="channel" :settings="channelSettings" :theme="theme" @update:componentEvent="emitEvent"/>
+          <Channel v-show="!orbit && tabIndex === 1 && channel.length > 0" :selected-channel="selectedChannel" :data="channel" :settings="channelSettings" :theme="theme" @update:componentEvent="emitEvent"/>
 
-          <Path v-show="!animatorState && tabIndex === 2 && paths.length > 0" :data="paths" @update:componentEvent="emitEvent"/>
+          <Path v-show="!orbit && tabIndex === 2 && paths.length > 0" :data="paths" @update:componentEvent="emitEvent"/>
 
           <div
-              v-show="!animatorState && tabIndex === 3 || animatorState && tabIndex === 1"
+              v-show="!orbit && tabIndex === 3 || orbit && tabIndex === 1"
               class="layer-transform-panel pa-3"
           >
             <Transformation
@@ -210,7 +210,7 @@
             <v-icon color="white">mdi-delete</v-icon>
           </v-btn>
         </template>
-        <template v-if="!animatorState && tabIndex === 2">
+        <template v-if="!orbit && tabIndex === 2">
           <!-- Create / Add Channel from selected -->
           <v-btn
               icon

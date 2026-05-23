@@ -1,9 +1,10 @@
 import { clone } from "@/utils/tools";
 import {BODY_TYPE_OPTIONS, COLLISION_SHAPE_OPTIONS} from "@/dataLayer/webgl";
+import {isFiniteNumber} from "@/utils/math";
 
 const toNumber = value => {
     const number = Number(value);
-    return Number.isFinite(number) ? number : 0;
+    return isFiniteNumber(number) ? number : 0;
 };
 
 export const physicsModelProps = {

@@ -1,6 +1,7 @@
 import {computed} from "vue";
 import {clone} from "@/utils/tools";
 import {createLight, LIGHT_TYPE_OPTIONS} from "@/dataLayer/webgl";
+import {isFiniteNumber} from "@/utils/math";
 
 
 export const lightProps = {
@@ -27,7 +28,7 @@ export function lightModel(props, emit) {
 
     const setNumberValue = (key, value) => {
         const number = Number(value);
-        props.light[key] = Number.isFinite(number) ? number : createLight()[key];
+        props.light[key] = isFiniteNumber(number) ? number : createLight()[key];
         emitLight();
     };
 

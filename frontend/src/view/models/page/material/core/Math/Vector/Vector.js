@@ -1,3 +1,5 @@
+import {isFiniteNumber} from "@/utils/math";
+
 export class Vector {
     constructor(x = 0, y = 0, z = 0) {
         this.data = new Float32Array(3);
@@ -47,7 +49,7 @@ export class Vector {
 
     static number(value, fallback = 0) {
         const number = Number(value);
-        return Number.isFinite(number) ? number : fallback;
+        return isFiniteNumber(number) ? number : fallback;
     }
 
     static from(value, fallback = [0, 0, 0]) {

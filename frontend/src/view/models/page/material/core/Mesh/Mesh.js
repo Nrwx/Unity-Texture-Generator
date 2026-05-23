@@ -1,5 +1,9 @@
 import { uuid } from "@/utils/uuid";
 import { clone } from "@/utils/tools";
+import { isFiniteNumber } from "@/utils/math";
+import { Matrix } from "@/view/models/page/material/core/Math/Matrix/Matrix";
+import { Quaternion } from "@/view/models/page/material/core/Math/Quaternion/Quaternion";
+import { CoordinateSystem } from "@/models/layer/3D/core/coordinate/model";
 
 export class Mesh {
     static PRIMITIVE_ORDER = [
@@ -9,8 +13,6 @@ export class Mesh {
         "sphere",
         "cylinder",
     ];
-
-    static STRIDE = 11;
 
     static ATTRIBUTE_LAYOUT = Object.freeze({
         position: {
@@ -34,6 +36,12 @@ export class Mesh {
             offset: 8,
         },
     });
+
+    static POSITION_OFFSET = Mesh.ATTRIBUTE_LAYOUT.position.offset;
+    static NORMAL_OFFSET = Mesh.ATTRIBUTE_LAYOUT.normal.offset;
+    static UV_OFFSET = Mesh.ATTRIBUTE_LAYOUT.uv.offset;
+    static TANGENT_OFFSET = Mesh.ATTRIBUTE_LAYOUT.tangent.offset;
+    static STRIDE = 11;
 
     static FACE_DEFS = Object.freeze({
         front: {
@@ -79,6 +87,24 @@ export class Mesh {
             v: [0, 0, 1],
         },
     });
+
+    static COMMON_TRANSFORM_FIELDS = Object.freeze([
+        "pivot_x",
+        "pivot_y",
+        "pivot_z",
+        "rotation_x",
+        "rotation_y",
+        "rotation_z",
+        "scale_x",
+        "scale_y",
+        "scale_z",
+    ]);
+
+    static COMMON_SHAPE_FIELDS = Object.freeze([
+        "width",
+        "height",
+        "depth",
+    ]);
 
     static define({
                       key,
@@ -134,9 +160,7 @@ export class Mesh {
             label: "Cube",
             icon: "mdi-cube-outline",
             fields: [
-                "width",
-                "height",
-                "depth",
+                ...Mesh.COMMON_SHAPE_FIELDS,
                 "bevel",
                 "bevel_segments",
                 "subdivision",
@@ -144,15 +168,7 @@ export class Mesh {
                 "shade_smooth",
                 "uv_fit",
                 "uv_density",
-                "pivot_x",
-                "pivot_y",
-                "pivot_z",
-                "rotation_x",
-                "rotation_y",
-                "rotation_z",
-                "scale_x",
-                "scale_y",
-                "scale_z",
+                ...Mesh.COMMON_TRANSFORM_FIELDS,
             ],
             defaults: {
                 primitive: "cube",
@@ -165,9 +181,7 @@ export class Mesh {
             label: "Box",
             icon: "mdi-cube",
             fields: [
-                "width",
-                "height",
-                "depth",
+                ...Mesh.COMMON_SHAPE_FIELDS,
                 "bevel",
                 "bevel_segments",
                 "subdivision",
@@ -175,15 +189,7 @@ export class Mesh {
                 "shade_smooth",
                 "uv_fit",
                 "uv_density",
-                "pivot_x",
-                "pivot_y",
-                "pivot_z",
-                "rotation_x",
-                "rotation_y",
-                "rotation_z",
-                "scale_x",
-                "scale_y",
-                "scale_z",
+                ...Mesh.COMMON_TRANSFORM_FIELDS,
             ],
             defaults: {
                 primitive: "box",
@@ -203,15 +209,7 @@ export class Mesh {
                 "shade_smooth",
                 "uv_fit",
                 "uv_density",
-                "pivot_x",
-                "pivot_y",
-                "pivot_z",
-                "rotation_x",
-                "rotation_y",
-                "rotation_z",
-                "scale_x",
-                "scale_y",
-                "scale_z",
+                ...Mesh.COMMON_TRANSFORM_FIELDS,
             ],
             defaults: {
                 primitive: "plane",
@@ -225,23 +223,13 @@ export class Mesh {
             label: "Sphere",
             icon: "mdi-sphere",
             fields: [
-                "width",
-                "height",
-                "depth",
+                ...Mesh.COMMON_SHAPE_FIELDS,
                 "subdivision",
                 "subdivision_type",
                 "shade_smooth",
                 "uv_fit",
                 "uv_density",
-                "pivot_x",
-                "pivot_y",
-                "pivot_z",
-                "rotation_x",
-                "rotation_y",
-                "rotation_z",
-                "scale_x",
-                "scale_y",
-                "scale_z",
+                ...Mesh.COMMON_TRANSFORM_FIELDS,
             ],
             defaults: {
                 primitive: "sphere",
@@ -255,9 +243,7 @@ export class Mesh {
             label: "Cylinder",
             icon: "mdi-cylinder",
             fields: [
-                "width",
-                "height",
-                "depth",
+                ...Mesh.COMMON_SHAPE_FIELDS,
                 "bevel",
                 "bevel_segments",
                 "subdivision",
@@ -265,15 +251,7 @@ export class Mesh {
                 "shade_smooth",
                 "uv_fit",
                 "uv_density",
-                "pivot_x",
-                "pivot_y",
-                "pivot_z",
-                "rotation_x",
-                "rotation_y",
-                "rotation_z",
-                "scale_x",
-                "scale_y",
-                "scale_z",
+                ...Mesh.COMMON_TRANSFORM_FIELDS,
             ],
             defaults: {
                 primitive: "cylinder",
@@ -296,6 +274,254 @@ export class Mesh {
             icon,
         }))
     );
+
+    static toArray(value) {
+        if (ArrayBuffer.isView(value)) {
+            return Array.from(value);
+        }
+
+        if (Array.isArray(value)) {
+            return value.slice();
+        }
+
+        if (value && typeof value === "object") {
+            return Object.keys(value)
+                .sort((a, b) => Number(a) - Number(b))
+                .map(key => value[key]);
+        }
+
+        return [];
+    }
+
+    static read2(vertices, stride, index, offset = Mesh.UV_OFFSET) {
+        const base = index * stride + offset;
+
+        return [
+            Mesh.toNumber(vertices[base], 0),
+            Mesh.toNumber(vertices[base + 1], 0),
+        ];
+    }
+
+    static write3(vertices, stride, index, value, offset = Mesh.POSITION_OFFSET) {
+        const base = index * stride + offset;
+
+        vertices[base] = Mesh.toNumber(value?.[0], 0);
+        vertices[base + 1] = Mesh.toNumber(value?.[1], 0);
+        vertices[base + 2] = Mesh.toNumber(value?.[2], 0);
+    }
+
+    static read3(vertices, stride, index, offset = Mesh.POSITION_OFFSET) {
+        const base = index * stride + offset;
+
+        return [
+            Mesh.toNumber(vertices[base], 0),
+            Mesh.toNumber(vertices[base + 1], 0),
+            Mesh.toNumber(vertices[base + 2], 0),
+        ];
+    }
+
+    static createIndexArray(indices, preferredType = "") {
+        const maxIndex = indices.reduce((max, item) => Math.max(max, item), 0);
+
+        return preferredType === "uint32" || maxIndex > 65535
+            ? new Uint32Array(indices)
+            : new Uint16Array(indices);
+    }
+
+    static createIndexTypedArray(indices, preferredType = "") {
+        return Mesh.createIndexArray(indices, preferredType);
+    }
+
+    static finalizeMesh(mesh, { vertices, indices, stride, source = "edit", meta = {} } = {}) {
+        const typedIndices = Mesh.createIndexArray(indices, mesh?.indexType);
+
+        const nextMesh = {
+            ...(mesh || {}),
+            stride,
+            vertices: new Float32Array(vertices),
+            indices: typedIndices,
+            indexType: typedIndices instanceof Uint32Array ? "uint32" : "uint16",
+            count: typedIndices.length,
+            meta: {
+                ...(mesh?.meta || {}),
+                ...meta,
+                source,
+                editRevision: Math.trunc(Mesh.toNumber(mesh?.meta?.editRevision, 0)) + 1,
+                renderCacheKey: `${mesh?.id || "mesh"}:${source}:${Date.now()}:${vertices.length}:${indices.length}`,
+            },
+        };
+
+        Mesh.recomputeNormalsAndBounds(nextMesh, vertices, indices, stride);
+        return nextMesh;
+    }
+
+    static recomputeNormalsAndBounds(mesh, vertices, indices, stride) {
+        const count = Mesh.vertexCount(vertices, stride);
+        const normals = Array.from({ length: count }, () => [0, 0, 0]);
+        const bounds = {
+            min: [Infinity, Infinity, Infinity],
+            max: [-Infinity, -Infinity, -Infinity],
+        };
+
+        for (let offset = 0; offset < indices.length; offset += 3) {
+            const aIndex = indices[offset];
+            const bIndex = indices[offset + 1];
+            const cIndex = indices[offset + 2];
+
+            if (![aIndex, bIndex, cIndex].every(index => index >= 0 && index < count)) {
+                continue;
+            }
+
+            const normal = Mesh.triangleNormal(
+                Mesh.read3(vertices, stride, aIndex),
+                Mesh.read3(vertices, stride, bIndex),
+                Mesh.read3(vertices, stride, cIndex),
+            );
+
+            normals[aIndex] = Mesh.add3(normals[aIndex], normal);
+            normals[bIndex] = Mesh.add3(normals[bIndex], normal);
+            normals[cIndex] = Mesh.add3(normals[cIndex], normal);
+        }
+
+        for (let index = 0; index < count; index += 1) {
+            const point = Mesh.read3(vertices, stride, index);
+            const normal = Mesh.normalize3(normals[index], Mesh.read3(vertices, stride, index, Mesh.NORMAL_OFFSET));
+
+            Mesh.write3(vertices, stride, index, normal, Mesh.NORMAL_OFFSET);
+
+            bounds.min[0] = Math.min(bounds.min[0], point[0]);
+            bounds.min[1] = Math.min(bounds.min[1], point[1]);
+            bounds.min[2] = Math.min(bounds.min[2], point[2]);
+            bounds.max[0] = Math.max(bounds.max[0], point[0]);
+            bounds.max[1] = Math.max(bounds.max[1], point[1]);
+            bounds.max[2] = Math.max(bounds.max[2], point[2]);
+        }
+
+        if (bounds.min.every(Number.isFinite) && bounds.max.every(Number.isFinite)) {
+            mesh.bounds = bounds;
+        }
+
+        return mesh;
+    }
+
+    static addVertex(vertices, stride, point = [0, 0, 0], sourceIndex = 0) {
+        const baseIndex = Mesh.vertexCount(vertices, stride) > 0
+            ? Math.max(0, Math.min(Mesh.vertexCount(vertices, stride) - 1, Number(sourceIndex) | 0))
+            : 0;
+
+        const template = Mesh.vertexCount(vertices, stride) > 0
+            ? Mesh.cloneVertex(vertices, stride, baseIndex)
+            : new Array(stride).fill(0);
+
+        const position = point;
+
+        const normal = [
+            template[Mesh.NORMAL_OFFSET] || 0,
+            template[Mesh.NORMAL_OFFSET + 1] || 0,
+            template[Mesh.NORMAL_OFFSET + 2] || 1,
+        ];
+
+        const uv = [
+            template[Mesh.UV_OFFSET] || 0,
+            template[Mesh.UV_OFFSET + 1] || 0,
+        ];
+
+        const tangent = [
+            template[Mesh.TANGENT_OFFSET] || 1,
+            template[Mesh.TANGENT_OFFSET + 1] || 0,
+            template[Mesh.TANGENT_OFFSET + 2] || 0,
+        ];
+
+        Mesh.pushVertex(vertices, position, normal, uv, tangent);
+
+        return vertices.length / stride - 1;
+    }
+
+    static averageFaceNormal(vertices, indices, stride, faceIndices = []) {
+        const total = [0, 0, 0];
+        let count = 0;
+
+        faceIndices.forEach(faceIndex => {
+            const offset = Math.trunc(Number(faceIndex) || 0) * 3;
+
+            if (offset + 2 >= indices.length) {
+                return;
+            }
+
+            const normal = Mesh.triangleNormal(
+                Mesh.read3(vertices, stride, indices[offset]),
+                Mesh.read3(vertices, stride, indices[offset + 1]),
+                Mesh.read3(vertices, stride, indices[offset + 2]),
+            );
+
+            total[0] += normal[0];
+            total[1] += normal[1];
+            total[2] += normal[2];
+            count += 1;
+        });
+
+        return count > 0 ? Mesh.normalize3(total) : [0, 0, 1];
+    }
+
+    static resetUv(mesh) {
+        if (!mesh?.vertices || !mesh?.stride) {
+            return mesh;
+        }
+
+        const vertices = Mesh.toArray(mesh.vertices);
+        const stride = Math.max(3, Math.trunc(Number(mesh.stride) || Mesh.STRIDE));
+        const count = Mesh.vertexCount(vertices, stride);
+
+        if (stride <= Mesh.UV_OFFSET + 1) {
+            return mesh;
+        }
+
+        const bounds = mesh.bounds || { min: [0, 0, 0], max: [1, 1, 1] };
+        const spanX = Math.max(0.000001, Mesh.toNumber(bounds.max?.[0], 1) - Mesh.toNumber(bounds.min?.[0], 0));
+        const spanY = Math.max(0.000001, Mesh.toNumber(bounds.max?.[1], 1) - Mesh.toNumber(bounds.min?.[1], 0));
+
+        for (let index = 0; index < count; index += 1) {
+            const point = Mesh.read3(vertices, stride, index);
+            const base = index * stride + Mesh.UV_OFFSET;
+            vertices[base] = (point[0] - Mesh.toNumber(bounds.min?.[0], 0)) / spanX;
+            vertices[base + 1] = (point[1] - Mesh.toNumber(bounds.min?.[1], 0)) / spanY;
+        }
+
+        mesh.vertices = new Float32Array(vertices);
+        mesh.meta = {
+            ...(mesh.meta || {}),
+            uvReset: true,
+            uvRevision: Math.trunc(Mesh.toNumber(mesh.meta?.uvRevision, 0)) + 1,
+        };
+
+        return mesh;
+    }
+
+    static toIndexArray(value) {
+        return Mesh.toArray(value)
+            .map(item => Math.max(0, Math.trunc(Number(item) || 0)));
+    }
+
+    static edgeKey(a, b) {
+        const left = Math.max(0, Math.trunc(Number(a) || 0));
+        const right = Math.max(0, Math.trunc(Number(b) || 0));
+
+        return left < right ? `${left}:${right}` : `${right}:${left}`;
+    }
+
+    static parseEdgeKey(key) {
+        return String(key || "")
+            .split(":")
+            .map(value => Math.max(0, Math.trunc(Number(value) || 0)));
+    }
+
+    static unique(values = []) {
+        return Array.from(new Set(values));
+    }
+
+    static vertexCount(vertices, stride = Mesh.STRIDE) {
+        return Math.floor((vertices?.length || 0) / Math.max(1, stride));
+    }
 
     static get(primitive) {
         if (typeof primitive === "object" && primitive?.primitive) {
@@ -397,7 +623,7 @@ export class Mesh {
                 bevelApplied: false,
                 subdivision: normalized.subdivision,
                 subdivisionType: normalized.subdivision_type,
-                shadeSmooth: normalized.shade_smooth
+                shadeSmooth: normalized.shade_smooth,
             },
         };
     }
@@ -1048,14 +1274,6 @@ export class Mesh {
         };
     }
 
-    static createIndexArray(indices) {
-        const maxIndex = indices.reduce((max, index) => Math.max(max, index), 0);
-
-        return maxIndex > 65535
-            ? new Uint32Array(indices)
-            : new Uint16Array(indices);
-    }
-
     static resolveDivisions(settings = {}) {
         const subdivision = Mesh.clampInt(settings.subdivision, 0, 6, 0);
 
@@ -1087,6 +1305,10 @@ export class Mesh {
         };
     }
 
+    static cloneVertex(vertices, stride, index) {
+        return vertices.slice(index * stride, index * stride + stride);
+    }
+
     static pushVertex(vertices, position, normal, uv, tangent) {
         vertices.push(
             position[0], position[1], position[2],
@@ -1096,14 +1318,299 @@ export class Mesh {
         );
     }
 
-    static normalize3(vector) {
+    static pushVertexArray(vertices, stride, template) {
+        vertices.push(...template.slice(0, stride));
+    }
+
+    static normalize3(vector, fallback = [0, 0, 1]) {
         const length = Math.hypot(vector[0], vector[1], vector[2]) || 1;
+
+        if (!isFiniteNumber(length) || length <= 0) {
+            return fallback.slice();
+        }
 
         return [
             vector[0] / length,
             vector[1] / length,
             vector[2] / length,
         ];
+    }
+
+    static midpointVertex(vertices, stride, a, b) {
+        const pa = Mesh.read3(vertices, stride, a, Mesh.POSITION_OFFSET);
+        const pb = Mesh.read3(vertices, stride, b, Mesh.POSITION_OFFSET);
+
+        const na = Mesh.read3(vertices, stride, a, Mesh.NORMAL_OFFSET);
+        const nb = Mesh.read3(vertices, stride, b, Mesh.NORMAL_OFFSET);
+
+        const ta = Mesh.read3(vertices, stride, a, Mesh.TANGENT_OFFSET);
+        const tb = Mesh.read3(vertices, stride, b, Mesh.TANGENT_OFFSET);
+
+        const uva = Mesh.read2(vertices, stride, a, Mesh.UV_OFFSET);
+        const uvb = Mesh.read2(vertices, stride, b, Mesh.UV_OFFSET);
+
+        const pos = [
+            (pa[0] + pb[0]) * 0.5,
+            (pa[1] + pb[1]) * 0.5,
+            (pa[2] + pb[2]) * 0.5,
+        ];
+
+        const normal = [
+            (na[0] + nb[0]) * 0.5,
+            (na[1] + nb[1]) * 0.5,
+            (na[2] + nb[2]) * 0.5,
+        ];
+
+        const tangent = [
+            (ta[0] + tb[0]) * 0.5,
+            (ta[1] + tb[1]) * 0.5,
+            (ta[2] + tb[2]) * 0.5,
+        ];
+
+        const uv = [
+            (uva[0] + uvb[0]) * 0.5,
+            (uva[1] + uvb[1]) * 0.5,
+        ];
+
+        return Mesh.packVertex(pos, normal, uv, tangent);
+    }
+
+    static packVertex(position, normal, uv, tangent) {
+        return [
+            position[0], position[1], position[2],
+            normal[0], normal[1], normal[2],
+            uv[0], uv[1],
+            tangent[0], tangent[1], tangent[2],
+        ];
+    }
+
+    static add3(a, b) {
+        return [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+    }
+
+    static sub3(a, b) {
+        return [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+    }
+
+    static cross3(a, b) {
+        return [
+            a[1] * b[2] - a[2] * b[1],
+            a[2] * b[0] - a[0] * b[2],
+            a[0] * b[1] - a[1] * b[0],
+        ];
+    }
+
+    static triangleNormal(a, b, c) {
+        return Mesh.normalize3(Mesh.cross3(Mesh.sub3(b, a), Mesh.sub3(c, a)));
+    }
+
+    static normalizeEditableMesh(mesh) {
+        if (!mesh?.vertices || !mesh?.indices) {
+            return null;
+        }
+
+        const stride = Math.max(3, Math.trunc(Mesh.toNumber(mesh.stride, Mesh.STRIDE)));
+        const vertices = Mesh.toArray(mesh.vertices).map(value => Mesh.toNumber(value, 0));
+        const indices = Mesh.toIndexArray(mesh.indices);
+        const vertexCount = Mesh.vertexCount(vertices, stride);
+
+        if (vertexCount <= 0 || indices.length < 3) {
+            return null;
+        }
+
+        return { stride, vertices, indices, vertexCount };
+    }
+
+    static buildNeighbors(indices, vertices, stride) {
+        const neighbors = new Map();
+        const addNeighbor = (from, to) => {
+            if (!neighbors.has(from)) {
+                neighbors.set(from, []);
+            }
+            neighbors.get(from).push(Mesh.read3(vertices, stride, to));
+        };
+
+        for (let i = 0; i < indices.length; i += 3) {
+            const a = indices[i];
+            const b = indices[i + 1];
+            const c = indices[i + 2];
+
+            addNeighbor(a, b);
+            addNeighbor(a, c);
+            addNeighbor(b, a);
+            addNeighbor(b, c);
+            addNeighbor(c, a);
+            addNeighbor(c, b);
+        }
+
+        return neighbors;
+    }
+
+    static applyMeshToLayer(layer, mesh, edit, options = {}) {
+        const nextMesh = Mesh.finalizeMesh(mesh, edit, options);
+
+        layer.mesh = nextMesh;
+        layer.geometry = {
+            ...(layer.geometry || {}),
+            ...(nextMesh.settings || {}),
+        };
+        layer.material = {
+            ...(layer.material || {}),
+            mesh: nextMesh,
+        };
+        layer.shader = {
+            ...(layer.shader || {}),
+            mesh: nextMesh,
+        };
+
+        return nextMesh;
+    }
+
+    static makeTransformMatrix(geometry = {}) {
+        return Mesh.buildTransformMatrix(geometry, false);
+    }
+
+    static makeRendererTransformMatrix(geometry = {}) {
+        return Mesh.buildTransformMatrix(geometry, true);
+    }
+
+    static buildTransformMatrix(geometry = {}, renderer = false) {
+        const g = renderer
+            ? CoordinateSystem.sceneToRendererGeometry(geometry || {})
+            : (geometry || {});
+
+        const position = Matrix.translation(
+            Mesh.toNumber(g.position_x, 0),
+            Mesh.toNumber(g.position_y, 0),
+            Mesh.toNumber(g.position_z, 0),
+        );
+
+        const pivot = Matrix.translation(
+            Mesh.toNumber(g.pivot_x, 0),
+            Mesh.toNumber(g.pivot_y, 0),
+            Mesh.toNumber(g.pivot_z, 0),
+        );
+
+        const inversePivot = Matrix.translation(
+            -Mesh.toNumber(g.pivot_x, 0),
+            -Mesh.toNumber(g.pivot_y, 0),
+            -Mesh.toNumber(g.pivot_z, 0),
+        );
+
+        const scale = Matrix.scale(
+            Mesh.toNumber(g.width, 1) * Mesh.toNumber(g.scale_x, 1),
+            Mesh.toNumber(g.height, 1) * Mesh.toNumber(g.scale_y, 1),
+            Mesh.toNumber(g.depth, 1) * Mesh.toNumber(g.scale_z, 1),
+        );
+
+        const rx = Matrix.fromQuaternion(
+            Quaternion.fromAxisAngle(
+                [1, 0, 0],
+                (renderer ? -0.34 : 0) + Mesh.toNumber(g.rotation_x, 0) * Math.PI / 180,
+            )
+        );
+
+        const ry = Matrix.fromQuaternion(
+            Quaternion.fromAxisAngle(
+                [0, 1, 0],
+                Mesh.toNumber(g.rotation_y, 0) * Math.PI / 180,
+            )
+        );
+
+        const rz = Matrix.fromQuaternion(
+            Quaternion.fromAxisAngle(
+                [0, 0, 1],
+                (renderer ? -1 : 1) * Mesh.toNumber(g.rotation_z, 0) * Math.PI / 180,
+            )
+        );
+
+        return position
+            .multiply(pivot)
+            .multiply(rz)
+            .multiply(ry)
+            .multiply(rx)
+            .multiply(scale)
+            .multiply(inversePivot);
+    }
+
+    static transformLocalPointToScene(geometry = {}, point = [0, 0, 0]) {
+        const rendererPoint = Mesh.transformPoint(
+            Mesh.makeRendererTransformMatrix(geometry),
+            point,
+        );
+
+        return CoordinateSystem.rendererToSceneVector(rendererPoint);
+    }
+
+    static transformPoint(matrix, point) {
+        const out = matrix.transformPoint(point, 1);
+        const w = Math.abs(Number(out.w || 1)) > 0.000001 ? Number(out.w || 1) : 1;
+
+        return [out.x / w, out.y / w, out.z / w];
+    }
+
+    static buildTopology(mesh, geometry = {}) {
+        const normalized = Mesh.normalizeEditableMesh(mesh);
+
+        if (!normalized) {
+            return { vertices: [], edges: [], faces: [] };
+        }
+
+        const edgeMap = new Map();
+        const vertices = [];
+        const faces = [];
+
+        for (let index = 0; index < normalized.vertexCount; index += 1) {
+            vertices.push({
+                index,
+                point: Mesh.transformLocalPointToScene(
+                    geometry,
+                    Mesh.read3(normalized.vertices, normalized.stride, index),
+                ),
+            });
+        }
+
+        const addEdge = (a, b) => {
+            const key = Mesh.edgeKey(a, b);
+
+            if (!edgeMap.has(key)) {
+                edgeMap.set(key, { key, indices: Mesh.parseEdgeKey(key) });
+            }
+        };
+
+        for (let offset = 0; offset < normalized.indices.length; offset += 3) {
+            const a = normalized.indices[offset];
+            const b = normalized.indices[offset + 1];
+            const c = normalized.indices[offset + 2];
+
+            if (![a, b, c].every(index => index >= 0 && index < normalized.vertexCount)) {
+                continue;
+            }
+
+            addEdge(a, b);
+            addEdge(b, c);
+            addEdge(c, a);
+            faces.push({
+                index: offset / 3,
+                indices: [a, b, c],
+                points: [vertices[a].point, vertices[b].point, vertices[c].point],
+            });
+        }
+
+        (Array.isArray(mesh?.meta?.editEdges) ? mesh.meta.editEdges : []).forEach(edge => {
+            const [a, b] = Array.isArray(edge) ? edge : Mesh.parseEdgeKey(edge);
+
+            if (a !== b && a >= 0 && b >= 0 && a < normalized.vertexCount && b < normalized.vertexCount) {
+                addEdge(a, b);
+            }
+        });
+
+        const edges = Array.from(edgeMap.values()).map(edge => ({
+            ...edge,
+            points: [vertices[edge.indices[0]]?.point, vertices[edge.indices[1]]?.point].filter(Boolean),
+        }));
+
+        return { vertices, edges, faces };
     }
 
     static computeBounds(vertices) {
@@ -1139,7 +1646,7 @@ export class Mesh {
     static toNumber(value, fallback = 0) {
         const number = Number(value);
 
-        return Number.isFinite(number) ? number : fallback;
+        return isFiniteNumber(number) ? number : fallback;
     }
 
     static clampNumber(value, min, max, fallback = min) {
@@ -1151,7 +1658,7 @@ export class Mesh {
     static clampInt(value, min, max, fallback = min) {
         const number = Math.trunc(Number(value));
 
-        if (!Number.isFinite(number)) {
+        if (!isFiniteNumber(number)) {
             return fallback;
         }
 

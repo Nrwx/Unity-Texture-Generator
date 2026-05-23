@@ -2,6 +2,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import { eventRegister } from "@/dataLayer/event";
 import {clamp, lerp} from "@/utils/tools";
 import {applyEase, easeIn, easeInOut, easeOut, linear} from "@/utils/animation";
+import {isFiniteNumber, number} from "@/utils/math";
 
 const DEFAULT_MATRIX = Object.freeze({
     a: 1, b: 0, c: 0, d: 1,
@@ -10,13 +11,13 @@ const DEFAULT_MATRIX = Object.freeze({
 });
 
 const normalizeMatrix = (m = {}) => ({
-    a: Number.isFinite(m.a) ? m.a : 1,
-    b: Number.isFinite(m.b) ? m.b : 0,
-    c: Number.isFinite(m.c) ? m.c : 0,
-    d: Number.isFinite(m.d) ? m.d : 1,
-    x: Number.isFinite(m.x) ? m.x : 0,
-    y: Number.isFinite(m.y) ? m.y : 0,
-    rotate: Number.isFinite(m.rotate) ? m.rotate : 0
+    a: isFiniteNumber(m.a) ? m.a : 1,
+    b: isFiniteNumber(m.b) ? m.b : 0,
+    c: isFiniteNumber(m.c) ? m.c : 0,
+    d: isFiniteNumber(m.d) ? m.d : 1,
+    x: isFiniteNumber(m.x) ? m.x : 0,
+    y: isFiniteNumber(m.y) ? m.y : 0,
+    rotate: isFiniteNumber(m.rotate) ? m.rotate : 0
 });
 
 const renderPipelineTransform = matrix => (
@@ -44,10 +45,10 @@ const applyEasing = (factor, easeType, bezier) => {
 
 export function imageModel(props, emit) {
     const containerRef = ref(null);
-    const localTime = ref(Number.isFinite(props.timelineTime) ? props.timelineTime : 0);
+    const localTime = ref(isFiniteNumber(props.timelineTime) ? props.timelineTime : 0);
     const exportTimeSeconds = computed(() => (
-        Number.isFinite(Number(props.exportTimeSeconds))
-            ? Number(props.exportTimeSeconds)
+        isFiniteNumber(Number(props.exportTimeSeconds))
+            ? number(props.exportTimeSeconds)
             : 0
     ));
 
@@ -299,7 +300,7 @@ export function imageModel(props, emit) {
     watch(
         () => props.timelineTime,
         (value) => {
-            if (Number.isFinite(value)) localTime.value = value;
+            if (isFiniteNumber(value)) localTime.value = value;
         },
         { immediate: true }
     );

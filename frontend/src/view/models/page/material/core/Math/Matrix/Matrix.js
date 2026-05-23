@@ -133,6 +133,17 @@ export class Matrix {
         ]);
     }
 
+    static transformDirection(matrix, value) {
+        const v = Vector.from(value);
+        const m = Matrix.from(matrix).data;
+
+        return new Vector(
+            m[0] * v.x + m[4] * v.y + m[8] * v.z,
+            m[1] * v.x + m[5] * v.y + m[9] * v.z,
+            m[2] * v.x + m[6] * v.y + m[10] * v.z,
+        );
+    }
+
     identity() {
         this.data.set([
             1, 0, 0, 0,
@@ -265,17 +276,6 @@ export class Matrix {
             z: m[2] * x + m[6] * y + m[10] * z + m[14] * w,
             w: m[3] * x + m[7] * y + m[11] * z + m[15] * w,
         };
-    }
-
-    transformDirection(value) {
-        const v = Vector.from(value);
-        const m = this.data;
-
-        return new Vector(
-            m[0] * v.x + m[4] * v.y + m[8] * v.z,
-            m[1] * v.x + m[5] * v.y + m[9] * v.z,
-            m[2] * v.x + m[6] * v.y + m[10] * v.z,
-        );
     }
 
     normalMatrix3() {

@@ -20,6 +20,7 @@ import {
 import {normalizeTextureSize} from "@/view/models/page/material/settings/model";
 import {timelineStates} from "@/dataLayer/state";
 import {timelineData} from "@/models/timeline/config/model";
+import {isFiniteNumber} from "@/utils/math";
 
 
 const normalizeNodeSettings = node => Node.normalizeSettings(node);
@@ -29,14 +30,14 @@ const getNodeCategoryChip = node => Node.getGroup(node);
 const getShaderNodeIcon = node => Node.getIcon(node);
 
 const normalizeTextureSettings = (settings = {}) => {
-    const rawStrength = Number.isFinite(Number(settings.strength)) ? Number(settings.strength) : 1;
+    const rawStrength = isFiniteNumber(Number(settings.strength)) ? Number(settings.strength) : 1;
     const strength = settings.invert === true && rawStrength > 0 ? -rawStrength : rawStrength;
 
     return {
         channel: TEXTURE_CHANNEL_OPTIONS.includes(settings.channel) ? settings.channel : getTextureSettingDefaults(settings.slot || settings.target_slot).channel,
         color_mode: TEXTURE_COLOR_MODE_OPTIONS.includes(settings.color_mode) ? settings.color_mode : getTextureSettingDefaults(settings.slot || settings.target_slot).color_mode,
         strength,
-        offset: Number.isFinite(Number(settings.offset)) ? Number(settings.offset) : 0,
+        offset: isFiniteNumber(Number(settings.offset)) ? Number(settings.offset) : 0,
         invert: false,
     };
 };
@@ -716,7 +717,7 @@ export function materialEditorModel(props, emit) {
     const setMaterialTimelineTime = value => {
         const next = Number(value);
 
-        if (!Number.isFinite(next)) {
+        if (!isFiniteNumber(next)) {
             return;
         }
 
@@ -762,7 +763,7 @@ export function materialEditorModel(props, emit) {
                 time: Number(frame?.time ?? 0),
                 value: getMaterialKeyframeValue(node, fieldKey, frame),
             }))
-            .filter(item => Number.isFinite(item.time) && item.value !== undefined)
+            .filter(item => isFiniteNumber(item.time) && item.value !== undefined)
             .sort((a, b) => a.time - b.time);
 
         if (!frames.length) {
@@ -1984,7 +1985,7 @@ export function materialEditorModel(props, emit) {
     const getSurfaceSlotOffset = key => {
         const node = getSurfaceSlotSourceNode(key);
 
-        if (node?.settings && Number.isFinite(Number(node.settings.offset))) {
+        if (node?.settings && isFiniteNumber(Number(node.settings.offset))) {
             return Number(node.settings.offset);
         }
 
@@ -1996,7 +1997,7 @@ export function materialEditorModel(props, emit) {
 
         values.bitmap_maps[key] = {
             ...values.bitmap_maps[key],
-            offset: Number.isFinite(offset) ? offset : 0,
+            offset: isFiniteNumber(offset) ? offset : 0,
         };
 
         const node = getSurfaceSlotSourceNode(key);
@@ -2713,8 +2714,8 @@ export function materialEditorModel(props, emit) {
             return [
                 settings.name || settings.layer_id || settings.url || settings.bitmap || "Bitmap",
                 settings.channel ? `ch:${settings.channel}` : "",
-                Number.isFinite(Number(settings.strength)) ? `str:${Number(settings.strength).toFixed(2)}` : "",
-                Number.isFinite(Number(settings.offset)) ? `off:${Number(settings.offset).toFixed(2)}` : "",
+                isFiniteNumber(Number(settings.strength)) ? `str:${Number(settings.strength).toFixed(2)}` : "",
+                isFiniteNumber(Number(settings.offset)) ? `off:${Number(settings.offset).toFixed(2)}` : "",
             ].filter(Boolean).join(" · ");
         }
 
@@ -2726,8 +2727,8 @@ export function materialEditorModel(props, emit) {
             return [
                 `${groups.length} textures`,
                 settings.channel ? `ch:${settings.channel}` : "",
-                Number.isFinite(Number(settings.strength)) ? `str:${Number(settings.strength).toFixed(2)}` : "",
-                Number.isFinite(Number(settings.offset)) ? `off:${Number(settings.offset).toFixed(2)}` : "",
+                isFiniteNumber(Number(settings.strength)) ? `str:${Number(settings.strength).toFixed(2)}` : "",
+                isFiniteNumber(Number(settings.offset)) ? `off:${Number(settings.offset).toFixed(2)}` : "",
             ].filter(Boolean).join(" · ");
         }
 
@@ -2804,7 +2805,7 @@ export function materialEditorModel(props, emit) {
         if (nodeKey === "texture.gradient") {
             return [
                 settings.type || "Linear",
-                Number.isFinite(Number(settings.factor)) ? `factor:${Number(settings.factor).toFixed(2)}` : "",
+                isFiniteNumber(Number(settings.factor)) ? `factor:${Number(settings.factor).toFixed(2)}` : "",
             ].filter(Boolean).join(" · ");
         }
 
@@ -2902,7 +2903,7 @@ export function materialEditorModel(props, emit) {
 
                     const formatted = Array.isArray(value)
                         ? value.slice(0, 3).map(item => Number(item || 0).toFixed(2)).join(",")
-                        : Number.isFinite(Number(value))
+                        : isFiniteNumber(Number(value))
                             ? Number(value).toFixed(2)
                             : value;
 

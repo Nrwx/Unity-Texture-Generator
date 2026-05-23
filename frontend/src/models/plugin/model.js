@@ -1,4 +1,5 @@
 import { computed, onBeforeUnmount, ref, watch } from "vue";
+import {isFiniteNumber, number} from "@/utils/math";
 
 export const pluginProps = {
     plugins: {
@@ -110,7 +111,7 @@ export function pluginModel(props, emit) {
 
     const hasMissingOrPartialFiles = (plugin) => {
         const status = plugin?.status || {};
-        return Number(status.missingFileCount || 0) > 0 || Number(status.partialFileCount || 0) > 0;
+        return number(status.missingFileCount || 0) > 0 || number(status.partialFileCount || 0) > 0;
     };
 
     const isInstalled = (plugin) => {
@@ -239,9 +240,9 @@ export function pluginModel(props, emit) {
 
     const trackingProgress = (plugin) => {
         const status = plugin?.status || {};
-        const explicit = Number(status.progress ?? 0);
+        const explicit = number(status.progress ?? 0);
 
-        if (!Number.isNaN(explicit) && explicit > 0) {
+        if (!isFiniteNumber(explicit) && explicit > 0) {
             return Math.max(0, Math.min(100, Math.round(explicit)));
         }
 
@@ -578,7 +579,7 @@ export function pluginModel(props, emit) {
     const formatDuration = (seconds) => {
         const value = Math.max(0, Math.floor(Number(seconds || 0)));
 
-        if (!Number.isFinite(value) || value <= 0) return "";
+        if (!isFiniteNumber(value) || value <= 0) return "";
 
         const d = Math.floor(value / 86400);
         const h = Math.floor((value % 86400) / 3600);
@@ -595,7 +596,7 @@ export function pluginModel(props, emit) {
         const status = plugin?.status || {};
         const seconds = Number(status.networkEtaSeconds ?? status.etaSeconds);
 
-        if (!Number.isFinite(seconds) || seconds <= 0) {
+        if (!isFiniteNumber(seconds) || seconds <= 0) {
             return "";
         }
 

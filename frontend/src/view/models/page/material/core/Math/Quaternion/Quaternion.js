@@ -1,5 +1,6 @@
 import {Vector} from "@/view/models/page/material/core/Math/Vector/Vector";
 import {Matrix} from "@/view/models/page/material/core/Math/Matrix/Matrix";
+import {isFiniteNumber} from "@/utils/math";
 
 export class Quaternion {
     constructor(x = 0, y = 0, z = 0, w = 1) {
@@ -179,7 +180,7 @@ export class Quaternion {
 
     static number(value, fallback = 0) {
         const number = Number(value);
-        return Number.isFinite(number) ? number : fallback;
+        return isFiniteNumber(number) ? number : fallback;
     }
 
     lengthSq() {
@@ -294,17 +295,18 @@ export class Quaternion {
         return this;
     }
 
-    rotateVector(value) {
-        const vector = value instanceof Vector ? value : new Vector(value);
+    static rotateVector(quaternion, value) {
+        const q = Quaternion.from(quaternion);
+        const vector = value instanceof Vector ? value.clone() : new Vector(value);
 
         const vx = vector.x;
         const vy = vector.y;
         const vz = vector.z;
 
-        const qx = this.x;
-        const qy = this.y;
-        const qz = this.z;
-        const qw = this.w;
+        const qx = q.x;
+        const qy = q.y;
+        const qz = q.z;
+        const qw = q.w;
 
         const tx = 2 * (qy * vz - qz * vy);
         const ty = 2 * (qz * vx - qx * vz);

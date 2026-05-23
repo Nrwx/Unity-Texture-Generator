@@ -1,6 +1,7 @@
 import {nextTick} from "vue";
 import {screenshot} from "@/utils/screenshot";
 import {Accumulator} from "@/view/models/page/material/core/Accumulator/Accumulator";
+import {isFiniteNumber, number} from "@/utils/math";
 
 const optionValue = value => value && typeof value === "object" && "value" in value ? value.value : value;
 const TIMELINE_UNITS_PER_SECOND = 60;
@@ -38,12 +39,12 @@ const startExportQueueStatus = async (
 };
 
 const toNumberSafe = (value, fallback = 0) => {
-    const number = Number(value);
-    return Number.isFinite(number) ? number : fallback;
+    const n = number(value);
+    return isFiniteNumber(n) ? n : fallback;
 };
 
 const buildTimelineExportPlan = ({ start, end, fps, durationSeconds: requestedDurationSeconds = 0 }) => {
-    const safeFps = Math.max(1, Math.min(Number(fps) || 30, 240));
+    const safeFps = Math.max(1, Math.min(number(fps) || 30, 240));
     const timelineStart = toNumberSafe(start, 0);
     const timelineEnd = toNumberSafe(end, timelineStart);
     const direction = timelineEnd >= timelineStart ? 1 : -1;
@@ -91,7 +92,7 @@ const captureCanvasFrame = async (route, resolution) => {
         throw new Error("Canvas fuer MP4-Export nicht gefunden.");
     }
 
-    const targetWidth = Math.max(64, Number(resolution) || element.clientWidth || 1024);
+    const targetWidth = Math.max(64, number(resolution) || element.clientWidth || 1024);
     const scale = element.clientWidth > 0 ? targetWidth / element.clientWidth : 1;
 
     return await screenshot(element, {

@@ -383,7 +383,7 @@ export const windowStateEvent = (route) => ({
             // MaterialEditor bekommt Vorrang vor Animator/Main.
             WebGLRuntime.pauseScope("main-canvas");
 
-            if (route.windowStates.animator.value) {
+            if (route.windowStates.orbit.value) {
                 WebGLRuntime.destroyScope("animator");
                 route.emit('layer:select', [])
             }
@@ -392,7 +392,7 @@ export const windowStateEvent = (route) => ({
 
         WebGLRuntime.destroyScope("material-preview");
 
-        if (route.windowStates.animator.value) {
+        if (route.windowStates.orbit.value) {
             if(route.tempData.lastSelected.value.length) route.emit('layer:select', route.tempData.lastSelected.value);
         } else {
             WebGLRuntime.resumeScope("main-canvas");
@@ -405,8 +405,8 @@ export const windowStateEvent = (route) => ({
         route.loadingStates.material.value = false;
     },
 
-    "animator:state": async (payload) => {
-        route.windowStates.animator.value = payload;
+    "orbit:state": async (payload) => {
+        route.windowStates.orbit.value = payload;
         if(!payload) {await route.emit("event:listener", {resume: true, id: 'listener:grid'})}
         if (payload) {
             await route.emit("event:listener", {pause: true, id: 'listener:grid'})

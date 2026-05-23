@@ -1,107 +1,67 @@
 import { Intersection } from "@/view/models/page/material/core/Ray/Intersection";
 import { Matrix } from "@/view/models/page/material/core/Math/Matrix/Matrix";
-import { sceneToRendererVector } from "@/models/layer/3D/coordinateSystem";
+import { Vector } from "@/view/models/page/material/core/Math/Vector/Vector";
+import { CoordinateSystem } from "@/models/layer/3D/core/coordinate/model";
+import { clamp } from "@/utils/tools";
+import {AXIS_VECTORS, PLANE_AXES, number, isFiniteNumber} from "@/utils/math";
 
-const toNumber = (value, fallback = 0) => {
-    const number = Number(value);
+const axisColor = axis =>
+    axis === "x"
+        ? [1, 0.15, 0.13, 1]
+        : axis === "y"
+            ? [0.25, 1, 0.45, 1]
+            : [0.35, 0.58, 1, 1];
 
-    return Number.isFinite(number) ? number : fallback;
-};
-const axisVectors = Object.freeze({ x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] });
-const planeAxes = Object.freeze({ xy: [[1,0,0],[0,1,0]], xz: [[1,0,0],[0,0,1]], yz: [[0,1,0],[0,0,1]] });
-const add = (a, b) => [a[0]+b[0], a[1]+b[1], a[2]+b[2]];
-const sub = (a, b) => [a[0]-b[0], a[1]-b[1], a[2]-b[2]];
-const mul = (a, s) => [a[0]*s, a[1]*s, a[2]*s];
-const len = a => Math.hypot(a[0], a[1], a[2]);
-
-const toArray3 = (value, fallback = [0, 0, 0]) => {
-    if (Array.isArray(value) || ArrayBuffer.isView(value)) {
-        return [
-            toNumber(value[0], fallback[0]),
-            toNumber(value[1], fallback[1]),
-            toNumber(value[2], fallback[2]),
-        ];
-    }
-
-    if (value && typeof value === "object") {
-        const source = value.data || value;
-
-        return [
-            toNumber(source.x ?? source[0], fallback[0]),
-            toNumber(source.y ?? source[1], fallback[1]),
-            toNumber(source.z ?? source[2], fallback[2]),
-        ];
-    }
-
-    return [fallback[0], fallback[1], fallback[2]];
-};
-
-const projectPointSource = (point, rendererSpace = false) => (
+const projectPointSource = (point, rendererSpace = false) =>
     rendererSpace === true
-        ? sceneToRendererVector(point)
-        : toArray3(point)
-);
+        ? CoordinateSystem.sceneToRendererVector(point)
+        : Vector.from(point, [0, 0, 0]).toArray();
 
 const pickPointRadius = (point, options = {}) => {
-    const extra = Math.max(0, toNumber(options.pointPixelExtra, 2));
+    const extra = Math.max(0, number(options.pointPixelExtra, 2));
 
-    if (Number.isFinite(Number(point?.screenRadius))) {
+    if (isFiniteNumber(point?.screenRadius)) {
         return Math.max(0, Number(point.screenRadius)) + extra;
     }
 
     const id = String(point?.id || "");
 
-    if (id.includes("scale")) {
-        return 7.5 + extra;
-    }
+    if (id.includes("scale")) return 7.5 + extra;
+    if (id.includes("translate")) return 6.75 + extra;
+    if (id.includes("pivot")) return 5.5 + extra;
 
-    if (id.includes("translate")) {
-        return 6.75 + extra;
-    }
-
-    if (id.includes("pivot")) {
-        return 5.5 + extra;
-    }
-
-    return Math.max(4, toNumber(options.pointPixelThreshold, 6)) + extra;
+    return clamp(number(options.pointPixelThreshold, 6), 4, Infinity) + extra;
 };
 
 const createProjector = (camera, viewport = { width: 1, height: 1 }, options = {}) => {
-    const matrixSource = camera?.viewProjectionMatrix || camera?.viewProj || camera?.matrix;
+    const matrixSource =
+        camera?.viewProjectionMatrix ||
+        camera?.viewProj ||
+        camera?.matrix;
 
-    if (!matrixSource) {
-        return null;
-    }
+    if (!matrixSource) return null;
 
-    const matrix = matrixSource instanceof Matrix
-        ? matrixSource
-        : Matrix.from(matrixSource);
-    const m = matrix.data;
-    const width = Math.max(1, viewport.width);
-    const height = Math.max(1, viewport.height);
+    const matrix = Matrix.from(matrixSource);
+
+    const width = clamp(number(viewport.width, 1), 1, Infinity);
+    const height = clamp(number(viewport.height, 1), 1, Infinity);
+
     const rendererSpace = options.rendererSpace === true;
 
     return point => {
         const source = projectPointSource(point, rendererSpace);
-        const x = source[0];
-        const y = source[1];
-        const z = source[2];
-        const clipX = m[0] * x + m[4] * y + m[8] * z + m[12];
-        const clipY = m[1] * x + m[5] * y + m[9] * z + m[13];
-        const clipZ = m[2] * x + m[6] * y + m[10] * z + m[14];
-        const clipW = m[3] * x + m[7] * y + m[11] * z + m[15];
-        const invW = Math.abs(clipW) > 1e-7 ? 1 / clipW : 1;
-        const xNdc = clipX * invW;
-        const yNdc = clipY * invW;
+        const projected = matrix.transformPoint(source, 1);
 
-        if (!Number.isFinite(xNdc) || !Number.isFinite(yNdc)) {
-            return null;
-        }
+        const w = projected.w;
+        const invW = Math.abs(w) < 1e-7 ? 0 : 1 / w;
+
+        const xNdc = projected.x * invW;
+        const yNdc = projected.y * invW;
 
         return {
-            x: (xNdc * 0.5 + 0.5) * width,
-            y: (1 - (yNdc * 0.5 + 0.5)) * height,
-            z: clipZ * invW,
+            x: (xNdc + 1) * 0.5 * width,
+            y: (1 - (yNdc + 1) * 0.5) * height,
+            z: projected.z * invW,
         };
     };
 };
@@ -118,7 +78,12 @@ const distanceToScreenSegment = (point, a, b) => {
         };
     }
 
-    const t = Math.max(0, Math.min(1, ((point.x - a.x) * abx + (point.y - a.y) * aby) / lenSq));
+    const t = clamp(
+        ((point.x - a.x) * abx + (point.y - a.y) * aby) / lenSq,
+        0,
+        1
+    );
+
     const x = a.x + abx * t;
     const y = a.y + aby * t;
 
@@ -129,37 +94,27 @@ const distanceToScreenSegment = (point, a, b) => {
 };
 
 const pointInScreenPolygon = (point, polygon = []) => {
-    if (polygon.length < 3) {
-        return false;
-    }
+    if (polygon.length < 3) return false;
 
     let inside = false;
 
-    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) {
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
         const pi = polygon[i];
         const pj = polygon[j];
-        const intersects = ((pi.y > point.y) !== (pj.y > point.y)) &&
-            (point.x < ((pj.x - pi.x) * (point.y - pi.y)) / Math.max(1e-7, pj.y - pi.y) + pi.x);
 
-        if (intersects) {
-            inside = !inside;
-        }
+        const intersects =
+            (pi.y > point.y) !== (pj.y > point.y) &&
+            point.x <
+            ((pj.x - pi.x) * (point.y - pi.y)) /
+            Math.max(1e-7, pj.y - pi.y) +
+            pi.x;
+
+        if (intersects) inside = !inside;
+        i++;
     }
 
     return inside;
 };
-
-const lerp3 = (a, b, t) => [
-    a[0] + (b[0] - a[0]) * t,
-    a[1] + (b[1] - a[1]) * t,
-    a[2] + (b[2] - a[2]) * t,
-];
-
-const pointToArray = value => ([
-    toNumber(value?.x ?? value?.[0], 0),
-    toNumber(value?.y ?? value?.[1], 0),
-    toNumber(value?.z ?? value?.[2], 0),
-]);
 
 const ringPoint = (ring, angle) => {
     const origin = ring.origin;
@@ -178,91 +133,185 @@ const ringPoint = (ring, angle) => {
     return [origin[0] + cos * radius, origin[1] + sin * radius, origin[2]];
 };
 
+const createAxisLine = (origin, dir, size, axis, tool) => {
+    const tip = Vector.add(origin, Vector.scale(dir, size).toArray()).toArray();
+
+    return {
+        line: {
+            a: origin,
+            b: tip,
+            color: axisColor(axis),
+            id: `${tool}:${axis}`,
+            axis,
+            tool,
+            width: tool === "scale" ? 1.55 : 1.65,
+        },
+        point: {
+            id: `${tool === "translate" ? "translate-tip" : "scale-box"}:${axis}`,
+            axis,
+            tool,
+            point: tip,
+            radius: Math.max(size * (tool === "scale" ? 0.28 : 0.26), 0.16),
+        },
+    };
+};
+
 export class GizmoGeometry {
     static originFromGeometry(geometry = {}) {
         return [
-            toNumber(geometry.position_x, 0) + toNumber(geometry.pivot_x, 0),
-            toNumber(geometry.position_y, 0) + toNumber(geometry.pivot_y, 0),
-            toNumber(geometry.position_z, 0) + toNumber(geometry.pivot_z, 0),
+            number(geometry.position_x, 0) + number(geometry.pivot_x, 0),
+            number(geometry.position_y, 0) + number(geometry.pivot_y, 0),
+            number(geometry.position_z, 0) + number(geometry.pivot_z, 0),
         ];
     }
 
     static sizeFromGeometry(geometry = {}, fallback = 0.85) {
-        const sx = Math.abs(toNumber(geometry.width, 1) * toNumber(geometry.scale_x, 1));
-        const sy = Math.abs(toNumber(geometry.height, 1) * toNumber(geometry.scale_y, 1));
-        const sz = Math.abs(toNumber(geometry.depth, 1) * toNumber(geometry.scale_z, 1));
+        const sx = Math.abs(number(geometry.width, 1) * number(geometry.scale_x, 1));
+        const sy = Math.abs(number(geometry.height, 1) * number(geometry.scale_y, 1));
+        const sz = Math.abs(number(geometry.depth, 1) * number(geometry.scale_z, 1));
+
         const maxDim = Math.max(sx, sy, sz, 0.25);
         return Math.max(0.18, Math.min(0.92, maxDim * 0.48 || fallback));
     }
 
     static build({
-        geometry = {},
-        origin = null,
-        size = null,
-        tool = "translate",
-        renderPlaneHandles = false,
-        showAxisHandles = true,
-        showRotateRings = true,
-        showScaleHandles = true,
-        showPivot = true,
-        showAxisGuide = false,
-        activeAxis = "free",
-    } = {}) {
-        const resolvedOrigin = origin ? pointToArray(origin) : GizmoGeometry.originFromGeometry(geometry);
-        const resolvedSize = Math.max(0.16, Math.min(0.92, toNumber(size, GizmoGeometry.sizeFromGeometry(geometry))));
+                     geometry = {},
+                     origin = null,
+                     size = null,
+                     tool = "translate",
+                     renderPlaneHandles = false,
+                     showAxisHandles = true,
+                     showRotateRings = true,
+                     showScaleHandles = true,
+                     showPivot = true,
+                     showAxisGuide = false,
+                     activeAxis = "free",
+                 } = {}) {
+        const resolvedOrigin = origin
+            ? Vector.from(origin, [0, 0, 0]).toArray()
+            : GizmoGeometry.originFromGeometry(geometry);
+
+        const resolvedSize = clamp(
+            number(size, GizmoGeometry.sizeFromGeometry(geometry)),
+            0.16,
+            0.92
+        );
+
+        const activeTool = String(tool || "translate").toLowerCase();
+
         const lines = [];
         const planes = [];
         const rings = [];
         const points = [];
-        const pushLine = (a, b, color, id, axis, lineTool = "translate", width = 1) => lines.push({ a, b, color, id, axis, tool: lineTool, width });
-        const activeTool = String(tool || "translate").toLowerCase();
 
-        if (showAxisHandles !== false && (activeTool === "translate" || activeTool === "pivot")) {
-            Object.entries(axisVectors).forEach(([axis, dir]) => {
-                const tip = add(resolvedOrigin, mul(dir, resolvedSize));
-                pushLine(resolvedOrigin, tip, axis === "x" ? [1,0.15,0.13,1] : axis === "y" ? [0.25,1,0.45,1] : [0.35,0.58,1,1], `translate:${axis}`, axis, "translate", 1.65);
-                points.push({ id: `translate-tip:${axis}`, axis, tool: "translate", point: tip, radius: Math.max(resolvedSize * 0.26, 0.16) });
-            });
+        const pushLine = (a, b, color, id, axis, lineTool = "translate", width = 1) => {
+            lines.push({ a, b, color, id, axis, tool: lineTool, width });
+        };
+
+        const addAxisHandle = (axis, dir, sizeScale = 1, toolName = "translate") => {
+            const { line, point } = createAxisLine(
+                resolvedOrigin,
+                dir,
+                resolvedSize * sizeScale,
+                axis,
+                toolName
+            );
+
+            pushLine(line.a, line.b, line.color, line.id, line.axis, line.tool, line.width);
+            points.push(point);
+        };
+
+        if (showAxisHandles && (activeTool === "translate" || activeTool === "pivot")) {
+            Object.entries(AXIS_VECTORS).forEach(([axis, dir]) =>
+                addAxisHandle(axis, dir, 1, "translate")
+            );
         }
 
-        if (renderPlaneHandles === true && activeTool === "translate") {
-            Object.entries(planeAxes).forEach(([axis, [u, v]]) => {
+        if (renderPlaneHandles && activeTool === "translate") {
+            Object.entries(PLANE_AXES).forEach(([axis, [u, v]]) => {
                 const s = resolvedSize * 0.26;
-                const p0 = add(resolvedOrigin, add(mul(u, s), mul(v, s)));
-                const p1 = add(resolvedOrigin, add(mul(u, s * 1.7), mul(v, s)));
-                const p2 = add(resolvedOrigin, add(mul(u, s * 1.7), mul(v, s * 1.7)));
-                const p3 = add(resolvedOrigin, add(mul(u, s), mul(v, s * 1.7)));
+
+                const p0 = Vector.add(resolvedOrigin,
+                    Vector.add(Vector.scale(u, s).toArray(),
+                        Vector.scale(v, s).toArray()).toArray()
+                ).toArray();
+
+                const p1 = Vector.add(resolvedOrigin,
+                    Vector.add(Vector.scale(u, s * 1.7).toArray(),
+                        Vector.scale(v, s).toArray()).toArray()
+                ).toArray();
+
+                const p2 = Vector.add(resolvedOrigin,
+                    Vector.add(Vector.scale(u, s * 1.7).toArray(),
+                        Vector.scale(v, s * 1.7).toArray()).toArray()
+                ).toArray();
+
+                const p3 = Vector.add(resolvedOrigin,
+                    Vector.add(Vector.scale(u, s).toArray(),
+                        Vector.scale(v, s * 1.7).toArray()).toArray()
+                ).toArray();
+
                 planes.push({ id: `plane:${axis}`, axis, tool: "translate", points: [p0, p1, p2, p3] });
-                pushLine(p0, p1, [1,1,1,0.45], `plane-line:${axis}:0`, axis, "translate", 1);
-                pushLine(p1, p2, [1,1,1,0.45], `plane-line:${axis}:1`, axis, "translate", 1);
-                pushLine(p2, p3, [1,1,1,0.45], `plane-line:${axis}:2`, axis, "translate", 1);
-                pushLine(p3, p0, [1,1,1,0.45], `plane-line:${axis}:3`, axis, "translate", 1);
+
+                pushLine(p0, p1, [1, 1, 1, 0.45], `plane-line:${axis}:0`, axis, "translate", 1);
+                pushLine(p1, p2, [1, 1, 1, 0.45], `plane-line:${axis}:1`, axis, "translate", 1);
+                pushLine(p2, p3, [1, 1, 1, 0.45], `plane-line:${axis}:2`, axis, "translate", 1);
+                pushLine(p3, p0, [1, 1, 1, 0.45], `plane-line:${axis}:3`, axis, "translate", 1);
             });
         }
 
-        if (showRotateRings !== false && activeTool === "rotate") {
+        if (showRotateRings && activeTool === "rotate") {
             ["x", "y", "z"].forEach(axis => {
-                rings.push({ id: `rotate:${axis}`, axis, tool: "rotate", origin: resolvedOrigin, normal: axisVectors[axis], radius: resolvedSize * 0.88 });
+                rings.push({
+                    id: `rotate:${axis}`,
+                    axis,
+                    tool: "rotate",
+                    origin: resolvedOrigin,
+                    normal: AXIS_VECTORS[axis],
+                    radius: resolvedSize * 0.88,
+                });
             });
         }
 
-        if (showScaleHandles !== false && activeTool === "scale") {
-            Object.entries(axisVectors).forEach(([axis, dir]) => {
-                const tip = add(resolvedOrigin, mul(dir, resolvedSize * 0.82));
-                pushLine(resolvedOrigin, tip, axis === "x" ? [1,0.15,0.13,1] : axis === "y" ? [0.25,1,0.45,1] : [0.35,0.58,1,1], `scale:${axis}`, axis, "scale", 1.55);
-                points.push({ id: `scale-box:${axis}`, axis, tool: "scale", point: tip, radius: Math.max(resolvedSize * 0.28, 0.16) });
+        if (showScaleHandles && activeTool === "scale") {
+            Object.entries(AXIS_VECTORS).forEach(([axis, dir]) =>
+                addAxisHandle(axis, dir, 0.82, "scale")
+            );
+
+            points.push({
+                id: "scale:free",
+                axis: "free",
+                tool: "scale",
+                point: Vector.add(resolvedOrigin,
+                    [resolvedSize * 0.32, resolvedSize * 0.32, resolvedSize * 0.32]
+                ).toArray(),
+                radius: Math.max(resolvedSize * 0.26, 0.15),
             });
-            points.push({ id: "scale:free", axis: "free", tool: "scale", point: add(resolvedOrigin, [resolvedSize * 0.32, resolvedSize * 0.32, resolvedSize * 0.32]), radius: Math.max(resolvedSize * 0.26, 0.15) });
         }
 
-        if (showPivot !== false) {
-            points.push({ id: "pivot:free", axis: "free", tool: "pivot", point: resolvedOrigin, radius: Math.max(resolvedSize * 0.24, 0.14) });
+        if (showPivot) {
+            points.push({
+                id: "pivot:free",
+                axis: "free",
+                tool: "pivot",
+                point: resolvedOrigin,
+                radius: Math.max(resolvedSize * 0.24, 0.14),
+            });
         }
 
-        if (showAxisGuide && activeAxis && activeAxis !== "free" && axisVectors[activeAxis]) {
-            const dir = axisVectors[activeAxis];
+        if (showAxisGuide && activeAxis && activeAxis !== "free" && AXIS_VECTORS[activeAxis]) {
+            const dir = AXIS_VECTORS[activeAxis];
             const guide = resolvedSize * 3.0;
-            pushLine(add(resolvedOrigin, mul(dir, -guide)), add(resolvedOrigin, mul(dir, guide)), [1, 1, 1, 0.32], `axis-guide:${activeAxis}`, activeAxis, "guide", 0.7);
+
+            pushLine(
+                Vector.add(resolvedOrigin, Vector.scale(dir, -guide).toArray()).toArray(),
+                Vector.add(resolvedOrigin, Vector.scale(dir, guide).toArray()).toArray(),
+                [1, 1, 1, 0.32],
+                `axis-guide:${activeAxis}`,
+                activeAxis,
+                "guide",
+                0.7
+            );
         }
 
         return { origin: resolvedOrigin, size: resolvedSize, lines, planes, rings, points };
@@ -270,48 +319,95 @@ export class GizmoGeometry {
 
     static pick(ray, gizmo, threshold = 0.16, options = {}) {
         const screenHit = GizmoGeometry.pickScreen(gizmo, options);
+        if (screenHit) return screenHit;
 
-        if (screenHit) {
-            return screenHit;
-        }
-
-        if (options.strictScreen === true && options.camera && options.local) {
-            return null;
-        }
+        if (options.strictScreen && options.camera && options.local) return null;
 
         let best = null;
-        const axisThreshold = toNumber(options.axisThreshold, threshold);
-        const ringThreshold = toNumber(options.ringThreshold, threshold);
-        const pointThreshold = toNumber(options.pointThreshold, threshold);
+
+        const axisThreshold = number(options.axisThreshold, threshold);
+        const ringThreshold = number(options.ringThreshold, threshold);
+        const pointThreshold = number(options.pointThreshold, threshold);
+
         const choose = hit => {
             if (!hit) return;
-            if (!best || hit.rayDistance < best.rayDistance || (hit.rayDistance === best.rayDistance && hit.distance < best.distance)) best = hit;
+
+            if (
+                !best ||
+                hit.rayDistance < best.rayDistance ||
+                (hit.rayDistance === best.rayDistance && hit.distance < best.distance)
+            ) {
+                best = hit;
+            }
         };
 
         for (const point of gizmo.points || []) {
             const hit = Intersection.raySphere(ray, point.point, point.radius || pointThreshold);
-            if (hit) choose({ ...point, type: point.tool === "pivot" ? "pivot" : "handle", distance: 0, rayDistance: hit.distance, hitPoint: hit.point });
+            if (hit) {
+                choose({
+                    ...point,
+                    type: point.tool === "pivot" ? "pivot" : "handle",
+                    distance: 0,
+                    rayDistance: hit.distance,
+                    hitPoint: hit.point,
+                });
+            }
         }
 
         for (const line of gizmo.lines || []) {
             if (line.tool === "guide") continue;
+
             const hit = Intersection.raySegmentDistance(ray, line.a, line.b);
             const tolerance = axisThreshold * (line.width || 1);
-            if (hit.distance <= tolerance) choose({ ...line, type: "axis", distance: hit.distance, rayDistance: hit.rayDistance, hitPoint: hit.pointOnSegment });
+
+            if (hit.distance <= tolerance) {
+                choose({
+                    ...line,
+                    type: "axis",
+                    distance: hit.distance,
+                    rayDistance: hit.rayDistance,
+                    hitPoint: hit.pointOnSegment,
+                });
+            }
         }
 
         for (const plane of gizmo.planes || []) {
             const [a, b, c, d] = plane.points;
             const h0 = Intersection.rayTriangle(ray, a, b, c);
             const h1 = h0 || Intersection.rayTriangle(ray, a, c, d);
-            if (h1) choose({ ...plane, type: "plane", distance: 0, rayDistance: h1.distance, hitPoint: h1.point });
+
+            if (h1) {
+                choose({
+                    ...plane,
+                    type: "plane",
+                    distance: 0,
+                    rayDistance: h1.distance,
+                    hitPoint: h1.point,
+                });
+            }
         }
 
         for (const ring of gizmo.rings || []) {
-            const planeHit = Intersection.rayPlane(ray, { point: ring.origin, normal: ring.normal });
+            const planeHit = Intersection.rayPlane(ray, {
+                point: ring.origin,
+                normal: ring.normal,
+            });
+
             if (!planeHit) continue;
-            const radiusDelta = Math.abs(len(sub(planeHit.point, ring.origin)) - ring.radius);
-            if (radiusDelta <= ringThreshold) choose({ ...ring, type: "ring", distance: radiusDelta, rayDistance: planeHit.distance, hitPoint: planeHit.point });
+
+            const radiusDelta = Math.abs(
+                Vector.from(planeHit.point).distance(ring.origin) - ring.radius
+            );
+
+            if (radiusDelta <= ringThreshold) {
+                choose({
+                    ...ring,
+                    type: "ring",
+                    distance: radiusDelta,
+                    rayDistance: planeHit.distance,
+                    hitPoint: planeHit.point,
+                });
+            }
         }
 
         return best;
@@ -320,35 +416,35 @@ export class GizmoGeometry {
     static pickScreen(gizmo, options = {}) {
         const local = options.local;
 
-        if (!options.camera || !local || !gizmo) {
-            return null;
-        }
+        if (!options.camera || !local || !gizmo) return null;
 
-        const project = createProjector(options.camera, options.viewport || { width: 1, height: 1 }, options);
+        const project = createProjector(
+            options.camera,
+            options.viewport || { width: 1, height: 1 },
+            options
+        );
 
-        if (!project) {
-            return null;
-        }
+        if (!project) return null;
 
         const pointer = {
-            x: toNumber(local.x, 0),
-            y: toNumber(local.y, 0),
+            x: number(local.x, 0),
+            y: number(local.y, 0),
         };
+
         let best = null;
+
+        const axisThreshold = Math.max(0, number(options.axisPixelThreshold, 1.5));
+        const ringThreshold = Math.max(0, number(options.ringPixelThreshold, 3));
+
         const choose = hit => {
             if (hit && (!best || hit.screenDistance < best.screenDistance)) {
                 best = hit;
             }
         };
-        const axisThreshold = Math.max(0, toNumber(options.axisPixelThreshold, 1.5));
-        const ringThreshold = Math.max(0, toNumber(options.ringPixelThreshold, 3));
 
         for (const point of gizmo.points || []) {
             const screen = project(point.point);
-
-            if (!screen) {
-                continue;
-            }
+            if (!screen) continue;
 
             const radius = pickPointRadius(point, options);
             const distance = Math.hypot(pointer.x - screen.x, pointer.y - screen.y);
@@ -367,16 +463,11 @@ export class GizmoGeometry {
         }
 
         for (const line of gizmo.lines || []) {
-            if (line.tool === "guide") {
-                continue;
-            }
+            if (line.tool === "guide") continue;
 
             const a = project(line.a);
             const b = project(line.b);
-
-            if (!a || !b) {
-                continue;
-            }
+            if (!a || !b) continue;
 
             const hit = distanceToScreenSegment(pointer, a, b);
 
@@ -387,7 +478,7 @@ export class GizmoGeometry {
                     distance: hit.distance,
                     screenDistance: hit.distance,
                     rayDistance: a.z + (b.z - a.z) * hit.t,
-                    hitPoint: lerp3(line.a, line.b, hit.t),
+                    hitPoint: Vector.from(line.a).lerp(line.b, hit.t).toArray(),
                     screenPoint: {
                         x: a.x + (b.x - a.x) * hit.t,
                         y: a.y + (b.y - a.y) * hit.t,
@@ -397,36 +488,34 @@ export class GizmoGeometry {
         }
 
         for (const plane of gizmo.planes || []) {
-            const planePoints = plane.points || [];
             const projected = [];
-            let valid = true;
 
-            for (let index = 0; index < planePoints.length; index += 1) {
-                const point = project(planePoints[index]);
-
-                if (!point) {
-                    valid = false;
-                    break;
-                }
-
-                projected.push(point);
+            for (const p of plane.points) {
+                const pr = project(p);
+                if (!pr) continue;
+                projected.push(pr);
             }
 
-            if (!valid) {
-                continue;
-            }
+            if (projected.length < 3) continue;
 
             let edgeDistance = Infinity;
             let depth = 0;
 
-            for (let index = 0; index < projected.length; index += 1) {
-                const point = projected[index];
-                const next = projected[(index + 1) % projected.length];
-                depth += point.z;
-                edgeDistance = Math.min(edgeDistance, distanceToScreenSegment(pointer, point, next).distance);
+            for (let i = 0; i < projected.length; i++) {
+                const p = projected[i];
+                const n = projected[(i + 1) % projected.length];
+
+                depth += p.z;
+                edgeDistance = Math.min(
+                    edgeDistance,
+                    distanceToScreenSegment(pointer, p, n).distance
+                );
             }
 
-            if (pointInScreenPolygon(pointer, projected) || edgeDistance <= Math.max(4, toNumber(options.planePixelInset, 2))) {
+            if (
+                pointInScreenPolygon(pointer, projected) ||
+                edgeDistance <= Math.max(4, number(options.planePixelInset, 2))
+            ) {
                 choose({
                     ...plane,
                     type: "plane",
@@ -439,16 +528,23 @@ export class GizmoGeometry {
         }
 
         for (const ring of gizmo.rings || []) {
-            const steps = Math.max(16, Math.min(96, Math.trunc(toNumber(options.ringSteps, options.dragging ? 48 : 64))));
-            let previousPoint = ringPoint(ring, 0);
-            let previousScreen = project(previousPoint);
+            const steps = Math.max(
+                16,
+                Math.min(
+                    96,
+                    Math.trunc(number(options.ringSteps, options.dragging ? 48 : 64))
+                )
+            );
 
-            for (let index = 1; index <= steps; index += 1) {
-                const point = ringPoint(ring, (index / steps) * Math.PI * 2);
-                const screen = project(point);
+            let prev = ringPoint(ring, 0);
+            let prevScreen = project(prev);
 
-                if (previousScreen && screen) {
-                    const hit = distanceToScreenSegment(pointer, previousScreen, screen);
+            for (let i = 1; i <= steps; i++) {
+                const p = ringPoint(ring, (i / steps) * Math.PI * 2);
+                const s = project(p);
+
+                if (prevScreen && s) {
+                    const hit = distanceToScreenSegment(pointer, prevScreen, s);
 
                     if (hit.distance <= ringThreshold) {
                         choose({
@@ -456,14 +552,15 @@ export class GizmoGeometry {
                             type: "ring",
                             distance: hit.distance,
                             screenDistance: hit.distance,
-                            rayDistance: previousScreen.z + (screen.z - previousScreen.z) * hit.t,
-                            hitPoint: lerp3(previousPoint, point, hit.t),
+                            rayDistance:
+                                prevScreen.z + (s.z - prevScreen.z) * hit.t,
+                            hitPoint: Vector.from(prev).lerp(p, hit.t).toArray(),
                         });
                     }
                 }
 
-                previousPoint = point;
-                previousScreen = screen;
+                prev = p;
+                prevScreen = s;
             }
         }
 

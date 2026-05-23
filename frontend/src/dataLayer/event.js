@@ -33,7 +33,7 @@ import {shaderEvent} from "@/dataLayer/event/shader";
 import {pluginEvent} from "@/dataLayer/event/plugin";
 import {materialEvent} from "@/dataLayer/event/material";
 import {meshEvent} from "@/dataLayer/event/mesh";
-import {animatorEvent} from "@/dataLayer/event/animator";
+import {engineEvent} from "@/dataLayer/event/engine";
 
 
 /**
@@ -60,7 +60,7 @@ const eventHandler = (route) => ({
     ...modifierEvent(route),
     ...fileEvent(route),
     ...fileSettingEvent(route),
-    ...animatorEvent(route),
+    ...engineEvent(route),
     ...meshEvent(route),
     ...layerEvent(route),
     ...materialEvent(route),

@@ -1,16 +1,10 @@
-import { animatorGizmo } from "@/view/models/page/material/animator/state";
-import { useMouse } from "@/composables/mouse/model";
-import { eventRegister } from "@/dataLayer/event";
+import { computed, reactive } from "vue";
 import { uuid } from "@/utils/uuid";
-import { onBeforeUnmount, onMounted, reactive } from "vue";
 
 export function gizmoModel(props, emit) {
     const gizmo = reactive({ id: uuid() });
-
+    const animatorGizmo = computed(() => props.config || {});
     const emitEvent = (event, payload) => emit("update:component-event", event, payload);
-    const { register } = eventRegister(`listener:gizmo-${gizmo.id}`, emitEvent);
-
-    const mouse = useMouse({ register, elementId: gizmo.id, mode: "client", preventDefault: false });
 
     const gizmoTools = [
         { key: "translate", icon: "mdi-axis-arrow", label: "Move" },
@@ -57,66 +51,60 @@ export function gizmoModel(props, emit) {
     ];
 
     const setTool = tool => {
-        animatorGizmo.tool = tool;
+        props.config.tool = tool;
         emitEvent("gizmo:tool", { tool });
     };
 
     const setAxis = axis => {
-        animatorGizmo.axis = axis;
-        emitEvent("gizmo:axis", { axis, tool: animatorGizmo.tool });
+        props.config.axis = axis;
+        emitEvent("gizmo:axis", { axis, tool: props.config.tool });
     };
 
     const setPivot = pivot => {
-        animatorGizmo.pivot = pivot;
+        props.config.pivot = pivot;
         emitEvent("gizmo:pivot", { pivot });
     };
 
     const setVisibility = (key, value) => {
-        animatorGizmo[key] = value === true;
-        emitEvent("gizmo:visibility", { key, value: animatorGizmo[key] });
+        props.config[key] = value === true;
+        emitEvent("gizmo:visibility", { key, value: props.config[key] });
     };
 
     const toggleVisibility = key => {
-        setVisibility(key, animatorGizmo[key] === false);
+        setVisibility(key, props.config[key] === false);
     };
 
     const runPivotAction = action => {
-        animatorGizmo.pivotAction = action;
-        animatorGizmo.pivotActionTick = (animatorGizmo.pivotActionTick || 0) + 1;
+        props.config.pivotAction = action;
+        props.config.pivotActionTick = (props.config.pivotActionTick || 0) + 1;
         emitEvent("gizmo:pivot-action", { action });
     };
 
-    const emitSelect = async event => {
-        if (event?.button !== 2) return;
-        await mouse.down(event);
-        if (!props.disabled) {
-            emit("select");
-            emitEvent("gizmo:select", { mode: props.mode });
+    const emitSelect = event => {
+        if (event?.button !== 2 || props.disabled) {
+            return;
+        }
+
+        emitEvent("gizmo:select", { mode: props.mode });
+    };
+
+    const emitAxis = (axis, tool, event) => {
+        if (event?.button !== 2 || props.disabled) {
+            return;
+        }
+
+        setAxis(axis);
+        if (tool) {
+            setTool(tool);
         }
     };
 
-    const emitAxis = async (axis, tool, event) => {
-        if (event?.button !== 2) return;
-        await mouse.down(event);
-        if (!props.disabled) {
-            const payload = { axis, tool };
-            emit("axis", payload);
-            emitEvent("gizmo:axis", payload);
-        }
+    const emitRelease = () => {
+        emitEvent("gizmo:release", { mode: props.mode });
     };
-
-    const emitRelease = async event => {
-        if (event) await mouse.up(event);
-        emit("release");
-        emitEvent("gizmo:release");
-    };
-
-    onMounted(() => mouse.init());
-    onBeforeUnmount(() => register("removeAll"));
 
     return {
         gizmo,
-        mouse,
         animatorGizmo,
         gizmoTools,
         axisOptions,
@@ -136,6 +124,7 @@ export function gizmoModel(props, emit) {
 }
 
 export const gizmoProps = {
+    config: { type: Object, required: true },
     mode: { type: String, required: false, default: "panel" },
     active: { type: Boolean, required: false, default: false },
     selected: { type: Boolean, required: false, default: false },

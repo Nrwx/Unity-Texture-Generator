@@ -1,13 +1,8 @@
 import { Intersection } from "@/view/models/page/material/core/Ray/Intersection";
 import { Matrix } from "@/view/models/page/material/core/Math/Matrix/Matrix";
+import { number} from "@/utils/math";
 
 const PICK_CACHE = new WeakMap();
-
-const toNumber = (value, fallback = 0) => {
-    const number = Number(value);
-
-    return Number.isFinite(number) ? number : fallback;
-};
 
 const toVertexArray = value => {
     if (value instanceof Float32Array) {
@@ -22,7 +17,7 @@ const toVertexArray = value => {
         return new Float32Array(
             Object.keys(value)
                 .sort((a, b) => Number(a) - Number(b))
-                .map(key => toNumber(value[key], 0))
+                .map(key => number(value[key], 0))
         );
     }
 
@@ -67,18 +62,14 @@ const resolveMatrixData = modelMatrix => {
         return null;
     }
 
-    const matrix = modelMatrix instanceof Matrix
-        ? modelMatrix
-        : Matrix.from(modelMatrix);
-
-    return matrix.data;
+    return Matrix.from(modelMatrix).data;
 };
 
 const transformPosition = (out, vertices, vertexIndex, stride, matrixData) => {
     const offset = vertexIndex * stride;
-    const x = toNumber(vertices[offset], 0);
-    const y = toNumber(vertices[offset + 1], 0);
-    const z = toNumber(vertices[offset + 2], 0);
+    const x = number(vertices[offset], 0);
+    const y = number(vertices[offset + 1], 0);
+    const z = number(vertices[offset + 2], 0);
 
     if (!matrixData) {
         out[0] = x;
@@ -161,8 +152,8 @@ export class PickingController {
         const indices = normalized.__pickIndices;
         const matrixData = resolveMatrixData(modelMatrix);
         const positionAt = createPositionResolver(normalized, matrixData);
-        const edgeThreshold = toNumber(thresholds.edgeThreshold, 0.045);
-        const vertexThreshold = toNumber(thresholds.vertexThreshold, 0.055);
+        const edgeThreshold = number(thresholds.edgeThreshold, 0.045);
+        const vertexThreshold = number(thresholds.vertexThreshold, 0.055);
         const needFace = mode === "object" || mode === "face";
         const needEdge = mode === "object" || mode === "edge";
         const needVertex = mode === "object" || mode === "vertex";

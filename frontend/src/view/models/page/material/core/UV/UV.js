@@ -1,4 +1,5 @@
 import { uuid } from "@/utils/uuid";
+import {isFiniteNumber} from "@/utils/math";
 
 export class UV {
     static UV_OFFSET = 6;
@@ -1327,7 +1328,7 @@ export class UV {
     static clamp01(value) {
         const number = Number(value);
 
-        if (!Number.isFinite(number)) {
+        if (!isFiniteNumber(number)) {
             return 0;
         }
 

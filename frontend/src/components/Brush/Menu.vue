@@ -68,7 +68,6 @@ export default defineComponent({
   props: brushMenuProps,
   setup(props, { emit }) {
     const model = brushMenuModel(props, emit);
-
     return {...model};
   }
 });

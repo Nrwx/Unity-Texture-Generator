@@ -14,8 +14,8 @@ import Overview from "@/view/page/Overview/Overview";
 import Export from "@/view/page/Export/Export";
 import Form from "@/view/page/Form/Form";
 import Animation from "@/view/page/Animation/Animation";
-import Camera from "@/components/Camera/Camera";
 import {uuid} from "@/utils/uuid";
+import {number} from "@/utils/math";
 
 export const taskbarItemLeft = [
     {
@@ -272,11 +272,11 @@ export const taskbarItemCenter = [
         hidden: false,
         badge: {
             content: computed(() => {
-                return localData.selectedLayer.value.filter(layer => Number(layer?.type) === 5).length;
+                return localData.selectedLayer.value.filter(layer => number(layer?.type) === 5).length;
             }),
             dot: true
         },
-        event: 'animator:state',
+        event: 'orbit:state',
     },
     {
         position: 'center',
@@ -390,20 +390,6 @@ export const taskbarItemRight = [
         event: 'export-state',
         component: {
             path: Export,
-            props: {}
-        },
-    },
-    {
-        position: 'bottom',
-        id: uuid(),
-        title: 'Kamera',
-        subtitle: 'Animator Kamera und Perspektiven...',
-        icon: 'mdi-camera-iris',
-        active: false,
-        hidden: computed(() => {return !windowStates.animator.value;}),
-        tooltip: 'Kamera',
-        component: {
-            path: Camera,
             props: {}
         },
     }

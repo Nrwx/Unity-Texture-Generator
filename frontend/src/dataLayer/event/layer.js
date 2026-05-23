@@ -1,3 +1,5 @@
+import {number} from "@/utils/math";
+
 export const layerEvent = (route) => ({
     "fetch-layer": async () => {
         const prevSelectionIds = route.localData.selectedLayer.value?.map(l => l.id) || [];
@@ -45,7 +47,7 @@ export const layerEvent = (route) => ({
         }
     },
     "update-layer": async (payload) => {
-        if (Number(payload?.type) === 5) {
+        if (number(payload?.type) === 5) {
             return await route.emit("mesh:update", payload);
         }
 
@@ -56,8 +58,8 @@ export const layerEvent = (route) => ({
     },
     "delete-layer": async (payload) => {
         const layers = Array.isArray(payload) ? payload : [payload].filter(Boolean);
-        const meshLayers = layers.filter(layer => Number(layer?.type) === 5);
-        const regularLayers = layers.filter(layer => Number(layer?.type) !== 5);
+        const meshLayers = layers.filter(layer => number(layer?.type) === 5);
+        const regularLayers = layers.filter(layer => number(layer?.type) !== 5);
         let changed = false;
 
         if (meshLayers.length) {

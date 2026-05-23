@@ -48,23 +48,8 @@ export default defineComponent({
   components: {Dialog},
   props: penProps,
   setup(props, { emit }) {
-    const {
-      pointsLength,
-      canvas,
-      config,
-      cancel,
-      handlePath,
-      emitEvent
-    } = penModel(props, emit);
-
-    return {
-      pointsLength,
-      canvas,
-      config,
-      cancel,
-      handlePath,
-      emitEvent
-    };
+    const model = penModel(props, emit);
+    return {...model};
   },
 });
 </script>

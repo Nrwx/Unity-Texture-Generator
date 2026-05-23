@@ -5,6 +5,7 @@ import {useMouse} from "@/composables/mouse/model";
 import {clamp, distance, getRect, hasChanged, store} from "@/utils/tools";
 import {parseColor} from "@/utils/color";
 import {getSnappedAngle} from "@/utils/transform";
+import {isFiniteNumber, number} from "@/utils/math";
 
 export function gridModel(props, emit) {
 
@@ -37,34 +38,6 @@ export function gridModel(props, emit) {
     });
 
     const ui = ref({
-        animator: {
-            projection: "perspective",
-            fov: 50,
-            near: 0.01,
-            far: 1000,
-            radius: 4.6,
-            minRadius: 0.18,
-            maxRadius: 250,
-            orthographicScale: 5,
-            minOrthographicScale: 0.05,
-            maxOrthographicScale: 250,
-            theta: -Math.PI / 4,
-            phi: 58 * Math.PI / 180,
-            rotateSpeed: 0.0065,
-            panSpeed: 0.0028,
-            dollySpeed: 0.0018,
-            wheelSpeed: 0.0012,
-            damping: 18,
-            rightMouseOrbit: true,
-            blenderMouse: true,
-            backgroundGrid: true,
-            showAxisGizmo: true,
-            target: {
-                x: 0,
-                y: 0,
-                z: 0,
-            },
-        },
         brush: {
             cursor: {
                 position: { x: 0, y: 0 },
@@ -101,6 +74,7 @@ export function gridModel(props, emit) {
     };
 
     const emitEvent = (event, payload) => { emit("component-event", event, payload);};
+
     const { register } = eventRegister('listener:grid', emitEvent);
 
     const mouse = useMouse({
@@ -134,9 +108,9 @@ export function gridModel(props, emit) {
     };
 
     const normalizeNumber = (value, fallback, min = -Infinity, max = Infinity) => {
-        const n = Number(value);
+        const n = number(value);
 
-        if (!Number.isFinite(n)) return fallback;
+        if (!isFiniteNumber(n)) return fallback;
 
         return Math.min(max, Math.max(min, n));
     };
@@ -713,7 +687,7 @@ export function gridModel(props, emit) {
     };
 
     const resetSelection = (event) => {
-        if (props.animatorState) return;
+        if (props.orbit) return;
         if (event.button === 2) return;
         if (props.brush || props.timeline) return;
         event.preventDefault();
@@ -1100,8 +1074,20 @@ export const gridProps = {
         type: Boolean,
         required: true,
     },
-    animatorState: {
+    meshStates: {
+        type: Object,
+        required: true,
+    },
+    orbit: {
         type: Boolean,
+        required: true,
+    },
+    engineData: {
+        type: Object,
+        required: true,
+    },
+    engineSession: {
+        type: Object,
         required: true,
     },
     containerStates: {

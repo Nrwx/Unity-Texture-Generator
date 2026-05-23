@@ -117,10 +117,7 @@ export const tempData = {
     keys: ref([]),
     activeLayer: ref(null),
     editTextLayer: ref(null),
-    preview: ref({
-        src: "",
-        counter: 0
-    }),
+    preview: ref({src: "", counter: 0}),
     lastSelected: ref([]),
     materialPreview: ref(null),
     heldKeys: ref(new Map()),

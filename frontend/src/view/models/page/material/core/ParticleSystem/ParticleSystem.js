@@ -1,4 +1,5 @@
 import { uuid } from "@/utils/uuid";
+import {isFiniteNumber} from "@/utils/math";
 
 const clamp = (value, min, max) => Math.min(Math.max(Number(value) || 0, min), max);
 const clampInt = (value, min, max) => Math.trunc(clamp(value, min, max));
@@ -101,7 +102,7 @@ const sampleMeshVolumePosition = (mesh, rand, volume = {}, flowMode = "inside") 
         const max = bounds.max[axis];
         const span = max - min;
 
-        if (!Number.isFinite(span) || span <= 0) {
+        if (!isFiniteNumber(span) || span <= 0) {
             return min || 0;
         }
 
@@ -143,7 +144,7 @@ const resolveVolumeCollision = (position, mesh, physics = {}) => {
         const min = bounds.min[axis] + margin;
         const max = bounds.max[axis] - margin;
 
-        if (!Number.isFinite(min) || !Number.isFinite(max) || min >= max) {
+        if (!isFiniteNumber(min) || !isFiniteNumber(max) || min >= max) {
             return value;
         }
 
@@ -281,7 +282,7 @@ const resolveParticleBudget = (count, context = {}) => {
         requested
     );
 
-    if (!Number.isFinite(budget) || budget <= 0) {
+    if (!isFiniteNumber(budget) || budget <= 0) {
         return requested;
     }
 
@@ -290,7 +291,7 @@ const resolveParticleBudget = (count, context = {}) => {
 
 const normalizeInterpolationPoint = (point, maxX = 1) => ({
     x: clamp(point?.x ?? 0, 0, Math.max(0.001, maxX)),
-    y: Number.isFinite(Number(point?.y)) ? Number(point.y) : 0,
+    y: isFiniteNumber(Number(point?.y)) ? Number(point.y) : 0,
 });
 
 const pointsForValue = (value, maxX = 1) => ([

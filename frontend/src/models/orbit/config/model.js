@@ -1,0 +1,247 @@
+import { ref } from "vue";
+
+const DEG = Math.PI / 180;
+
+export const engineSession = ref({
+    id: '',
+    camera: null
+})
+
+export const engineData = {
+    editor: ref({
+        enabled: true,
+        mode: "object",
+        selectionMode: "object",
+        tool: "translate",
+        axis: "free",
+        pivotMode: "object",
+        space: "world",
+        active: false,
+        dragging: false,
+        hover: null,
+        cursor: "default",
+        activeObjectId: "",
+
+        // Blender-like visual controls. These are visibility controls only.
+        // They do not create new persisted backend properties.
+        showObjectPivot: true,
+        showWorldPivot: true,
+        showTransformGizmo: true,
+        showAxisHandles: true,
+        showRotateRings: true,
+        showScaleHandles: true,
+        showPlaneHandles: false,
+        showAxisGuide: true,
+
+        // World is immutable scene origin. Cursor is a temporary Blender-like anchor.
+        // Neither value is persisted to backend mesh payloads.
+        cursorPivot: { x: 0, y: 0, z: 0 },
+        cursorPivotActive: false,
+        worldPivot: { x: 0, y: 0, z: 0 },
+        pivotPoint: { x: 0, y: 0, z: 0 },
+        gizmoOrigin: { x: 0, y: 0, z: 0 },
+        gizmoSize: 0.85,
+
+        selection: { objectId: "", face: null, edge: null, vertex: null },
+        grid: {
+            size: 12,
+            divisions: 24,
+            majorEvery: 4,
+        },
+        renderGrid: true,
+        renderWorldAxis: false,
+        renderPivot: true,
+        renderGizmo: true,
+        renderPlaneHandles: false,
+        renderSelection: true,
+        picking: {
+            enabled: true,
+            framebuffer: true,
+            cpuFallback: true,
+            edgeThreshold: 0.075,
+            vertexThreshold: 0.09,
+            gizmoThreshold: 0.34,
+            ringThreshold: 0.18,
+            axisThreshold: 0.22,
+            pointThreshold: 0.24,
+        },
+    }),
+    camera: ref({
+        projection: "perspective",
+        fov: 50,
+        near: 0.01,
+        far: 1000,
+        orthographicScale: 5,
+        minOrthographicScale: 0.05,
+        maxOrthographicScale: 250,
+        aspect: 1,
+        target: { x: 0, y: 0, z: 0 },
+        position: { x: 0, y: -3.25, z: 0.18 },
+        forward: { x: 0, y: 1, z: 0 },
+        right: { x: 1, y: 0, z: 0 },
+        up: { x: 0, y: 0, z: 1 },
+        radius: 4.6,
+        theta: -Math.PI / 4,
+        phi: 58 * DEG,
+        backgroundGrid: true,
+        showAxisGizmo: true,
+        viewMode: "world",
+        renderMode: "world",
+        payload: null
+    }),
+
+    orbit: ref({
+        radius: 4.6,
+        minRadius: 0.18,
+        maxRadius: 250,
+        theta: -Math.PI / 4,
+        phi: 58 * DEG,
+        minPhi: -89.5 * DEG,
+        maxPhi: 89.5 * DEG,
+        target: { x: 0, y: 0, z: 0 },
+        smoothTarget: { x: 0, y: 0, z: 0 },
+        smoothTheta: -Math.PI / 4,
+        smoothPhi: 58 * DEG,
+        smoothRadius: 4.6,
+        orthographicScale: 5,
+        minOrthographicScale: 0.05,
+        maxOrthographicScale: 250,
+        smoothOrthographicScale: 5,
+        worldUp: [0, 0, 1],
+        rotateSpeed: 0.0065,
+        panSpeed: 0.0028,
+        dollySpeed: 0.0018,
+        wheelSpeed: 0.0012,
+        damping: 18,
+        invertOrbitX: false,
+        invertOrbitY: false,
+        rightMouseOrbit: true,
+        blenderMouse: true,
+        backgroundGrid: true,
+        showAxisGizmo: true,
+        autoUpdate: true,
+        dirty: false
+    }),
+
+    controls: ref({
+        orbit: true,
+        pan: true,
+        dolly: true,
+        zoom: true,
+        leftMouseSelect: true,
+        middleMouseOrbit: true,
+        rightMouseOrbit: true,
+        altLeftMouseOrbit: true,
+        shiftMiddleMousePan: true,
+        wheelZoom: true,
+        keyboardShortcuts: true,
+        meshEditTabCycle: true,
+        preventContextMenu: true
+    }),
+
+    gizmo: ref({
+        tool: "translate",
+        axis: "free",
+        pivot: "object",
+        space: "world",
+        showAxisHandles: true,
+        showRotateRings: true,
+        showScaleHandles: true,
+        showPlaneHandles: false,
+        showObjectPivot: true,
+        showWorldPivot: true,
+        showAxisGuide: true,
+        showWorldAxis: false,
+        showTransformGizmo: true,
+        pivotAction: "",
+        pivotActionTick: 0
+    }),
+
+    edit: ref({
+        mode: "vertex",
+        tool: "move",
+        viewMode: "wireframe",
+        selection: {vertices: [], edges: [], faces: [], paths: []},
+        operation: "",
+        operationTick: 0,
+        transform: {active: false, mode: "move", axis: "free", pivot: "median"},
+        picking: {vertexPixelThreshold: 12, edgePixelThreshold: 10, facePixelTolerance: 0.035},
+        showVertices: true,
+        showEdges: true,
+        showFaces: true,
+        showAll: false,
+        proportional: false,
+        highlightSelection: true,
+        commitOnTabExit: true,
+        localDraft: true,
+        proportionalRadius: 0.35,
+        vertexSize: 7.5,
+        edgeWidth: 2,
+        faceAlpha: 0.22,
+        lastAction: "",
+        lastError: ""
+    }),
+
+    sculpt: ref({
+        tool: "draw",
+        radius: 0.18,
+        strength: 0.35,
+        hardness: 0.65,
+        sharpness: 0.25,
+        smoothness: 0.35,
+        spacing: 0.18,
+        direction: 1,
+        viewMode: "soft",
+        detail: {
+            enabled: true,
+            mode: "dynamic",
+            detailPercent: 100,
+            tolerance: 0.012,
+            maxSubdivisionsPerStroke: 256,
+            collapse: false,
+        },
+        stamp: {
+            enabled: false,
+            texture: null,
+            rotation: 0,
+            scale: 1,
+            opacity: 1,
+        },
+        localDraft: true,
+        commitOnDisable: true
+    }),
+
+    grid: ref({
+        enabled: true,
+        size: 12,
+        divisions: 24,
+        majorEvery: 4,
+        floor: true,
+        axis: true,
+        labels: false
+    }),
+
+    view: ref({
+        mode: "world",
+        modes: ["world", "wireframe", "solid", "soft", "highlight"],
+        materialPreview: true,
+        texturePreview: true,
+        editModeForcesSimpleShading: true,
+        sculptModeForcesSimpleShading: true,
+        backgroundGrid: true,
+        axisGizmo: true
+    }),
+
+    keyboard: {
+        apply: 0,
+        frame: 0,
+        reset: 0,
+        restore: 0,
+        toggleGrid: 0,
+        projection: "",
+        view: "",
+        focusPivot: 0,
+        field: null,
+        fieldTick: 0
+    },
+};

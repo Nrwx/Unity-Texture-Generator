@@ -2,6 +2,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import { eventRegister } from "@/dataLayer/event";
 import { clamp } from "@/utils/tools";
 import { getNiceStep } from "@/utils/ui";
+import {number} from "@/utils/math";
 
 export function guideModel(props, emit) {
     const guide = ref(null);
@@ -55,10 +56,10 @@ export function guideModel(props, emit) {
         }
 
         if (Math.abs(value) >= 10) {
-            return `${Number(value.toFixed(1))}${getUnitSuffix()}`;
+            return `${number(value.toFixed(1))}${getUnitSuffix()}`;
         }
 
-        return `${Number(value.toFixed(2))}${getUnitSuffix()}`;
+        return `${number(value.toFixed(2))}${getUnitSuffix()}`;
     };
 
     const getRulerStep = (scale) => {

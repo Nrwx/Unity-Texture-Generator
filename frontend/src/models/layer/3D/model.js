@@ -29,6 +29,7 @@ import {
     TEXTURE_SETTING_DEFAULTS, VISIBLE_TEXTURE_SLOTS
 } from "@/dataLayer/webgl";
 import {clamp, clone} from "@/utils/tools";
+import {isFiniteNumber} from "@/utils/math";
 
 const SURFACE_DEFAULTS = {...createSurface()};
 const LIGHT_DEFAULTS = {...createLight()};
@@ -39,14 +40,14 @@ const normalizeTextureSettings = (...sources) => {
         ...acc,
         ...(source || {}),
     }), {});
-    const rawStrength = Number.isFinite(Number(settings.strength)) ? Number(settings.strength) : 1;
+    const rawStrength = isFiniteNumber(Number(settings.strength)) ? Number(settings.strength) : 1;
     const strength = settings.invert === true && rawStrength > 0 ? -rawStrength : rawStrength;
 
     return {
         channel: ["rgb", "rgba"].includes(settings.channel) ? settings.channel : TEXTURE_SETTING_DEFAULTS.channel,
         color_mode: ["color", "bw"].includes(settings.color_mode) ? settings.color_mode : TEXTURE_SETTING_DEFAULTS.color_mode,
         strength,
-        offset: Number.isFinite(Number(settings.offset)) ? Number(settings.offset) : 0,
+        offset: isFiniteNumber(Number(settings.offset)) ? Number(settings.offset) : 0,
         invert: false,
     };
 };
@@ -360,7 +361,7 @@ export function layer3DModel(props, emit) {
 
         const number = Number(value);
 
-        return Number.isFinite(number) ? number : null;
+        return isFiniteNumber(number) ? number : null;
     };
 
     const resolveExportAnimationSeconds = materialLayer => {
@@ -388,7 +389,7 @@ export function layer3DModel(props, emit) {
 
         const time = Number(rawTime);
 
-        return Number.isFinite(time) ? Math.max(0, time / 60) : 0;
+        return isFiniteNumber(time) ? Math.max(0, time / 60) : 0;
     };
 
     const resolveRotationSpeedPerSecond = materialLayer => {
@@ -396,13 +397,13 @@ export function layer3DModel(props, emit) {
             materialLayer?.preview?.idle_rotation?.speed_per_second ??
             materialLayer?.preview?.idle_rotation?.speedPerSecond;
 
-        if (Number.isFinite(Number(explicit))) {
+        if (isFiniteNumber(Number(explicit))) {
             return Number(explicit);
         }
 
         const legacyFrameSpeed = materialLayer?.preview?.idle_rotation?.speed ?? 0.006;
 
-        return Number.isFinite(Number(legacyFrameSpeed))
+        return isFiniteNumber(Number(legacyFrameSpeed))
             ? Number(legacyFrameSpeed) * 60
             : 0.36;
     };
@@ -464,14 +465,14 @@ export function layer3DModel(props, emit) {
 
     const resolveMaterialTimelineTime = layer => {
         const time = Number(layer?.time ?? layer?.export_time_seconds ?? layer?.exportTimeSeconds ?? props.exportTimeSeconds ?? 0);
-        return Number.isFinite(time) ? time : 0;
+        return isFiniteNumber(time) ? time : 0;
     };
 
     const lerpValue = (left, right, factor) => {
         const a = Number(left);
         const b = Number(right);
 
-        if (Number.isFinite(a) && Number.isFinite(b)) {
+        if (isFiniteNumber(a) && isFiniteNumber(b)) {
             return a + (b - a) * factor;
         }
 
@@ -706,7 +707,7 @@ export function layer3DModel(props, emit) {
             materialLayer?.settings?.animator_particle_budget ??
             materialLayer?.preview?.particle_budget;
 
-        if (Number.isFinite(Number(explicit))) {
+        if (isFiniteNumber(Number(explicit))) {
             return Math.max(1, Math.trunc(Number(explicit)));
         }
 
@@ -893,7 +894,7 @@ export function layer3DModel(props, emit) {
 
             const number = Number(baseValue ?? resolved[key] ?? 0);
 
-            if (!Number.isFinite(number)) {
+            if (!isFiniteNumber(number)) {
                 return;
             }
 

@@ -1,4 +1,5 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import {isFiniteNumber} from "@/utils/math";
 
 const DEFAULT_DURATION = 7;
 
@@ -66,7 +67,7 @@ export function headerMetricModel(props) {
         const value = Number(activeMetric.value.value);
         const max = Number(activeMetric.value.max);
 
-        if (!Number.isFinite(value) || !Number.isFinite(max) || max <= 0) {
+        if (!isFiniteNumber(value) || !isFiniteNumber(max) || max <= 0) {
             return 0;
         }
 
@@ -131,7 +132,7 @@ export function headerMetricModel(props) {
     const getDuration = () => {
         const duration = Number(activeMetric.value.duration || DEFAULT_DURATION);
 
-        return Number.isFinite(duration) && duration > 0
+        return isFiniteNumber(duration) && duration > 0
             ? duration
             : DEFAULT_DURATION;
     };

@@ -1,10 +1,12 @@
+import {isFiniteNumber} from "@/utils/math";
+
 const createVectorObject = () => ({ x: 0, y: 0, z: 0 });
 const createSelection = () => ({ objectId: "", face: null, edge: null, vertex: null });
 
 const toNumber = (value, fallback = 0) => {
     const number = Number(value);
 
-    return Number.isFinite(number) ? number : fallback;
+    return isFiniteNumber(number) ? number : fallback;
 };
 
 export class EditorState {

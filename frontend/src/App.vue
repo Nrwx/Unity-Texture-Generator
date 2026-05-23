@@ -22,7 +22,7 @@
       <!-- Main Content -->
       <v-main>
         <!-- Grid -->
-        <Grid v-model:animator-state="windowStates.animator.value" v-model:export-state="windowStates.export.value" v-model:edit-text="windowStates.textEdit.value" v-model:edit-text-layer="tempData.editTextLayer.value" v-model:status="statusBarItems" v-model:cursor-vector="localData.cursorVector.value" v-model:select-box="localData.selectItemsBox.value" v-model:eraser="windowStates.eraser.value"  v-model:layer-states="layerStates" v-model:brush-canvas-id="tempData.brushCanvasId.value" v-model:canvas-id="tempData.canvasId.value" v-model:rule="ruleStates.form.value" v-model:timeline="windowStates.timeline.value" v-model:mini-timeline="windowStates.miniTimeline.value" v-model:timeline-play="timelineStates.play.value" v-model:time="timelineData.time" v-model:export-time-seconds="timelineData.exportTimeSeconds" v-model:timeline-record="timelineStates.record.value" v-model:path-drag="windowStates.pathDrag.value" v-model:selected-path="localData.selectedPath.value" v-model:container-states="containerStates" v-model:backup="backupStates.action.value" v-model:form-rule="ruleStates.form.value" @component-event="componentEvent" v-model:path-import="windowStates.pathImport.value" v-model:bezier="localData.bezier.value" v-model:layers="localData.layers.value" v-model:selected-layer="localData.selectedLayer.value" v-model:text-layer="textLayer" v-model:brush-cursor="localData.cursor.value" v-model:color="localData.color.value" v-model:settings="localData.viewport.value" v-model:guides="localData.guides.value" v-model:fill-state="modifierStates.fill.value" v-model:select="windowStates.select.value" v-model:select-mode="localData.selectedShape.value" v-model:text="windowStates.text.value" v-model:brushes="localData.brush.value" v-model:brush-settings="brushSettings" v-model:brush="windowStates.brush.value" v-model:drawing="windowStates.drawing.value" v-model:pen="windowStates.pen.value" v-model:path-layer="pathLayer" :viewport="{width: localData.viewport.value.width, height: localData.viewport.value.height}" :theme="appData.theme.value" :loading="localData.loading.value" :pen-path-state="windowStates.path.value" style="position: relative;">
+        <Grid v-model:orbit="windowStates.orbit.value" v-model:engine-data="engineData" v-model:engine-session="engineSession" v-model:mesh-states="meshStates" v-model:export-state="windowStates.export.value" v-model:edit-text="windowStates.textEdit.value" v-model:edit-text-layer="tempData.editTextLayer.value" v-model:status="statusBarItems" v-model:cursor-vector="localData.cursorVector.value" v-model:select-box="localData.selectItemsBox.value" v-model:eraser="windowStates.eraser.value"  v-model:layer-states="layerStates" v-model:brush-canvas-id="tempData.brushCanvasId.value" v-model:canvas-id="tempData.canvasId.value" v-model:rule="ruleStates.form.value" v-model:timeline="windowStates.timeline.value" v-model:mini-timeline="windowStates.miniTimeline.value" v-model:timeline-play="timelineStates.play.value" v-model:time="timelineData.time" v-model:export-time-seconds="timelineData.exportTimeSeconds" v-model:timeline-record="timelineStates.record.value" v-model:path-drag="windowStates.pathDrag.value" v-model:selected-path="localData.selectedPath.value" v-model:container-states="containerStates" v-model:backup="backupStates.action.value" v-model:form-rule="ruleStates.form.value" @component-event="componentEvent" v-model:path-import="windowStates.pathImport.value" v-model:bezier="localData.bezier.value" v-model:layers="localData.layers.value" v-model:selected-layer="localData.selectedLayer.value" v-model:text-layer="textLayer" v-model:brush-cursor="localData.cursor.value" v-model:color="localData.color.value" v-model:settings="localData.viewport.value" v-model:guides="localData.guides.value" v-model:fill-state="modifierStates.fill.value" v-model:select="windowStates.select.value" v-model:select-mode="localData.selectedShape.value" v-model:text="windowStates.text.value" v-model:brushes="localData.brush.value" v-model:brush-settings="brushSettings" v-model:brush="windowStates.brush.value" v-model:drawing="windowStates.drawing.value" v-model:pen="windowStates.pen.value" v-model:path-layer="pathLayer" :viewport="{width: localData.viewport.value.width, height: localData.viewport.value.height}" :theme="appData.theme.value" :loading="localData.loading.value" :pen-path-state="windowStates.path.value" style="position: relative;">
           <!-- Mittige Taskbar -->
           <TaskbarCenter  v-model:items="itemsCenter" v-model:expanded="windowStates.drawerCenter.value" :active="activeItemCenter" @component-event="componentEvent" @taskbar-event="taskbarEvent('center', $event)" v-model:theme="appData.theme.value"/>
           <!-- Key-Event Log System -->
@@ -32,7 +32,7 @@
         </Grid>
       </v-main>
       <!-- Layer -->
-      <Layer style="position: absolute; top: 40px; right: 70px;" :state="windowStates.layer.value" v-model:animator-state="windowStates.animator.value" v-model:selected-channel="localData.selectedChannel.value" v-model:channel-settings="localData.channelSettings.value" v-model:layers="localData.layers.value" v-model:paths="localData.paths.value" v-model:selected-layer="localData.selectedLayer.value" v-model:channel="localData.channel.value" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
+      <Layer style="position: absolute; top: 40px; right: 70px;" :state="windowStates.layer.value" v-model:orbit="windowStates.orbit.value" v-model:selected-channel="localData.selectedChannel.value" v-model:channel-settings="localData.channelSettings.value" v-model:layers="localData.layers.value" v-model:paths="localData.paths.value" v-model:selected-layer="localData.selectedLayer.value" v-model:channel="localData.channel.value" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
       <!-- Channel Mixer -->
       <Mixer v-model:viewport="localData.viewport.value" v-model:data="mixerConfig" v-model:shader="localData.shader.value" :blend-mode="blendMode" v-model:channel="localData.channel.value" v-model:state="windowStates.mixer.value" v-model:loading="loadingStates.mixer.value" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
       <!-- Cut/Crop/Resize Modifier -->
@@ -75,7 +75,7 @@ import {
   ruleStates,
   timelineStates,
   layerStates,
-  windowStates
+  windowStates, meshStates
 } from "@/dataLayer/state";
 import Setting from "@/components/Setting/Setting";
 import {osSettings} from "@/dataLayer/setting";
@@ -111,6 +111,7 @@ import DetailsModifier from "@/view/page/Modifier/Details/Details";
 import EffectsModifier from "@/view/page/Modifier/Effects/Effects";
 import DistortModifier from "@/view/page/Modifier/Distort/Distort";
 import MaterialEditor from "@/view/page/Material/Material";
+import {engineData, engineSession} from "@/models/orbit/config/model";
 
 export default {
   name: 'App',
@@ -143,25 +144,7 @@ export default {
     const itemsCenter = ref(taskbarItemCenter);
     const activeItemLeft = computed(() => itemsLeft.value.find(item => item.active));
     const activeItemCenter = computed(() => itemsCenter.value.find(item => item.active));
-    const activeItemRight = computed(() => {
-      const item = itemsRight.value.find(entry => entry.active);
-
-      if (!item?.component || item.title !== 'Kamera') {
-        return item;
-      }
-
-      return {
-        ...item,
-        component: {
-          ...item.component,
-          props: {
-            ...(item.component.props || {}),
-            layers: localData.layers.value,
-            selectedLayers: localData.selectedLayer.value,
-          },
-        },
-      };
-    });
+    const activeItemRight = computed(() => itemsRight.value.find(item => item.active));
 
     const componentEvent = createEventSystem({
       api,
@@ -188,9 +171,12 @@ export default {
       timelineData,
       timelineStates,
       loadingStates,
-      mixerConfig
-    });
+      mixerConfig,
+      meshStates,
+      engineData,
+      engineSession
 
+    });
     const taskbarEvent = async (side, itemId) => {
       const list = side === 'left'
           ? itemsLeft.value
@@ -253,8 +239,6 @@ export default {
         windowState.value = !!activeItem?.active;
       }
     };
-
-
 
     const init = async () => {
       initLocalization();
@@ -320,7 +304,10 @@ export default {
       loadingStates,
       mixerConfig,
       blendMode,
-      statusBarItems
+      statusBarItems,
+      meshStates,
+      engineData,
+      engineSession
     };
   },
 };

@@ -1,6 +1,7 @@
 import { computed, ref, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { key } from "@/dataLayer/key";
 import { eventRegister } from "@/dataLayer/event";
+import {number} from "@/utils/math";
 
 const CLICK_THRESHOLD = 4;
 
@@ -61,8 +62,8 @@ export function selectionModel(props, emit) {
     };
 
     const isClickBox = (startPoint, endPoint) => {
-        const dx = Math.abs(Number(endPoint.x || 0) - Number(startPoint.x || 0));
-        const dy = Math.abs(Number(endPoint.y || 0) - Number(startPoint.y || 0));
+        const dx = Math.abs(number(endPoint.x || 0) - number(startPoint.x || 0));
+        const dy = Math.abs(number(endPoint.y || 0) - number(startPoint.y || 0));
 
         return dx <= CLICK_THRESHOLD && dy <= CLICK_THRESHOLD;
     };

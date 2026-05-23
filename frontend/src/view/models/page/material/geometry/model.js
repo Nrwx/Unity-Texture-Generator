@@ -2,10 +2,11 @@ import {Volume} from "@/view/models/page/material/core/Volume/Volume";
 import {Fluid} from "@/view/models/page/material/core/Fluid/Fluid";
 import {FLUID_SOLVER_OPTIONS, FLUID_TYPE_OPTIONS, PRIMITIVE_OPTIONS, SUBDIVISION_TYPE_OPTIONS, UV_FIT_OPTIONS, VOLUME_FALLOFF_OPTIONS, VOLUME_MODE_OPTIONS} from "@/dataLayer/webgl";
 import {clone} from "@/utils/tools";
+import {isFiniteNumber} from "@/utils/math";
 
 const toNumber = value => {
     const number = Number(value);
-    return Number.isFinite(number) ? number : 0;
+    return isFiniteNumber(number) ? number : 0;
 };
 
 export const geometryModelProps = {

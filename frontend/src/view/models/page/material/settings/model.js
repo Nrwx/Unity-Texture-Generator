@@ -5,6 +5,7 @@ import {
     TEXTURE_SIZE_OPTIONS
 } from "@/dataLayer/webgl";
 import {clone} from "@/utils/tools";
+import {isFiniteNumber} from "@/utils/math";
 
 /**
  * @param {unknown} value
@@ -44,7 +45,7 @@ export function settingsModel(props, emit) {
     const setNumberSetting = (key, value) => {
         const number = Number(value);
 
-        props.settings[key] = Number.isFinite(number) ? number : createSettings()[key];
+        props.settings[key] = isFiniteNumber(number) ? number : createSettings()[key];
         emitSettings();
     };
 

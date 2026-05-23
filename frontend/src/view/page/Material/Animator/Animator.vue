@@ -1,22 +1,16 @@
 <template>
   <section
-      ref="rootRef"
-      :id="animator.id"
-      class="animator-orbit"
-      :style="animatorStyle"
+      ref="ui.root.ref"
+      :id="ui.root.id"
+      class="animator-orbit w-h"
       tabindex="0"
   >
     <main
-        ref="viewportRef"
-        :id="animator.viewportId"
-        class="animator-orbit-viewport"
-        :style="[animatorViewportStyle, editorCursorStyle]"
-        :class="{
-          grabbing: pointer.active,
-          panning: pointer.mode === 'pan',
-          orbiting: pointer.mode === 'orbit',
-          dollying: pointer.mode === 'dolly'
-        }"
+        ref="ui.viewport.ref"
+        :id="ui.viewport.id"
+        class="animator-orbit-viewport w-h"
+        :style="editorCursorStyle"
+        :class="{grabbing: ui.pointer.active,panning: ui.pointer.mode === 'pan',orbiting: ui.pointer.mode === 'orbit',dollying: ui.pointer.mode === 'dolly'}"
     >
       <template v-if="animatedLayers.length">
         <Layer3D
@@ -32,14 +26,14 @@
             :webgl-exclusive="false"
             :export-state="false"
             :editor-mode="true"
-            :editor-state="editorState"
+            :editor-state="editorConfig"
             class="animator-layer3d"
         />
       </template>
 
       <div
           v-else
-          class="animator-empty"
+          class="animator-empty w-h"
       >
         <v-icon size="42">mdi-cube-off-outline</v-icon>
         <strong>Kein Material-Layer ausgewählt</strong>
@@ -50,22 +44,14 @@
 </template>
 
 <script>
-import { defineComponent } from "vue";
+import {defineComponent} from "vue";
 import Layer3D from "@/components/Layer/Layer3D/Layer3D";
-import {
-  animatorModel,
-  animatorProps,
-} from "@/view/models/page/material/animator/model";
+import {animatorModel, animatorProps} from "@/view/models/page/material/animator/model";
 
 export default defineComponent({
   name: "AnimatorComponent",
-  components: {
-    Layer3D,
-  },
+  components: {Layer3D},
   props: animatorProps,
-  emits: [
-    "update:component-event",
-  ],
   setup(props, { emit }) {
     return {
       ...animatorModel(props, emit),

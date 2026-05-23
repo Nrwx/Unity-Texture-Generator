@@ -93,7 +93,7 @@ import { gizmoModel, gizmoProps } from "@/models/canvas/gizmo/model";
 export default defineComponent({
   name: "GizmoComponent",
   props: gizmoProps,
-  emits: ["select", "axis", "release", "update:component-event"],
+  emits: ["update:component-event"],
   setup(props, { emit }) {
     return { ...gizmoModel(props, emit) };
   },

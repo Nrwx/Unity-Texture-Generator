@@ -1,5 +1,6 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { uuid } from "@/utils/uuid";
+import {isFiniteNumber, number} from "@/utils/math";
 
 const DEFAULT_BOX = {
     x: 0,
@@ -11,13 +12,13 @@ const DEFAULT_BOX = {
 const DEFAULT_PATH_WIDTH = 12;
 
 const normalizeNumber = (value, fallback = 0) => {
-    const number = Number(value);
+    const n = number(value);
 
-    if (!Number.isFinite(number)) {
+    if (!isFiniteNumber(n)) {
         return fallback;
     }
 
-    return number;
+    return n;
 };
 
 const normalizeBox = box => {

@@ -1,11 +1,13 @@
-const clamp = (value, min = 0, max = 1) => {
-    const number = Number(value);
+import {isFiniteNumber, number} from "@/utils/math";
 
-    if (!Number.isFinite(number)) {
+const clamp = (value, min = 0, max = 1) => {
+    const n = number(value);
+
+    if (!isFiniteNumber(n)) {
         return min;
     }
 
-    return Math.min(Math.max(number, min), max);
+    return Math.min(Math.max(n, min), max);
 };
 
 export const CUBE_FACE_NAMES = [
@@ -96,23 +98,23 @@ export const createCubeVertices = (width, height, rotation = 0, geometry = {}) =
     const cy = height / 2;
     const size = Math.min(width, height) * 0.264;
 
-    const toRadians = value => (Number(value || 0) * Math.PI) / 180;
+    const toRadians = value => (number(value || 0) * Math.PI) / 180;
     const maxDimension = Math.max(
-        Math.abs(Number(geometry.width || 1)),
-        Math.abs(Number(geometry.height || 1)),
-        Math.abs(Number(geometry.depth || 1)),
+        Math.abs(number(geometry.width || 1)),
+        Math.abs(number(geometry.height || 1)),
+        Math.abs(number(geometry.depth || 1)),
         0.001
     );
 
     const geometryScale = [
-        (Number(geometry.width || 1) * Number(geometry.scale_x || 1)) / maxDimension,
-        (Number(geometry.height || 1) * Number(geometry.scale_y || 1)) / maxDimension,
-        (Number(geometry.depth || 1) * Number(geometry.scale_z || 1)) / maxDimension,
+        (number(geometry.width || 1) * number(geometry.scale_x || 1)) / maxDimension,
+        (number(geometry.height || 1) * Number(geometry.scale_y || 1)) / maxDimension,
+        (number(geometry.depth || 1) * number(geometry.scale_z || 1)) / maxDimension,
     ];
     const pivot = [
-        Number(geometry.pivot_x || 0) / maxDimension,
-        Number(geometry.pivot_y || 0) / maxDimension,
-        Number(geometry.pivot_z || 0) / maxDimension,
+        number(geometry.pivot_x || 0) / maxDimension,
+        number(geometry.pivot_y || 0) / maxDimension,
+        number(geometry.pivot_z || 0) / maxDimension,
     ];
 
     const yaw = rotation + toRadians(geometry.rotation_y);

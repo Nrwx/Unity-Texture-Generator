@@ -2,11 +2,8 @@ import {Buffer} from "@/models/layer/3D/core/buffer/model";
 import {clamp} from "@/utils/tools";
 import {Matrix} from "@/view/models/page/material/core/Math/Matrix/Matrix";
 import {Quaternion} from "@/view/models/page/material/core/Math/Quaternion/Quaternion";
-import {
-    sceneToRendererCamera,
-    sceneToRendererGeometry,
-    sceneToRendererVector,
-} from "@/models/layer/3D/coordinateSystem";
+import {CoordinateSystem} from "@/models/layer/3D/core/coordinate/model";
+import {isFiniteNumber} from "@/utils/math";
 
 const FACE_DEFS = Object.freeze({
     front: {
@@ -661,6 +658,51 @@ void main() {
     fragColor = uColor;
 }`;
 
+const EDITOR_INSTANCED_VERTEX_SHADER = `#version 300 es
+precision highp float;
+
+layout(location = 0) in float aT;
+layout(location = 1) in vec4 iFromSize;
+layout(location = 2) in vec4 iToMode;
+layout(location = 3) in vec4 iColor;
+
+uniform mat4 uViewProj;
+
+out vec4 vColor;
+flat out float vPointMode;
+
+void main() {
+    vec3 fromPoint = iFromSize.xyz;
+    vec3 toPoint = iToMode.xyz;
+    float pointMode = iToMode.w;
+    vec3 position = pointMode > 0.5
+        ? fromPoint
+        : mix(fromPoint, toPoint, clamp(aT, 0.0, 1.0));
+
+    gl_Position = uViewProj * vec4(position, 1.0);
+    gl_PointSize = max(1.0, iFromSize.w);
+    vColor = iColor;
+    vPointMode = pointMode;
+}`;
+
+const EDITOR_INSTANCED_FRAGMENT_SHADER = `#version 300 es
+precision highp float;
+
+in vec4 vColor;
+flat in float vPointMode;
+out vec4 fragColor;
+
+void main() {
+    if (vPointMode > 0.5) {
+        vec2 p = gl_PointCoord * 2.0 - 1.0;
+        if (dot(p, p) > 1.0) {
+            discard;
+        }
+    }
+
+    fragColor = vColor;
+}`;
+
 const compileShader = (gl, type, source) => {
     const shader = gl.createShader(type);
     gl.shaderSource(shader, source);
@@ -695,7 +737,7 @@ const createProgram = (gl, vertexSource, fragmentSource) => {
     return program;
 };
 
-const toNumber = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
+const toNumber = (value, fallback = 0) => isFiniteNumber(Number(value)) ? Number(value) : fallback;
 const shouldRevealParticlesThroughSurface = ({ surface, baseTexture, alphaTexture }) => {
     return (
         clamp(surface?.alpha ?? 1) < 0.999 ||
@@ -789,7 +831,7 @@ const resolveViewportCamera = ({
     );
 
     if (!source || typeof source !== "object") {
-        return sceneToRendererCamera({
+        return CoordinateSystem.sceneToRendererCamera({
             enabled: false,
             projection: "perspective",
             aspect,
@@ -838,7 +880,7 @@ const resolveViewportCamera = ({
         up: normalize3(asVec3Array(source.up, [0, 1, 0])),
     };
 
-    return sceneToRendererCamera(camera);
+    return CoordinateSystem.sceneToRendererCamera(camera);
 };
 
 const buildCameraMatrices = ({
@@ -980,7 +1022,14 @@ const createTexture = (gl, image, fallback = [255, 255, 255, 255]) => {
 const textureImage = entry => entry?.image || null;
 const hasTexture = entry => Boolean(textureImage(entry));
 const alphaSourceCache = new WeakMap();
-const shouldUseObjectTextures = previewOverlay => {
+const EDIT_VIEW_MODES = Object.freeze(new Set(["wireframe", "solid", "soft", "world"]));
+const shouldUseObjectTextures = (previewOverlay, editor = {}) => {
+    const viewMode = String(editor?.viewMode || "world").toLowerCase();
+
+    if (EDIT_VIEW_MODES.has(viewMode) && viewMode !== "world") {
+        return false;
+    }
+
     return previewOverlay?.wireframe !== true;
 };
 
@@ -1409,6 +1458,7 @@ export class WebGLMaterialRenderer {
         this.ready = false;
         this.program = null;
         this.overlayProgram = null;
+        this.editorInstancedProgram = null;
         this.particleProgram = null;
 
         this.meshes = new Map();
@@ -1416,6 +1466,11 @@ export class WebGLMaterialRenderer {
         this.particleBuffers = new Map();
         this.meshInstanceScratch = new Float32Array(16);
         this.editorBuffers = new Map();
+        this.editorInstancedBuffers = new Map();
+        this.editorInstanceScratch = {
+            line: new Float32Array(12 * 512),
+            point: new Float32Array(12 * 512),
+        };
         this.uniformLocations = new WeakMap();
 
         this.textures = new WeakMap();
@@ -1427,6 +1482,7 @@ export class WebGLMaterialRenderer {
 
         this.program = createProgram(this.gl, VERTEX_SHADER, FRAGMENT_SHADER);
         this.overlayProgram = createProgram(this.gl, OVERLAY_VERTEX_SHADER, OVERLAY_FRAGMENT_SHADER);
+        this.editorInstancedProgram = createProgram(this.gl, EDITOR_INSTANCED_VERTEX_SHADER, EDITOR_INSTANCED_FRAGMENT_SHADER);
         this.particleProgram = createProgram(this.gl, PARTICLE_VERTEX_SHADER, PARTICLE_FRAGMENT_SHADER);
         this.initState();
         this.ready = true;
@@ -1802,7 +1858,7 @@ export class WebGLMaterialRenderer {
     }
 
     buildMatrices(width, height, geometry, rotation = 0, materialLayer = null, viewportCamera = null) {
-        const rendererGeometry = sceneToRendererGeometry(geometry || {});
+        const rendererGeometry = CoordinateSystem.sceneToRendererGeometry(geometry || {});
 
         const position = Matrix.translation(
             toNumber(rendererGeometry?.position_x, 0),
@@ -2057,14 +2113,14 @@ export class WebGLMaterialRenderer {
         const entries = [];
         const pushLineEntry = (key, color, positions, pointMode = 0, pointSize = 5.5, overlay = false) => {
             if (!positions.length) return;
-            entries.push({ key, primitive: "LINES", pointMode, pointSize, color, overlay, positions: new Float32Array(positions) });
+            entries.push({ key, primitive: "LINES", pointMode, pointSize, color, overlay, positions });
         };
         const pushPointEntry = (key, color, positions, pointSize = 12.0, overlay = false) => {
             if (!positions.length) return;
-            entries.push({ key, primitive: "POINTS", pointMode: 1, pointSize, color, overlay, positions: new Float32Array(positions) });
+            entries.push({ key, primitive: "POINTS", pointMode: 1, pointSize, color, overlay, positions });
         };
         const pushSceneLine = (target, a, b) => {
-            target.push(...sceneToRendererVector(a), ...sceneToRendererVector(b));
+            target.push(...CoordinateSystem.sceneToRendererVector(a), ...CoordinateSystem.sceneToRendererVector(b));
         };
         const point = value => ([
             toNumber(value?.x ?? value?.[0], 0),
@@ -2127,7 +2183,7 @@ export class WebGLMaterialRenderer {
                 pushSceneLine(pivot, [pivotPoint[0], pivotPoint[1] - s, pivotPoint[2]], [pivotPoint[0], pivotPoint[1] + s, pivotPoint[2]]);
                 pushSceneLine(pivot, [pivotPoint[0], pivotPoint[1], pivotPoint[2] - s], [pivotPoint[0], pivotPoint[1], pivotPoint[2] + s]);
                 pushLineEntry(`pivot:${key}:cross`, color, pivot, 0, 5.25, true);
-                pushPointEntry(`pivot:${key}:point`, color, sceneToRendererVector(pivotPoint), pointSize, true);
+                pushPointEntry(`pivot:${key}:point`, color, CoordinateSystem.rendererToSceneVector(pivotPoint), pointSize, true);
             };
 
             if (editor.showObjectPivot !== false) {
@@ -2151,7 +2207,7 @@ export class WebGLMaterialRenderer {
                     const tip = lineTo(dir, gizmoSize);
                     pushSceneLine(line, origin, tip);
                     pushLineEntry(`gizmo:translate:${axis}`, axisColors[axis], line, 0, 7.0, true);
-                    pushPointEntry(`gizmo:translate-tip:${axis}`, axisColors[axis], sceneToRendererVector(tip), 13.5, true);
+                    pushPointEntry(`gizmo:translate-tip:${axis}`, axisColors[axis], CoordinateSystem.rendererToSceneVector(tip), 13.5, true);
                 });
             }
 
@@ -2161,9 +2217,9 @@ export class WebGLMaterialRenderer {
                     const tip = lineTo(dir, gizmoSize * 0.82);
                     pushSceneLine(line, origin, tip);
                     pushLineEntry(`gizmo:scale:${axis}`, axisColors[axis], line, 0, 7.0, true);
-                    pushPointEntry(`gizmo:scale-box:${axis}`, axisColors[axis], sceneToRendererVector(tip), 15.0, true);
+                    pushPointEntry(`gizmo:scale-box:${axis}`, axisColors[axis], CoordinateSystem.rendererToSceneVector(tip), 15.0, true);
                 });
-                pushPointEntry("gizmo:scale:free", [1.0, 1.0, 1.0, 1.0], sceneToRendererVector(origin), 11.0, true);
+                pushPointEntry("gizmo:scale:free", [1.0, 1.0, 1.0, 1.0], CoordinateSystem.rendererToSceneVector(origin), 11.0, true);
 
                 const triangle = [];
                 const pushTriangleEdge = (a, b) => pushSceneLine(triangle, a, b);
@@ -2250,37 +2306,242 @@ export class WebGLMaterialRenderer {
             }
         }
 
+
+
+        if (editor.meshEdit?.enabled === true) {
+            const meshEdit = editor.meshEdit;
+            const selectedVertexColor = [1.0, 0.86, 0.25, 1.0];
+            const vertexColor = [0.48, 0.78, 1.0, 0.92];
+            const selectedEdgeColor = [1.0, 0.76, 0.22, 1.0];
+            const edgeColor = [0.42, 0.88, 1.0, 0.72];
+            const selectedFaceColor = [1.0, 0.72, 0.26, Math.max(0.24, toNumber(meshEdit.faceAlpha, 0.22))];
+            const faceColor = [0.25, 0.62, 1.0, Math.max(0.14, toNumber(meshEdit.faceAlpha, 0.18))];
+            const mode = String(meshEdit.mode || "vertex");
+            const collectPoints = (items, selected) => {
+                const positions = [];
+
+                (items || []).forEach(item => {
+                    if (selected === true && item.selected !== true) return;
+                    if (selected === false && item.selected === true) return;
+                    positions.push(...CoordinateSystem.rendererToSceneVector(item.point));
+                });
+
+                return positions;
+            };
+            const collectEdges = (items, selected) => {
+                const positions = [];
+
+                (items || []).forEach(item => {
+                    if (selected === true && item.selected !== true) return;
+                    if (selected === false && item.selected === true) return;
+                    if (!Array.isArray(item.points) || item.points.length < 2) return;
+                    pushSceneLine(positions, item.points[0], item.points[1]);
+                });
+
+                return positions;
+            };
+            const collectFaceEdges = (items, selected) => {
+                const positions = [];
+
+                (items || []).forEach(item => {
+                    if (selected === true && item.selected !== true) return;
+                    if (selected === false && item.selected === true) return;
+                    if (!Array.isArray(item.points) || item.points.length < 3) return;
+                    pushSceneLine(positions, item.points[0], item.points[1]);
+                    pushSceneLine(positions, item.points[1], item.points[2]);
+                    pushSceneLine(positions, item.points[2], item.points[0]);
+                });
+
+                return positions;
+            };
+
+            if (meshEdit.showFaces !== false && (mode === "face" || meshEdit.showAll === true)) {
+                pushLineEntry("mesh-edit:faces", faceColor, collectFaceEdges(meshEdit.faces, false), 0, 2.5, false);
+                pushLineEntry("mesh-edit:faces:selected", selectedFaceColor, collectFaceEdges(meshEdit.faces, true), 0, 5.0, true);
+            }
+
+            if (meshEdit.showEdges !== false && (mode === "edge" || mode === "face" || meshEdit.showAll === true)) {
+                pushLineEntry("mesh-edit:edges", edgeColor, collectEdges(meshEdit.edges, false), 0, toNumber(meshEdit.edgeWidth, 2), false);
+                pushLineEntry("mesh-edit:edges:selected", selectedEdgeColor, collectEdges(meshEdit.edges, true), 0, Math.max(4, toNumber(meshEdit.edgeWidth, 2) * 2.2), true);
+            }
+
+            if (meshEdit.showVertices !== false && (mode === "vertex" || meshEdit.showAll === true)) {
+                pushPointEntry("mesh-edit:vertices", vertexColor, collectPoints(meshEdit.vertices, false), toNumber(meshEdit.vertexSize, 7.5), true);
+                pushPointEntry("mesh-edit:vertices:selected", selectedVertexColor, collectPoints(meshEdit.vertices, true), Math.max(10, toNumber(meshEdit.vertexSize, 7.5) * 1.45), true);
+            }
+        }
+
+
+        if (editor.sculptBrush?.enabled === true && Array.isArray(editor.sculptBrush.point)) {
+            const brush = editor.sculptBrush;
+            const center = point(brush.point);
+            const radius = Math.max(0.001, toNumber(brush.radius, 0.18));
+            const softness = Math.max(0, Math.min(1, toNumber(brush.softness, 0.68)));
+            const color = Array.isArray(brush.color) ? brush.color : [0.82, 0.58, 1.0, 0.9];
+            const softColor = [color[0], color[1], color[2], Math.max(0.18, color[3] * 0.42)];
+            const normal = point(brush.normal || [0, 0, 1]);
+            const nLength = Math.hypot(normal[0], normal[1], normal[2]) || 1;
+            const n = [normal[0] / nLength, normal[1] / nLength, normal[2] / nLength];
+            const fallback = Math.abs(n[2]) > 0.85 ? [1, 0, 0] : [0, 0, 1];
+            const tangent = [
+                n[1] * fallback[2] - n[2] * fallback[1],
+                n[2] * fallback[0] - n[0] * fallback[2],
+                n[0] * fallback[1] - n[1] * fallback[0],
+            ];
+            const tLength = Math.hypot(tangent[0], tangent[1], tangent[2]) || 1;
+            const u = [tangent[0] / tLength, tangent[1] / tLength, tangent[2] / tLength];
+            const v = [
+                n[1] * u[2] - n[2] * u[1],
+                n[2] * u[0] - n[0] * u[2],
+                n[0] * u[1] - n[1] * u[0],
+            ];
+            const buildCircle = circleRadius => {
+                const positions = [];
+                const steps = 64;
+
+                for (let index = 0; index < steps; index += 1) {
+                    const a0 = (index / steps) * Math.PI * 2;
+                    const a1 = ((index + 1) / steps) * Math.PI * 2;
+                    const p0 = [
+                        center[0] + (u[0] * Math.cos(a0) + v[0] * Math.sin(a0)) * circleRadius,
+                        center[1] + (u[1] * Math.cos(a0) + v[1] * Math.sin(a0)) * circleRadius,
+                        center[2] + (u[2] * Math.cos(a0) + v[2] * Math.sin(a0)) * circleRadius,
+                    ];
+                    const p1 = [
+                        center[0] + (u[0] * Math.cos(a1) + v[0] * Math.sin(a1)) * circleRadius,
+                        center[1] + (u[1] * Math.cos(a1) + v[1] * Math.sin(a1)) * circleRadius,
+                        center[2] + (u[2] * Math.cos(a1) + v[2] * Math.sin(a1)) * circleRadius,
+                    ];
+
+                    pushSceneLine(positions, p0, p1);
+                }
+
+                return positions;
+            };
+
+            pushLineEntry("sculpt:brush-radius", color, buildCircle(radius), 0, 3.75, true);
+            pushLineEntry("sculpt:brush-softness", softColor, buildCircle(radius * Math.max(0.05, 1 - softness * 0.72)), 0, 2.25, true);
+            pushPointEntry("sculpt:brush-center", color, CoordinateSystem.rendererToSceneVector(center), 7.0, true);
+        }
+
         return entries;
     }
 
-    getEditorEntryBuffer(entry) {
-        const key = `${entry.key}:${entry.positions.length}:${entry.primitive || "LINES"}`;
+    getEditorInstanceScratch(kind, instanceCount) {
+        const key = kind === "point" ? "point" : "line";
+        const required = Math.max(1, Math.trunc(Number(instanceCount || 1))) * 12;
+        const current = this.editorInstanceScratch[key];
 
-        if (this.editorBuffers.size > 96) {
-            this.editorBuffers.forEach(item => item?.buffer?.destroy?.());
-            this.editorBuffers.clear();
+        if (current && current.length >= required) {
+            return current;
         }
 
-        if (!this.editorBuffers.has(key)) {
-            this.editorBuffers.set(key, {
-                count: entry.positions.length / 3,
-                primitive: entry.primitive || "LINES",
-                buffer: Buffer.positions(this.gl, entry.positions, {
-                    label: `editor:${entry.key}`,
-                }),
-            });
+        let capacity = current?.length || 12;
+        while (capacity < required) {
+            capacity *= 2;
         }
 
-        return this.editorBuffers.get(key);
+        this.editorInstanceScratch[key] = new Float32Array(capacity);
+        return this.editorInstanceScratch[key];
+    }
+
+    getEditorInstancedBuffer(kind) {
+        const key = kind === "point" ? "point" : "line";
+
+        if (this.editorInstancedBuffers.has(key)) {
+            return this.editorInstancedBuffers.get(key);
+        }
+
+        const gl = this.gl;
+        const vertices = key === "point"
+            ? new Float32Array([0])
+            : new Float32Array([0, 1]);
+        const buffer = new Buffer(gl, {
+            label: `editor-instanced:${key}`,
+            stride: 4,
+            indexed: false,
+            usage: gl.STATIC_DRAW,
+            attributes: [
+                { location: 0, size: 1, offset: 0, stride: 4 },
+            ],
+            instanceStride: 12 * 4,
+            instanceUsage: gl.DYNAMIC_DRAW,
+            instanceAttributes: [
+                { location: 1, size: 4, offset: 0, divisor: 1 },
+                { location: 2, size: 4, offset: 4 * 4, divisor: 1 },
+                { location: 3, size: 4, offset: 8 * 4, divisor: 1 },
+            ],
+        });
+
+        buffer.upload({ vertices });
+        buffer.createInstanceBuffer({
+            capacity: key === "point" ? 1024 : 2048,
+            usage: gl.DYNAMIC_DRAW,
+        });
+
+        const entry = {
+            kind: key,
+            vertexCount: key === "point" ? 1 : 2,
+            primitive: key === "point" ? gl.POINTS : gl.LINES,
+            buffer,
+        };
+
+        this.editorInstancedBuffers.set(key, entry);
+        return entry;
+    }
+
+    buildEditorInstanceData(entry) {
+        const positions = entry.positions;
+        const isPoint = entry.primitive === "POINTS" || entry.pointMode === 1;
+        const stride = 12;
+        const count = isPoint
+            ? Math.floor(positions.length / 3)
+            : Math.floor(positions.length / 6);
+
+        if (!count) {
+            return null;
+        }
+
+        const data = this.getEditorInstanceScratch(isPoint ? "point" : "line", count);
+        const color = entry.color || [1, 1, 1, 1];
+        const size = Math.max(1, toNumber(entry.pointSize, isPoint ? 8 : 1));
+        const pointMode = isPoint ? 1 : 0;
+
+        for (let index = 0; index < count; index += 1) {
+            const source = isPoint ? index * 3 : index * 6;
+            const target = index * stride;
+            const x = positions[source] || 0;
+            const y = positions[source + 1] || 0;
+            const z = positions[source + 2] || 0;
+            const tx = isPoint ? x : positions[source + 3] || 0;
+            const ty = isPoint ? y : positions[source + 4] || 0;
+            const tz = isPoint ? z : positions[source + 5] || 0;
+
+            data[target] = x;
+            data[target + 1] = y;
+            data[target + 2] = z;
+            data[target + 3] = size;
+            data[target + 4] = tx;
+            data[target + 5] = ty;
+            data[target + 6] = tz;
+            data[target + 7] = pointMode;
+            data[target + 8] = color[0] ?? 1;
+            data[target + 9] = color[1] ?? 1;
+            data[target + 10] = color[2] ?? 1;
+            data[target + 11] = color[3] ?? 1;
+        }
+
+        return {
+            count,
+            kind: isPoint ? "point" : "line",
+            data: data.subarray(0, count * stride),
+        };
     }
 
     drawEditorPass({ editor = {}, matrices, materialLayer = null }) {
-        if (editor.enabled !== true || !this.overlayProgram) {
+        if (editor.enabled !== true || !this.editorInstancedProgram) {
             return;
         }
-
-        this.editorBuffers.forEach(entry => entry?.buffer?.destroy?.());
-        this.editorBuffers.clear();
 
         const entries = this.buildEditorEntries(editor, materialLayer);
 
@@ -2290,38 +2551,38 @@ export class WebGLMaterialRenderer {
 
         const gl = this.gl;
 
-        gl.useProgram(this.overlayProgram);
+        gl.useProgram(this.editorInstancedProgram);
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         gl.disable(gl.CULL_FACE);
         gl.depthMask(false);
 
+        this.setUniforms(this.editorInstancedProgram, {
+            uViewProj: matrices.viewProj,
+        });
+
         entries.forEach(entry => {
-            const buffer = this.getEditorEntryBuffer(entry);
-            if (!buffer?.count) {
+            const instance = this.buildEditorInstanceData(entry);
+
+            if (!instance?.count) {
                 return;
             }
 
             if (entry.overlay === true) {
-                // Only gizmo handles/pivots are drawn as screen-readable editor overlays.
-                // Grid/topology keeps depth testing, so the scene does not become washed out.
+                // Screen-readable handles and edit selections stay on top.
                 gl.disable(gl.DEPTH_TEST);
             } else {
                 gl.enable(gl.DEPTH_TEST);
                 gl.depthFunc(gl.LEQUAL);
             }
 
-            this.setUniforms(this.overlayProgram, {
-                uModel: Matrix.identity().toArray(),
-                uViewProj: matrices.viewProj,
-                uPointSize: entry.pointSize || 5.5,
-                uPointMode: entry.pointMode || 0,
-                uColor: entry.color,
-            });
-
-            buffer.buffer?.drawArrays(
-                entry.primitive === "POINTS" ? gl.POINTS : gl.LINES,
-                buffer.count
+            const batch = this.getEditorInstancedBuffer(instance.kind);
+            batch.buffer.updateInstances(instance.data, instance.count, gl.DYNAMIC_DRAW);
+            batch.buffer.drawArraysInstanced(
+                batch.primitive,
+                batch.vertexCount,
+                0,
+                instance.count
             );
         });
 
@@ -2359,8 +2620,10 @@ export class WebGLMaterialRenderer {
         } = options;
 
         const gl = this.gl;
-        const useObjectTextures = shouldUseObjectTextures(previewOverlay);
-        const wireframeMaterialAlpha = previewOverlay?.wireframe === true ? 0.2 : 1;
+        const editorViewMode = String(editor?.viewMode || "world").toLowerCase();
+        const editSolidView = editor?.meshEdit?.enabled === true || editor?.sculptBrush?.enabled === true;
+        const useObjectTextures = shouldUseObjectTextures(previewOverlay, editor);
+        const wireframeMaterialAlpha = editorViewMode === "wireframe" ? 0.08 : previewOverlay?.wireframe === true ? 0.2 : 1;
 
         this.canvas.width = Math.round(width * dpr);
         this.canvas.height = Math.round(height * dpr);
@@ -2389,7 +2652,7 @@ export class WebGLMaterialRenderer {
 
         const cameraPos = matrices.cameraPos || matrices.camera || [0, 0.18, 3.25];
 
-        const lightDirection = normalize3(sceneToRendererVector([
+        const lightDirection = normalize3(CoordinateSystem.rendererToSceneVector([
             toNumber(light.direction_x, -0.35),
             toNumber(light.direction_y, -0.65),
             toNumber(light.direction_z, 0.72),
@@ -2654,7 +2917,9 @@ export class WebGLMaterialRenderer {
 
                 uAlphaMode: alphaMode,
 
-                uBaseColor: toColor4(faceSurface.baseColor),
+                uBaseColor: toColor4(editSolidView && editorViewMode !== "world"
+                    ? (editorViewMode === "soft" ? [0.28, 0.62, 1.0, 1] : editorViewMode === "solid" ? [0.58, 0.64, 0.72, 1] : [0.35, 0.48, 0.62, 1])
+                    : faceSurface.baseColor),
                 uSubsurfaceColor: toColor4(faceSurface.subsurfaceColor),
                 uEmissionColor: toColor4(faceSurface.emission),
 
@@ -2799,7 +3064,7 @@ export class WebGLMaterialRenderer {
 
                 uLightType: lightTypeIndex,
 
-                uLightPos: sceneToRendererVector([
+                uLightPos: CoordinateSystem.rendererToSceneVector([
                     toNumber(light.position_x, 0),
                     toNumber(light.position_y, 1.4),
                     toNumber(light.position_z, 2.8),
@@ -2920,6 +3185,10 @@ export class WebGLMaterialRenderer {
             destroyBufferOnce(entry.buffer);
         });
 
+        this.editorInstancedBuffers.forEach(entry => {
+            destroyBufferOnce(entry.buffer);
+        });
+
         Object.values(this.fallbackTextures || {}).forEach(texture => {
             if (texture) {
                 gl.deleteTexture(texture);
@@ -2934,6 +3203,10 @@ export class WebGLMaterialRenderer {
             gl.deleteProgram(this.overlayProgram);
         }
 
+        if (this.editorInstancedProgram) {
+            gl.deleteProgram(this.editorInstancedProgram);
+        }
+
         if (this.particleProgram) {
             gl.deleteProgram(this.particleProgram);
         }
@@ -2942,9 +3215,11 @@ export class WebGLMaterialRenderer {
         this.overlayMeshes.clear();
         this.particleBuffers.clear();
         this.editorBuffers.clear();
+        this.editorInstancedBuffers.clear();
 
         this.program = null;
         this.overlayProgram = null;
+        this.editorInstancedProgram = null;
         this.particleProgram = null;
         this.ready = false;
     }

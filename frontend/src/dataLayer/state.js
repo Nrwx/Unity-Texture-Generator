@@ -12,7 +12,7 @@ export const windowStates = {
     drawerLeft: ref(false),
     drawerRight: ref(false),
     drawerCenter: ref(false),
-    animator: ref(false),
+    orbit: ref(false),
     export: ref(false),
     layer: ref(false),
     mixer: ref(false),
@@ -61,6 +61,14 @@ export const loadingStates = {
     modifierDistortPreview: ref(false),
     material: ref(false),
     materialPreview: ref(false)
+};
+
+export const meshStates = {
+    edit: ref(false),
+    sculpt: ref(false),
+    animator: ref(false),
+    camera: ref(false),
+    gizmo: ref(false)
 };
 
 export const modifierStates = {

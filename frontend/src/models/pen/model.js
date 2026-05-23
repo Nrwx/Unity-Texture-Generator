@@ -1,5 +1,6 @@
 import {computed, onBeforeUnmount, onMounted, reactive, ref} from 'vue';
 import {eventRegister} from "@/dataLayer/event";
+import {number} from "@/utils/math";
 
 export function penModel(props, emit) {
     const wrapper = ref(null);
@@ -177,7 +178,7 @@ export function penModel(props, emit) {
             props.pathLayer.points.forEach((p) => {
                 const newNeighbors = {};
                 for (const [nbrIdxStr, data] of Object.entries(p.anchor.neighbors)) {
-                    let nbrIdx = Number(nbrIdxStr);
+                    let nbrIdx = number(nbrIdxStr);
                     if (nbrIdx === idx) continue;  // Gelöschter Nachbar weg
                     if (nbrIdx > idx) nbrIdx--;
                     newNeighbors[nbrIdx] = data;
@@ -806,7 +807,7 @@ export function penModel(props, emit) {
                 data.mid.x += dx;
                 data.mid.y += dy;
 
-                const nb = props.pathLayer.points[Number(nbrIdx)];
+                const nb = props.pathLayer.points[number(nbrIdx)];
                 if (nb?.anchor?.neighbors?.[draggedPointIdx.value]) {
                     nb.anchor.neighbors[draggedPointIdx.value].mid.x += dx;
                     nb.anchor.neighbors[draggedPointIdx.value].mid.y += dy;

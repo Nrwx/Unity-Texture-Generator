@@ -1,6 +1,7 @@
 import { computed } from "vue";
 
 import { clone } from "@/utils/tools";
+import {isFiniteNumber} from "@/utils/math";
 
 const DEFAULT_MATRIX = {
     a: 1,
@@ -15,7 +16,7 @@ const DEFAULT_MATRIX = {
 const toNumber = (value, fallback = 0) => {
     const number = Number(value);
 
-    return Number.isFinite(number) ? number : fallback;
+    return isFiniteNumber(number) ? number : fallback;
 };
 
 const normalizeMatrix = matrix => ({

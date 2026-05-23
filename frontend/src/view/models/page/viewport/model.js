@@ -1,4 +1,5 @@
 import { computed, ref } from "vue";
+import {isFiniteNumber, number} from "@/utils/math";
 
 export function viewportModel(props, emit) {
     const emitEvent = (event, payload) => {
@@ -128,7 +129,7 @@ export function viewportModel(props, emit) {
 
     const toInt = (value) => {
         const n = Number.parseInt(value, 10);
-        return Number.isFinite(n) ? n : 0;
+        return isFiniteNumber(n) ? n : 0;
     };
 
     const applySetting = (key, value, eventName = `viewport:${key}`) => {
@@ -201,16 +202,16 @@ export function viewportModel(props, emit) {
     });
 
     const aspectRatioLabel = computed(() => {
-        const w = Math.max(1, Number(props.settings?.width || 1));
-        const h = Math.max(1, Number(props.settings?.height || 1));
+        const w = Math.max(1, number(props.settings?.width || 1));
+        const h = Math.max(1, number(props.settings?.height || 1));
         const g = (a, b) => (b === 0 ? a : g(b, a % b));
         const d = g(w, h);
         return `${Math.round(w / d)}:${Math.round(h / d)}`;
     });
 
     const pixelCountLabel = computed(() => {
-        const w = Math.max(0, Number(props.settings?.width || 0));
-        const h = Math.max(0, Number(props.settings?.height || 0));
+        const w = Math.max(0, number(props.settings?.width || 0));
+        const h = Math.max(0, number(props.settings?.height || 0));
         const px = w * h;
         if (px >= 1_000_000) return `${(px / 1_000_000).toFixed(2)} MP`;
         if (px >= 1_000) return `${(px / 1_000).toFixed(1)} Kpx`;
@@ -218,15 +219,15 @@ export function viewportModel(props, emit) {
     });
 
     const previewScaleLabel = computed(() => {
-        const w = Math.max(1, Number(props.settings?.width || 1));
-        const h = Math.max(1, Number(props.settings?.height || 1));
+        const w = Math.max(1, number(props.settings?.width || 1));
+        const h = Math.max(1, number(props.settings?.height || 1));
         const s = Math.min(1, 560 / Math.max(w, h));
         return `${Math.round(s * 100)}%`;
     });
 
     const previewStageStyle = computed(() => {
-        const w = Math.max(1, Number(props.settings?.width || 1));
-        const h = Math.max(1, Number(props.settings?.height || 1));
+        const w = Math.max(1, number(props.settings?.width || 1));
+        const h = Math.max(1, number(props.settings?.height || 1));
         const maxW = 560;
         const maxH = 420;
         const scale = Math.min(maxW / w, maxH / h, 1);

@@ -1,5 +1,6 @@
 import {uuid} from "@/utils/uuid";
 import {computed, ref, watch} from "vue";
+import {number} from "@/utils/math";
 
 export function starRatingModel(props, emit) {
     const uid = uuid('sr');
@@ -15,7 +16,7 @@ export function starRatingModel(props, emit) {
 
     // Normalisiere score -> percent (0..100)
     const percent = computed(() => {
-        let s = Number(props.score) || 0;
+        let s = number(props.score) || 0;
         // Heuristik: wenn Backend 0..1 liefert, skaliere nach 0..100
         if (s <= 1 && s > 0) s = s * 100;
         s = Math.max(0, Math.min(100, s));

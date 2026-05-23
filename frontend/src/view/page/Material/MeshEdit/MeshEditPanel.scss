@@ -1,0 +1,70 @@
+.mesh-edit-panel {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  z-index: 12;
+  width: 260px;
+  padding: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 14px;
+  background: rgba(13, 18, 32, 0.86);
+  color: #e5edf8;
+  pointer-events: auto;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+
+  &.is-active {
+    border-color: rgba(96, 165, 250, 0.68);
+  }
+
+  button {
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    border-radius: 9px;
+    background: rgba(30, 41, 59, 0.86);
+    color: inherit;
+    padding: 5px 8px;
+    cursor: pointer;
+
+    &.active,
+    &:hover {
+      background: rgba(59, 130, 246, 0.82);
+      border-color: rgba(147, 197, 253, 0.9);
+    }
+  }
+}
+
+.mesh-edit-panel__header,
+.mesh-edit-panel__modes,
+.mesh-edit-panel__tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.mesh-edit-panel__header {
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.mesh-edit-panel__hint,
+.mesh-edit-panel__selection,
+.mesh-edit-panel__status,
+.mesh-edit-panel__error {
+  margin-top: 8px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: rgba(226, 232, 240, 0.74);
+}
+
+.mesh-edit-panel__tools {
+  margin-top: 8px;
+}
+
+.mesh-edit-panel__error {
+  color: #fca5a5;
+}
+
+.mesh-edit-panel__status {
+  color: #93c5fd;
+}

@@ -9,10 +9,11 @@ import {
     PARTICLE_ROOT_ANIMATION_OPTIONS, PARTICLE_SEQUENCE_MODE_OPTIONS,
     PARTICLE_VOLUME_FLOW_OPTIONS, PATH_GRID_MODES, PATH_VIEW_DEFINITIONS, PATH_VIEW_OPTIONS
 } from "@/dataLayer/webgl";
+import {isFiniteNumber} from "@/utils/math";
 
 const toNumber = value => {
     const number = Number(value);
-    return Number.isFinite(number) ? number : 0;
+    return isFiniteNumber(number) ? number : 0;
 };
 
 const colorToHex = color => {
@@ -37,7 +38,7 @@ const hexToColor = value => {
     ];
 };
 const parsePickerColor = value => {
-    if (value && typeof value === "object" && Number.isFinite(Number(value.r))) {
+    if (value && typeof value === "object" && isFiniteNumber(Number(value.r))) {
         return [
             clamp(Number(value.r) / 255),
             clamp(Number(value.g) / 255),

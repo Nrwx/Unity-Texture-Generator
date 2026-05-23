@@ -2,6 +2,7 @@ import {computed, reactive, ref} from "vue";
 import {localData} from "@/dataLayer/local";
 import {windowStates} from "@/dataLayer/state";
 import {dragData} from "@/models/drag/data/model";
+import {number} from "@/utils/math";
 
 export function layerModel(props, emit) {
     const globalOpacity = ref(100);
@@ -10,7 +11,7 @@ export function layerModel(props, emit) {
     });
     const tabIndex = ref(0)
     const tabs = computed(() => {
-        if (props.animatorState) {
+        if (props.orbit) {
             return [
                 { name: "Layer", icon: "mdi-cube-outline", content: "Animator Material Layers" },
                 { name: "Transform", icon: "mdi-axis-arrow", content: "Selected Material Transform" },
@@ -26,8 +27,8 @@ export function layerModel(props, emit) {
     });
 
     const visibleLayers = computed(() => {
-        if (props.animatorState) {
-            return (props.layers || []).filter(layer => Number(layer?.type) === 5);
+        if (props.orbit) {
+            return (props.layers || []).filter(layer => number(layer?.type) === 5);
         }
 
         return props.layers || [];
@@ -100,14 +101,14 @@ export function layerModel(props, emit) {
     }))
 
     const toggleLayerSelection = (layer) => {
-        if (props.animatorState && Number(layer?.type) !== 5) {
+        if (props.orbit && number(layer?.type) !== 5) {
             return;
         }
 
         let data = [...(props.selectedLayer || [])];
         const index = data.findIndex(l => l.id === layer.id);
 
-        globalOpacity.value = Number(layer.opacity ?? 1) * 100;
+        globalOpacity.value = number(layer.opacity ?? 1) * 100;
         localData.selectedBlendMode.value = layer.blendMode;
 
         if (index === -1) {
@@ -132,7 +133,7 @@ export function layerModel(props, emit) {
 
     const handleTabEmit = (index) => {
         tabIndex.value = index
-        if (props.animatorState) {
+        if (props.orbit) {
             return;
         }
 
@@ -224,7 +225,7 @@ export const layerProps = {
         type: Boolean,
         default: false
     },
-    animatorState: {
+    orbit: {
         type: Boolean,
         required: false,
         default: false,

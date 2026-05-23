@@ -1,3 +1,5 @@
+import {isFiniteNumber} from "@/utils/math";
+
 export class Accumulator {
     constructor(initialTime = 0, speed = 1) {
         this.time = Accumulator.toNumber(initialTime);
@@ -9,7 +11,7 @@ export class Accumulator {
     static toNumber(value, fallback = 0) {
         const number = Number(value);
 
-        return Number.isFinite(number) ? number : fallback;
+        return isFiniteNumber(number) ? number : fallback;
     }
 
     update(deltaTime = 0) {

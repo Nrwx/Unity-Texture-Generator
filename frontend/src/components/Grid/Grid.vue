@@ -25,13 +25,25 @@
           <div class="canvas-content overflow-hidden transparent">
 
             <Animator
-                v-if="animatorState"
-                :selected-layers="selectedLayer"
-                :orbit-settings="ui.animator"
-                :timeline-time="time"
+                v-if="orbit"
+                :engine-session="engineSession"
+                :editor-config="engineData.editor.value"
+                :camera-config="engineData.camera.value"
+                :orbit-config="engineData.orbit.value"
+                :control-config="engineData.controls.value"
+                :gizmo-config="engineData.gizmo.value"
+                :edit-config="engineData.edit.value"
+                :sculpt-config="engineData.sculpt.value"
+                :grid-config="engineData.grid.value"
+                :view-config="engineData.view.value"
+                :keyboard="engineData.keyboard"
+                :mesh-states="meshStates"
                 :viewport="viewport"
+                :selected-layers="selectedLayer"
+                :timeline-time="time"
                 @update:component-event="emitEvent"
             />
+
 
             <Image
                 v-else
@@ -49,7 +61,7 @@
                 :export-time-seconds="exportTimeSeconds"
             />
 
-            <template v-if="!exportState && ! animatorState">
+            <template v-if="!exportState && ! orbit">
               <div v-if="!selectedLayer.length" class="center-crosshair"></div>
 
               <Text :state="text" @update:component-event="emitEvent" :layer="textLayer"/>
@@ -64,7 +76,7 @@
             </template>
           </div>
 
-          <template v-if="!animatorState && !exportState">
+          <template v-if="!orbit && !exportState">
             <SelectVector
                 v-if="selectedLayer.length && !editText"
                 :frameBox="frameBox"
@@ -130,10 +142,20 @@
 
     <slot style="width: 100%;"/>
 
-    <Gizmo
-        v-if="animatorState"
-        mode="control"
-        :state="animatorState"
+    <CameraPanel
+        v-if="orbit"
+        :selected-layers="selectedLayer"
+        :editor-config="engineData.editor.value"
+        :camera-config="engineData.camera.value"
+        :orbit-config="engineData.orbit.value"
+        :gizmo-config="engineData.gizmo.value"
+        :edit-config="engineData.edit.value"
+        :sculpt-config="engineData.sculpt.value"
+        :grid-config="engineData.grid.value"
+        :view-config="engineData.view.value"
+        :keyboard="engineData.keyboard"
+        :mesh-states="meshStates"
+        compact
         @update:component-event="emitEvent"
     />
 
@@ -170,7 +192,7 @@ import Box from "@/components/Selection/Box";
 import Cursor from "@/components/Brush/Cursor";
 import Edit from "@/components/Text/Edit";
 import Animator from "@/view/page/Material/Animator/Animator";
-import Gizmo from "@/components/Gizmo/Gizmo";
+import CameraPanel from "@/view/page/Material/Camera/CameraPanel";
 
 export default defineComponent({
   name: "GridComponent",
@@ -191,7 +213,7 @@ export default defineComponent({
     Menu,
     Box,
     Animator,
-    Gizmo
+    CameraPanel
   },
   setup(props, { emit }) {
     const model = gridModel(props, emit);
