@@ -352,4 +352,13 @@ export const windowStateEvent = (route) => ({
             route.loadingStates.modifierDetails.value = false;
         }
     },
+    "modifier-effects:state": async (payload) => {
+        route.modifierStates.effects.value = payload;
+        if(!payload){
+            route.tempData.activeLayer.value = null;
+            route.tempData.preview.value.src = "";
+            route.tempData.preview.value.counter = 0;
+            route.loadingStates.modifierEffects.value = false;
+        }
+    },
 });

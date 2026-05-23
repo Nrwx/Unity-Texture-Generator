@@ -104,7 +104,7 @@ const imageFilterChildren = [
                 active: true,
                 label: 'Rauschen',
                 icon: 'mdi-grain',
-                action: 'apply:noise',
+                action: 'noise',
                 modifier: 'apply_noise.py',
                 disabled: false
             },

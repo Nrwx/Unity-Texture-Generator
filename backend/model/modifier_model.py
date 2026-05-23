@@ -36,7 +36,12 @@ from components import (
     apply_blur,
     apply_edge_detection,
     apply_edge_smooth,
-    apply_blend_edges
+    apply_blend_edges,
+
+    apply_noise,
+    apply_pixelate,
+    apply_glass,
+    apply_deepness_highness
 )
 
 from utils import (
@@ -289,6 +294,318 @@ class ModifierModel(BaseModel):
                 influence = np.maximum(influence, segment_map)
 
         return np.clip(influence, 0.0, 1.0).astype(np.float32)
+
+    @classmethod
+    def normalize_effect_image(cls, modified, original_size, alpha=None):
+        """
+        Normalisiert Rückgaben aus bestehenden Effekt-Modulen zu RGBA.
+        Wichtig für apply_glass(effect_type=4), weil Reflected Glass die Bildhöhe ändern kann.
+        Für Modifier-Stacks halten wir die Layer-Größe stabil.
+        """
+
+        if isinstance(modified, Image.Image):
+            modified_image = modified.convert("RGBA")
+        else:
+            modified = np.array(modified)
+
+            if modified.ndim == 2:
+                modified_image = Image.fromarray(modified.astype(np.uint8)).convert("RGBA")
+            elif len(modified.shape) == 3 and modified.shape[2] == 4:
+                modified_image = Image.fromarray(modified.astype(np.uint8)).convert("RGBA")
+            else:
+                modified_image = Image.fromarray(modified.astype(np.uint8)).convert("RGBA")
+
+        if modified_image.size != original_size:
+            modified_image = modified_image.resize(original_size, Image.Resampling.LANCZOS)
+
+        if alpha is not None and modified_image.size == alpha.size:
+            modified_image.putalpha(alpha)
+
+        return modified_image.convert("RGBA")
+
+    @classmethod
+    def parse_falloff_points(cls, points):
+        if isinstance(points, list):
+            raw_points = points
+        else:
+            try:
+                raw_points = json.loads(points or "[]")
+            except Exception:
+                raw_points = []
+
+        parsed = []
+
+        for point in raw_points:
+            try:
+                parsed.append({
+                    "x": max(0.0, min(1.0, float(point.get("x", 0.5)))),
+                    "y": max(0.0, min(1.0, float(point.get("y", 0.5)))),
+                })
+            except Exception:
+                continue
+
+        return parsed
+
+
+    @classmethod
+    def apply_falloff_curve(cls, d, preset="smooth", strength=1.0):
+        preset = str(preset or "smooth").lower()
+        strength = max(float(strength or 1.0), 0.0)
+
+        d = np.clip(d, 0.0, 1.0)
+
+        if preset == "constant":
+            influence = np.ones_like(d, dtype=np.float32)
+
+        elif preset == "sphere":
+            influence = np.sqrt(np.clip(1.0 - d ** 2, 0.0, 1.0))
+
+        elif preset == "root":
+            influence = 1.0 - np.sqrt(d)
+
+        elif preset == "sharp":
+            influence = (1.0 - d) ** 3
+
+        elif preset == "linear":
+            influence = 1.0 - d
+
+        elif preset == "random":
+            # Random wird separat in build_falloff_map behandelt.
+            influence = 1.0 - d
+
+        else:
+            smooth = d * d * (3.0 - 2.0 * d)
+            influence = 1.0 - smooth
+
+        return np.clip(influence * strength, 0.0, 1.0).astype(np.float32)
+
+
+    @classmethod
+    def build_falloff_map(
+        cls,
+        image_size,
+        falloff_preset="smooth",
+        falloff_radius=100,
+        falloff_strength=1.0,
+        falloff_center_x=0.5,
+        falloff_center_y=0.5,
+        falloff_inverted=False,
+        falloff_random_seed=1,
+        falloff_custom_enabled=False,
+        falloff_custom_points="[]",
+    ):
+        width, height = image_size
+
+        if width <= 0 or height <= 0:
+            return np.ones((1, 1), dtype=np.float32)
+
+        preset = str(falloff_preset or "smooth").lower()
+        strength = max(float(falloff_strength or 1.0), 0.0)
+
+        yy, xx = np.mgrid[0:height, 0:width]
+
+        custom_points = cls.parse_falloff_points(falloff_custom_points)
+
+        if falloff_custom_enabled and custom_points:
+            radius_px = max(
+                1.0,
+                float(falloff_radius or 100) / 100.0 * max(width, height)
+            )
+
+            pixel_points = [
+                {
+                    "x": point["x"] * width,
+                    "y": point["y"] * height,
+                }
+                for point in custom_points
+            ]
+
+            distance = np.full((height, width), np.inf, dtype=np.float32)
+
+            for point in pixel_points:
+                point_distance = np.sqrt((xx - point["x"]) ** 2 + (yy - point["y"]) ** 2)
+                distance = np.minimum(distance, point_distance)
+
+            if len(pixel_points) > 1:
+                for index in range(len(pixel_points) - 1):
+                    a = pixel_points[index]
+                    b = pixel_points[index + 1]
+
+                    segment_distance = cls.point_distance_to_segment(
+                        xx,
+                        yy,
+                        a["x"],
+                        a["y"],
+                        b["x"],
+                        b["y"],
+                    )
+
+                    distance = np.minimum(distance, segment_distance)
+
+            d = np.clip(distance / radius_px, 0.0, 1.0)
+
+            if preset == "random":
+                rng = np.random.default_rng(int(falloff_random_seed or 1))
+                random_map = rng.random((height, width), dtype=np.float32)
+                curve = cls.apply_falloff_curve(d, "smooth", strength)
+                influence = random_map * curve
+            else:
+                influence = cls.apply_falloff_curve(
+                    d,
+                    preset=preset,
+                    strength=strength,
+                )
+
+        elif preset == "constant":
+            influence = np.ones((height, width), dtype=np.float32)
+
+        elif preset == "random":
+            rng = np.random.default_rng(int(falloff_random_seed or 1))
+            influence = rng.random((height, width), dtype=np.float32)
+            influence = np.clip(influence * strength, 0.0, 1.0)
+
+        else:
+            center_x = max(0.0, min(1.0, float(falloff_center_x or 0.5))) * width
+            center_y = max(0.0, min(1.0, float(falloff_center_y or 0.5))) * height
+
+            radius_px = max(
+                1.0,
+                float(falloff_radius or 100) / 100.0 * max(width, height)
+            )
+
+            distance = np.sqrt((xx - center_x) ** 2 + (yy - center_y) ** 2)
+            d = np.clip(distance / radius_px, 0.0, 1.0)
+
+            influence = cls.apply_falloff_curve(
+                d,
+                preset=preset,
+                strength=strength,
+            )
+
+        if falloff_inverted:
+            influence = 1.0 - influence
+
+        return np.clip(influence, 0.0, 1.0).astype(np.float32)
+
+    @classmethod
+    def apply_effects_stack(
+        cls,
+        image,
+
+        effects_effect="noise",
+
+        noise_level=10,
+
+        pixel_size=10,
+
+        glass_effect_type=1,
+        glass_frost_strength=5,
+        glass_frost_mode=1,
+        glass_blur_radius=5,
+        glass_crack_intensity=10,
+        glass_reflection_strength=0.5,
+
+        deepness_factor=1.0,
+        highness_factor=1.0,
+
+        falloff_custom_enabled=False,
+        falloff_custom_points="[]",
+        falloff_preset="smooth",
+        falloff_radius=100,
+        falloff_strength=1.0,
+        falloff_center_x=0.5,
+        falloff_center_y=0.5,
+        falloff_inverted=False,
+        falloff_random_seed=1,
+    ):
+        """
+        Zentrale Effects-Pipeline für Preview und final Apply.
+
+        Prinzip:
+        1. Original-Layer laden
+        2. Effekt vollständig berechnen
+        3. Falloff-Map berechnen
+        4. Original und Effekt über Falloff-Map mischen
+        """
+
+        image = image.convert("RGBA")
+        original = image.copy()
+        alpha = image.getchannel("A")
+
+        rgb = image.convert("RGB")
+        img = np.array(rgb).copy()
+
+        effect = str(effects_effect or "noise").lower()
+
+        if effect == "noise":
+            # apply_noise nutzt np.random global; für Preview-Reproduzierbarkeit setzen wir hier den Seed.
+            np.random.seed(int(falloff_random_seed or 1))
+
+            modified = apply_noise(
+                img.copy(),
+                noise_level=int(noise_level or 0),
+            )
+
+        elif effect == "pixelate":
+            modified = apply_pixelate(
+                img.copy(),
+                pixel_size=max(1, int(pixel_size or 1)),
+            )
+
+        elif effect == "glass":
+            np.random.seed(int(falloff_random_seed or 1))
+
+            modified = apply_glass(
+                img.copy(),
+                effect_type=int(glass_effect_type or 1),
+                frost_strength=int(glass_frost_strength or 5),
+                frost_mode=int(glass_frost_mode or 1),
+                blur_radius=int(glass_blur_radius or 5),
+                crack_intensity=int(glass_crack_intensity or 10),
+                reflection_strength=max(
+                    0.0,
+                    min(float(glass_reflection_strength or 0.5), 1.0)
+                ),
+            )
+
+        elif effect in ["deepness_highness", "deepness-highness", "deepness"]:
+            modified = apply_deepness_highness(
+                img.copy(),
+                deepness_factor=float(deepness_factor or 1.0),
+                highness_factor=float(highness_factor or 1.0),
+            )
+
+        else:
+            modified = img.copy()
+
+        modified_image = cls.normalize_effect_image(
+            modified=modified,
+            original_size=image.size,
+            alpha=alpha,
+        )
+
+        influence = cls.build_falloff_map(
+            image_size=image.size,
+            falloff_custom_enabled=falloff_custom_enabled,
+            falloff_custom_points=falloff_custom_points,
+            falloff_preset=falloff_preset,
+            falloff_radius=falloff_radius,
+            falloff_strength=falloff_strength,
+            falloff_center_x=falloff_center_x,
+            falloff_center_y=falloff_center_y,
+            falloff_inverted=falloff_inverted,
+            falloff_random_seed=falloff_random_seed,
+        )
+
+        original_np = np.array(original).astype(np.float32)
+        modified_np = np.array(modified_image).astype(np.float32)
+
+        influence_np = influence[..., np.newaxis]
+
+        result_np = original_np * (1.0 - influence_np) + modified_np * influence_np
+        result_np = np.clip(result_np, 0, 255).astype(np.uint8)
+
+        return Image.fromarray(result_np).convert("RGBA")
 
     @classmethod
     def fill(cls, id, x, y, color, tolerance=0):
@@ -804,6 +1121,117 @@ class ModifierModel(BaseModel):
 
             return {
                 "message": "Details erfolgreich bearbeitet.",
+                "id": new_id,
+                "url": layer["url"],
+                "width": layer["width"],
+                "height": layer["height"],
+                "thumbnail": layer["thumbnail"],
+            }, 200
+
+        except Exception as e:
+            return cls.handle_error(e)
+
+    @classmethod
+    def effects(
+        cls,
+        id,
+
+        effects_effect="noise",
+
+        noise_level=10,
+
+        pixel_size=10,
+
+        glass_effect_type=1,
+        glass_frost_strength=5,
+        glass_frost_mode=1,
+        glass_blur_radius=5,
+        glass_crack_intensity=10,
+        glass_reflection_strength=0.5,
+
+        deepness_factor=1.0,
+        highness_factor=1.0,
+
+        falloff_custom_enabled=False,
+        falloff_custom_points="[]",
+        falloff_preset="smooth",
+        falloff_radius=100,
+        falloff_strength=1.0,
+        falloff_center_x=0.5,
+        falloff_center_y=0.5,
+        falloff_inverted=False,
+        falloff_random_seed=1,
+    ):
+        try:
+            layer = next((l for l in LAYERS if l["id"] == id), None)
+
+            if not layer:
+                return {"error": f"Layer with id '{id}' not found."}, 404
+
+            image_path = os.path.join(PUBLIC_LAYER_FOLDER, f"{id}.png")
+
+            if not os.path.exists(image_path):
+                return {"error": "Image file not found."}, 404
+
+            if not os.path.exists(PUBLIC_BACKUP_FOLDER):
+                os.makedirs(PUBLIC_BACKUP_FOLDER)
+
+            backup_path = os.path.join(PUBLIC_BACKUP_FOLDER, f"{id}.png")
+            shutil.copy2(image_path, backup_path)
+
+            image = Image.open(image_path).convert("RGBA")
+
+            result = cls.apply_effects_stack(
+                image=image,
+
+                effects_effect=effects_effect,
+
+                noise_level=noise_level,
+
+                pixel_size=pixel_size,
+
+                glass_effect_type=glass_effect_type,
+                glass_frost_strength=glass_frost_strength,
+                glass_frost_mode=glass_frost_mode,
+                glass_blur_radius=glass_blur_radius,
+                glass_crack_intensity=glass_crack_intensity,
+                glass_reflection_strength=glass_reflection_strength,
+
+                deepness_factor=deepness_factor,
+                highness_factor=highness_factor,
+
+                falloff_preset=falloff_preset,
+                falloff_radius=falloff_radius,
+                falloff_strength=falloff_strength,
+                falloff_center_x=falloff_center_x,
+                falloff_center_y=falloff_center_y,
+                falloff_inverted=falloff_inverted,
+                falloff_random_seed=falloff_random_seed,
+            )
+
+            new_id = str(uuid.uuid4())
+            new_filename = f"{new_id}.png"
+            new_save_path = os.path.join(PUBLIC_LAYER_FOLDER, new_filename)
+
+            result.save(new_save_path)
+
+            os.remove(image_path)
+
+            layer["url"] = f"/download/{new_filename}?ts={time('unix_ms')}"
+            layer["id"] = new_id
+            layer["source"] = id
+            layer["width"] = result.size[0]
+            layer["height"] = result.size[1]
+            layer["thumbnail"] = generate_thumbnail_map(
+                new_id,
+                path=new_save_path,
+                size=64,
+                image=None,
+            )
+            layer["time"] = time("unix_ms")
+
+            return {
+                "message": "Effekt erfolgreich bearbeitet.",
                 "id": new_id,
                 "url": layer["url"],
                 "width": layer["width"],

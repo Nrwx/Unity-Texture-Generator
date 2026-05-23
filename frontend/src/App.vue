@@ -41,6 +41,8 @@
       <ColorModifier v-model:state="modifierStates.color.value" v-model:loading="loadingStates.modifierColor.value" v-model:viewport="localData.viewport.value" v-model:loading-preview="loadingStates.modifierColorPreview.value" v-model:layer="tempData.activeLayer.value" v-model:select-mask="localData.selectMaskBox.value" v-model:select-mask-shape="localData.selectedShape.value"  v-model:preview-src="tempData.preview.value.src" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
       <!-- Blur/Edge/Sharpness/Smooth Modifier -->
       <DetailsModifier v-model:state="modifierStates.details.value" v-model:loading="loadingStates.modifierDetails.value" v-model:loading-preview="loadingStates.modifierDetailsPreview.value" v-model:layer="tempData.activeLayer.value" v-model:preview-src="tempData.preview.value.src" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
+      <!-- Noise/Glass/Deepness/Highness/Falloff Modifier -->
+      <EffectsModifier v-model:state="modifierStates.effects.value" v-model:loading="loadingStates.modifierEffects.value" v-model:loading-preview="loadingStates.modifierEffectsPreview.value" v-model:layer="tempData.activeLayer.value" v-model:preview-src="tempData.preview.value.src" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
       <!-- Rechte Taskbar -->
       <Taskbar @taskbar-event="taskbarEvent('right', $event)" align="right"  @component-event="componentEvent" v-model:items="itemsRight" v-model:theme="appData.theme.value" />
       <!-- Rechter Drawer -->
@@ -102,6 +104,7 @@ import {statusBarItems} from "@/models/status/config/model";
 import ResizeModifier from "@/view/page/Modifier/Resize/Resize";
 import ColorModifier from "@/view/page/Modifier/Color/Color";
 import DetailsModifier from "@/view/page/Modifier/Details/Details";
+import EffectsModifier from "@/view/page/Modifier/Effects/Effects";
 
 export default {
   name: 'App',
@@ -123,7 +126,8 @@ export default {
     Mini,
     ResizeModifier,
     ColorModifier,
-    DetailsModifier
+    DetailsModifier,
+    EffectsModifier
   },
   setup() {
     const itemsLeft = ref(taskbarItemLeft);

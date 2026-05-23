@@ -1,4 +1,5 @@
 from PIL import Image
+import numpy as np
 
 def apply_pixelate(image, pixel_size=10):
     """

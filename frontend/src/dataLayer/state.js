@@ -51,15 +51,18 @@ export const loadingStates = {
     viewport: ref(false),
     modifierColor: ref(false),
     modifierDetails: ref(false),
+    modifierEffects: ref(false),
     modifierColorPreview: ref(false),
-    modifierDetailsPreview: ref(false)
+    modifierDetailsPreview: ref(false),
+    modifierEffectsPreview: ref(false),
 };
 
 export const modifierStates = {
     fill: ref(false),
     resize: ref(false),
     color: ref(false),
-    details: ref(false)
+    details: ref(false),
+    effects: ref(false)
 };
 
 export const timelineStates = {

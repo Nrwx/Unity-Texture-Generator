@@ -60,6 +60,24 @@ export const modifierEvent = (route) => ({
         }
     },
 
+    "modifier:effects-preview": async (payload) => {
+        route.loadingStates.modifierEffectsPreview.value = true;
+        route.tempData.preview.value.counter = payload.requestId;
+        const response = await route.api.effectsPreview(payload);
+
+        if (
+            response?.src &&
+            route.tempData.preview.value.counter === payload.requestId
+        ) {
+            await route.emit("modifier:effects-preview-src", {
+                requestId: payload.requestId,
+                id: response.id,
+                title: response.title,
+                src: response.src,
+            });
+        }
+    },
+
     "modifier:color-applied": async (payload) => {
         route.loadingStates.modifierColor.value = true;
         const response = await route.api.colorModifier(payload);
@@ -92,6 +110,21 @@ export const modifierEvent = (route) => ({
         }
     },
 
+    "modifier:effects-applied": async (payload) => {
+        route.loadingStates.modifierEffects.value = true;
+        const response = await route.api.effectsModifier(payload);
+
+        if (response) {
+            route.tempData.activeLayer.value = null;
+            route.tempData.preview.value.src = "";
+            route.tempData.preview.value.counter = 0;
+            route.loadingStates.modifierEffects.value = false;
+
+            await route.emit("modifier-effects:state", false);
+            await route.emit("fetch-layer");
+        }
+    },
+
     "modifier:details-preview-src": async (payload) => {
         route.tempData.preview.value = payload;
         route.loadingStates.modifierDetailsPreview.value = false;
@@ -100,6 +133,11 @@ export const modifierEvent = (route) => ({
     "modifier:color-preview-src": async (payload) => {
         route.tempData.preview.value = payload;
         route.loadingStates.modifierColorPreview.value = false;
+    },
+
+    "modifier:effects-preview-src": async (payload) => {
+        route.tempData.preview.value.src = payload.src;
+        route.loadingStates.modifierEffectsPreview.value = false;
     },
 
     "select:mask-shape": async (payload) => {

@@ -336,6 +336,93 @@ class RenderModel(BaseModel):
             return cls.handle_error(e)
 
     @classmethod
+    def effects_preview(
+        cls,
+        id,
+
+        effects_effect="noise",
+
+        noise_level=10,
+
+        pixel_size=10,
+
+        glass_effect_type=1,
+        glass_frost_strength=5,
+        glass_frost_mode=1,
+        glass_blur_radius=5,
+        glass_crack_intensity=10,
+        glass_reflection_strength=0.5,
+
+        deepness_factor=1.0,
+        highness_factor=1.0,
+
+        falloff_custom_enabled=False,
+        falloff_custom_points="[]",
+        falloff_preset="smooth",
+        falloff_radius=100,
+        falloff_strength=1.0,
+        falloff_center_x=0.5,
+        falloff_center_y=0.5,
+        falloff_inverted=False,
+        falloff_random_seed=1,
+    ):
+        try:
+            if not LAYERS:
+                return {"error": "No layers to preview"}, 404
+
+            target_layer = next(
+                (layer for layer in LAYERS if layer.get("id") == id),
+                None,
+            )
+
+            if not target_layer:
+                return {"error": f"Layer with id '{id}' not found."}, 404
+
+            layer_img = cls.load_layer_image(target_layer)
+
+            if not layer_img:
+                return {"error": f"Layer image for id '{id}' not found."}, 404
+
+            layer_img = ModifierModel.apply_effects_stack(
+                image=layer_img,
+
+                effects_effect=effects_effect,
+
+                noise_level=noise_level,
+
+                pixel_size=pixel_size,
+
+                glass_effect_type=glass_effect_type,
+                glass_frost_strength=glass_frost_strength,
+                glass_frost_mode=glass_frost_mode,
+                glass_blur_radius=glass_blur_radius,
+                glass_crack_intensity=glass_crack_intensity,
+                glass_reflection_strength=glass_reflection_strength,
+
+                deepness_factor=deepness_factor,
+                highness_factor=highness_factor,
+
+                falloff_custom_enabled=falloff_custom_enabled,
+                falloff_custom_points=falloff_custom_points,
+                falloff_preset=falloff_preset,
+                falloff_radius=falloff_radius,
+                falloff_strength=falloff_strength,
+                falloff_center_x=falloff_center_x,
+                falloff_center_y=falloff_center_y,
+                falloff_inverted=falloff_inverted,
+                falloff_random_seed=falloff_random_seed,
+            )
+
+            return cls.render_single_layer_preview(
+                layer=target_layer,
+                layer_img=layer_img,
+                title="effects-preview",
+            )
+
+        except Exception as e:
+            return cls.handle_error(e)
+
+    @classmethod
     def text_to_path(cls, id):
         try:
             layer = next((layer for layer in LAYERS if layer.get("id") == id), None)

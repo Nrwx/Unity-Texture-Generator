@@ -161,3 +161,48 @@ export const detailsModifier = async (payload = {}) => {
 
     return response?.data || response;
 };
+
+export const effectsModifier = async (payload = {}) => {
+    const { layer, values } = payload;
+
+    if (!layer?.id || !values) {
+        return null;
+    }
+
+    const formData = new FormData();
+
+    formData.append("method", "effects");
+    formData.append("id", layer.id);
+
+    formData.append("effects_effect", values.effects_effect);
+
+    formData.append("noise_level", values.noise_level);
+
+    formData.append("pixel_size", values.pixel_size);
+
+    formData.append("glass_effect_type", values.glass_effect_type);
+    formData.append("glass_frost_strength", values.glass_frost_strength);
+    formData.append("glass_frost_mode", values.glass_frost_mode);
+    formData.append("glass_blur_radius", values.glass_blur_radius);
+    formData.append("glass_crack_intensity", values.glass_crack_intensity);
+    formData.append("glass_reflection_strength", values.glass_reflection_strength);
+
+    formData.append("deepness_factor", values.deepness_factor);
+    formData.append("highness_factor", values.highness_factor);
+
+    formData.append("falloff_custom_enabled", values.falloff_custom_enabled ? "true" : "false");
+    formData.append("falloff_custom_points", JSON.stringify(values.falloff_custom_points || []));
+    formData.append("falloff_preset", values.falloff_preset);
+    formData.append("falloff_radius", values.falloff_radius);
+    formData.append("falloff_strength", values.falloff_strength);
+    formData.append("falloff_center_x", values.falloff_center_x);
+    formData.append("falloff_center_y", values.falloff_center_y);
+    formData.append("falloff_inverted", values.falloff_inverted ? "true" : "false");
+    formData.append("falloff_random_seed", values.falloff_random_seed);
+
+    const response = await api.post("/modifier", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    return response?.data || response;
+};

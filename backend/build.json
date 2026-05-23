@@ -18,7 +18,7 @@
     "project_name": "unity-texture-generator"
   },
   "dependencies": {
-    "last_build": "2026-05-23T08:35:37.140836Z",
+    "last_build": "2026-05-23T12:34:12.475269Z",
     "config": {
       "library_policy": {
         "auto_update": true,
@@ -938,6 +938,32 @@
             "point_chain"
           ],
           "function": "details"
+        },
+        "effects": {
+          "keys": [
+            "id",
+            "effects_effect",
+            "noise_level",
+            "pixel_size",
+            "glass_effect_type",
+            "glass_frost_strength",
+            "glass_frost_mode",
+            "glass_blur_radius",
+            "glass_crack_intensity",
+            "glass_reflection_strength",
+            "deepness_factor",
+            "highness_factor",
+            "falloff_custom_enabled",
+            "falloff_custom_points",
+            "falloff_preset",
+            "falloff_radius",
+            "falloff_strength",
+            "falloff_center_x",
+            "falloff_center_y",
+            "falloff_inverted",
+            "falloff_random_seed"
+          ],
+          "function": "effects"
         }
       },
       "api": {
@@ -1237,6 +1263,32 @@
             "point_chain"
           ],
           "function": "details_preview"
+        },
+        "effects-preview": {
+          "keys": [
+            "id",
+            "effects_effect",
+            "noise_level",
+            "pixel_size",
+            "glass_effect_type",
+            "glass_frost_strength",
+            "glass_frost_mode",
+            "glass_blur_radius",
+            "glass_crack_intensity",
+            "glass_reflection_strength",
+            "deepness_factor",
+            "highness_factor",
+            "falloff_custom_enabled",
+            "falloff_custom_points",
+            "falloff_preset",
+            "falloff_radius",
+            "falloff_strength",
+            "falloff_center_x",
+            "falloff_center_y",
+            "falloff_inverted",
+            "falloff_random_seed"
+          ],
+          "function": "effects_preview"
         },
         "thumbnail": {
           "keys": [

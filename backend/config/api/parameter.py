@@ -320,6 +320,27 @@ PARAMETERS = {
         "point_falloff": {"type": str, "default": "radial"},
         "point_strength": {"type": float, "default": 1.0},
         "point_chain": {"type": bool, "default": True},
+        # EFFECTS MODIFIER
+        "effects_effect": {"type": str, "default": "noise"},
+        "noise_level": {"type": int, "default": 10},
+        "pixel_size": {"type": int, "default": 10},
+        "glass_effect_type": {"type": int, "default": 1},
+        "glass_frost_strength": {"type": int, "default": 5},
+        "glass_frost_mode": {"type": int, "default": 1},
+        "glass_blur_radius": {"type": int, "default": 5},
+        "glass_crack_intensity": {"type": int, "default": 10},
+        "glass_reflection_strength": {"type": float, "default": 0.5},
+        "deepness_factor": {"type": float, "default": 1.0},
+        "highness_factor": {"type": float, "default": 1.0},
+        "falloff_custom_enabled": {"type": bool, "default": False},
+        "falloff_custom_points": {"type": str, "default": "[]"},
+        "falloff_preset": {"type": str, "default": "smooth"},
+        "falloff_radius": {"type": int, "default": 100},
+        "falloff_strength": {"type": float, "default": 1.0},
+        "falloff_center_x": {"type": float, "default": 0.5},
+        "falloff_center_y": {"type": float, "default": 0.5},
+        "falloff_inverted": {"type": bool, "default": False},
+        "falloff_random_seed": {"type": int, "default": 1},
     },
     "export": {
         "method": {"type": str, "required": True},
@@ -387,7 +408,39 @@ PARAMETERS = {
         "point_radius": {"type": int, "default": 35},
         "point_falloff": {"type": str, "default": "radial"},
         "point_strength": {"type": float, "default": 1.0},
-        "point_chain": {"type": bool, "default": True}
+        "point_chain": {"type": bool, "default": True},
+
+        # EFFECTS MODIFIER PREVIEW
+        "effects_effect": {"type": str, "default": "noise"},
+
+        # noise
+        "noise_level": {"type": int, "default": 10},
+
+        # pixelate
+        "pixel_size": {"type": int, "default": 10},
+
+        # glass
+        "glass_effect_type": {"type": int, "default": 1},
+        "glass_frost_strength": {"type": int, "default": 5},
+        "glass_frost_mode": {"type": int, "default": 1},
+        "glass_blur_radius": {"type": int, "default": 5},
+        "glass_crack_intensity": {"type": int, "default": 10},
+        "glass_reflection_strength": {"type": float, "default": 0.5},
+
+        # deepness / highness
+        "deepness_factor": {"type": float, "default": 1.0},
+        "highness_factor": {"type": float, "default": 1.0},
+
+        # falloff editor
+        "falloff_custom_enabled": {"type": bool, "default": False},
+        "falloff_custom_points": {"type": str, "default": "[]"},
+        "falloff_preset": {"type": str, "default": "smooth"},
+        "falloff_radius": {"type": int, "default": 100},
+        "falloff_strength": {"type": float, "default": 1.0},
+        "falloff_center_x": {"type": float, "default": 0.5},
+        "falloff_center_y": {"type": float, "default": 0.5},
+        "falloff_inverted": {"type": bool, "default": False},
+        "falloff_random_seed": {"type": int, "default": 1}
     },
     "path": {
         "method": {"type": str, "required": True},
