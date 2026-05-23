@@ -149,7 +149,7 @@
   position: relative;
   display: grid;
   place-items: center;
-  min-height: 250px;
+  min-height: 400px;
   overflow: hidden;
   border: 1px solid var(--dtm-border);
   border-radius: 18px;
@@ -198,8 +198,8 @@
   position: relative;
   display: grid;
   place-items: center;
-  width: 74%;
-  height: 74%;
+  width: 90%;
+  height: 90%;
   touch-action: none;
   user-select: none;
 }
@@ -728,7 +728,7 @@ button {
   }
 
   .dtm-checker {
-    width: min(220px, 76%);
+    width: min(365px, 90%);
   }
 
   .dtm-meta {
