@@ -108,6 +108,20 @@ const createParticleLayer = (layer = {}, index = 0, textureSlot = "baseColor") =
     url: String(layer.url || ""),
 });
 
+const rootAnimationFactor = (mode = "inner", life = 0) => {
+    const amount = clamp(life, 0, 1);
+
+    if (mode === "point") {
+        return 0;
+    }
+
+    if (mode === "outer") {
+        return 1 - amount;
+    }
+
+    return amount;
+};
+
 export class ParticleSystem {
     static INTERPOLATION_ATTRIBUTES = Object.freeze([
         { key: "lifetime", label: "Lifetime", defaultValue: 1 },
@@ -117,6 +131,9 @@ export class ParticleSystem {
         { key: "alpha", label: "Alpha", defaultValue: 1 },
         { key: "gravity", label: "Gravity", defaultValue: 0 },
         { key: "velocity", label: "Velocity", defaultValue: 0 },
+        { key: "direction_x", label: "Direction X", defaultValue: 0 },
+        { key: "direction_y", label: "Direction Y", defaultValue: 1 },
+        { key: "direction_z", label: "Direction Z", defaultValue: 0 },
     ]);
 
     static DEFAULT_INTERPOLATIONS = Object.freeze(
@@ -140,6 +157,7 @@ export class ParticleSystem {
         mode: "texture",
         source: "texture",
         emitter: "volume",
+        root_animation: "inner",
         texture_slot: "baseColor",
         count: 320,
         seed: 1337,
@@ -221,6 +239,7 @@ export class ParticleSystem {
             mode: ["texture", "mesh", "mixed"].includes(source.mode) ? source.mode : "texture",
             source: ["texture", "mesh", "volume"].includes(source.source) ? source.source : "texture",
             emitter: ["volume", "surface", "vertices", "sphere", "plane"].includes(source.emitter) ? source.emitter : "volume",
+            root_animation: ["point", "inner", "outer"].includes(source.root_animation) ? source.root_animation : "inner",
             texture_slot: textureSlot,
             count: clampInt(source.count, 1, 5000),
             seed: clampInt(source.seed, 1, 9999999),
@@ -431,7 +450,10 @@ export class ParticleSystem {
             const alphaValue = Math.max(0, ParticleSystem.evaluateInterpolation(config.interpolations, "alpha", lifeTime, config.alpha, config.lifetime));
             const gravityValue = ParticleSystem.evaluateInterpolation(config.interpolations, "gravity", lifeTime, config.gravity, config.lifetime);
             const velocityValue = ParticleSystem.evaluateInterpolation(config.interpolations, "velocity", lifeTime, config.velocity, config.lifetime);
-            const direction = normalizeDirection(config.direction_x, config.direction_y, config.direction_z);
+            const directionXValue = ParticleSystem.evaluateInterpolation(config.interpolations, "direction_x", lifeTime, config.direction_x, config.lifetime);
+            const directionYValue = ParticleSystem.evaluateInterpolation(config.interpolations, "direction_y", lifeTime, config.direction_y, config.lifetime);
+            const directionZValue = ParticleSystem.evaluateInterpolation(config.interpolations, "direction_z", lifeTime, config.direction_z, config.lifetime);
+            const direction = normalizeDirection(directionXValue, directionYValue, directionZValue);
             const pathPoint = ParticleSystem.evaluatePathFollow(config.path_follow, lifeTime);
             const meshPosition = useMesh ? sampleMeshPosition(mesh, rand) : null;
             const theta = rand() * Math.PI * 2;
@@ -457,6 +479,12 @@ export class ParticleSystem {
             const vx = config.velocity_x + direction.x * velocityValue + (rand() - 0.5) * config.velocity_randomness;
             const vy = config.velocity_y + direction.y * velocityValue + (rand() - 0.5) * config.velocity_randomness + gravityValue * life;
             const vz = config.velocity_z + direction.z * velocityValue + (rand() - 0.5) * config.velocity_randomness;
+            const flow = rootAnimationFactor(config.root_animation, life);
+            const root = [
+                base[0] * flow,
+                base[1] * flow,
+                base[2] * flow,
+            ];
             const noise = [
                 Math.sin((index + 1) * 12.989 + life * 6.283) * config.turbulence * 0.05,
                 Math.cos((index + 1) * 78.233 + life * 4.19) * config.turbulence * 0.05,
@@ -464,9 +492,9 @@ export class ParticleSystem {
             ];
             const pathTranslate = pathPoint.translate || { x: 0, y: 0, z: 0 };
             const localPosition = [
-                base[0] * c - base[2] * s + vx * life + noise[0],
-                base[1] + vy * life + noise[1],
-                base[0] * s + base[2] * c + vz * life + noise[2],
+                root[0] * c - root[2] * s + vx * life + noise[0],
+                root[1] + vy * life + noise[1],
+                root[0] * s + root[2] * c + vz * life + noise[2],
             ];
             const x = pathEnabled ? localPosition[0] + pathTranslate.x : localPosition[0];
             const y = pathEnabled ? localPosition[1] + pathTranslate.y : localPosition[1];

@@ -111,6 +111,15 @@
           @update:model-value="setParticleValue('emitter', $event)"
       />
 
+      <v-select
+          :model-value="state.particleSystem.root_animation"
+          :items="particleRootAnimationOptions"
+          label="Root Animation"
+          density="compact"
+          hide-details
+          @update:model-value="setParticleValue('root_animation', $event)"
+      />
+
       <div class="mem-control-card">
         <header>
           <strong>Count</strong>
@@ -375,16 +384,16 @@
         <div class="mem-particle-path-views">
           <div class="mem-particle-path-view timebar">
             <strong>Time</strong>
-            <svg viewBox="0 0 100 10" preserveAspectRatio="none" @pointerdown="addPathPoint($event, 'time')">
-              <rect x="0" y="0" width="100" height="10" />
-              <line x1="0" y1="5" x2="100" y2="5" />
+            <svg viewBox="0 0 100 24" preserveAspectRatio="xMidYMid meet" @pointerdown="addPathPoint($event, 'time')">
+              <rect x="0" y="0" width="100" height="24" />
+              <line x1="0" y1="12" x2="100" y2="12" />
               <polyline :points="pathTimePolyline" />
               <circle
                   v-for="point in pathFollowPoints"
                   :key="`time-${point.id}`"
                   :cx="(point.t / lifetimeWidth) * 100"
-                  cy="5"
-                  r="1.45"
+                  cy="12"
+                  r="2.1"
                   :class="{ active: activePathPoint?.id === point.id }"
                   @click.stop="setActivePathPoint(point.id)"
                   @pointerdown.stop="startPathPointDrag($event, point.id, 'time')"
@@ -395,7 +404,7 @@
 
           <div class="mem-particle-path-view">
             <strong>Side</strong>
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none" @pointerdown="addPathPoint($event, 'side')">
+            <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" @pointerdown="addPathPoint($event, 'side')">
               <rect x="0" y="0" width="100" height="100" />
               <line x1="50" y1="0" x2="50" y2="100" />
               <line x1="0" y1="50" x2="100" y2="50" />
@@ -416,7 +425,7 @@
 
           <div class="mem-particle-path-view">
             <strong>Top</strong>
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none" @pointerdown="addPathPoint($event, 'top')">
+            <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" @pointerdown="addPathPoint($event, 'top')">
               <rect x="0" y="0" width="100" height="100" />
               <line x1="50" y1="0" x2="50" y2="100" />
               <line x1="0" y1="50" x2="100" y2="50" />

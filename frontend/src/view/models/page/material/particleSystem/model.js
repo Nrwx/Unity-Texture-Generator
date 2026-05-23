@@ -4,6 +4,7 @@ import { ParticleSystem } from "@/view/models/page/material/core/ParticleSystem/
 export const PARTICLE_MODE_OPTIONS = Object.freeze(["texture", "mesh", "mixed"]);
 export const PARTICLE_SOURCE_OPTIONS = Object.freeze(["texture", "mesh", "volume"]);
 export const PARTICLE_EMITTER_OPTIONS = Object.freeze(["volume", "surface", "vertices", "sphere", "plane"]);
+export const PARTICLE_ROOT_ANIMATION_OPTIONS = Object.freeze(["point", "inner", "outer"]);
 export const PARTICLE_BLEND_OPTIONS = Object.freeze(["alpha", "additive", "screen"]);
 export const PARTICLE_TEXTURE_SLOT_OPTIONS = Object.freeze([
     "baseColor",
@@ -170,7 +171,7 @@ export function particleSystemModel(props, emit) {
         null
     ));
     const pathTimePolyline = computed(() => pathFollowPoints.value
-        .map(point => `${(point.t / lifetimeWidth.value) * 100},5`)
+        .map(point => `${(point.t / lifetimeWidth.value) * 100},12`)
         .join(" "));
     const pathSidePolyline = computed(() => pathFollowPoints.value
         .map(point => `${50 + (point.translate?.x || 0) * 24},${50 - (point.translate?.y || 0) * 24}`)
@@ -656,6 +657,7 @@ export function particleSystemModel(props, emit) {
         particleModeOptions: PARTICLE_MODE_OPTIONS,
         particleSourceOptions: PARTICLE_SOURCE_OPTIONS,
         particleEmitterOptions: PARTICLE_EMITTER_OPTIONS,
+        particleRootAnimationOptions: PARTICLE_ROOT_ANIMATION_OPTIONS,
         particleBlendOptions: PARTICLE_BLEND_OPTIONS,
         particleTextureSlotOptions: PARTICLE_TEXTURE_SLOT_OPTIONS,
         particleInterpolationAttributes: PARTICLE_INTERPOLATION_ATTRIBUTES,

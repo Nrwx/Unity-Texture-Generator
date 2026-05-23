@@ -1037,6 +1037,8 @@ const normalizeParticleSystem = system => {
             count,
             seed: system.seed,
             age: system.age,
+            timeScale: system.time_scale,
+            rootAnimation: system.root_animation,
             size: system.size,
             sizeX: system.size_x,
             sizeY: system.size_y,
@@ -1287,7 +1289,7 @@ export class WebGLMaterialRenderer {
             return null;
         }
 
-        const key = `particles:${normalized.cacheKey}`;
+        const key = `particles:${normalized.id}`;
 
         if (!this.particleBuffers.has(key)) {
             const gl = this.gl;
@@ -1315,7 +1317,21 @@ export class WebGLMaterialRenderer {
             this.particleBuffers.set(key, buffer);
         }
 
-        return this.particleBuffers.get(key);
+        const buffer = this.particleBuffers.get(key);
+
+        if (buffer.cacheKey !== normalized.cacheKey) {
+            const gl = this.gl;
+            Object.assign(buffer, {
+                ...normalized,
+                vao: buffer.vao,
+                vbo: buffer.vbo,
+            });
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffer.vbo);
+            gl.bufferData(gl.ARRAY_BUFFER, buffer.data, gl.DYNAMIC_DRAW);
+            gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        }
+
+        return buffer;
     }
 
     getRenderOverlayMesh(sourceMesh) {

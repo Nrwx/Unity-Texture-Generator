@@ -2512,6 +2512,9 @@ class MaterialModel(BaseModel):
             "alpha": [{"x": 0, "y": 1}, {"x": 0.5, "y": 1}, {"x": 1, "y": 1}],
             "gravity": [{"x": 0, "y": 0}, {"x": 0.5, "y": 0}, {"x": 1, "y": 0}],
             "velocity": [{"x": 0, "y": 0}, {"x": 0.5, "y": 0}, {"x": 1, "y": 0}],
+            "direction_x": [{"x": 0, "y": 0}, {"x": 0.5, "y": 0}, {"x": 1, "y": 0}],
+            "direction_y": [{"x": 0, "y": 1}, {"x": 0.5, "y": 1}, {"x": 1, "y": 1}],
+            "direction_z": [{"x": 0, "y": 0}, {"x": 0.5, "y": 0}, {"x": 1, "y": 0}],
         }
         interpolation_attributes = set(interpolation_defaults.keys())
         incoming_interpolations = data.get("interpolations", {})
@@ -2638,6 +2641,8 @@ class MaterialModel(BaseModel):
             "mode": str(data.get("mode", "texture") or "texture"),
             "source": str(data.get("source", "texture") or "texture"),
             "emitter": str(data.get("emitter", "volume") or "volume"),
+            "root_animation": str(data.get("root_animation", "inner") or "inner")
+            if str(data.get("root_animation", "inner") or "inner") in {"point", "inner", "outer"} else "inner",
             "texture_slot": str(active_layer.get("texture_slot", data.get("texture_slot", "baseColor")) or "baseColor"),
             "count": clamp_int(data.get("count", 320), 1, 5000, 320),
             "seed": clamp_int(data.get("seed", 1337), 1, 9999999, 1337),
