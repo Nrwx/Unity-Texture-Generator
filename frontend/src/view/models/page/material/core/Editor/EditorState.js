@@ -1,3 +1,12 @@
+const createVectorObject = () => ({ x: 0, y: 0, z: 0 });
+const createSelection = () => ({ objectId: "", face: null, edge: null, vertex: null });
+
+const toNumber = (value, fallback = 0) => {
+    const number = Number(value);
+
+    return Number.isFinite(number) ? number : fallback;
+};
+
 export class EditorState {
     static create(overrides = {}) {
         return {
@@ -27,19 +36,14 @@ export class EditorState {
 
             // World is immutable scene origin. Cursor is a temporary Blender-like anchor.
             // Neither value is persisted to backend mesh payloads.
-            cursorPivot: { x: 0, y: 0, z: 0 },
+            cursorPivot: createVectorObject(),
             cursorPivotActive: false,
-            worldPivot: { x: 0, y: 0, z: 0 },
-            pivotPoint: { x: 0, y: 0, z: 0 },
-            gizmoOrigin: { x: 0, y: 0, z: 0 },
+            worldPivot: createVectorObject(),
+            pivotPoint: createVectorObject(),
+            gizmoOrigin: createVectorObject(),
             gizmoSize: 0.85,
 
-            selection: {
-                objectId: "",
-                face: null,
-                edge: null,
-                vertex: null,
-            },
+            selection: createSelection(),
             grid: {
                 size: 12,
                 divisions: 24,
@@ -68,7 +72,7 @@ export class EditorState {
 
     static setSelection(state, selection = {}) {
         if (!state.selection) {
-            state.selection = EditorState.create().selection;
+            state.selection = createSelection();
         }
 
         state.selection = {
@@ -85,9 +89,9 @@ export class EditorState {
             return;
         }
 
-        state.cursorPivot = { x: 0, y: 0, z: 0 };
+        state.cursorPivot = createVectorObject();
         state.cursorPivotActive = false;
-        state.worldPivot = { x: 0, y: 0, z: 0 };
+        state.worldPivot = createVectorObject();
     }
 
     static setCursorPivot(state, point = {}) {
@@ -96,27 +100,26 @@ export class EditorState {
         }
 
         state.cursorPivot = {
-            x: Number.isFinite(Number(point.x ?? point[0])) ? Number(point.x ?? point[0]) : 0,
-            y: Number.isFinite(Number(point.y ?? point[1])) ? Number(point.y ?? point[1]) : 0,
-            z: Number.isFinite(Number(point.z ?? point[2])) ? Number(point.z ?? point[2]) : 0,
+            x: toNumber(point.x ?? point[0], 0),
+            y: toNumber(point.y ?? point[1], 0),
+            z: toNumber(point.z ?? point[2], 0),
         };
         state.cursorPivotActive = true;
-        state.worldPivot = { x: 0, y: 0, z: 0 };
+        state.worldPivot = createVectorObject();
     }
 
     static clearLocalTransform(state) {
-        if (state && state.localTransform) {
+        if (state?.localTransform) {
             state.localTransform = null;
         }
     }
 
     static clearSelection(state) {
-        state.selection = {
-            objectId: "",
-            face: null,
-            edge: null,
-            vertex: null,
-        };
+        if (!state) {
+            return;
+        }
+
+        state.selection = createSelection();
         state.activeObjectId = "";
         state.hover = null;
         EditorState.resetCursorPivot(state);

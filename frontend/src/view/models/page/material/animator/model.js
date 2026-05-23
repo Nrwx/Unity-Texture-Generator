@@ -21,16 +21,58 @@ import { TransformController } from "@/view/models/page/material/core/Editor/Tra
 import { PickingController } from "@/view/models/page/material/core/Editor/PickingController";
 import { GizmoGeometry } from "@/view/models/page/material/core/Editor/GizmoGeometry";
 import { Ray } from "@/view/models/page/material/core/Ray/Ray";
-import {
-    animatorActiveLayerId,
-    animatorCameraCommand,
-    animatorCameraState,
-    animatorGizmo,
-    animatorObjectLayerId,
-} from "@/view/models/page/material/animator/state";
+import { sceneToRendererVector } from "@/models/layer/3D/coordinateSystem";
+import {animatorGizmo} from "@/view/models/page/material/animator/state";
 
 const DEG = Math.PI / 180;
 const WORLD_PIVOT = Object.freeze({ x: 0, y: 0, z: 0 });
+
+const createAnimatorGizmoDefaults = () => ({
+    tool: "translate",
+    axis: "free",
+    pivot: "object",
+    space: "world",
+    showAxisHandles: true,
+    showRotateRings: true,
+    showScaleHandles: true,
+    showPlaneHandles: false,
+    showObjectPivot: true,
+    showWorldPivot: true,
+    showAxisGuide: true,
+    showWorldAxis: false,
+    pivotAction: "",
+    pivotActionTick: 0,
+});
+
+const createAnimatorCameraStateDefaults = () => ({
+    projection: "perspective",
+    fov: 50,
+    near: 0.01,
+    far: 1000,
+    radius: 4.6,
+    orthographicScale: 5,
+    theta: 0,
+    phi: 0,
+    target: { x: 0, y: 0, z: 0 },
+    position: { x: 0, y: -3.25, z: 0.18 },
+    forward: { x: 0, y: 1, z: 0 },
+    right: { x: 1, y: 0, z: 0 },
+    up: { x: 0, y: 0, z: 1 },
+    payload: null,
+});
+
+const createAnimatorCameraCommandDefaults = () => ({
+    apply: 0,
+    frame: 0,
+    reset: 0,
+    restore: 0,
+    toggleGrid: 0,
+    projection: "",
+    view: "",
+    focusPivot: 0,
+    field: null,
+    fieldTick: 0,
+});
 
 const toNumber = (value, fallback = 0) => {
     const number = Number(value);
@@ -41,16 +83,6 @@ const toNumber = (value, fallback = 0) => {
 const toVectorObject = (value, fallback = [0, 0, 0]) => Vector
     .from(value, fallback)
     .toObject();
-
-const sceneToRendererVector = (value, fallback = [0, 0, 0]) => {
-    const vector = Vector.from(value, fallback);
-
-    return [
-        vector.x,
-        vector.z,
-        vector.y,
-    ];
-};
 
 const buildRendererPickCamera = (cameraPayload = {}, viewport = { width: 1, height: 1 }) => {
     const aspect = Math.max(0.0001, viewport.width / Math.max(1, viewport.height));
@@ -298,7 +330,86 @@ export function animatorModel(props, emit) {
         meta: false,
     });
 
-    const gizmo = animatorGizmo;
+    const emitEvent = (event, payload) => {
+        emit("update:component-event", event, payload);
+    };
+
+    const animatorProps = props.animator || {};
+    const createLocalObject = (source, defaults) => reactive({
+        ...defaults(),
+        ...(source || {}),
+    });
+    const createEmittingObject = (source, defaults, eventName, options = {}) => {
+        const target = createLocalObject(source, defaults);
+        const emitChanges = options.emit !== false;
+
+        if (!emitChanges) {
+            return target;
+        }
+
+        return new Proxy(target, {
+            set(object, key, value) {
+                if (object[key] === value) {
+                    return true;
+                }
+
+                object[key] = value;
+                emitEvent(eventName, {
+                    key,
+                    value,
+                    state: { ...object },
+                });
+                return true;
+            },
+        });
+    };
+    const createValueBridge = (initialValue, eventName, options = {}) => {
+        const local = ref(initialValue || "");
+        const emitChanges = options.emit !== false;
+
+        return {
+            get value() {
+                return local.value;
+            },
+            set value(value) {
+                if (local.value === value) {
+                    return;
+                }
+
+                local.value = value || "";
+
+                if (emitChanges) {
+                    emitEvent(eventName, local.value);
+                }
+            },
+        };
+    };
+
+    const gizmo = createEmittingObject(
+        props.animatorGizmo || animatorProps.gizmo,
+        createAnimatorGizmoDefaults,
+        "animator:gizmo"
+    );
+    const animatorCameraState = createEmittingObject(
+        props.animatorCameraState || animatorProps.cameraState || animatorProps.camera,
+        createAnimatorCameraStateDefaults,
+        "animator:camera-state",
+        { emit: false }
+    );
+    const animatorCameraCommand = createEmittingObject(
+        props.animatorCameraCommand || animatorProps.cameraCommand,
+        createAnimatorCameraCommandDefaults,
+        "animator:camera-command",
+        { emit: false }
+    );
+    const animatorActiveLayerId = createValueBridge(
+        props.animatorActiveLayerId || animatorProps.activeLayerId,
+        "animator:active-layer-id"
+    );
+    const animatorObjectLayerId = createValueBridge(
+        props.animatorObjectLayerId || animatorProps.objectLayerId,
+        "animator:object-layer-id"
+    );
     const editorState = props.editorState || reactive(EditorState.create({
         enabled: true,
         renderPlaneHandles: false,
@@ -321,10 +432,6 @@ export function animatorModel(props, emit) {
         transformRevision.value += 1;
     };
 
-
-    const emitEvent = (event, payload) => {
-        emit("update:component-event", event, payload);
-    };
 
     const { register } = eventRegister("listener:animator", emitEvent);
 

@@ -1,6 +1,6 @@
-import { reactive, ref } from "vue";
+import { markRaw, shallowRef } from "vue";
 
-export const animatorGizmo = reactive({
+export const createAnimatorGizmoState = (overrides = {}) => markRaw({
     tool: "translate",
     axis: "free",
     pivot: "object",
@@ -15,9 +15,10 @@ export const animatorGizmo = reactive({
     showWorldAxis: false,
     pivotAction: "",
     pivotActionTick: 0,
+    ...overrides,
 });
 
-export const animatorCameraState = reactive({
+export const createAnimatorCameraState = (overrides = {}) => markRaw({
     projection: "perspective",
     fov: 50,
     near: 0.01,
@@ -32,9 +33,10 @@ export const animatorCameraState = reactive({
     right: { x: 1, y: 0, z: 0 },
     up: { x: 0, y: 0, z: 1 },
     payload: null,
+    ...overrides,
 });
 
-export const animatorCameraCommand = reactive({
+export const createAnimatorCameraCommand = (overrides = {}) => markRaw({
     apply: 0,
     frame: 0,
     reset: 0,
@@ -45,7 +47,13 @@ export const animatorCameraCommand = reactive({
     focusPivot: 0,
     field: null,
     fieldTick: 0,
+    ...overrides,
 });
 
-export const animatorActiveLayerId = ref("");
-export const animatorObjectLayerId = ref("");
+// Compatibility exports for old callers. New code should pass these through props
+// from App.vue -> Grid.vue -> Animator and update them via emitted events.
+export const animatorGizmo = createAnimatorGizmoState();
+export const animatorCameraState = createAnimatorCameraState();
+export const animatorCameraCommand = createAnimatorCameraCommand();
+export const animatorActiveLayerId = shallowRef("");
+export const animatorObjectLayerId = shallowRef("");

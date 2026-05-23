@@ -75,11 +75,11 @@ export class Matrix {
         const p = Vector.from(position);
         const s = Vector.from(scale, [1, 1, 1]);
 
-        const matrix = Matrix.scale(s.x, s.y, s.z);
+        const matrix = rotation
+            ? Matrix.fromQuaternion(rotation)
+            : Matrix.identity();
 
-        if (rotation) {
-            matrix.multiply(Matrix.fromQuaternion(rotation));
-        }
+        matrix.multiply(Matrix.scale(s.x, s.y, s.z));
 
         matrix.data[12] = p.x;
         matrix.data[13] = p.y;

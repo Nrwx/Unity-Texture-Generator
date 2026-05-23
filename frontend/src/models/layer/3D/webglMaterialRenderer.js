@@ -60,10 +60,15 @@ layout(location = 0) in vec3 aPosition;
 layout(location = 1) in vec3 aNormal;
 layout(location = 2) in vec2 aUv;
 layout(location = 3) in vec3 aTangent;
+layout(location = 10) in vec4 iModel0;
+layout(location = 11) in vec4 iModel1;
+layout(location = 12) in vec4 iModel2;
+layout(location = 13) in vec4 iModel3;
 
 uniform mat4 uModel;
 uniform mat4 uViewProj;
 uniform mat3 uNormalMatrix;
+uniform int uUseInstancing;
 uniform float uMaskThreshold;
 
 out vec2 vUv;
@@ -73,12 +78,18 @@ out vec3 vTangent;
 
 void main() {
     vec3 pos = aPosition;
+    mat4 model = uUseInstancing == 1
+        ? mat4(iModel0, iModel1, iModel2, iModel3)
+        : uModel;
+    mat3 normalMatrix = uUseInstancing == 1
+        ? mat3(model)
+        : uNormalMatrix;
 
-    vec4 world = uModel * vec4(pos, 1.0);
+    vec4 world = model * vec4(pos, 1.0);
     vWorldPos = world.xyz;
     vUv = aUv;
-    vNormal = normalize(uNormalMatrix * aNormal);
-    vTangent = normalize(uNormalMatrix * aTangent);
+    vNormal = normalize(normalMatrix * aNormal);
+    vTangent = normalize(normalMatrix * aTangent);
 
     gl_Position = uViewProj * world;
 }`;
@@ -544,31 +555,47 @@ void main() {
 const PARTICLE_VERTEX_SHADER = `#version 300 es
 precision highp float;
 
-layout(location = 0) in vec3 aPosition;
-layout(location = 1) in float aSize;
-layout(location = 2) in float aAlpha;
-layout(location = 3) in float aRotation;
-layout(location = 4) in vec2 aScale;
-layout(location = 5) in vec4 aColor;
+layout(location = 0) in vec2 aCorner;
+layout(location = 1) in vec3 iPosition;
+layout(location = 2) in float iSize;
+layout(location = 3) in float iAlpha;
+layout(location = 4) in float iRotation;
+layout(location = 5) in vec2 iScale;
+layout(location = 6) in vec4 iColor;
 
 uniform mat4 uModel;
 uniform mat4 uViewProj;
 uniform float uDpr;
+uniform vec2 uViewport;
 
+out vec2 vUv;
 out float vAlpha;
-out float vRotation;
-out vec2 vScale;
 out vec4 vColor;
 
 void main() {
-    vec4 world = uModel * vec4(aPosition, 1.0);
+    vec4 world = uModel * vec4(iPosition, 1.0);
     vec4 clip = uViewProj * world;
+
+    float c = cos(iRotation);
+    float s = sin(iRotation);
+    vec2 corner = vec2(
+        aCorner.x * c - aCorner.y * s,
+        aCorner.x * s + aCorner.y * c
+    );
+    vec2 sizePx = max(vec2(1.0), iSize * uDpr * max(iScale, vec2(0.001))) * 0.5;
+    vec2 viewport = max(uViewport, vec2(1.0));
+
+    // Keep billboard size perspective-correct.
+    // The previous screen-space offset multiplied by clip.w, so particles kept
+    // their pixel size while zooming out and visually grew relative to the scene.
+    // Offsetting clip.xy directly makes the final NDC offset shrink with distance
+    // after the perspective divide, while orthographic cameras keep stable size.
+    clip.xy += (corner * sizePx / viewport) * 2.0;
+
     gl_Position = clip;
-    gl_PointSize = max(1.0, aSize * uDpr / max(0.35, clip.w));
-    vAlpha = aAlpha;
-    vRotation = aRotation;
-    vScale = max(aScale, vec2(0.001));
-    vColor = aColor;
+    vUv = aCorner * 0.5 + 0.5;
+    vAlpha = iAlpha;
+    vColor = iColor;
 }`;
 
 const PARTICLE_FRAGMENT_SHADER = `#version 300 es
@@ -580,29 +607,15 @@ uniform vec4 uColor;
 uniform float uAlpha;
 uniform int uSoft;
 
+in vec2 vUv;
 in float vAlpha;
-in float vRotation;
-in vec2 vScale;
 in vec4 vColor;
 out vec4 fragColor;
 
 void main() {
-    vec2 centeredCoord = gl_PointCoord - 0.5;
-    vec2 scaledCoord = centeredCoord / vScale;
-
-    if (abs(scaledCoord.x) > 0.5 || abs(scaledCoord.y) > 0.5) {
-        discard;
-    }
-
-    float c = cos(vRotation);
-    float s = sin(vRotation);
-    vec2 uv = vec2(
-        scaledCoord.x * c - scaledCoord.y * s,
-        scaledCoord.x * s + scaledCoord.y * c
-    ) + 0.5;
-    vec2 centered = uv * 2.0 - 1.0;
+    vec2 centered = vUv * 2.0 - 1.0;
     float radial = 1.0 - smoothstep(0.72, 1.0, length(centered));
-    vec4 texel = uUseParticleMap == 1 ? texture(uParticleMap, uv) : vec4(1.0);
+    vec4 texel = uUseParticleMap == 1 ? texture(uParticleMap, vUv) : vec4(1.0);
     vec4 particleColor = uColor * vColor;
     float alpha = texel.a * particleColor.a * uAlpha * vAlpha * (uSoft == 1 ? radial : 1.0);
 
@@ -1070,12 +1083,13 @@ const buildOverlayGeometry = mesh => {
     };
 };
 
-const getArrayValues = value => {
-    if (value instanceof Float32Array || value instanceof Uint16Array || value instanceof Uint32Array) {
-        return Array.from(value);
-    }
+const renderMeshInstanceCache = new WeakMap();
+const particleSystemInstanceCache = new WeakMap();
+const EMPTY_FLOAT32 = new Float32Array();
+const EMPTY_UINT16 = new Uint16Array();
 
-    if (Array.isArray(value)) {
+const getArrayValues = value => {
+    if (ArrayBuffer.isView(value) || Array.isArray(value)) {
         return value;
     }
 
@@ -1088,134 +1102,261 @@ const getArrayValues = value => {
     return [];
 };
 
+const arrayLikeLength = value => Number(value?.length || 0);
+
+const makeRenderMeshSignature = mesh => {
+    const vertices = mesh?.vertices;
+    const indices = mesh?.indices;
+    const parts = mesh?.parts;
+
+    return [
+        mesh?.meta?.renderCacheKey || mesh?.meta?.cacheKey || "",
+        mesh?.meta?.version || mesh?.meta?.updatedAt || mesh?.version || mesh?.updatedAt || "",
+        mesh?.id || "",
+        mesh?.primitive || mesh?.settings?.primitive || "mesh",
+        mesh?.stride || 11,
+        arrayLikeLength(vertices),
+        arrayLikeLength(indices),
+        Array.isArray(parts) ? parts.length : 0,
+        mesh?.indexType || "",
+    ].join(":");
+};
+
+const toFloat32Values = value => {
+    if (value instanceof Float32Array) {
+        return value;
+    }
+
+    const source = getArrayValues(value);
+
+    if (!source.length) {
+        return EMPTY_FLOAT32;
+    }
+
+    const target = new Float32Array(source.length);
+
+    for (let index = 0; index < source.length; index += 1) {
+        target[index] = Number(source[index]) || 0;
+    }
+
+    return target;
+};
+
+const toIndexValues = (value, indexType = "") => {
+    if (value instanceof Uint16Array || value instanceof Uint32Array) {
+        return value;
+    }
+
+    const source = getArrayValues(value);
+
+    if (!source.length) {
+        return EMPTY_UINT16;
+    }
+
+    let maxIndex = 0;
+    const normalized = new Array(source.length);
+
+    for (let index = 0; index < source.length; index += 1) {
+        const value = Math.max(0, Math.trunc(Number(source[index]) || 0));
+        normalized[index] = value;
+        if (value > maxIndex) {
+            maxIndex = value;
+        }
+    }
+
+    const TargetArray = indexType === "uint32" || maxIndex > 65535
+        ? Uint32Array
+        : Uint16Array;
+
+    return new TargetArray(normalized);
+};
+
+const getInstancedParts = (mesh, count) => (
+    Array.isArray(mesh?.parts) && mesh.parts.length
+        ? mesh.parts.map(part => ({
+            ...part,
+            start: Math.max(0, Math.trunc(Number(part.start || 0))),
+            count: Math.max(0, Math.trunc(Number(part.count || count))),
+        }))
+        : [{
+            name: "mesh",
+            faceName: "front",
+            start: 0,
+            count,
+        }]
+);
+
 const normalizeRenderMesh = mesh => {
     if (!mesh || !mesh.stride || !mesh.vertices || !mesh.indices) {
         return null;
     }
 
-    const stride = Number(mesh.stride || 11);
-    const vertices = getArrayValues(mesh.vertices).map(value => Number(value) || 0);
-    const indices = getArrayValues(mesh.indices).map(value => Math.max(0, Math.trunc(Number(value) || 0)));
+    const signature = makeRenderMeshSignature(mesh);
+    const cached = renderMeshInstanceCache.get(mesh);
+
+    if (cached?.signature === signature) {
+        return cached.normalized;
+    }
+
+    const stride = Math.max(1, Math.trunc(Number(mesh.stride || 11)));
+    const vertices = toFloat32Values(mesh.vertices);
+    const indices = toIndexValues(mesh.indices, mesh.indexType);
 
     if (stride < 8 || vertices.length < stride * 3 || indices.length < 3) {
         return null;
     }
 
-    const maxIndex = indices.reduce((max, index) => Math.max(max, index), 0);
-    const indexArray = mesh.indexType === "uint32" || maxIndex > 65535
-        ? new Uint32Array(indices)
-        : new Uint16Array(indices);
-
-    return {
+    const normalized = {
         id: mesh.id || "material-mesh",
         primitive: mesh.primitive || mesh.settings?.primitive || "mesh",
         stride,
-        vertices: new Float32Array(vertices),
-        indices: indexArray,
-        count: indexArray.length,
-        indexType: indexArray instanceof Uint32Array ? "uint32" : "uint16",
-        parts: Array.isArray(mesh.parts) && mesh.parts.length
-            ? mesh.parts
-            : [{
-                name: "mesh",
-                faceName: "front",
-                start: 0,
-                count: indexArray.length,
-            }],
-        cacheKey: mesh.meta?.renderCacheKey || mesh.meta?.cacheKey || JSON.stringify({
-            id: mesh.id || "",
-            primitive: mesh.primitive || mesh.settings?.primitive || "mesh",
-            count: indexArray.length,
-            vertexCount: vertices.length / stride,
-        }),
+        vertices,
+        indices,
+        count: indices.length,
+        indexType: indices instanceof Uint32Array ? "uint32" : "uint16",
+        parts: getInstancedParts(mesh, indices.length),
+        cacheKey: mesh.meta?.renderCacheKey || mesh.meta?.cacheKey || signature,
+        instanceKey: signature,
     };
+
+    renderMeshInstanceCache.set(mesh, {
+        signature,
+        normalized,
+    });
+
+    return normalized;
 };
+
+const makeParticleSignature = system => {
+    const particles = system?.particles || {};
+    const data = particles.data;
+    const positions = particles.positions;
+
+    return [
+        system?.id || "particle-system",
+        system?.version || system?.updatedAt || system?.tick || "",
+        particles.version || particles.updatedAt || particles.tick || "",
+        system?.seed || 0,
+        system?.age || 0,
+        system?.time || 0,
+        system?.count || particles.count || 0,
+        particles.sourceCount || "",
+        particles.stride || 12,
+        arrayLikeLength(data),
+        arrayLikeLength(positions),
+        system?.texture_slot || "baseColor",
+        system?.blend || "alpha",
+        system?.alpha ?? 1,
+    ].join(":");
+};
+
+const clamp01 = value => Math.min(Math.max(Number(value) || 0, 0), 1);
 
 const normalizeParticleSystem = system => {
     if (!system || system.enabled !== true) {
         return null;
     }
 
+    const signature = makeParticleSignature(system);
+    const cached = particleSystemInstanceCache.get(system);
+
+    if (cached?.signature === signature) {
+        return cached.normalized;
+    }
+
     const particles = system.particles || {};
-    const positions = getArrayValues(particles.positions);
-    const sizes = getArrayValues(particles.sizes);
-    const scales = getArrayValues(particles.scales);
-    const alphas = getArrayValues(particles.alphas);
-    const rotations = getArrayValues(particles.rotations);
-    const colors = getArrayValues(particles.colors);
-    const count = Math.min(
-        Math.max(0, Math.trunc(Number(particles.count || system.count || 0))),
-        Math.floor(positions.length / 3)
-    );
+    const packedData = particles.data instanceof Float32Array && particles.data.length > 0
+        ? particles.data
+        : null;
+    const stride = Math.max(12, Math.trunc(Number(particles.stride || 12)));
+    const sourceCount = Math.max(0, Math.trunc(Number(particles.count || system.count || 0)));
+    const count = packedData
+        ? Math.min(sourceCount, Math.floor(packedData.length / stride))
+        : (() => {
+            const positions = getArrayValues(particles.positions);
+            return Math.min(sourceCount, Math.floor(positions.length / 3));
+        })();
 
     if (!count) {
         return null;
     }
 
-    const stride = 12;
-    const data = new Float32Array(count * stride);
+    let data = packedData;
 
-    for (let index = 0; index < count; index += 1) {
-        const source = index * 3;
-        const target = index * stride;
+    if (!data) {
+        const positions = getArrayValues(particles.positions);
+        const sizes = getArrayValues(particles.sizes);
+        const scales = getArrayValues(particles.scales);
+        const alphas = getArrayValues(particles.alphas);
+        const rotations = getArrayValues(particles.rotations);
+        const colors = getArrayValues(particles.colors);
+        data = new Float32Array(count * stride);
 
-        data[target] = Number(positions[source] || 0);
-        data[target + 1] = Number(positions[source + 1] || 0);
-        data[target + 2] = Number(positions[source + 2] || 0);
-        data[target + 3] = Math.max(1, Number(sizes[index] || system.size || 12));
-        data[target + 4] = Math.min(Math.max(Number(alphas[index] ?? system.alpha ?? 1), 0), 1);
-        data[target + 5] = Number(rotations[index] ?? ((Number(system.rotation) || 0) * Math.PI / 180)) || 0;
-        data[target + 6] = Math.min(Math.max(Number(scales[index * 2] ?? 1), 0.001), 1);
-        data[target + 7] = Math.min(Math.max(Number(scales[index * 2 + 1] ?? 1), 0.001), 1);
-        data[target + 8] = Math.min(Math.max(Number(colors[index * 4] ?? 1), 0), 1);
-        data[target + 9] = Math.min(Math.max(Number(colors[index * 4 + 1] ?? 1), 0), 1);
-        data[target + 10] = Math.min(Math.max(Number(colors[index * 4 + 2] ?? 1), 0), 1);
-        data[target + 11] = Math.min(Math.max(Number(colors[index * 4 + 3] ?? 1), 0), 1);
+        for (let index = 0; index < count; index += 1) {
+            const source = index * 3;
+            const target = index * stride;
+
+            data[target] = Number(positions[source] || 0);
+            data[target + 1] = Number(positions[source + 1] || 0);
+            data[target + 2] = Number(positions[source + 2] || 0);
+            data[target + 3] = Math.max(1, Number(sizes[index] || system.size || 12));
+            data[target + 4] = clamp01(alphas[index] ?? system.alpha ?? 1);
+            data[target + 5] = Number(rotations[index] ?? ((Number(system.rotation) || 0) * Math.PI / 180)) || 0;
+            data[target + 6] = Math.min(Math.max(Number(scales[index * 2] ?? 1), 0.001), 1);
+            data[target + 7] = Math.min(Math.max(Number(scales[index * 2 + 1] ?? 1), 0.001), 1);
+            data[target + 8] = clamp01(colors[index * 4] ?? 1);
+            data[target + 9] = clamp01(colors[index * 4 + 1] ?? 1);
+            data[target + 10] = clamp01(colors[index * 4 + 2] ?? 1);
+            data[target + 11] = clamp01(colors[index * 4 + 3] ?? 1);
+        }
     }
 
-    return {
+    const normalized = {
         id: system.id || "particle-system",
         count,
         data,
         stride,
         textureSlot: system.texture_slot || "baseColor",
         color: toColor4(system.color || [1, 1, 1, system.alpha ?? 1]),
-        alpha: Math.min(Math.max(toNumber(system.alpha, 1), 0), 1),
+        alpha: clamp01(system.alpha ?? 1),
         blend: system.blend || "alpha",
         depthWrite: system.depth_write === true,
-        cacheKey: JSON.stringify({
-            id: system.id || "",
-            count,
-            seed: system.seed,
-            age: system.age,
-            timeScale: system.time_scale,
-            rootAnimation: system.root_animation,
-            radius: system.radius,
-            size: system.size,
-            sizeX: system.size_x,
-            sizeY: system.size_y,
-            randomSize: system.random_size,
-            sizeRandomness: system.size_randomness,
-            alpha: system.alpha,
-            colorRamp: system.color_ramp,
-            gravity: system.gravity,
-            velocity: system.velocity,
-            directionX: system.direction_x,
-            directionY: system.direction_y,
-            directionZ: system.direction_z,
-            rotation: system.rotation,
-            textureSlot: system.texture_slot,
-            layers: system.layers,
-            interpolations: system.interpolations,
-            pathFollow: system.path_follow,
-            source: system.source,
-            emitter: system.emitter,
-            mesh: system.use_mesh_reference,
-        }),
+        cacheKey: signature,
+    };
+
+    particleSystemInstanceCache.set(system, {
+        signature,
+        normalized,
+    });
+
+    return normalized;
+};
+
+const createParticleLayerSystem = (particleSystem, layer, index = 0) => {
+    if (!layer?.particles) {
+        return null;
+    }
+
+    const layerId = layer.id || layer.key || `layer-${index}`;
+    const settings = layer.settings || {};
+
+    return {
+        ...particleSystem,
+        ...settings,
+        id: `${particleSystem?.id || "particle-system"}:${layerId}`,
+        particles: layer.particles,
+        layers: null,
+        count: layer.count || layer.particles?.count || settings.count || particleSystem?.count,
+        alpha: layer.alpha ?? settings.alpha ?? particleSystem?.alpha,
+        color: layer.color || settings.color || particleSystem?.color,
+        texture_slot: layer.texture_slot || settings.texture_slot || particleSystem?.texture_slot,
+        blend: layer.blend || settings.blend || particleSystem?.blend,
+        version: layer.version || layer.updatedAt || layer.tick || particleSystem?.version,
     };
 };
 
 const INT_UNIFORMS = Object.freeze(new Set([
+    "uUseInstancing",
     "uUseBaseMap",
     "uUseAlphaMap",
     "uUseNormalMap",
@@ -1273,7 +1414,9 @@ export class WebGLMaterialRenderer {
         this.meshes = new Map();
         this.overlayMeshes = new Map();
         this.particleBuffers = new Map();
+        this.meshInstanceScratch = new Float32Array(16);
         this.editorBuffers = new Map();
+        this.uniformLocations = new WeakMap();
 
         this.textures = new WeakMap();
         this.fallbackTextures = {};
@@ -1309,6 +1452,14 @@ export class WebGLMaterialRenderer {
 
             mesh.buffer = Buffer.materialMesh(this.gl, mesh, {
                 label: `face:${faceName}`,
+                instanceStride: 16 * 4,
+                instanceUsage: this.gl.DYNAMIC_DRAW,
+                instanceAttributes: [
+                    { location: 10, size: 4, offset: 0, divisor: 1 },
+                    { location: 11, size: 4, offset: 4 * 4, divisor: 1 },
+                    { location: 12, size: 4, offset: 8 * 4, divisor: 1 },
+                    { location: 13, size: 4, offset: 12 * 4, divisor: 1 },
+                ],
             });
 
             this.meshes.set(faceName, mesh);
@@ -1358,19 +1509,84 @@ export class WebGLMaterialRenderer {
         }
 
         const key = `mesh:${normalized.cacheKey}`;
+        const cached = this.meshes.get(key);
 
-        if (!this.meshes.has(key)) {
-            const mesh = {
-                ...normalized,
-                buffer: Buffer.materialMesh(this.gl, normalized, {
-                    label: key,
-                }),
-            };
-
-            this.meshes.set(key, mesh);
+        if (cached?.buffer && cached.instanceKey === normalized.instanceKey) {
+            return cached;
         }
 
-        return this.meshes.get(key);
+        if (cached?.buffer) {
+            cached.buffer.destroy?.();
+            this.meshes.delete(key);
+        }
+
+        const mesh = {
+            ...normalized,
+            buffer: Buffer.materialMesh(this.gl, normalized, {
+                label: key,
+                instanceStride: 16 * 4,
+                instanceUsage: this.gl.DYNAMIC_DRAW,
+                instanceAttributes: [
+                    { location: 10, size: 4, offset: 0, divisor: 1 },
+                    { location: 11, size: 4, offset: 4 * 4, divisor: 1 },
+                    { location: 12, size: 4, offset: 8 * 4, divisor: 1 },
+                    { location: 13, size: 4, offset: 12 * 4, divisor: 1 },
+                ],
+            }),
+        };
+
+        this.meshes.set(key, mesh);
+        return mesh;
+    }
+
+    createParticleBuffer(key, normalized) {
+        const quad = new Float32Array([
+            -1, -1,
+            1, -1,
+            -1, 1,
+            -1, 1,
+            1, -1,
+            1, 1,
+        ]);
+        const instanceCapacity = Math.max(1024, Math.pow(2, Math.ceil(Math.log2(Math.max(1, normalized.count)))));
+        const buffer = {
+            ...normalized,
+            buffer: new Buffer(this.gl, {
+                label: key,
+                stride: 2 * 4,
+                indexed: false,
+                usage: this.gl.STATIC_DRAW,
+                instanceStride: 12 * 4,
+                instanceUsage: this.gl.DYNAMIC_DRAW,
+                attributes: [
+                    { location: 0, size: 2, offset: 0 },
+                ],
+                instanceAttributes: [
+                    { location: 1, size: 3, offset: 0, divisor: 1 },
+                    { location: 2, size: 1, offset: 3 * 4, divisor: 1 },
+                    { location: 3, size: 1, offset: 4 * 4, divisor: 1 },
+                    { location: 4, size: 1, offset: 5 * 4, divisor: 1 },
+                    { location: 5, size: 2, offset: 6 * 4, divisor: 1 },
+                    { location: 6, size: 4, offset: 8 * 4, divisor: 1 },
+                ],
+            }),
+        };
+
+        buffer.buffer.upload({
+            vertices: quad,
+        });
+        buffer.buffer.createInstanceBuffer({
+            stride: 12 * 4,
+            capacity: instanceCapacity,
+            usage: this.gl.DYNAMIC_DRAW,
+        });
+        buffer.buffer.updateInstances(
+            normalized.data,
+            normalized.count,
+            this.gl.DYNAMIC_DRAW
+        );
+
+        return buffer;
     }
 
     getParticleBuffer(system) {
@@ -1381,45 +1597,51 @@ export class WebGLMaterialRenderer {
         }
 
         const key = `particles:${normalized.id}`;
+        let buffer = this.particleBuffers.get(key);
 
-        if (!this.particleBuffers.has(key)) {
-            const buffer = {
-                ...normalized,
-                buffer: new Buffer(this.gl, {
-                    label: key,
-                    stride: normalized.stride * 4,
-                    indexed: false,
-                    usage: this.gl.STATIC_DRAW,
-                    attributes: [
-                        { location: 0, size: 3, offset: 0 },
-                        { location: 1, size: 1, offset: 3 * 4 },
-                        { location: 2, size: 1, offset: 4 * 4 },
-                        { location: 3, size: 1, offset: 5 * 4 },
-                        { location: 4, size: 2, offset: 6 * 4 },
-                        { location: 5, size: 4, offset: 8 * 4 },
-                    ],
-                }),
-            };
-
-            buffer.buffer.upload({
-                vertices: normalized.data,
-            });
-
+        if (!buffer || buffer.stride !== normalized.stride || !buffer.buffer) {
+            buffer = this.createParticleBuffer(key, normalized);
             this.particleBuffers.set(key, buffer);
+            return buffer;
         }
 
-        const buffer = this.particleBuffers.get(key);
-
-        if (buffer.cacheKey !== normalized.cacheKey) {
+        if (buffer.cacheKey !== normalized.cacheKey || buffer.data !== normalized.data || buffer.count !== normalized.count) {
             Object.assign(buffer, {
                 ...normalized,
                 buffer: buffer.buffer,
             });
 
-            buffer.buffer.updateVertices(normalized.data, this.gl.DYNAMIC_DRAW);
+            buffer.buffer.updateInstances(
+                normalized.data,
+                normalized.count,
+                this.gl.DYNAMIC_DRAW
+            );
         }
 
         return buffer;
+    }
+
+    updateMeshInstance(mesh, matrices) {
+        if (!mesh?.buffer || !matrices?.model) {
+            return;
+        }
+
+        const source = matrices.model;
+        const target = this.meshInstanceScratch;
+
+        for (let index = 0; index < 16; index += 1) {
+            target[index] = Number(source[index]) || 0;
+        }
+
+        if (!mesh.buffer.instanceVbo) {
+            mesh.buffer.createInstanceBuffer({
+                stride: 16 * 4,
+                capacity: 1,
+                usage: this.gl.DYNAMIC_DRAW,
+            });
+        }
+
+        mesh.buffer.updateInstances(target, 1, this.gl.DYNAMIC_DRAW);
     }
 
     getRenderOverlayMesh(sourceMesh) {
@@ -1457,6 +1679,25 @@ export class WebGLMaterialRenderer {
         return this.overlayMeshes.get(key);
     }
 
+    getUniformLocation(program, name) {
+        if (!program || !name) {
+            return null;
+        }
+
+        let cache = this.uniformLocations.get(program);
+
+        if (!cache) {
+            cache = new Map();
+            this.uniformLocations.set(program, cache);
+        }
+
+        if (!cache.has(name)) {
+            cache.set(name, this.gl.getUniformLocation(program, name));
+        }
+
+        return cache.get(name);
+    }
+
     getImageTexture(entry, fallbackName = "white") {
         const image = textureImage(entry);
 
@@ -1473,7 +1714,7 @@ export class WebGLMaterialRenderer {
 
     setTexture(program, name, unit, entry, fallbackName = "white") {
         const gl = this.gl;
-        const location = gl.getUniformLocation(program, name);
+        const location = this.getUniformLocation(program, name);
 
         if (location === null) {
             return;
@@ -1488,7 +1729,7 @@ export class WebGLMaterialRenderer {
         const gl = this.gl;
 
         Object.entries(values).forEach(([name, value]) => {
-            const location = gl.getUniformLocation(program, name);
+            const location = this.getUniformLocation(program, name);
 
             if (location === null) {
                 return;
@@ -1666,25 +1907,19 @@ export class WebGLMaterialRenderer {
             uModel: matrices.model,
             uViewProj: matrices.viewProj,
             uDpr: dpr,
+            uViewport: [this.canvas.width || 1, this.canvas.height || 1],
             uColor: particles.color,
             uAlpha: particles.alpha,
             uSoft: 1,
         });
 
-        renderLayers.forEach(layer => {
-            const layerParticles = layer?.particles
-                ? this.getParticleBuffer({
-                    ...materialLayer.particle_system,
-                    ...layer.settings,
-                    id: `${materialLayer.particle_system?.id || "particle-system"}:${layer.id}`,
-                    particles: layer.particles,
-                    count: layer.count || layer.settings?.count || materialLayer.particle_system?.count,
-                    alpha: layer.alpha ?? layer.settings?.alpha ?? materialLayer.particle_system?.alpha,
-                    color: layer.color || layer.settings?.color || materialLayer.particle_system?.color,
-                })
+        renderLayers.forEach((layer, index) => {
+            const layerSystem = createParticleLayerSystem(materialLayer.particle_system, layer, index);
+            const layerParticles = layerSystem
+                ? this.getParticleBuffer(layerSystem)
                 : particles;
 
-            if (!layerParticles) {
+            if (!layerParticles || layerParticles.count <= 0) {
                 return;
             }
 
@@ -1697,8 +1932,10 @@ export class WebGLMaterialRenderer {
                 uUseParticleMap: mapEnabled(true, particleTexture),
             });
 
-            layerParticles.buffer?.drawArrays(
-                gl.POINTS,
+            layerParticles.buffer?.drawArraysInstanced(
+                gl.TRIANGLES,
+                6,
+                0,
                 layerParticles.count
             );
         });
@@ -2397,6 +2634,7 @@ export class WebGLMaterialRenderer {
                 uModel: matrices.model,
                 uViewProj: matrices.viewProj,
                 uNormalMatrix: matrices.normalMatrix,
+                uUseInstancing: 1,
 
                 uUseBaseMap: mapEnabled(useObjectTextures, baseTexture),
                 uUseAlphaMap: mapEnabled(useObjectTextures, alphaTexture),
@@ -2609,7 +2847,13 @@ export class WebGLMaterialRenderer {
             const count = entry.count || mesh.count;
             const offset = entry.start * indexBytes;
 
-            mesh.buffer.drawElements(gl.TRIANGLES, count, offset);
+            this.updateMeshInstance(mesh, matrices);
+
+            if (mesh.buffer.drawElementsInstanced) {
+                mesh.buffer.drawElementsInstanced(gl.TRIANGLES, count, offset, 1);
+            } else {
+                mesh.buffer.drawElements(gl.TRIANGLES, count, offset);
+            }
         });
 
         this.drawOverlayPass({

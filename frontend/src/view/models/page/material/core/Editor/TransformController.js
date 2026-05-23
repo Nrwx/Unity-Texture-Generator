@@ -1,6 +1,5 @@
 import { Intersection } from "@/view/models/page/material/core/Ray/Intersection";
 import { Ray } from "@/view/models/page/material/core/Ray/Ray";
-import { Vector } from "@/view/models/page/material/core/Math/Vector/Vector";
 import { Matrix } from "@/view/models/page/material/core/Math/Matrix/Matrix";
 import { Quaternion } from "@/view/models/page/material/core/Math/Quaternion/Quaternion";
 import { clone } from "@/utils/tools";
@@ -20,15 +19,61 @@ const AXIS_PLANES = Object.freeze({
     zy: [1, 0, 0],
 });
 
-const toNumber = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
-const toDeg = radians => radians * 180 / Math.PI;
-const vec = value => Vector.from(value).toArray();
-const add = (a, b) => Vector.add(a, b).toArray();
-const sub = (a, b) => Vector.sub(a, b).toArray();
-const mul = (a, s) => Vector.scale(a, s).toArray();
-const dot = (a, b) => Vector.dot(a, b);
-const cross = (a, b) => Vector.cross(a, b).toArray();
-const normalize = (a, fallback = [0, 0, 1]) => Vector.normalize(a, fallback).toArray();
+const DEG_PER_RAD = 180 / Math.PI;
+const RAD_PER_DEG = Math.PI / 180;
+
+const toNumber = (value, fallback = 0) => {
+    const number = Number(value);
+
+    return Number.isFinite(number) ? number : fallback;
+};
+const toDeg = radians => radians * DEG_PER_RAD;
+const vec = (value, fallback = [0, 0, 0]) => {
+    if (Array.isArray(value) || ArrayBuffer.isView(value)) {
+        return [
+            toNumber(value[0], fallback[0]),
+            toNumber(value[1], fallback[1]),
+            toNumber(value[2], fallback[2]),
+        ];
+    }
+
+    if (value && typeof value === "object") {
+        const source = value.data || value;
+
+        return [
+            toNumber(source.x ?? source[0], fallback[0]),
+            toNumber(source.y ?? source[1], fallback[1]),
+            toNumber(source.z ?? source[2], fallback[2]),
+        ];
+    }
+
+    return [fallback[0], fallback[1], fallback[2]];
+};
+const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const mul = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const cross = (a, b) => [
+    a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2],
+    a[0] * b[1] - a[1] * b[0],
+];
+const normalize = (a, fallback = [0, 0, 1]) => {
+    const source = vec(a, fallback);
+    const length = Math.hypot(source[0], source[1], source[2]);
+
+    if (length <= 0.000001) {
+        return [fallback[0], fallback[1], fallback[2]];
+    }
+
+    const invLength = 1 / length;
+
+    return [
+        source[0] * invLength,
+        source[1] * invLength,
+        source[2] * invLength,
+    ];
+};
 
 const geometryOrigin = geometry => [
     toNumber(geometry.position_x, 0) + toNumber(geometry.pivot_x, 0),
@@ -61,38 +106,52 @@ const dominantPlaneNormal = (axis, camera) => {
     return forward;
 };
 
+const transformDirection = (matrix, value) => {
+    const m = matrix.data;
+    const x = value[0];
+    const y = value[1];
+    const z = value[2];
+
+    return [
+        m[0] * x + m[4] * y + m[8] * z,
+        m[1] * x + m[5] * y + m[9] * z,
+        m[2] * x + m[6] * y + m[10] * z,
+    ];
+};
+
 const rotateAroundAxis = (point, origin, axis, angleRad) => {
-    const quaternion = Quaternion.fromAxisAngle(axis, angleRad);
-    const matrix = Matrix.fromQuaternion(quaternion);
-    const local = Vector.sub(point, origin);
-    const rotated = matrix.transformDirection(local).toArray();
-    return Vector.add(origin, rotated).toArray();
+    const matrix = Matrix.fromQuaternion(Quaternion.fromAxisAngle(axis, angleRad));
+    const local = sub(point, origin);
+    const rotated = transformDirection(matrix, local);
+
+    return add(origin, rotated);
 };
 
 const pivotCompensationDelta = (geometry, delta) => {
     const rx = Matrix.fromQuaternion(Quaternion.fromAxisAngle(
         [1, 0, 0],
-        toNumber(geometry.rotation_x, 0) * Math.PI / 180,
+        toNumber(geometry.rotation_x, 0) * RAD_PER_DEG,
     ));
     const ry = Matrix.fromQuaternion(Quaternion.fromAxisAngle(
         [0, 1, 0],
-        toNumber(geometry.rotation_y, 0) * Math.PI / 180,
+        toNumber(geometry.rotation_y, 0) * RAD_PER_DEG,
     ));
     const rz = Matrix.fromQuaternion(Quaternion.fromAxisAngle(
         [0, 0, 1],
-        toNumber(geometry.rotation_z, 0) * Math.PI / 180,
+        toNumber(geometry.rotation_z, 0) * RAD_PER_DEG,
     ));
     const scale = Matrix.scale(
         toNumber(geometry.scale_x, 1),
         toNumber(geometry.scale_y, 1),
         toNumber(geometry.scale_z, 1),
     );
-    const transformed = rz
-        .multiply(ry)
-        .multiply(rx)
-        .multiply(scale)
-        .transformDirection(delta)
-        .toArray();
+    const transformed = transformDirection(
+        rz
+            .multiply(ry)
+            .multiply(rx)
+            .multiply(scale),
+        delta,
+    );
 
     return sub(transformed, delta);
 };
@@ -100,13 +159,30 @@ const pivotCompensationDelta = (geometry, delta) => {
 const projectToViewport = (camera, point, viewport = { width: 1, height: 1 }) => {
     const matrix = camera?.viewProjectionMatrix;
 
-    if (!matrix?.transformPoint) {
+    if (!matrix?.data && !matrix?.transformPoint) {
         return null;
     }
 
+    if (matrix.data) {
+        const m = matrix.data;
+        const x = point[0];
+        const y = point[1];
+        const z = point[2];
+        const clipX = m[0] * x + m[4] * y + m[8] * z + m[12];
+        const clipY = m[1] * x + m[5] * y + m[9] * z + m[13];
+        const clipW = m[3] * x + m[7] * y + m[11] * z + m[15];
+        const invW = Math.abs(clipW) > 1e-7 ? 1 / clipW : 1;
+
+        return {
+            x: (clipX * invW * 0.5 + 0.5) * Math.max(1, viewport.width),
+            y: (1 - (clipY * invW * 0.5 + 0.5)) * Math.max(1, viewport.height),
+        };
+    }
+
     const ndc = matrix.transformPoint(point, 1);
-    const x = (ndc.x * 0.5 + 0.5) * Math.max(1, viewport.width);
-    const y = (1 - (ndc.y * 0.5 + 0.5)) * Math.max(1, viewport.height);
+    const invW = Math.abs(Number(ndc.w)) > 1e-7 ? 1 / Number(ndc.w) : 1;
+    const x = ((ndc.x * invW) * 0.5 + 0.5) * Math.max(1, viewport.width);
+    const y = (1 - ((ndc.y * invW) * 0.5 + 0.5)) * Math.max(1, viewport.height);
 
     return { x, y };
 };
@@ -180,8 +256,8 @@ export class TransformController {
         const hit = Intersection.rayPlane(this.pointerRay(event), { point: this.pivotPoint, normal: this.planeNormal });
         this.startPoint = hit?.point || this.objectOrigin.slice();
         this.lastPoint = this.startPoint.slice();
-        this.startLocal = event.local ? { ...event.local } : { x: toNumber(event.clientX, 0), y: toNumber(event.clientY, 0) };
-        this.lastLocal = { ...this.startLocal };
+        this.startLocal = event.local ? { x: event.local.x, y: event.local.y } : { x: toNumber(event.clientX, 0), y: toNumber(event.clientY, 0) };
+        this.lastLocal = { x: this.startLocal.x, y: this.startLocal.y };
         this.startAxisScreen = this.resolveAxisScreenData();
         this.active = true;
         return this;
@@ -194,7 +270,7 @@ export class TransformController {
         }
 
         const hit = Intersection.rayPlane(this.pointerRay(event), { point: this.pivotPoint, normal: this.planeNormal });
-        const currentLocal = event.local ? { ...event.local } : this.lastLocal;
+        const currentLocal = event.local ? { x: event.local.x, y: event.local.y } : this.lastLocal;
         const dx = currentLocal.x - this.startLocal.x;
         const dy = currentLocal.y - this.startLocal.y;
         const point = hit?.point || this.lastPoint || this.startPoint;
@@ -236,7 +312,7 @@ export class TransformController {
             return null;
         }
 
-        return { origin, dx, dy, lenSq };
+        return { origin, dx, dy, lenSq, invLen: 1 / Math.sqrt(lenSq) };
     }
 
     screenAxisDelta(currentLocal) {
@@ -258,7 +334,12 @@ export class TransformController {
         const worldPerPixel = Math.max(0.00001, distanceFactor / Math.max(1, Math.min(this.viewport.width, this.viewport.height)) * 1.85);
         const right = normalize(this.camera?.orbit?.right || this.camera?.right, [1, 0, 0]);
         const up = normalize(this.camera?.orbit?.up || this.camera?.up, [0, 0, 1]);
-        return sub(mul(right, dx * worldPerPixel), mul(up, dy * worldPerPixel));
+
+        return [
+            right[0] * dx * worldPerPixel - up[0] * dy * worldPerPixel,
+            right[1] * dx * worldPerPixel - up[1] * dy * worldPerPixel,
+            right[2] * dx * worldPerPixel - up[2] * dy * worldPerPixel,
+        ];
     }
 
     resolveConstrainedDelta(delta, currentLocal, dx, dy) {
@@ -302,7 +383,7 @@ export class TransformController {
         if (axisVector && this.startAxisScreen) {
             const pointerDx = currentLocal.x - this.startLocal.x;
             const pointerDy = currentLocal.y - this.startLocal.y;
-            signedPixels = (pointerDx * this.startAxisScreen.dx + pointerDy * this.startAxisScreen.dy) / Math.sqrt(this.startAxisScreen.lenSq);
+            signedPixels = (pointerDx * this.startAxisScreen.dx + pointerDy * this.startAxisScreen.dy) * this.startAxisScreen.invLen;
         }
 
         const factor = Math.max(0.001, Math.exp(Math.max(-180, Math.min(180, signedPixels)) * 0.008));

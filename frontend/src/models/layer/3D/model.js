@@ -273,6 +273,7 @@ export function layer3DModel(props, emit) {
     let rotation = 0;
     let particleAge = 0;
     let lastFrameTime = 0;
+    let particleRenderCache = { key: "", value: null };
     const frameClock = new Accumulator();
     let initToken = 0;
     let running = false;
@@ -282,7 +283,7 @@ export function layer3DModel(props, emit) {
         emit("component-event", event, payload);
     };
 
-    const destroyWebGL = () => {
+    const destroyWebGL = ({ unregister = true } = {}) => {
         if (frameId) {
             cancelAnimationFrame(frameId);
             frameId = null;
@@ -312,31 +313,32 @@ export function layer3DModel(props, emit) {
 
         activeRenderer.value = "CANVAS2D";
 
-        WebGLRuntime.unregister({
-            scope: props.webglScope,
-            id: instanceId,
-        });
+        if (unregister) {
+            WebGLRuntime.unregister({
+                scope: props.webglScope,
+                id: instanceId,
+            });
+        }
+    };
+
+    const pauseWebGLRuntime = () => {
+        destroyWebGL({ unregister: false });
+    };
+
+    const restoreWebGLRuntime = () => {
+        requestInit();
     };
 
     const registerWebGLRuntime = () => {
         WebGLRuntime.register({
             scope: props.webglScope,
             id: instanceId,
-            destroy: destroyWebGL,
-            pause: () => {
-                if (frameId) {
-                    cancelAnimationFrame(frameId);
-                    frameId = null;
-                }
-
-                running = false;
+            destroy: ({ preserveRegistry = false } = {}) => {
+                destroyWebGL({ unregister: preserveRegistry !== true });
             },
-            resume: () => {
-                if (!running) {
-                    running = true;
-                    frameId = requestAnimationFrame(loop);
-                }
-            },
+            pause: pauseWebGLRuntime,
+            restore: restoreWebGLRuntime,
+            resume: restoreWebGLRuntime,
         });
     };
 
@@ -687,24 +689,107 @@ export function layer3DModel(props, emit) {
         )
     );
 
+    const isAnimatorParticlePreview = materialLayer => (
+        props.editorMode === true ||
+        isAnimatorViewport(materialLayer) ||
+        materialLayer?.settings?.animator_active === true
+    );
+
+    const resolveParticlePreviewBudget = materialLayer => {
+        if (!isAnimatorParticlePreview(materialLayer)) {
+            return null;
+        }
+
+        const explicit =
+            props.animatorParticleBudget ??
+            props.particlePreviewBudget ??
+            materialLayer?.settings?.animator_particle_budget ??
+            materialLayer?.preview?.particle_budget;
+
+        if (Number.isFinite(Number(explicit))) {
+            return Math.max(1, Math.trunc(Number(explicit)));
+        }
+
+        return props.editorState?.dragging === true ? 360 : 900;
+    };
+
+    const resolveParticleFrameAge = (materialLayer, age) => {
+        if (!isAnimatorParticlePreview(materialLayer)) {
+            return age;
+        }
+
+        // Animator shares the frame with camera, gizmo and pointer picking. 30 Hz
+        // particle simulation is visually stable but cuts CPU particle rebuilds.
+        return Math.round(age * 30) / 30;
+    };
+
+    const particleSystemSignature = system => {
+        if (!system || typeof system !== "object") {
+            return "";
+        }
+
+        const {
+            particles: _particles,
+            meta: _meta,
+            ...rest
+        } = system;
+
+        if(!_particles) console.log(_particles, _meta);
+        return JSON.stringify(rest);
+    };
+
+    const particleRuntimeSignature = ({ system, age, budget, materialLayer }) => JSON.stringify({
+        system: particleSystemSignature(system),
+        age,
+        budget,
+        mesh: materialLayer?.mesh?.meta?.renderCacheKey || materialLayer?.mesh?.meta?.cacheKey || materialLayer?.mesh?.id || "",
+        volume: materialLayer?.geometry?.volume?.enabled === true || materialLayer?.mesh?.volume?.enabled === true,
+        fluid: materialLayer?.geometry?.fluid?.enabled === true || materialLayer?.mesh?.fluid?.enabled === true,
+    });
+
     const resolveAnimatedMaterialLayer = materialLayer => {
         if (!particleSystemEnabled(materialLayer)) {
+            particleRenderCache = { key: "", value: null };
             return materialLayer;
         }
 
         const sourceParticleSystem = materialLayer.particle_system || {};
+        const budget = resolveParticlePreviewBudget(materialLayer);
+        const age = resolveParticleFrameAge(materialLayer, particleAge);
+        const context = {
+            mesh: materialLayer.mesh,
+            volume: materialLayer.mesh?.volume || materialLayer.geometry?.volume,
+            fluid: materialLayer.mesh?.fluid || materialLayer.geometry?.fluid,
+            physics: materialLayer.mesh?.physics || materialLayer.physics,
+            maxParticles: budget,
+        };
+        const cacheKey = particleRuntimeSignature({
+            system: sourceParticleSystem,
+            age,
+            budget,
+            materialLayer,
+        });
+
+        if (particleRenderCache.key === cacheKey && particleRenderCache.value) {
+            return {
+                ...materialLayer,
+                particle_system: particleRenderCache.value,
+            };
+        }
+
         const particleSystem = ParticleSystem.update(
             sourceParticleSystem,
-            { age: particleAge },
-            {
-                mesh: materialLayer.mesh,
-                volume: materialLayer.mesh?.volume || materialLayer.geometry?.volume,
-                fluid: materialLayer.mesh?.fluid || materialLayer.geometry?.fluid,
-                physics: materialLayer.mesh?.physics || materialLayer.physics,
-            }
+            { age },
+            context
         );
-        const particleLayers = Array.isArray(particleSystem.layers)
-            ? particleSystem.layers.map(layer => {
+        const baseLayers = Array.isArray(particleSystem.layers)
+            ? particleSystem.layers
+            : [];
+        const layerBudget = budget && baseLayers.length > 1
+            ? Math.max(1, Math.floor(budget / baseLayers.length))
+            : budget;
+        const particleLayers = baseLayers.length
+            ? baseLayers.map(layer => {
                 if (!layer?.settings || typeof layer.settings !== "object") {
                     return layer;
                 }
@@ -717,31 +802,36 @@ export function layer3DModel(props, emit) {
                         texture_slot: layer.texture_slot || particleSystem.texture_slot,
                         layers: [layer],
                     },
-                    { age: particleAge },
+                    { age },
                     {
-                        mesh: materialLayer.mesh,
-                        volume: materialLayer.mesh?.volume || materialLayer.geometry?.volume,
-                        fluid: materialLayer.mesh?.fluid || materialLayer.geometry?.fluid,
-                        physics: materialLayer.mesh?.physics || materialLayer.physics,
+                        ...context,
+                        maxParticles: layerBudget,
                     }
                 );
 
                 return {
                     ...layer,
                     particles: layerSystem.particles,
-                    count: layerSystem.count,
+                    count: layerSystem.particles?.count || layerSystem.count,
+                    sourceCount: layerSystem.particles?.sourceCount || layerSystem.count,
                     alpha: layerSystem.alpha,
                     color: layerSystem.color,
                 };
             })
             : [];
+        const resolvedParticleSystem = {
+            ...particleSystem,
+            layers: particleLayers.length ? particleLayers : particleSystem.layers,
+        };
+
+        particleRenderCache = {
+            key: cacheKey,
+            value: resolvedParticleSystem,
+        };
 
         return {
             ...materialLayer,
-            particle_system: {
-                ...particleSystem,
-                layers: particleLayers.length ? particleLayers : particleSystem.layers,
-            },
+            particle_system: resolvedParticleSystem,
         };
     };
 
@@ -1858,7 +1948,7 @@ export function layer3DModel(props, emit) {
             props.layer?.surface && JSON.stringify(props.layer.surface),
             stableAnimatorRenderSignature(props.layer).geometry,
             stableAnimatorRenderSignature(props.layer).mesh,
-            props.layer?.particle_system && JSON.stringify(props.layer.particle_system),
+            props.layer?.particle_system && particleSystemSignature(props.layer.particle_system),
             props.layer?.keyframes && JSON.stringify(props.layer.keyframes),
             props.layer?.light && JSON.stringify(props.layer.light),
             props.layer?.settings?.light && JSON.stringify(props.layer.settings.light),
