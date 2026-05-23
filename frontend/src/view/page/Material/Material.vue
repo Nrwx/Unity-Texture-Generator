@@ -148,168 +148,15 @@
 
           <div class="mem-view">
             <!-- SURFACE -->
-            <template v-if="ui.activeTab === 'surface'">
-              <div class="mem-view-head">
-                <div>
-                  <strong>Surface</strong>
-                  <span>Alle Principled-BSDF-Werte mit Bitmap-Slot, signed Factor und Node-Insertion.</span>
-                </div>
-              </div>
-
-              <div class="mem-section">
-                <div class="mem-name-card">
-                  <strong>Material Name</strong>
-
-                  <v-text-field
-                      v-model="values.name"
-                      label="Name"
-                      density="compact"
-                      hide-details
-                  />
-                </div>
-
-                <div class="mem-layer-bank">
-                  <header>
-                    <strong>Bitmap Layers</strong>
-                    <small>In einen Surface-Slot ziehen.</small>
-                  </header>
-
-                  <div class="mem-layer-bank-list">
-                    <button
-                        v-for="item in textureLayers"
-                        :key="item.id"
-                        type="button"
-                        class="mem-layer-source-item"
-                        draggable="true"
-                        @dragstart="handleLayerDragStart($event, item)"
-                    >
-                      <span class="mem-layer-thumb">
-                        <v-img
-                            v-if="item.masked || item.thumbnail || item.url || item.svg"
-                            :src="item.masked || item.thumbnail || item.url || item.svg"
-                            :alt="item.name"
-                            cover
-                        />
-
-                        <v-icon v-else size="18">
-                          {{ item.type === 5 ? "mdi-cube-outline" : "mdi-image-outline" }}
-                        </v-icon>
-                      </span>
-
-                      <span class="mem-layer-source-main">
-                        <strong>{{ item.name || item.id }}</strong>
-                        <small>type {{ item.type }}</small>
-                      </span>
-                    </button>
-                  </div>
-                </div>
-
-                <div
-                    v-for="group in surfaceGroups"
-                    :key="group.key"
-                    class="mem-surface-row"
-                    :class="{ active: getMapSlot(group.key)?.enabled }"
-                    @dragover.prevent
-                    @drop="handleMapDrop($event, group.key)"
-                >
-                  <header>
-                    <strong>{{ group.label }}</strong>
-                    <small>{{ group.relation }}</small>
-                  </header>
-
-                  <template v-if="group.field.type === 'color'">
-                    <div class="mem-color-line">
-                      <input
-                          type="color"
-                          :value="getSurfaceColor(group.key)"
-                          @input="setSurfaceColor(group.key, $event.target.value)"
-                      />
-
-                      <span>{{ getSurfaceColor(group.key) }}</span>
-                    </div>
-                  </template>
-
-                  <template v-else-if="group.field.type === 'vector3'">
-                    <div class="mem-vector-row">
-                      <v-text-field
-                          v-model.number="values.surface[group.key][0]"
-                          label="X"
-                          density="compact"
-                          hide-details
-                      />
-
-                      <v-text-field
-                          v-model.number="values.surface[group.key][1]"
-                          label="Y"
-                          density="compact"
-                          hide-details
-                      />
-
-                      <v-text-field
-                          v-model.number="values.surface[group.key][2]"
-                          label="Z"
-                          density="compact"
-                          hide-details
-                      />
-                    </div>
-                  </template>
-
-                  <template v-else>
-                    <v-slider
-                        v-model="values.surface[group.key]"
-                        :min="group.field.min"
-                        :max="group.field.max"
-                        :step="group.field.step"
-                        thumb-label
-                        hide-details
-                    />
-                  </template>
-
-                  <div class="mem-surface-map-slot">
-                    <button
-                        type="button"
-                        class="mem-map-pill"
-                        :class="{
-                          active: isSurfaceSlotConnected(group.key),
-                          multitexture: getMapSlot(group.key)?.source_type === 'multitexture',
-                          shader: getMapSlot(group.key)?.source_type === 'shader'
-                        }"
-                        @click="clearMapSlot(group.key)"
-                    >
-                      <v-icon size="15">
-                        {{ getSurfaceSlotIcon(group.key) }}
-                      </v-icon>
-
-                      <span class="mem-map-pill-text">
-                        <strong>{{ getSurfaceSlotLabel(group.key) }}</strong>
-                        <small>{{ getSurfaceSlotDetail(group.key) }}</small>
-                      </span>
-                    </button>
-
-                    <div class="mem-surface-offset-sync">
-                      <v-select
-                          :model-value="getMapSlot(group.key)?.channel || 'rgba'"
-                          :items="textureChannelOptions"
-                          label="Image"
-                          density="compact"
-                          hide-details
-                          @update:model-value="setSurfaceSlotChannel(group.key, $event)"
-                      />
-
-                      <v-select
-                          :model-value="getMapSlot(group.key)?.color_mode || 'color'"
-                          :items="textureColorModeOptions"
-                          label="Color"
-                          density="compact"
-                          hide-details
-                          @update:model-value="setSurfaceTextureSetting(group.key, 'color_mode', $event)"
-                      />
-
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </template>
+            <Surface
+                v-if="ui.activeTab === 'surface'"
+                v-model:name="values.name"
+                v-model:surface="values.surface"
+                v-model:bitmap-maps="values.bitmap_maps"
+                :texture-layers="textureLayers"
+                @assign-texture-slot="assignTextureSlotFromSurface"
+                @clear-texture-slot="clearTextureSlotFromSurface"
+            />
 
             <!-- GEOMETRY -->
             <template v-else-if="ui.activeTab === 'geometry'">
@@ -2196,12 +2043,14 @@ import { defineComponent } from "vue";
 import Dialog from "@/components/Dialog/Dialog.vue";
 import Layer3D from "@/components/Layer/Layer3D/Layer3D";
 import {materialEditorModel, materialEditorProps} from "@/view/models/page/material/model";
+import Surface from "@/view/page/Material/Surface/Surface";
 
 export default defineComponent({
   name: "MaterialEditor",
   components: {
     Dialog,
-    Layer3D
+    Layer3D,
+    Surface
   },
   props: materialEditorProps,
   setup(props, { emit }) {
