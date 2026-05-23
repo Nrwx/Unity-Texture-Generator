@@ -57,6 +57,11 @@ export const normalizeMaterialValuesForApi = (values = {}) => {
         cube_size: Number(plain.cube_size || 256),
         texture_size: textureSize,
         rotate_preview: plain.rotate_preview !== false,
+        wireframe_preview: plain.wireframe_preview === true,
+        faces_preview: plain.faces_preview === true,
+        vertices_preview: plain.vertices_preview === true,
+        fluid_mesh_preview: plain.fluid_mesh_preview !== false,
+        fluid_particle_preview: plain.fluid_particle_preview !== false,
 
         blend_mode: plain.blend_mode || "BLEND",
         alpha_clip: Math.min(Math.max(Number(plain.alpha_clip ?? 0.5), 0), 1),
@@ -90,6 +95,11 @@ export const appendMaterialForm = (formData, values = {}) => {
     formData.append("cube_size", String(normalized.cube_size));
     formData.append("texture_size", String(normalized.texture_size));
     formData.append("rotate_preview", boolValue(normalized.rotate_preview));
+    formData.append("wireframe_preview", boolValue(normalized.wireframe_preview));
+    formData.append("faces_preview", boolValue(normalized.faces_preview));
+    formData.append("vertices_preview", boolValue(normalized.vertices_preview));
+    formData.append("fluid_mesh_preview", boolValue(normalized.fluid_mesh_preview));
+    formData.append("fluid_particle_preview", boolValue(normalized.fluid_particle_preview));
 
     formData.append("blend_mode", normalized.blend_mode);
     formData.append("alpha_clip", String(normalized.alpha_clip));

@@ -3010,6 +3010,11 @@ class MaterialModel(BaseModel):
         shader_graph=None,
         cube_size=256.0,
         rotate_preview=True,
+        wireframe_preview=False,
+        faces_preview=False,
+        vertices_preview=False,
+        fluid_mesh_preview=True,
+        fluid_particle_preview=True,
         blend_mode="BLEND",
         shadow_method="HASHED",
         use_nodes=True,
@@ -3063,6 +3068,11 @@ class MaterialModel(BaseModel):
 
             "cube_size": raw_values.get("cube_size", cube_size),
             "rotate_preview": raw_values.get("rotate_preview", rotate_preview),
+            "wireframe_preview": raw_values.get("wireframe_preview", wireframe_preview),
+            "faces_preview": raw_values.get("faces_preview", faces_preview),
+            "vertices_preview": raw_values.get("vertices_preview", vertices_preview),
+            "fluid_mesh_preview": raw_values.get("fluid_mesh_preview", fluid_mesh_preview),
+            "fluid_particle_preview": raw_values.get("fluid_particle_preview", fluid_particle_preview),
             "blend_mode": raw_values.get("blend_mode", blend_mode or "BLEND"),
             "shadow_method": raw_values.get("shadow_method", shadow_method or "HASHED"),
             "use_nodes": raw_values.get("use_nodes", use_nodes),
@@ -3072,6 +3082,11 @@ class MaterialModel(BaseModel):
         resolved["name"] = str(resolved.get("name") or "Cube Material")
         resolved["cube_size"] = cls.safe_float(resolved.get("cube_size"), 256.0)
         resolved["rotate_preview"] = cls.safe_bool(resolved.get("rotate_preview"))
+        resolved["wireframe_preview"] = cls.safe_bool(resolved.get("wireframe_preview"))
+        resolved["faces_preview"] = cls.safe_bool(resolved.get("faces_preview"))
+        resolved["vertices_preview"] = cls.safe_bool(resolved.get("vertices_preview"))
+        resolved["fluid_mesh_preview"] = cls.safe_bool(resolved.get("fluid_mesh_preview"))
+        resolved["fluid_particle_preview"] = cls.safe_bool(resolved.get("fluid_particle_preview"))
         resolved["use_nodes"] = cls.safe_bool(resolved.get("use_nodes"))
         resolved["blend_mode"] = str(resolved.get("blend_mode") or "BLEND")
         resolved["shadow_method"] = str(resolved.get("shadow_method") or "HASHED")
@@ -3092,6 +3107,11 @@ class MaterialModel(BaseModel):
         shader_graph="{}",
         cube_size=256.0,
         rotate_preview=True,
+        wireframe_preview=False,
+        faces_preview=False,
+        vertices_preview=False,
+        fluid_mesh_preview=True,
+        fluid_particle_preview=True,
         blend_mode="BLEND",
         shadow_method="HASHED",
         use_nodes=True,
@@ -3111,6 +3131,11 @@ class MaterialModel(BaseModel):
             shader_graph=shader_graph,
             cube_size=cube_size,
             rotate_preview=rotate_preview,
+            wireframe_preview=wireframe_preview,
+            faces_preview=faces_preview,
+            vertices_preview=vertices_preview,
+            fluid_mesh_preview=fluid_mesh_preview,
+            fluid_particle_preview=fluid_particle_preview,
             blend_mode=blend_mode,
             shadow_method=shadow_method,
             use_nodes=use_nodes,
@@ -3163,7 +3188,7 @@ class MaterialModel(BaseModel):
         )
         mesh = cls.normalize_mesh(payload.get("mesh", {}), fallback_mesh)
         particle_system = cls.normalize_particle_system(payload.get("particle_system", {}))
-        preview_rotate = bool(payload["rotate_preview"]) and not bool(particle_system.get("enabled", False))
+        preview_rotate = bool(payload["rotate_preview"])
 
         shader = cls.build_shader_payload(
             surface=normalized_surface,
@@ -3236,6 +3261,11 @@ class MaterialModel(BaseModel):
 
             "preview": {
                 "rotate": preview_rotate,
+                "wireframe": bool(payload["wireframe_preview"]),
+                "faces": bool(payload["faces_preview"]),
+                "vertices": bool(payload["vertices_preview"]),
+                "fluid_mesh": bool(payload["fluid_mesh_preview"]),
+                "fluid_particles": bool(payload["fluid_particle_preview"]),
                 "idle_rotation": {
                     "enabled": preview_rotate,
                     "speed": 0.006,
@@ -3249,7 +3279,13 @@ class MaterialModel(BaseModel):
                 "use_nodes": bool(payload["use_nodes"]),
                 "texture_size": texture_size,
                 "texture_preload": TEXTURE_PRELOAD_OPTIONS,
-                "cube_size": payload["cube_size"]
+                "cube_size": payload["cube_size"],
+                "rotate_preview": preview_rotate,
+                "wireframe_preview": bool(payload["wireframe_preview"]),
+                "faces_preview": bool(payload["faces_preview"]),
+                "vertices_preview": bool(payload["vertices_preview"]),
+                "fluid_mesh_preview": bool(payload["fluid_mesh_preview"]),
+                "fluid_particle_preview": bool(payload["fluid_particle_preview"])
             },
         }
 
