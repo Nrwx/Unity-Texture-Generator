@@ -28,7 +28,7 @@ const dominantPlaneNormal = (axis, camera) => {
 
     const forward = Vector.normalize(
         camera?.orbit?.forward || camera?.forward,
-        [0, 0, -1],
+        [0, 1, 0],
     ).toArray();
 
     if (!AXIS_VECTORS[axis]) return forward;
@@ -154,6 +154,8 @@ export class TransformController {
             ? Vector.from(cfg.pivotPoint).toArray()
             : this.objectOrigin.slice();
 
+        this.startAxisScreen = null;
+
         return this;
     }
 
@@ -184,6 +186,53 @@ export class TransformController {
         return event;
     }
 
+    projectScenePoint(point) {
+        const matrix = this.camera?.viewProjectionMatrix;
+
+        if (!matrix?.transformPoint) {
+            return null;
+        }
+
+        return CoordinateSystem.projectPoint(
+            point,
+            this.camera || {},
+            this.viewport || { width: 1, height: 1 },
+            { matrix }
+        );
+    }
+
+    createAxisScreenDelta(origin = this.pivotPoint) {
+        const axisDir = AXIS_VECTORS[this.axis];
+
+        if (!axisDir) {
+            return null;
+        }
+
+        const a = this.projectScenePoint(origin);
+        const b = this.projectScenePoint(
+            Vector.add(origin, axisDir).toArray()
+        );
+
+        if (!a || !b) {
+            return null;
+        }
+
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const lenSq = dx * dx + dy * dy;
+
+        if (lenSq <= 4) {
+            return null;
+        }
+
+        return {
+            dx,
+            dy,
+            lenSq,
+            invLen: 1 / Math.sqrt(lenSq),
+        };
+    }
+
     begin(input) {
         if (input?.event) this.configure(input);
 
@@ -204,6 +253,7 @@ export class TransformController {
             : { x: number(event.clientX, 0), y: number(event.clientY, 0) };
 
         this.lastLocal = { ...this.startLocal };
+        this.startAxisScreen = this.createAxisScreenDelta(this.pivotPoint);
 
         this.active = true;
 

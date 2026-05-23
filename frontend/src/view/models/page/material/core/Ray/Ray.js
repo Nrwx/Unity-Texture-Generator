@@ -2,9 +2,9 @@ import { Vector } from "@/view/models/page/material/core/Math/Vector/Vector";
 import { number } from "@/utils/math";
 
 export class Ray {
-    constructor(origin = [0, 0, 0], dir = [0, 0, -1]) {
+    constructor(origin = [0, 0, 0], dir = [0, 1, 0]) {
         this.origin = Vector.from(origin).toArray();
-        this.dir = Vector.normalize(dir, [0, 0, -1]).toArray();
+        this.dir = Vector.normalize(dir, [0, 1, 0]).toArray();
     }
 
     static from(value = {}) {

@@ -30,7 +30,7 @@ export class Quaternion {
     }
 
     static fromAxisAngle(axis, angle = 0) {
-        const v = Vector.normalize(axis, [0, 1, 0]);
+        const v = Vector.normalize(axis, [0, 0, 1]);
         const half = angle * 0.5;
         const s = Math.sin(half);
 
@@ -89,10 +89,10 @@ export class Quaternion {
         return new Quaternion(qx, qy, qz, qw).normalize();
     }
 
-    static lookRotation(forward, up = [0, 1, 0]) {
-        const z = Vector.from(forward).normalize([0, 0, -1]).negate();
+    static lookRotation(forward, up = [0, 0, 1]) {
+        const z = Vector.from(forward).normalize([0, 1, 0]).negate();
         const x = Vector.cross(up, z).normalize([1, 0, 0]);
-        const y = z.clone().cross(x).normalize([0, 1, 0]);
+        const y = z.clone().cross(x).normalize(up);
 
         return Quaternion.fromBasis(x, y, z);
     }

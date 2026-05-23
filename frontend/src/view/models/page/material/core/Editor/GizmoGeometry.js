@@ -14,8 +14,8 @@ const axisColor = axis =>
 
 const projectPointSource = (point, rendererSpace = false) =>
     rendererSpace === true
-        ? CoordinateSystem.sceneToRendererVector(point)
-        : Vector.from(point, [0, 0, 0]).toArray();
+        ? CoordinateSystem.vector(point)
+        : CoordinateSystem.sceneToRendererVector(point);
 
 const pickPointRadius = (point, options = {}) => {
     const extra = Math.max(0, number(options.pointPixelExtra, 2));
@@ -110,7 +110,6 @@ const pointInScreenPolygon = (point, polygon = []) => {
             pi.x;
 
         if (intersects) inside = !inside;
-        i++;
     }
 
     return inside;
@@ -158,20 +157,11 @@ const createAxisLine = (origin, dir, size, axis, tool) => {
 
 export class GizmoGeometry {
     static originFromGeometry(geometry = {}) {
-        return [
-            number(geometry.position_x, 0) + number(geometry.pivot_x, 0),
-            number(geometry.position_y, 0) + number(geometry.pivot_y, 0),
-            number(geometry.position_z, 0) + number(geometry.pivot_z, 0),
-        ];
+        return CoordinateSystem.originFromGeometry(geometry);
     }
 
     static sizeFromGeometry(geometry = {}, fallback = 0.85) {
-        const sx = Math.abs(number(geometry.width, 1) * number(geometry.scale_x, 1));
-        const sy = Math.abs(number(geometry.height, 1) * number(geometry.scale_y, 1));
-        const sz = Math.abs(number(geometry.depth, 1) * number(geometry.scale_z, 1));
-
-        const maxDim = Math.max(sx, sy, sz, 0.25);
-        return Math.max(0.18, Math.min(0.92, maxDim * 0.48 || fallback));
+        return CoordinateSystem.sizeFromGeometry(geometry, fallback);
     }
 
     static build({
@@ -433,8 +423,8 @@ export class GizmoGeometry {
 
         let best = null;
 
-        const axisThreshold = Math.max(0, number(options.axisPixelThreshold, 1.5));
-        const ringThreshold = Math.max(0, number(options.ringPixelThreshold, 3));
+        const axisThreshold = Math.max(0, number(options.axisPixelThreshold, 7));
+        const ringThreshold = Math.max(0, number(options.ringPixelThreshold, 6));
 
         const choose = hit => {
             if (hit && (!best || hit.screenDistance < best.screenDistance)) {

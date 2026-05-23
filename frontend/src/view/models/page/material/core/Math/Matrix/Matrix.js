@@ -116,14 +116,14 @@ export class Matrix {
         ]);
     }
 
-    static lookAt(eye, center, up = [0, 1, 0]) {
+    static lookAt(eye, center, up = [0, 0, 1]) {
         const e = Vector.from(eye);
         const c = Vector.from(center);
-        const u = Vector.from(up, [0, 1, 0]).normalize([0, 1, 0]);
+        const u = Vector.from(up, [0, 0, 1]).normalize([0, 0, 1]);
 
         const z = Vector.sub(e, c).normalize([0, 0, 1]);
         const x = u.crossed(z).normalize([1, 0, 0]);
-        const y = z.crossed(x).normalize([0, 1, 0]);
+        const y = z.crossed(x).normalize(u);
 
         return new Matrix([
             x.x, y.x, z.x, 0,

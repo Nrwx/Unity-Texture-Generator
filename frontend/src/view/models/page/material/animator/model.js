@@ -219,9 +219,9 @@ export function animatorModel(props, emit) {
         const orbit = core.orbit || {};
         const target = orbit.target?.toObject?.() || toVectorObject(props.cameraConfig?.target);
         const smoothTarget = orbit.smoothTarget?.toObject?.() || toVectorObject(props.orbitConfig?.smoothTarget, target);
-        const position = core.position?.toObject?.() || toVectorObject(props.cameraConfig?.position, { x: 0, y: -3.25, z: 0.18 });
-        const forward = orbit.forward?.toObject?.() || toVectorObject(props.cameraConfig?.forward, { x: 0, y: 1, z: 0 });
-        const right = orbit.right?.toObject?.() || toVectorObject(props.cameraConfig?.right, { x: 1, y: 0, z: 0 });
+        const position = core.position?.toObject?.() || toVectorObject(props.cameraConfig?.position, { x: -1.7236637240151509, y: 1.7236637240151513, z: 3.901021242319559 });
+        const forward = orbit.forward?.toObject?.() || toVectorObject(props.cameraConfig?.forward, { x: 0.374709505220685, y: -0.3747095052206851, z: -0.848048096156426 });
+        const right = orbit.right?.toObject?.() || toVectorObject(props.cameraConfig?.right, { x: -0.7071067811865476, y: -0.7071067811865475, z: 0 });
         const up = orbit.up?.toObject?.() || toVectorObject(props.cameraConfig?.up, { x: 0, y: 0, z: 1 });
 
         return {
@@ -962,7 +962,7 @@ export function animatorModel(props, emit) {
         const perspectiveScale = Math.tan((state.fov || 50) * DEG * 0.5) * Math.max(0.001, state.radius || 1) * 2 / height;
         const orthoScale = Math.max(0.001, state.orthographicScale || 5) / height;
         const amount = state.projection === "orthographic" ? orthoScale : perspectiveScale;
-        const right = state.right || { x: 1, y: 0, z: 0 };
+        const right = state.right || { x: -0.7071067811865476, y: -0.7071067811865475, z: 0 };
         const up = state.up || { x: 0, y: 0, z: 1 };
 
         return [
@@ -974,7 +974,7 @@ export function animatorModel(props, emit) {
 
     const rayPlaneIntersection = (ray, point, normal) => {
         const origin = ray?.origin || [0, 0, 0];
-        const dir = ray?.dir || ray?.direction || [0, 0, -1];
+        const dir = ray?.dir || ray?.direction || [0, 1, 0];
         const denom = dir[0] * normal[0] + dir[1] * normal[1] + dir[2] * normal[2];
 
         if (Math.abs(denom) < 0.000001) {
@@ -1517,8 +1517,8 @@ export function animatorModel(props, emit) {
                 local,
                 rendererSpace: true,
                 strictScreen: true,
-                axisPixelThreshold: props.editorConfig.picking?.axisPixelThreshold ?? 1.5,
-                ringPixelThreshold: props.editorConfig.picking?.ringPixelThreshold ?? 3,
+                axisPixelThreshold: props.editorConfig.picking?.axisPixelThreshold ?? 7,
+                ringPixelThreshold: props.editorConfig.picking?.ringPixelThreshold ?? 6,
                 pointPixelExtra: props.editorConfig.picking?.pointPixelExtra ?? 2,
                 planePixelInset: props.editorConfig.picking?.planePixelInset ?? 2,
             }
@@ -1959,8 +1959,7 @@ export function animatorModel(props, emit) {
         const sx = props.orbitConfig.invertOrbitX ? -1 : 1;
         const sy = props.orbitConfig.invertOrbitY ? -1 : 1;
 
-        core.orbit.theta -= dx * core.orbit.rotateSpeed * sx;
-        core.orbit.phi = core.orbit.clampPhi(core.orbit.phi + dy * core.orbit.rotateSpeed * sy);
+        core.orbit.orbit(dx * sx, dy * sy);
         markCameraDirty();
     };
 

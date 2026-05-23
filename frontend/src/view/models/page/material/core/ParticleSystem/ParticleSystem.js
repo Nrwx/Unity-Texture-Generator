@@ -333,11 +333,11 @@ const mixVector = (a, b, t) => ({
     z: mix(a.z, b.z, t),
 });
 
-const normalizeDirection = (x = 0, y = 1, z = 0) => {
+const normalizeDirection = (x = 0, y = 0, z = 1) => {
     const length = Math.hypot(Number(x) || 0, Number(y) || 0, Number(z) || 0);
 
     if (length <= 0.00001) {
-        return { x: 0, y: 1, z: 0 };
+        return { x: 0, y: 0, z: 1 };
     }
 
     return {
@@ -383,8 +383,8 @@ export class ParticleSystem {
         { key: "gravity", label: "Gravity", defaultValue: 0 },
         { key: "velocity", label: "Velocity", defaultValue: 0 },
         { key: "direction_x", label: "Direction X", defaultValue: 0 },
-        { key: "direction_y", label: "Direction Y", defaultValue: 1 },
-        { key: "direction_z", label: "Direction Z", defaultValue: 0 },
+        { key: "direction_y", label: "Direction Y", defaultValue: 0 },
+        { key: "direction_z", label: "Direction Z", defaultValue: 1 },
         { key: "rotation", label: "Rotation", defaultValue: 0 },
     ]);
 
@@ -400,7 +400,7 @@ export class ParticleSystem {
         active_point_id: "",
         points: [
             createPathPoint({ t: 0 }),
-            createPathPoint({ t: 1, translate: { x: 0, y: 0.35, z: 0.2 } }),
+            createPathPoint({ t: 1, translate: { x: 0, y: 0, z: 0.35 } }),
         ],
     });
 
@@ -433,7 +433,7 @@ export class ParticleSystem {
         velocity_z: 0,
         direction_x: 0,
         direction_y: 0,
-        direction_z: 0,
+        direction_z: 1,
         rotation: 0,
         velocity_randomness: 0,
         gravity: 0,
@@ -723,8 +723,8 @@ export class ParticleSystem {
             const gravityValue = interpolationValue("gravity", lifeTime, config.gravity) * physicsGravityScale;
             const velocityValue = interpolationValue("velocity", lifeTime, config.velocity);
             const directionX = interpolationValue("direction_x", lifeTime, config.direction_x);
-            const directionY = interpolationValue("direction_y", lifeTime, config.direction_y || 1);
-            const directionZ = interpolationValue("direction_z", lifeTime, config.direction_z);
+            const directionY = interpolationValue("direction_y", lifeTime, config.direction_y);
+            const directionZ = interpolationValue("direction_z", lifeTime, config.direction_z || 1);
             const rotationValue = interpolationValue("rotation", lifeTime, config.rotation);
             const baseDirection = normalizeDirection(directionX, directionY, directionZ);
             const rotationRadians = rotationValue * Math.PI / 180;
@@ -747,13 +747,13 @@ export class ParticleSystem {
                 config.emitter === "sphere"
                     ? [
                         Math.cos(theta) * sphereRadius * radius * config.radius,
-                        sphereZ * radius * config.radius,
                         Math.sin(theta) * sphereRadius * radius * config.radius,
+                        sphereZ * radius * config.radius,
                     ]
                     : [
                         (rand() - 0.5) * config.spread_x * config.radius,
-                        config.emitter === "plane" ? 0 : (rand() - 0.5) * config.spread_y * config.radius,
-                        (rand() - 0.5) * config.spread_z * config.radius,
+                        (rand() - 0.5) * config.spread_y * config.radius,
+                        config.emitter === "plane" ? 0 : (rand() - 0.5) * config.spread_z * config.radius,
                     ]
             );
             const swirl = config.orbit * life * Math.PI * 2;
@@ -763,8 +763,8 @@ export class ParticleSystem {
             const fluidDownFlow = useVolume && fluid?.enabled === true && config.volume_flow === "outside"
                 ? -Math.abs(Number(fluid.surface_flow ?? fluid.advection ?? 0.45) || 0) * life
                 : 0;
-            const vy = config.velocity_y + direction.y * velocityValue + (rand() - 0.5) * config.velocity_randomness + gravityValue * life + fluidDownFlow;
-            const vz = config.velocity_z + direction.z * velocityValue + (rand() - 0.5) * config.velocity_randomness;
+            const vy = config.velocity_y + direction.y * velocityValue + (rand() - 0.5) * config.velocity_randomness;
+            const vz = config.velocity_z + direction.z * velocityValue + (rand() - 0.5) * config.velocity_randomness + gravityValue * life + fluidDownFlow;
             const flow = config.volume_flow === "outside"
                 ? 1
                 : config.root_animation === "point"
@@ -782,9 +782,9 @@ export class ParticleSystem {
             ];
             const pathTranslate = pathPoint.translate || { x: 0, y: 0, z: 0 };
             const localPosition = resolveVolumeCollision([
-                root[0] * c - root[2] * s + vx * life + noise[0],
-                root[1] + vy * life + noise[1],
-                root[0] * s + root[2] * c + vz * life + noise[2],
+                root[0] * c - root[1] * s + vx * life + noise[0],
+                root[0] * s + root[1] * c + vy * life + noise[1],
+                root[2] + vz * life + noise[2],
             ], mesh, useVolume && fluid?.particle_collision !== false && config.volume_flow === "inside" ? physics : null);
             const x = pathEnabled ? localPosition[0] + pathTranslate.x : localPosition[0];
             const y = pathEnabled ? localPosition[1] + pathTranslate.y : localPosition[1];

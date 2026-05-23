@@ -40,40 +40,44 @@ export class CoordinateSystem {
         return [o.x, o.y, o.z];
     }
 
+    /**
+     * Explicit legacy conversion helper. Engine-space itself is Z-up and does not
+     * implicitly swap axes anymore; only call this at a real external Y-up boundary.
+     */
     static swapYZ(value, fallback = [0, 0, 0]) {
         const v = CoordinateSystem.vector(value, fallback);
         return [v[0], v[2], v[1]];
     }
 
     static sceneToRendererVector(value, fallback = [0, 0, 0]) {
-        return CoordinateSystem.swapYZ(value, fallback);
+        return CoordinateSystem.vector(value, fallback);
     }
 
     static rendererToSceneVector(value, fallback = [0, 0, 0]) {
-        return CoordinateSystem.swapYZ(value, fallback);
+        return CoordinateSystem.vector(value, fallback);
     }
 
     static geometry(geometry = {}, defaults = {}) {
-        const g = geometry;
+        const g = geometry || {};
 
         return {
             ...g,
 
             position_x: number(g.position_x, number(defaults.position_x, 0)),
-            position_y: number(g.position_z, number(defaults.position_y, 0)),
-            position_z: number(g.position_y, number(defaults.position_z, 0)),
+            position_y: number(g.position_y, number(defaults.position_y, 0)),
+            position_z: number(g.position_z, number(defaults.position_z, 0)),
 
             pivot_x: number(g.pivot_x, number(defaults.pivot_x, 0)),
-            pivot_y: number(g.pivot_z, number(defaults.pivot_y, 0)),
-            pivot_z: number(g.pivot_y, number(defaults.pivot_z, 0)),
+            pivot_y: number(g.pivot_y, number(defaults.pivot_y, 0)),
+            pivot_z: number(g.pivot_z, number(defaults.pivot_z, 0)),
 
             rotation_x: number(g.rotation_x, number(defaults.rotation_x, 0)),
-            rotation_y: number(g.rotation_z, number(defaults.rotation_y, 0)),
-            rotation_z: number(g.rotation_y, number(defaults.rotation_z, 0)),
+            rotation_y: number(g.rotation_y, number(defaults.rotation_y, 0)),
+            rotation_z: number(g.rotation_z, number(defaults.rotation_z, 0)),
 
             scale_x: number(g.scale_x, number(defaults.scale_x, 1)),
-            scale_y: number(g.scale_z, number(defaults.scale_y, 1)),
-            scale_z: number(g.scale_y, number(defaults.scale_z, 1)),
+            scale_y: number(g.scale_y, number(defaults.scale_y, 1)),
+            scale_z: number(g.scale_z, number(defaults.scale_z, 1)),
         };
     }
 
@@ -124,9 +128,12 @@ export class CoordinateSystem {
     static camera(c = {}) {
         return {
             ...c,
-            position: CoordinateSystem.sceneToRendererVector(c.position, [0, -3.25, 0.18]),
+            position: CoordinateSystem.sceneToRendererVector(c.position, [-1.7236637240151509, 1.7236637240151513, 3.901021242319559]),
             target: CoordinateSystem.sceneToRendererVector(c.target, [0, 0, 0]),
-            up: CoordinateSystem.sceneToRendererVector(c.up, [0, 0, 1]),
+            up: Vector.normalize(
+                CoordinateSystem.sceneToRendererVector(c.up, [0, 0, 1]),
+                [0, 0, 1]
+            ).toArray(),
         };
     }
 
@@ -148,7 +155,7 @@ export class CoordinateSystem {
 
         const position = CoordinateSystem.sceneToRendererVector(
             cameraPayload.position,
-            [0, -3.25, 0.18]
+            [-1.7236637240151509, 1.7236637240151513, 3.901021242319559]
         );
 
         const target = CoordinateSystem.sceneToRendererVector(
@@ -158,7 +165,7 @@ export class CoordinateSystem {
 
         const up = Vector.normalize(
             CoordinateSystem.sceneToRendererVector(cameraPayload.up, [0, 0, 1]),
-            [0, 1, 0]
+            [0, 0, 1]
         ).toArray();
 
         const view = Matrix.lookAt(position, target, up);

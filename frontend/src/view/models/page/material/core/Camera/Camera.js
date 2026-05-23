@@ -13,7 +13,7 @@ export class Camera {
                     orthographicScale = 5,
                     minOrthographicScale = 0.05,
                     maxOrthographicScale = 250,
-                    position = [0, -3.25, 0.18],
+                    position = [-1.7236637240151509, 1.7236637240151513, 3.901021242319559],
                     target = [0, 0, 0],
                     up = [0, 0, 1],
                     damping = 18,
@@ -205,7 +205,7 @@ export class Camera {
 
         const direction = Vector
             .sub(far, near)
-            .normalize([0, 0, -1]);
+            .normalize([0, 1, 0]);
 
         return {
             origin: near,

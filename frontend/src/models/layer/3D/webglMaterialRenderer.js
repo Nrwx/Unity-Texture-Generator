@@ -7,46 +7,46 @@ import {isFiniteNumber} from "@/utils/math";
 
 const FACE_DEFS = Object.freeze({
     front: {
+        normal: [0, -1, 0],
+        tangent: [1, 0, 0],
+        origin: [-0.5, -0.5, -0.5],
+        u: [1, 0, 0],
+        v: [0, 0, 1],
+    },
+    back: {
+        normal: [0, 1, 0],
+        tangent: [-1, 0, 0],
+        origin: [0.5, 0.5, -0.5],
+        u: [-1, 0, 0],
+        v: [0, 0, 1],
+    },
+    left: {
+        normal: [-1, 0, 0],
+        tangent: [0, -1, 0],
+        origin: [-0.5, 0.5, -0.5],
+        u: [0, -1, 0],
+        v: [0, 0, 1],
+    },
+    right: {
+        normal: [1, 0, 0],
+        tangent: [0, 1, 0],
+        origin: [0.5, -0.5, -0.5],
+        u: [0, 1, 0],
+        v: [0, 0, 1],
+    },
+    top: {
         normal: [0, 0, 1],
         tangent: [1, 0, 0],
         origin: [-0.5, -0.5, 0.5],
         u: [1, 0, 0],
         v: [0, 1, 0],
     },
-    back: {
-        normal: [0, 0, -1],
-        tangent: [-1, 0, 0],
-        origin: [0.5, -0.5, -0.5],
-        u: [-1, 0, 0],
-        v: [0, 1, 0],
-    },
-    left: {
-        normal: [-1, 0, 0],
-        tangent: [0, 0, 1],
-        origin: [-0.5, -0.5, -0.5],
-        u: [0, 0, 1],
-        v: [0, 1, 0],
-    },
-    right: {
-        normal: [1, 0, 0],
-        tangent: [0, 0, -1],
-        origin: [0.5, -0.5, 0.5],
-        u: [0, 0, -1],
-        v: [0, 1, 0],
-    },
-    top: {
-        normal: [0, 1, 0],
-        tangent: [1, 0, 0],
-        origin: [-0.5, 0.5, 0.5],
-        u: [1, 0, 0],
-        v: [0, 0, -1],
-    },
     bottom: {
-        normal: [0, -1, 0],
+        normal: [0, 0, -1],
         tangent: [1, 0, 0],
-        origin: [-0.5, -0.5, -0.5],
+        origin: [-0.5, 0.5, -0.5],
         u: [1, 0, 0],
-        v: [0, 0, 1],
+        v: [0, -1, 0],
     },
 });
 
@@ -838,7 +838,7 @@ const resolveViewportCamera = ({
             fov: 42,
             near: 0.01,
             far: 1000,
-            position: [0, -3.25, 0.18],
+            position: [-1.7236637240151509, 1.7236637240151513, 3.901021242319559],
             target: [0, 0, 0],
             up: [0, 0, 1],
             orthographicScale: 5,
@@ -875,9 +875,9 @@ const resolveViewportCamera = ({
             )
         ),
 
-        position: asVec3Array(source.position, [0, 0.18, 3.25]),
+        position: asVec3Array(source.position, [-1.7236637240151509, 1.7236637240151513, 3.901021242319559]),
         target: asVec3Array(source.target, [0, 0, 0]),
-        up: normalize3(asVec3Array(source.up, [0, 1, 0])),
+        up: normalize3(asVec3Array(source.up, [0, 0, 1])),
     };
 
     return CoordinateSystem.sceneToRendererCamera(camera);
@@ -1885,17 +1885,16 @@ export class WebGLMaterialRenderer {
         );
 
         const rx = Matrix.fromQuaternion(Quaternion.fromAxisAngle([1, 0, 0],
-            -0.34 +
             toNumber(rendererGeometry?.rotation_x, 0) * Math.PI / 180
         ));
 
         const ry = Matrix.fromQuaternion(Quaternion.fromAxisAngle([0, 1, 0],
-            toNumber(rotation, 0) +
             toNumber(rendererGeometry?.rotation_y, 0) * Math.PI / 180
         ));
 
         const rz = Matrix.fromQuaternion(Quaternion.fromAxisAngle([0, 0, 1],
-            -toNumber(rendererGeometry?.rotation_z, 0) * Math.PI / 180
+            toNumber(rotation, 0) +
+            toNumber(rendererGeometry?.rotation_z, 0) * Math.PI / 180
         ));
 
         const model = position
@@ -2183,7 +2182,7 @@ export class WebGLMaterialRenderer {
                 pushSceneLine(pivot, [pivotPoint[0], pivotPoint[1] - s, pivotPoint[2]], [pivotPoint[0], pivotPoint[1] + s, pivotPoint[2]]);
                 pushSceneLine(pivot, [pivotPoint[0], pivotPoint[1], pivotPoint[2] - s], [pivotPoint[0], pivotPoint[1], pivotPoint[2] + s]);
                 pushLineEntry(`pivot:${key}:cross`, color, pivot, 0, 5.25, true);
-                pushPointEntry(`pivot:${key}:point`, color, CoordinateSystem.rendererToSceneVector(pivotPoint), pointSize, true);
+                pushPointEntry(`pivot:${key}:point`, color, CoordinateSystem.sceneToRendererVector(pivotPoint), pointSize, true);
             };
 
             if (editor.showObjectPivot !== false) {
@@ -2207,7 +2206,7 @@ export class WebGLMaterialRenderer {
                     const tip = lineTo(dir, gizmoSize);
                     pushSceneLine(line, origin, tip);
                     pushLineEntry(`gizmo:translate:${axis}`, axisColors[axis], line, 0, 7.0, true);
-                    pushPointEntry(`gizmo:translate-tip:${axis}`, axisColors[axis], CoordinateSystem.rendererToSceneVector(tip), 13.5, true);
+                    pushPointEntry(`gizmo:translate-tip:${axis}`, axisColors[axis], CoordinateSystem.sceneToRendererVector(tip), 13.5, true);
                 });
             }
 
@@ -2217,9 +2216,9 @@ export class WebGLMaterialRenderer {
                     const tip = lineTo(dir, gizmoSize * 0.82);
                     pushSceneLine(line, origin, tip);
                     pushLineEntry(`gizmo:scale:${axis}`, axisColors[axis], line, 0, 7.0, true);
-                    pushPointEntry(`gizmo:scale-box:${axis}`, axisColors[axis], CoordinateSystem.rendererToSceneVector(tip), 15.0, true);
+                    pushPointEntry(`gizmo:scale-box:${axis}`, axisColors[axis], CoordinateSystem.sceneToRendererVector(tip), 15.0, true);
                 });
-                pushPointEntry("gizmo:scale:free", [1.0, 1.0, 1.0, 1.0], CoordinateSystem.rendererToSceneVector(origin), 11.0, true);
+                pushPointEntry("gizmo:scale:free", [1.0, 1.0, 1.0, 1.0], CoordinateSystem.sceneToRendererVector(origin), 11.0, true);
 
                 const triangle = [];
                 const pushTriangleEdge = (a, b) => pushSceneLine(triangle, a, b);
@@ -2323,7 +2322,7 @@ export class WebGLMaterialRenderer {
                 (items || []).forEach(item => {
                     if (selected === true && item.selected !== true) return;
                     if (selected === false && item.selected === true) return;
-                    positions.push(...CoordinateSystem.rendererToSceneVector(item.point));
+                    positions.push(...CoordinateSystem.sceneToRendererVector(item.point));
                 });
 
                 return positions;
@@ -2421,7 +2420,7 @@ export class WebGLMaterialRenderer {
 
             pushLineEntry("sculpt:brush-radius", color, buildCircle(radius), 0, 3.75, true);
             pushLineEntry("sculpt:brush-softness", softColor, buildCircle(radius * Math.max(0.05, 1 - softness * 0.72)), 0, 2.25, true);
-            pushPointEntry("sculpt:brush-center", color, CoordinateSystem.rendererToSceneVector(center), 7.0, true);
+            pushPointEntry("sculpt:brush-center", color, CoordinateSystem.sceneToRendererVector(center), 7.0, true);
         }
 
         return entries;
@@ -2650,9 +2649,9 @@ export class WebGLMaterialRenderer {
             viewportCamera
         );
 
-        const cameraPos = matrices.cameraPos || matrices.camera || [0, 0.18, 3.25];
+        const cameraPos = matrices.cameraPos || matrices.camera || [-1.7236637240151509, 1.7236637240151513, 3.901021242319559];
 
-        const lightDirection = normalize3(CoordinateSystem.rendererToSceneVector([
+        const lightDirection = normalize3(CoordinateSystem.sceneToRendererVector([
             toNumber(light.direction_x, -0.35),
             toNumber(light.direction_y, -0.65),
             toNumber(light.direction_z, 0.72),
@@ -3064,7 +3063,7 @@ export class WebGLMaterialRenderer {
 
                 uLightType: lightTypeIndex,
 
-                uLightPos: CoordinateSystem.rendererToSceneVector([
+                uLightPos: CoordinateSystem.sceneToRendererVector([
                     toNumber(light.position_x, 0),
                     toNumber(light.position_y, 1.4),
                     toNumber(light.position_z, 2.8),

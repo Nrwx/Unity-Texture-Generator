@@ -44,50 +44,49 @@ export class Mesh {
     static STRIDE = 11;
 
     static FACE_DEFS = Object.freeze({
-        front: {
-            normal: [0, 0, 1],
-            tangent: [1, 0, 0],
-            origin: [-0.5, -0.5, 0.5],
-            u: [1, 0, 0],
-            v: [0, 1, 0],
-        },
-        back: {
-            normal: [0, 0, -1],
-            tangent: [-1, 0, 0],
-            origin: [0.5, -0.5, -0.5],
-            u: [-1, 0, 0],
-            v: [0, 1, 0],
-        },
-        left: {
-            normal: [-1, 0, 0],
-            tangent: [0, 0, 1],
-            origin: [-0.5, -0.5, -0.5],
-            u: [0, 0, 1],
-            v: [0, 1, 0],
-        },
-        right: {
-            normal: [1, 0, 0],
-            tangent: [0, 0, -1],
-            origin: [0.5, -0.5, 0.5],
-            u: [0, 0, -1],
-            v: [0, 1, 0],
-        },
-        top: {
-            normal: [0, 1, 0],
-            tangent: [1, 0, 0],
-            origin: [-0.5, 0.5, 0.5],
-            u: [1, 0, 0],
-            v: [0, 0, -1],
-        },
-        bottom: {
-            normal: [0, -1, 0],
-            tangent: [1, 0, 0],
-            origin: [-0.5, -0.5, -0.5],
-            u: [1, 0, 0],
-            v: [0, 0, 1],
-        },
-    });
-
+    front: {
+        normal: [0, -1, 0],
+        tangent: [1, 0, 0],
+        origin: [-0.5, -0.5, -0.5],
+        u: [1, 0, 0],
+        v: [0, 0, 1],
+    },
+    back: {
+        normal: [0, 1, 0],
+        tangent: [-1, 0, 0],
+        origin: [0.5, 0.5, -0.5],
+        u: [-1, 0, 0],
+        v: [0, 0, 1],
+    },
+    left: {
+        normal: [-1, 0, 0],
+        tangent: [0, -1, 0],
+        origin: [-0.5, 0.5, -0.5],
+        u: [0, -1, 0],
+        v: [0, 0, 1],
+    },
+    right: {
+        normal: [1, 0, 0],
+        tangent: [0, 1, 0],
+        origin: [0.5, -0.5, -0.5],
+        u: [0, 1, 0],
+        v: [0, 0, 1],
+    },
+    top: {
+        normal: [0, 0, 1],
+        tangent: [1, 0, 0],
+        origin: [-0.5, -0.5, 0.5],
+        u: [1, 0, 0],
+        v: [0, 1, 0],
+    },
+    bottom: {
+        normal: [0, 0, -1],
+        tangent: [1, 0, 0],
+        origin: [-0.5, 0.5, -0.5],
+        u: [1, 0, 0],
+        v: [0, -1, 0],
+    },
+});
     static COMMON_TRANSFORM_FIELDS = Object.freeze([
         "pivot_x",
         "pivot_y",
@@ -947,12 +946,12 @@ export class Mesh {
             );
         };
 
-        // Top pole
+        // Top pole (Z-up engine space).
         const topIndex = 0;
 
         pushRawVertex(
-            0, radius, 0,
-            0, 1, 0,
+            0, 0, radius,
+            0, 0, 1,
             0.5, 1,
             1, 0, 0
         );
@@ -973,13 +972,13 @@ export class Mesh {
                 const cp = cosPhi[x];
 
                 const nx = cp * st;
-                const ny = ct;
-                const nz = sp * st;
+                const ny = sp * st;
+                const nz = ct;
 
-                // Lat-long tangent. Already normalized.
+                // Lat-long tangent around the Z-up vertical axis.
                 const tx = -sp;
-                const ty = 0;
-                const tz = cp;
+                const ty = cp;
+                const tz = 0;
 
                 pushRawVertex(
                     nx * radius,
@@ -1002,10 +1001,10 @@ export class Mesh {
 
         const bottomIndex = vertices.length / Mesh.STRIDE;
 
-        // Bottom pole
+        // Bottom pole (Z-up engine space).
         pushRawVertex(
-            0, -radius, 0,
-            0, -1, 0,
+            0, 0, -radius,
+            0, 0, -1,
             0.5, 0,
             1, 0, 0
         );
@@ -1077,17 +1076,17 @@ export class Mesh {
 
         for (let y = 0; y <= height; y += 1) {
             const v = y / height;
-            const py = -0.5 + v;
+            const pz = -0.5 + v;
 
             for (let x = 0; x <= radial; x += 1) {
                 const u = x / radial;
                 const angle = u * Math.PI * 2;
                 const cx = Math.cos(angle);
-                const sz = Math.sin(angle);
+                const sy = Math.sin(angle);
 
-                const position = [cx * 0.5, py, sz * 0.5];
-                const normal = [cx, 0, sz];
-                const tangent = Mesh.normalize3([-sz, 0, cx]);
+                const position = [cx * 0.5, sy * 0.5, pz];
+                const normal = [cx, sy, 0];
+                const tangent = Mesh.normalize3([-sy, cx, 0]);
 
                 Mesh.pushVertex(vertices, position, normal, [u, 1 - v], tangent);
             }
@@ -1114,8 +1113,8 @@ export class Mesh {
 
         Mesh.buildCylinderCap({
             faceName: "top",
-            yValue: 0.5,
-            normal: [0, 1, 0],
+            axisValue: 0.5,
+            normal: [0, 0, 1],
             radial,
             vertices,
             indices,
@@ -1125,8 +1124,8 @@ export class Mesh {
 
         Mesh.buildCylinderCap({
             faceName: "bottom",
-            yValue: -0.5,
-            normal: [0, -1, 0],
+            axisValue: -0.5,
+            normal: [0, 0, -1],
             radial,
             vertices,
             indices,
@@ -1200,7 +1199,7 @@ export class Mesh {
 
     static buildCylinderCap({
                                 faceName,
-                                yValue,
+                                axisValue,
                                 normal,
                                 radial,
                                 vertices,
@@ -1213,7 +1212,7 @@ export class Mesh {
 
         Mesh.pushVertex(
             vertices,
-            [0, yValue, 0],
+            [0, 0, axisValue],
             normal,
             [0.5, 0.5],
             [1, 0, 0]
@@ -1223,13 +1222,13 @@ export class Mesh {
             const u = x / radial;
             const angle = u * Math.PI * 2;
             const cx = Math.cos(angle);
-            const sz = Math.sin(angle);
+            const sy = Math.sin(angle);
 
             Mesh.pushVertex(
                 vertices,
-                [cx * 0.5, yValue, sz * 0.5],
+                [cx * 0.5, sy * 0.5, axisValue],
                 normal,
-                [cx * 0.5 + 0.5, sz * 0.5 + 0.5],
+                [cx * 0.5 + 0.5, sy * 0.5 + 0.5],
                 [1, 0, 0]
             );
         }
@@ -1506,7 +1505,7 @@ export class Mesh {
         const rx = Matrix.fromQuaternion(
             Quaternion.fromAxisAngle(
                 [1, 0, 0],
-                (renderer ? -0.34 : 0) + Mesh.toNumber(g.rotation_x, 0) * Math.PI / 180,
+                Mesh.toNumber(g.rotation_x, 0) * Math.PI / 180,
             )
         );
 
@@ -1520,7 +1519,7 @@ export class Mesh {
         const rz = Matrix.fromQuaternion(
             Quaternion.fromAxisAngle(
                 [0, 0, 1],
-                (renderer ? -1 : 1) * Mesh.toNumber(g.rotation_z, 0) * Math.PI / 180,
+                Mesh.toNumber(g.rotation_z, 0) * Math.PI / 180,
             )
         );
 
@@ -1534,12 +1533,10 @@ export class Mesh {
     }
 
     static transformLocalPointToScene(geometry = {}, point = [0, 0, 0]) {
-        const rendererPoint = Mesh.transformPoint(
-            Mesh.makeRendererTransformMatrix(geometry),
+        return Mesh.transformPoint(
+            Mesh.makeTransformMatrix(geometry),
             point,
         );
-
-        return CoordinateSystem.rendererToSceneVector(rendererPoint);
     }
 
     static transformPoint(matrix, point) {

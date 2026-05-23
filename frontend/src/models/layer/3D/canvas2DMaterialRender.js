@@ -117,9 +117,9 @@ export const createCubeVertices = (width, height, rotation = 0, geometry = {}) =
         number(geometry.pivot_z || 0) / maxDimension,
     ];
 
-    const yaw = rotation + toRadians(geometry.rotation_y);
-    const pitch = -0.34 + toRadians(geometry.rotation_x);
-    const roll = toRadians(geometry.rotation_z);
+    const yaw = toRadians(geometry.rotation_y);
+    const pitch = toRadians(geometry.rotation_x);
+    const roll = rotation + toRadians(geometry.rotation_z);
 
     const vertices3d = [
         [-1, -1, -1],

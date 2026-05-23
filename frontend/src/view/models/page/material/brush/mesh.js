@@ -68,7 +68,10 @@ const refineMeshInBrush = ({ vertices, indices, stride, hit, brush }) => {
         const key = Mesh.edgeKey(a, b);
 
         if (!midpointCache.has(key)) {
-            midpointCache.set(key, Mesh.midpointVertex(vertices, stride, a, b));
+            const midpoint = Mesh.midpointVertex(vertices, stride, a, b);
+            const index = Mesh.vertexCount(vertices, stride);
+            Mesh.pushVertexArray(vertices, stride, midpoint);
+            midpointCache.set(key, index);
         }
 
         return midpointCache.get(key);

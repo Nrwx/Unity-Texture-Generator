@@ -140,8 +140,10 @@ export class Orbit {
     }
 
     orbit(deltaX = 0, deltaY = 0) {
-        this.theta -= deltaX * this.rotateSpeed;
-        this.phi -= deltaY * this.rotateSpeed;
+        // Screen drag follows the pointer in a Z-up scene: dragging right rotates
+        // the view to the right, dragging up rotates the view upward.
+        this.theta += deltaX * this.rotateSpeed;
+        this.phi += deltaY * this.rotateSpeed;
         this.phi = this.clampPhi(this.phi);
 
         return this;

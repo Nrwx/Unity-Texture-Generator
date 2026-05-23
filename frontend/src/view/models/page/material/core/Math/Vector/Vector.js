@@ -69,7 +69,7 @@ export class Vector {
     }
 
     static up() {
-        return new Vector(0, 1, 0);
+        return new Vector(0, 0, 1);
     }
 
     static right() {
@@ -77,7 +77,7 @@ export class Vector {
     }
 
     static forward() {
-        return new Vector(0, 0, -1);
+        return new Vector(0, 1, 0);
     }
 
     static add(a, b) {
@@ -100,7 +100,7 @@ export class Vector {
         return Vector.from(a).cross(b);
     }
 
-    static normalize(value, fallback = [0, 1, 0]) {
+    static normalize(value, fallback = [0, 0, 1]) {
         return Vector.from(value, fallback).normalize(fallback);
     }
 
@@ -242,7 +242,7 @@ export class Vector {
         return this.clone().sub(value).length();
     }
 
-    normalize(fallback = [0, 1, 0]) {
+    normalize(fallback = [0, 0, 1]) {
         const length = this.length();
 
         if (length <= 0.000001) {
