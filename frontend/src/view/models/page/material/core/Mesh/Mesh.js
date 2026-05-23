@@ -670,6 +670,7 @@ export class Mesh {
         const { segments, rings } = Mesh.resolveSphereResolution(settings);
         const vertices = [];
         const indices = [];
+
         const parts = [{
             name: "sphere",
             faceName: "front",
@@ -678,56 +679,154 @@ export class Mesh {
             materialSlot: "front",
         }];
 
-        for (let y = 0; y <= rings; y += 1) {
+        /**
+         * Echte Pole-Sphere:
+         *
+         * - Top-Pol: 1 Vertex
+         * - Bottom-Pol: 1 Vertex
+         * - Zwischenringe: rings - 1
+         * - Pro Zwischenring segments + 1 Vertices wegen UV-Seam
+         *
+         * Dadurch vermeiden wir:
+         * - duplizierte Pole
+         * - degenerierte Pol-Dreiecke
+         * - unnötige Indices
+         */
+
+        const radius = 0.5;
+        const ringCount = Math.max(1, rings - 1);
+
+        const sinPhi = new Array(segments + 1);
+        const cosPhi = new Array(segments + 1);
+
+        for (let x = 0; x <= segments; x += 1) {
+            const u = x / segments;
+            const phi = u * Math.PI * 2;
+
+            sinPhi[x] = Math.sin(phi);
+            cosPhi[x] = Math.cos(phi);
+        }
+
+        const pushRawVertex = (
+            px, py, pz,
+            nx, ny, nz,
+            u, v,
+            tx, ty, tz
+        ) => {
+            vertices.push(
+                px, py, pz,
+                nx, ny, nz,
+                u, v,
+                tx, ty, tz
+            );
+        };
+
+        // Top pole
+        const topIndex = 0;
+
+        pushRawVertex(
+            0, radius, 0,
+            0, 1, 0,
+            0.5, 1,
+            1, 0, 0
+        );
+
+        const firstRingIndex = vertices.length / Mesh.STRIDE;
+
+        // Intermediate rings, excluding poles.
+        for (let y = 1; y < rings; y += 1) {
             const v = y / rings;
             const theta = v * Math.PI;
-            const sinTheta = Math.sin(theta);
-            const cosTheta = Math.cos(theta);
+            const st = Math.sin(theta);
+            const ct = Math.cos(theta);
 
             for (let x = 0; x <= segments; x += 1) {
                 const u = x / segments;
-                const phi = u * Math.PI * 2;
-                const sinPhi = Math.sin(phi);
-                const cosPhi = Math.cos(phi);
 
-                const normal = [
-                    cosPhi * sinTheta,
-                    cosTheta,
-                    sinPhi * sinTheta,
-                ];
+                const sp = sinPhi[x];
+                const cp = cosPhi[x];
 
-                const position = [
-                    normal[0] * 0.5,
-                    normal[1] * 0.5,
-                    normal[2] * 0.5,
-                ];
+                const nx = cp * st;
+                const ny = ct;
+                const nz = sp * st;
 
-                const tangent = Mesh.normalize3([
-                    -sinPhi,
-                    0,
-                    cosPhi,
-                ]);
+                // Lat-long tangent. Already normalized.
+                const tx = -sp;
+                const ty = 0;
+                const tz = cp;
 
-                Mesh.pushVertex(
-                    vertices,
-                    position,
-                    normal,
-                    [u, 1 - v],
-                    tangent
+                pushRawVertex(
+                    nx * radius,
+                    ny * radius,
+                    nz * radius,
+
+                    nx,
+                    ny,
+                    nz,
+
+                    u,
+                    1 - v,
+
+                    tx,
+                    ty,
+                    tz
                 );
             }
         }
 
+        const bottomIndex = vertices.length / Mesh.STRIDE;
+
+        // Bottom pole
+        pushRawVertex(
+            0, -radius, 0,
+            0, -1, 0,
+            0.5, 0,
+            1, 0, 0
+        );
+
         const row = segments + 1;
 
-        for (let y = 0; y < rings; y += 1) {
-            for (let x = 0; x < segments; x += 1) {
-                const a = y * row + x;
-                const b = a + 1;
-                const c = a + row;
-                const d = c + 1;
+        const ringVertexIndex = (ring, x) => {
+            // ring is 0-based for intermediate rings.
+            return firstRingIndex + ring * row + x;
+        };
 
-                indices.push(a, c, b, b, c, d);
+        // Top cap
+        if (ringCount > 0) {
+            for (let x = 0; x < segments; x += 1) {
+                const current = ringVertexIndex(0, x);
+                const next = ringVertexIndex(0, x + 1);
+
+                // Winding chosen for outward normals.
+                indices.push(topIndex, next, current);
+            }
+        }
+
+        // Body quads between intermediate rings
+        for (let y = 0; y < ringCount - 1; y += 1) {
+            for (let x = 0; x < segments; x += 1) {
+                const a = ringVertexIndex(y, x);
+                const b = ringVertexIndex(y, x + 1);
+                const c = ringVertexIndex(y + 1, x);
+                const d = ringVertexIndex(y + 1, x + 1);
+
+                indices.push(
+                    a, b, c,
+                    b, d, c
+                );
+            }
+        }
+
+        // Bottom cap
+        if (ringCount > 0) {
+            const lastRing = ringCount - 1;
+
+            for (let x = 0; x < segments; x += 1) {
+                const current = ringVertexIndex(lastRing, x);
+                const next = ringVertexIndex(lastRing, x + 1);
+
+                // Winding chosen for outward normals.
+                indices.push(bottomIndex, current, next);
             }
         }
 
@@ -966,10 +1065,17 @@ export class Mesh {
     static resolveSphereResolution(settings = {}) {
         const subdivision = Mesh.clampInt(settings.subdivision, 0, 6, 0);
 
-        return {
-            segments: Math.min(128, Math.max(12, 12 + subdivision * 12)),
-            rings: Math.min(64, Math.max(6, 6 + subdivision * 6)),
-        };
+        const presets = [
+            { segments: 16, rings: 8 },
+            { segments: 24, rings: 12 },
+            { segments: 32, rings: 16 },
+            { segments: 48, rings: 24 },
+            { segments: 64, rings: 32 },
+            { segments: 72, rings: 36 },
+            { segments: 96, rings: 48 },
+        ];
+
+        return presets[subdivision] || presets[0];
     }
 
     static resolveCylinderResolution(settings = {}) {
