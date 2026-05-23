@@ -1,6 +1,6 @@
 <template>
   <v-card
-      v-if="state"
+      v-if="state && queue"
       width="300"
       :height="expanded ? 100 : 70"
       @click="handleCLick"
@@ -28,7 +28,7 @@
 
     <v-progress-linear
         :model-value="queue?.percent"
-        :indeterminate="queue.indeterminate"
+        :indeterminate="queue?.indeterminate"
         color="deep-purple-accent-4"
         height="6"
         rounded

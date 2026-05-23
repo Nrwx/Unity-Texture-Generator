@@ -4,12 +4,6 @@ import {Accumulator} from "@/view/models/page/material/core/Accumulator/Accumula
 
 const optionValue = value => value && typeof value === "object" && "value" in value ? value.value : value;
 const TIMELINE_UNITS_PER_SECOND = 60;
-const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
-const waitFrames = async (count = 2) => {
-    for (let i = 0; i < count; i += 1) {
-        await new Promise(resolve => requestAnimationFrame(resolve));
-    }
-};
 
 const dataUrlToBlob = async dataUrl => {
     const response = await fetch(dataUrl);
@@ -23,6 +17,24 @@ const updateExportPreview = (route, src, id, title = "Export Preview") => {
     route.previewData.value.title = title;
     route.previewData.value.id = id;
     route.previewData.value.src = src;
+};
+
+const startExportQueueStatus = async (
+    route,
+    title = "Export",
+    subTitle = "Backend verarbeitet /export"
+) => {
+
+    await route.emit("app:update-queue", {
+        title,
+        subTitle,
+        percent: 0,
+        indeterminate: true,
+        complete: false,
+        method: "POST",
+        path: "/export",
+        wait: true,
+    });
 };
 
 const toNumberSafe = (value, fallback = 0) => {
@@ -90,15 +102,15 @@ const captureCanvasFrame = async (route, resolution) => {
 };
 
 const setExportProgress = async (route, percent, title = "MP4 Export", subTitle = "Frames werden gerendert") => {
-    route.windowStates.queue.value = true;
     await route.emit("app:update-queue", {
         title,
         subTitle,
         percent,
         indeterminate: false,
         complete: percent >= 100,
-        method: percent >= 100 ? "FINISH" : "POST",
+        method: percent >= 100 ? "FINISH" : "PENDING",
         path: "/export",
+        wait: percent <= 98,
     });
 };
 
@@ -121,10 +133,8 @@ const exportMp4WithTimelineCapture = async (route, data) => {
     const oldExportFrameProgress = timeline.exportFrameProgress;
     const oldExportDurationSeconds = timeline.exportDurationSeconds;
     const oldExportTimelineUnitsPerSecond = timeline.exportTimelineUnitsPerSecond;
-    const oldTimelineState = route.windowStates.timeline.value;
     const oldSelection = [...(route.localData.selectedLayer.value || [])];
 
-    route.windowStates.timeline.value = true;
     route.localData.selectedLayer.value = [];
     route.timelineData.value.exportFrameCount = frames.length;
     route.timelineData.value.exportDurationSeconds = exportPlan.durationSeconds;
@@ -151,8 +161,6 @@ const exportMp4WithTimelineCapture = async (route, data) => {
             route.timelineData.value.exportFrameProgress = frameInfo.progress;
 
             await nextTick();
-            await waitFrames(3);
-            await wait(8);
 
             const frameDataUrl = await captureCanvasFrame(route, data.videoResolution);
             updateExportPreview(
@@ -181,7 +189,9 @@ const exportMp4WithTimelineCapture = async (route, data) => {
         }
 
         await setExportProgress(route, 98, "MP4 Export", "Video wird kodiert");
-        const res = await route.api.finishMp4Export({ sessionId: session.sessionId });
+        const finishPromise = route.api.finishMp4Export({ sessionId: session.sessionId });
+        await startExportQueueStatus(route, "MP4 Export", "Backend kodiert /export");
+        const res = await finishPromise;
         await setExportProgress(route, 100, "MP4 Export", "Video fertig");
 
         return res;
@@ -195,7 +205,6 @@ const exportMp4WithTimelineCapture = async (route, data) => {
         route.timelineData.value.exportFrameProgress = oldExportFrameProgress ?? 0;
         route.timelineData.value.exportDurationSeconds = oldExportDurationSeconds ?? 0;
         route.timelineData.value.exportTimelineUnitsPerSecond = oldExportTimelineUnitsPerSecond ?? TIMELINE_UNITS_PER_SECOND;
-        route.windowStates.timeline.value = oldTimelineState;
         route.localData.selectedLayer.value = oldSelection;
     }
 };
@@ -293,6 +302,7 @@ export const exportEvent = (route) => ({
         const type = optionValue(payload.type);
         const timeline = route.timelineData?.value || {};
         route.previewData.value.file = "";
+        await setExportProgress(route, 1, "Export", "Export wird vorbereitet");
         const data = {
             mode: optionValue(payload.mode),
             quality: payload.quality,
@@ -326,18 +336,23 @@ export const exportEvent = (route) => ({
         };
 
         if (type !== "MP4" && hasLayer3D(route)) {
+            await setExportProgress(route, 8, "Export", "3D Snapshot wird gerendert");
             await nextTick();
-            await waitFrames(3);
 
             const snapshotResolution = route.localData?.viewport?.value?.width || payload.videoResolution;
             const snapshotDataUrl = await captureCanvasFrame(route, snapshotResolution);
             updateExportPreview(route, snapshotDataUrl, `snapshot-${Date.now()}`, payload.title || "Export Preview");
             data.snapshot = await dataUrlToBlob(snapshotDataUrl);
+            await setExportProgress(route, 15, "Export", "3D Snapshot bereit");
         }
 
         const res = type === "MP4"
             ? await exportMp4WithTimelineCapture(route, data)
-            : await route.api.updateExport(data);
+            : await (async () => {
+                const exportPromise = route.api.updateExport(data);
+                await startExportQueueStatus(route, "Export", "Backend verarbeitet /export");
+                return await exportPromise;
+            })();
 
         if (res) {
             route.previewData.value.mode = 0
@@ -345,6 +360,7 @@ export const exportEvent = (route) => ({
             route.previewData.value.id = res.id
             route.previewData.value.src =  res.src
             route.previewData.value.file =  res.file
+            await setExportProgress(route, 100, "Export", "Export fertig");
         }
     }
 })

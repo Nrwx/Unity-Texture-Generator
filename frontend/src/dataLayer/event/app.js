@@ -131,6 +131,7 @@ export const appEvent = (route) => ({
                         method: 'FINISH',
                         path: '/finish',
                         complete: true,
+                        wait: false
                     };
                     await route.emit('app:update-queue', finish);
                 }, 150);
@@ -143,7 +144,8 @@ export const appEvent = (route) => ({
                         percent: 0,
                         time: '',
                         indeterminate: false,
-                        complete: false
+                        complete: false,
+                        wait: false
                     };
                     await route.emit('app:update-queue', reset);
                     route.windowStates.queue.value = payload.state;

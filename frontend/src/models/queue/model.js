@@ -68,7 +68,7 @@ export function queueModel(props, emit) {
     watch(
         () => props.state,
         async (newVal) => {
-            if (newVal === true && pollInterval.value === null) {
+            if (newVal && pollInterval.value === null) {
                 await pollStatus();
             }
         }
