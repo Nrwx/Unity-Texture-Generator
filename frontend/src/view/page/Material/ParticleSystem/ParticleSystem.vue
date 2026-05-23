@@ -61,7 +61,7 @@
     <section class="mem-geometry-card">
       <header>
         <strong>System</strong>
-        <small>Render-Modus und Quelle.</small>
+        <small>Render-Modus.</small>
       </header>
 
       <v-select
@@ -73,31 +73,13 @@
           @update:model-value="setParticleValue('mode', $event)"
       />
 
-      <v-select
-          :model-value="state.particleSystem.source"
-          :items="particleSourceOptions"
-          label="Source"
-          density="compact"
-          hide-details
-          @update:model-value="setParticleValue('source', $event)"
-      />
-
     </section>
 
     <section class="mem-geometry-card">
       <header>
         <strong>Emitter</strong>
-        <small>Verteilung, Anzahl und deterministischer Seed.</small>
+        <small>Animation, Anzahl und deterministischer Seed.</small>
       </header>
-
-      <v-select
-          :model-value="state.particleSystem.emitter"
-          :items="particleEmitterOptions"
-          label="Emitter"
-          density="compact"
-          hide-details
-          @update:model-value="setParticleValue('emitter', $event)"
-      />
 
       <v-select
           :model-value="state.particleSystem.root_animation"
@@ -252,11 +234,11 @@
             <strong>{{ index + 1 }}</strong>
             <v-text-field
                 :model-value="point.y"
-                :label="state.interpolationAttribute === 'alpha' ? 'Alpha 0-1' : 'Y Offset'"
+                :label="interpolationInputRange.label"
                 type="number"
-                :min="state.interpolationAttribute === 'alpha' ? 0 : undefined"
-                :max="state.interpolationAttribute === 'alpha' ? 1 : undefined"
-                :step="state.interpolationAttribute === 'alpha' ? 0.01 : 1"
+                :min="interpolationInputRange.min"
+                :max="interpolationInputRange.max"
+                :step="interpolationInputRange.step"
                 density="compact"
                 hide-details
                 @click.stop

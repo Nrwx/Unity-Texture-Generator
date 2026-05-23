@@ -63,6 +63,11 @@ const normalizeColorRampStop = (stop = {}, index = 0) => ({
     t: clamp01(stop.t ?? index),
     color: Array.isArray(stop.color) ? stop.color : [1, 1, 1, 1],
 });
+const INTERPOLATION_RANGES = Object.freeze({
+    alpha: { min: 0, max: 1, step: 0.01, label: "Alpha 0-1" },
+    size_x: { min: 0, max: 20, step: 0.01, label: "Size X" },
+    size_y: { min: 0, max: 20, step: 0.01, label: "Size Y" },
+});
 
 export const particleSystemModelProps = {
     particleSystem: {
@@ -187,9 +192,7 @@ export function particleSystemModel(props, emit) {
         emitParticleSystem({ restart: true });
     };
 
-    const activeInterpolationPoints = computed(() => (
-        state.particleSystem.interpolations?.[state.interpolationAttribute] || []
-    ));
+    const activeInterpolationPoints = computed(() => ensureInterpolationPoints(state.interpolationAttribute));
 
     const lifetimeWidth = computed(() => Math.max(0.001, Number(state.particleSystem.lifetime) || 1));
 
@@ -254,6 +257,16 @@ export function particleSystemModel(props, emit) {
             )[attribute];
         }
 
+        const range = INTERPOLATION_RANGES[attribute];
+
+        if (range) {
+            state.particleSystem.interpolations[attribute] = state.particleSystem.interpolations[attribute]
+                .map(point => ({
+                    ...point,
+                    y: clampValue(point.y, range.min, range.max),
+                }));
+        }
+
         return state.particleSystem.interpolations[attribute];
     };
 
@@ -261,19 +274,31 @@ export function particleSystemModel(props, emit) {
         const rect = target.getBoundingClientRect();
         const x = Math.min(Math.max((event.clientX - rect.left) / Math.max(rect.width, 1), 0), 1) * lifetimeWidth.value;
         const rawRatio = Math.min(Math.max((event.clientY - rect.top) / Math.max(rect.height, 1), 0), 1);
-        const y = state.interpolationAttribute === "alpha"
-            ? Math.round((1 - rawRatio) * 1000) / 1000
+        const range = INTERPOLATION_RANGES[state.interpolationAttribute];
+        const y = range
+            ? Math.round((range.min + (1 - rawRatio) * (range.max - range.min)) * 1000) / 1000
             : clampValue((0.5 - rawRatio) * 100, -50, 50);
 
         return { x, y };
     };
 
     const interpolationPointY = point => {
-        if (state.interpolationAttribute === "alpha") {
-            return 100 - clampValue(point?.y, 0, 1) * 100;
+        const range = INTERPOLATION_RANGES[state.interpolationAttribute];
+
+        if (range) {
+            const amount = (clampValue(point?.y, range.min, range.max) - range.min) / Math.max(range.max - range.min, 0.00001);
+            return 100 - amount * 100;
         }
 
         return 50 - (Number(point?.y) || 0);
+    };
+
+    const clampInterpolationValue = (attribute, value) => {
+        const range = INTERPOLATION_RANGES[attribute];
+
+        return range
+            ? clampValue(value, range.min, range.max)
+            : value;
     };
 
     const updateInterpolationPoint = (attribute, index, point) => {
@@ -285,7 +310,7 @@ export function particleSystemModel(props, emit) {
             .sort((a, b) => a.x - b.x)
             .map(item => ({
                 x: Math.round(item.x * 1000) / 1000,
-                y: Math.round((attribute === "alpha" ? clampValue(item.y, 0, 1) : item.y) * 1000) / 1000,
+                y: Math.round(clampInterpolationValue(attribute, item.y) * 1000) / 1000,
             }));
     };
 
@@ -300,12 +325,19 @@ export function particleSystemModel(props, emit) {
 
         updateInterpolationPoint(attribute, index, {
             ...current,
-            y: attribute === "alpha"
-                ? clampValue(value, 0, 1)
-                : clampValue(value, -1000, 1000),
+            y: clampInterpolationValue(attribute, clampValue(value, -1000, 1000)),
         });
         emitParticleSystem({ restart: true });
     };
+
+    const interpolationInputRange = computed(() => (
+        INTERPOLATION_RANGES[state.interpolationAttribute] || {
+            min: undefined,
+            max: undefined,
+            step: 1,
+            label: "Y Offset",
+        }
+    ));
 
     const stopInterpolationDrag = () => {
         if (!state.interpolationDrag) {
@@ -823,6 +855,7 @@ export function particleSystemModel(props, emit) {
         colorRampMarkerStyle,
         activeInterpolationPoints,
         interpolationPolyline,
+        interpolationInputRange,
         lifetimeWidth,
         pathFollowPoints,
         activePathPoint,

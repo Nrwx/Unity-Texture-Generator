@@ -2548,10 +2548,18 @@ class MaterialModel(BaseModel):
                 if isinstance(incoming_interpolations.get(key), list)
                 else default_points
             )
+
+            def normalize_interpolation_y(value):
+                if key == "alpha":
+                    return clamp_value(value, 0, 1, 1)
+                if key in {"size_x", "size_y"}:
+                    return clamp_value(value, 0, 20, 1)
+                return clamp_value(value, -1000, 1000, 0)
+
             normalized = [
                 {
                     "x": clamp_value(point.get("x", 0), 0, lifetime_value, 0),
-                    "y": clamp_value(point.get("y", 0), -1000, 1000, 0),
+                    "y": normalize_interpolation_y(point.get("y", 0)),
                 }
                 for point in points
                 if isinstance(point, dict)

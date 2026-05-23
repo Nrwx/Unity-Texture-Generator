@@ -5894,6 +5894,61 @@ export function materialEditorModel(props, emit) {
         requestPreviewDebounced();
     };
 
+    const particleEmitterMode = computed(() => {
+        const system = values.particle_system || {};
+
+        if (system.use_mesh_reference === true || system.source === "mesh") {
+            return "mesh";
+        }
+
+        if (system.source === "volume") {
+            return "volume";
+        }
+
+        return "off";
+    });
+
+    const particleEmitterModeLabel = computed(() => {
+        if (particleEmitterMode.value === "mesh") {
+            return "Mesh";
+        }
+
+        if (particleEmitterMode.value === "volume") {
+            return "Volumen";
+        }
+
+        return "Aus";
+    });
+
+    const cycleParticleEmitterMode = () => {
+        const current = particleEmitterMode.value;
+        const nextMode = current === "off"
+            ? "mesh"
+            : current === "mesh"
+                ? "volume"
+                : "off";
+        const next = {
+            ...(values.particle_system || createParticles()),
+        };
+
+        if (nextMode === "mesh") {
+            next.use_mesh_reference = true;
+            next.source = "mesh";
+            next.emitter = "surface";
+        } else if (nextMode === "volume") {
+            next.use_mesh_reference = false;
+            next.source = "volume";
+            next.emitter = "volume";
+        } else {
+            next.use_mesh_reference = false;
+            next.source = "texture";
+            next.emitter = "volume";
+        }
+
+        values.particle_system = ParticleSystem.update(next, { age: 0 }, { mesh: values.mesh });
+        requestPreviewDebounced();
+    };
+
     const setParticleSystemBoolean = (key, value) => {
         const next = {
             ...(values.particle_system || createParticles()),
@@ -6220,6 +6275,9 @@ export function materialEditorModel(props, emit) {
         syncUvAndPreview,
         syncUnwrapReferenceMap,
         setPreviewSetting,
+        particleEmitterMode,
+        particleEmitterModeLabel,
+        cycleParticleEmitterMode,
         setParticleSystemBoolean,
         setActiveMaterialTab,
         handleGeometryChange,

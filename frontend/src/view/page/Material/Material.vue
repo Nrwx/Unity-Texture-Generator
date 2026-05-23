@@ -133,16 +133,16 @@
                 <button
                     type="button"
                     class="mem-canvas-control"
-                    :class="{ active: values.particle_system.use_mesh_reference }"
-                    @click="setParticleSystemBoolean('use_mesh_reference', !values.particle_system.use_mesh_reference)"
+                    :class="{ active: particleEmitterMode !== 'off' }"
+                    @click="cycleParticleEmitterMode"
                 >
                   <span class="mem-canvas-control-icon">
                     <v-icon size="18">mdi-vector-triangle</v-icon>
                   </span>
 
                   <span class="mem-canvas-control-text">
-                    <strong>Mesh Ref</strong>
-                    <small>{{ values.particle_system.use_mesh_reference ? 'Surface' : 'Emitter' }}</small>
+                    <strong>Emitten</strong>
+                    <small>{{ particleEmitterModeLabel }}</small>
                   </span>
                 </button>
 
