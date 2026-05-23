@@ -14,8 +14,8 @@
       </header>
 
       <v-select
-          :model-value="state.geometry.primitive"
-          :items="primitiveOptions"
+          :model-value="geometry.primitive"
+          :items="PRIMITIVE_OPTIONS"
           label="Primitive"
           density="compact"
           hide-details
@@ -24,7 +24,7 @@
 
       <div class="mem-geometry-vector">
         <v-text-field
-            :model-value="state.geometry.width"
+            :model-value="geometry.width"
             label="Width"
             type="number"
             density="compact"
@@ -33,7 +33,7 @@
         />
 
         <v-text-field
-            :model-value="state.geometry.height"
+            :model-value="geometry.height"
             label="Height"
             type="number"
             density="compact"
@@ -42,7 +42,7 @@
         />
 
         <v-text-field
-            :model-value="state.geometry.depth"
+            :model-value="geometry.depth"
             label="Depth"
             type="number"
             density="compact"
@@ -61,11 +61,11 @@
       <div class="mem-control-card">
         <header>
           <strong>Bevel</strong>
-          <small>{{ state.geometry.bevel }}</small>
+          <small>{{ geometry.bevel }}</small>
         </header>
 
         <v-slider
-            :model-value="state.geometry.bevel"
+            :model-value="geometry.bevel"
             :min="0"
             :max="0.5"
             :step="0.001"
@@ -78,11 +78,11 @@
       <div class="mem-control-card">
         <header>
           <strong>Bevel Segments</strong>
-          <small>{{ state.geometry.bevel_segments }}</small>
+          <small>{{ geometry.bevel_segments }}</small>
         </header>
 
         <v-slider
-            :model-value="state.geometry.bevel_segments"
+            :model-value="geometry.bevel_segments"
             :min="1"
             :max="12"
             :step="1"
@@ -93,8 +93,8 @@
       </div>
 
       <v-select
-          :model-value="state.geometry.subdivision_type"
-          :items="subdivisionTypeOptions"
+          :model-value="geometry.subdivision_type"
+          :items="SUBDIVISION_TYPE_OPTIONS"
           label="Subdivision Type"
           density="compact"
           hide-details
@@ -104,11 +104,11 @@
       <div class="mem-control-card">
         <header>
           <strong>Subdivision</strong>
-          <small>{{ state.geometry.subdivision }}</small>
+          <small>{{ geometry.subdivision }}</small>
         </header>
 
         <v-slider
-            :model-value="state.geometry.subdivision"
+            :model-value="geometry.subdivision"
             :min="0"
             :max="6"
             :step="1"
@@ -120,7 +120,7 @@
 
       <label
           class="mem-toggle-card"
-          :class="{ active: state.geometry.shade_smooth }"
+          :class="{ active: geometry.shade_smooth }"
       >
         <span class="mem-toggle-icon">
           <v-icon>mdi-blur</v-icon>
@@ -132,7 +132,7 @@
         </span>
 
         <v-switch
-            :model-value="state.geometry.shade_smooth"
+            :model-value="geometry.shade_smooth"
             hide-details
             @update:model-value="setGeometryBoolean('shade_smooth', $event)"
         />
@@ -146,8 +146,8 @@
       </header>
 
       <v-select
-          :model-value="state.geometry.uv_fit"
-          :items="uvFitOptions"
+          :model-value="geometry.uv_fit"
+          :items="UV_FIT_OPTIONS"
           label="UV Fit"
           density="compact"
           hide-details
@@ -157,11 +157,11 @@
       <div class="mem-control-card">
         <header>
           <strong>UV Density</strong>
-          <small>{{ state.geometry.uv_density }}</small>
+          <small>{{ geometry.uv_density }}</small>
         </header>
 
         <v-slider
-            :model-value="state.geometry.uv_density"
+            :model-value="geometry.uv_density"
             :min="0.1"
             :max="10"
             :step="0.001"
@@ -178,7 +178,7 @@
         <small>Mesh-basiertes Innenvolumen fuer Shader und Partikelbindung.</small>
       </header>
 
-      <label class="mem-toggle-card" :class="{ active: state.geometry.volume?.enabled }">
+      <label class="mem-toggle-card" :class="{ active: geometry.volume?.enabled }">
         <span class="mem-toggle-icon">
           <v-icon>mdi-cube-scan</v-icon>
         </span>
@@ -189,15 +189,15 @@
         </span>
 
         <v-switch
-            :model-value="state.geometry.volume?.enabled"
+            :model-value="geometry.volume?.enabled"
             hide-details
             @update:model-value="setVolumeBoolean('enabled', $event)"
         />
       </label>
 
       <v-select
-          :model-value="state.geometry.volume?.mode"
-          :items="volumeModeOptions"
+          :model-value="geometry.volume?.mode"
+          :items="VOLUME_MODE_OPTIONS"
           label="Volume Mode"
           density="compact"
           hide-details
@@ -205,14 +205,14 @@
       />
 
       <div class="mem-geometry-vector">
-        <v-text-field :model-value="state.geometry.volume?.resolution" label="Resolution" type="number" :min="4" :max="256" density="compact" hide-details @update:model-value="setVolumeNumber('resolution', $event)" />
-        <v-text-field :model-value="state.geometry.volume?.density" label="Density" type="number" :min="0" density="compact" hide-details @update:model-value="setVolumeNumber('density', $event)" />
-        <v-text-field :model-value="state.geometry.volume?.shell_thickness" label="Shell" type="number" :min="0" density="compact" hide-details @update:model-value="setVolumeNumber('shell_thickness', $event)" />
+        <v-text-field :model-value="geometry.volume?.resolution" label="Resolution" type="number" :min="4" :max="256" density="compact" hide-details @update:model-value="setVolumeNumber('resolution', $event)" />
+        <v-text-field :model-value="geometry.volume?.density" label="Density" type="number" :min="0" density="compact" hide-details @update:model-value="setVolumeNumber('density', $event)" />
+        <v-text-field :model-value="geometry.volume?.shell_thickness" label="Shell" type="number" :min="0" density="compact" hide-details @update:model-value="setVolumeNumber('shell_thickness', $event)" />
       </div>
 
       <v-select
-          :model-value="state.geometry.volume?.falloff"
-          :items="volumeFalloffOptions"
+          :model-value="geometry.volume?.falloff"
+          :items="VOLUME_FALLOFF_OPTIONS"
           label="Falloff"
           density="compact"
           hide-details
@@ -220,8 +220,8 @@
       />
 
       <div class="mem-geometry-switch-row">
-        <v-switch :model-value="state.geometry.volume?.particle_bind" label="Particle Bind" hide-details @update:model-value="setVolumeBoolean('particle_bind', $event)" />
-        <v-switch :model-value="state.geometry.volume?.shader_bind" label="Shader Bind" hide-details @update:model-value="setVolumeBoolean('shader_bind', $event)" />
+        <v-switch :model-value="geometry.volume?.particle_bind" label="Particle Bind" hide-details @update:model-value="setVolumeBoolean('particle_bind', $event)" />
+        <v-switch :model-value="geometry.volume?.shader_bind" label="Shader Bind" hide-details @update:model-value="setVolumeBoolean('shader_bind', $event)" />
       </div>
     </section>
 
@@ -231,7 +231,7 @@
         <small>Volumenfeld fuer Smoke, Fire, Mist, Liquid und Particle Advection.</small>
       </header>
 
-      <label class="mem-toggle-card" :class="{ active: state.geometry.fluid?.enabled }">
+      <label class="mem-toggle-card" :class="{ active: geometry.fluid?.enabled }">
         <span class="mem-toggle-icon">
           <v-icon>mdi-waves</v-icon>
         </span>
@@ -242,38 +242,38 @@
         </span>
 
         <v-switch
-            :model-value="state.geometry.fluid?.enabled"
-            :disabled="!state.geometry.volume?.enabled"
+            :model-value="geometry.fluid?.enabled"
+            :disabled="!geometry.volume?.enabled"
             hide-details
             @update:model-value="setFluidBoolean('enabled', $event)"
         />
       </label>
 
       <div class="mem-geometry-vector compact">
-        <v-select :model-value="state.geometry.fluid?.type" :items="fluidTypeOptions" label="Fluid" density="compact" hide-details @update:model-value="setFluidValue('type', $event)" />
-        <v-select :model-value="state.geometry.fluid?.solver" :items="fluidSolverOptions" label="Solver" density="compact" hide-details @update:model-value="setFluidValue('solver', $event)" />
+        <v-select :model-value="geometry.fluid?.type" :items="FLUID_TYPE_OPTIONS" label="Fluid" density="compact" hide-details @update:model-value="setFluidValue('type', $event)" />
+        <v-select :model-value="geometry.fluid?.solver" :items="FLUID_SOLVER_OPTIONS" label="Solver" density="compact" hide-details @update:model-value="setFluidValue('solver', $event)" />
       </div>
 
       <div class="mem-geometry-vector">
-        <v-text-field :model-value="state.geometry.fluid?.viscosity" label="Viscosity" type="number" :min="0" :step="0.01" density="compact" hide-details @update:model-value="setFluidNumber('viscosity', $event)" />
-        <v-text-field :model-value="state.geometry.fluid?.buoyancy" label="Buoyancy" type="number" :step="0.01" density="compact" hide-details @update:model-value="setFluidNumber('buoyancy', $event)" />
-        <v-text-field :model-value="state.geometry.fluid?.vorticity" label="Vorticity" type="number" :min="0" :step="0.01" density="compact" hide-details @update:model-value="setFluidNumber('vorticity', $event)" />
+        <v-text-field :model-value="geometry.fluid?.viscosity" label="Viscosity" type="number" :min="0" :step="0.01" density="compact" hide-details @update:model-value="setFluidNumber('viscosity', $event)" />
+        <v-text-field :model-value="geometry.fluid?.buoyancy" label="Buoyancy" type="number" :step="0.01" density="compact" hide-details @update:model-value="setFluidNumber('buoyancy', $event)" />
+        <v-text-field :model-value="geometry.fluid?.vorticity" label="Vorticity" type="number" :min="0" :step="0.01" density="compact" hide-details @update:model-value="setFluidNumber('vorticity', $event)" />
       </div>
 
       <div class="mem-geometry-vector">
-        <v-text-field :model-value="state.geometry.fluid?.turbulence" label="Turbulence" type="number" :min="0" :step="0.01" density="compact" hide-details @update:model-value="setFluidNumber('turbulence', $event)" />
-        <v-text-field :model-value="state.geometry.fluid?.diffusion" label="Diffusion" type="number" :min="0" :step="0.01" density="compact" hide-details @update:model-value="setFluidNumber('diffusion', $event)" />
-        <v-text-field :model-value="state.geometry.fluid?.particle_coupling" label="Particle Coupling" type="number" :min="0" :max="1" :step="0.01" density="compact" hide-details @update:model-value="setFluidNumber('particle_coupling', $event)" />
+        <v-text-field :model-value="geometry.fluid?.turbulence" label="Turbulence" type="number" :min="0" :step="0.01" density="compact" hide-details @update:model-value="setFluidNumber('turbulence', $event)" />
+        <v-text-field :model-value="geometry.fluid?.diffusion" label="Diffusion" type="number" :min="0" :step="0.01" density="compact" hide-details @update:model-value="setFluidNumber('diffusion', $event)" />
+        <v-text-field :model-value="geometry.fluid?.particle_coupling" label="Particle Coupling" type="number" :min="0" :max="1" :step="0.01" density="compact" hide-details @update:model-value="setFluidNumber('particle_coupling', $event)" />
       </div>
 
       <div class="mem-geometry-vector compact">
-        <v-text-field :model-value="state.geometry.fluid?.surface_flow" label="Surface Flow" type="number" :min="0" :step="0.01" density="compact" hide-details @update:model-value="setFluidNumber('surface_flow', $event)" />
-        <v-text-field :model-value="state.geometry.fluid?.advection" label="Advection" type="number" :min="0" :step="0.01" density="compact" hide-details @update:model-value="setFluidNumber('advection', $event)" />
+        <v-text-field :model-value="geometry.fluid?.surface_flow" label="Surface Flow" type="number" :min="0" :step="0.01" density="compact" hide-details @update:model-value="setFluidNumber('surface_flow', $event)" />
+        <v-text-field :model-value="geometry.fluid?.advection" label="Advection" type="number" :min="0" :step="0.01" density="compact" hide-details @update:model-value="setFluidNumber('advection', $event)" />
       </div>
 
       <div class="mem-geometry-switch-row">
-        <v-switch :model-value="state.geometry.fluid?.mesh_collision" label="Mesh Collision" hide-details @update:model-value="setFluidBoolean('mesh_collision', $event)" />
-        <v-switch :model-value="state.geometry.fluid?.particle_collision" label="Particle Collision" hide-details @update:model-value="setFluidBoolean('particle_collision', $event)" />
+        <v-switch :model-value="geometry.fluid?.mesh_collision" label="Mesh Collision" hide-details @update:model-value="setFluidBoolean('mesh_collision', $event)" />
+        <v-switch :model-value="geometry.fluid?.particle_collision" label="Particle Collision" hide-details @update:model-value="setFluidBoolean('particle_collision', $event)" />
       </div>
     </section>
 
@@ -285,7 +285,7 @@
 
       <div class="mem-geometry-vector">
         <v-text-field
-            :model-value="state.geometry.pivot_x"
+            :model-value="geometry.pivot_x"
             label="Pivot X"
             type="number"
             density="compact"
@@ -294,7 +294,7 @@
         />
 
         <v-text-field
-            :model-value="state.geometry.pivot_y"
+            :model-value="geometry.pivot_y"
             label="Pivot Y"
             type="number"
             density="compact"
@@ -303,7 +303,7 @@
         />
 
         <v-text-field
-            :model-value="state.geometry.pivot_z"
+            :model-value="geometry.pivot_z"
             label="Pivot Z"
             type="number"
             density="compact"
@@ -314,7 +314,7 @@
 
       <div class="mem-geometry-vector">
         <v-text-field
-            :model-value="state.geometry.rotation_x"
+            :model-value="geometry.rotation_x"
             label="Rot X"
             type="number"
             density="compact"
@@ -323,7 +323,7 @@
         />
 
         <v-text-field
-            :model-value="state.geometry.rotation_y"
+            :model-value="geometry.rotation_y"
             label="Rot Y"
             type="number"
             density="compact"
@@ -332,7 +332,7 @@
         />
 
         <v-text-field
-            :model-value="state.geometry.rotation_z"
+            :model-value="geometry.rotation_z"
             label="Rot Z"
             type="number"
             density="compact"
@@ -343,7 +343,7 @@
 
       <div class="mem-geometry-vector">
         <v-text-field
-            :model-value="state.geometry.scale_x"
+            :model-value="geometry.scale_x"
             label="Scale X"
             type="number"
             density="compact"
@@ -352,7 +352,7 @@
         />
 
         <v-text-field
-            :model-value="state.geometry.scale_y"
+            :model-value="geometry.scale_y"
             label="Scale Y"
             type="number"
             density="compact"
@@ -361,7 +361,7 @@
         />
 
         <v-text-field
-            :model-value="state.geometry.scale_z"
+            :model-value="geometry.scale_z"
             label="Scale Z"
             type="number"
             density="compact"
@@ -375,19 +375,15 @@
 
 <script>
 import { defineComponent } from "vue";
-import {
-  geometryModel,
-  geometryModelEmits,
-  geometryModelProps,
-} from "@/view/models/page/material/geometry/model";
+import {geometryModel, geometryModelProps} from "@/view/models/page/material/geometry/model";
 
 export default defineComponent({
   name: "GeometryEditor",
   props: geometryModelProps,
-  emits: geometryModelEmits,
   setup(props, { emit }) {
+    const model = geometryModel(props, emit);
     return {
-      ...geometryModel(props, emit),
+      ...model
     };
   },
 });

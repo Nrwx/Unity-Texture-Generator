@@ -388,7 +388,7 @@ export const scrollbarProps = {
         type: Boolean,
         default: true,
     },
-    
+
     hideOnWheel: {
         type: Boolean,
         default: true,

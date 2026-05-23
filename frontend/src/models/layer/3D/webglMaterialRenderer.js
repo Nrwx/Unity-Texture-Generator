@@ -2177,7 +2177,7 @@ export class WebGLMaterialRenderer {
                 ? displacementParams
                 : bumpParams;
 
-            const lightType = String(light.lightType || light.light_type || light.mode || "sun").toLowerCase();
+            const lightType = String(light.lightType || "sun").toLowerCase();
 
             const lightTypeIndex = lightType === "directional"
                 ? 1

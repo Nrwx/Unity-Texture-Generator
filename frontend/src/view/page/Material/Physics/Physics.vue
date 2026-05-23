@@ -15,7 +15,7 @@
 
       <label
           class="mem-toggle-card"
-          :class="{ active: state.physics.enabled }"
+          :class="{ active: physics.enabled }"
       >
         <span class="mem-toggle-icon">
           <v-icon>mdi-atom</v-icon>
@@ -27,7 +27,7 @@
         </span>
 
         <v-switch
-            :model-value="state.physics.enabled"
+            :model-value="physics.enabled"
             hide-details
             @update:model-value="setPhysicsBoolean('enabled', $event)"
         />
@@ -35,7 +35,7 @@
 
       <label
           class="mem-toggle-card"
-          :class="{ active: state.physics.rigid_body }"
+          :class="{ active: physics.rigid_body }"
       >
         <span class="mem-toggle-icon">
           <v-icon>mdi-cube-scan</v-icon>
@@ -47,15 +47,15 @@
         </span>
 
         <v-switch
-            :model-value="state.physics.rigid_body"
+            :model-value="physics.rigid_body"
             hide-details
             @update:model-value="setPhysicsBoolean('rigid_body', $event)"
         />
       </label>
 
       <v-select
-          :model-value="state.physics.body_type"
-          :items="bodyTypeOptions"
+          :model-value="physics.body_type"
+          :items="BODY_TYPE_OPTIONS"
           label="Body Type"
           density="compact"
           hide-details
@@ -71,7 +71,7 @@
 
       <label
           class="mem-toggle-card"
-          :class="{ active: state.physics.collision_enabled }"
+          :class="{ active: physics.collision_enabled }"
       >
         <span class="mem-toggle-icon">
           <v-icon>mdi-vector-square</v-icon>
@@ -83,15 +83,15 @@
         </span>
 
         <v-switch
-            :model-value="state.physics.collision_enabled"
+            :model-value="physics.collision_enabled"
             hide-details
             @update:model-value="setPhysicsBoolean('collision_enabled', $event)"
         />
       </label>
 
       <v-select
-          :model-value="state.physics.collision_shape"
-          :items="collisionShapeOptions"
+          :model-value="physics.collision_shape"
+          :items="COLLISION_SHAPE_OPTIONS"
           label="Collision Shape"
           density="compact"
           hide-details
@@ -101,11 +101,11 @@
       <div class="mem-control-card">
         <header>
           <strong>Collision Margin</strong>
-          <small>{{ state.physics.collision_margin }}</small>
+          <small>{{ physics.collision_margin }}</small>
         </header>
 
         <v-slider
-            :model-value="state.physics.collision_margin"
+            :model-value="physics.collision_margin"
             :min="0"
             :max="1"
             :step="0.001"
@@ -117,7 +117,7 @@
 
       <label
           class="mem-toggle-card"
-          :class="{ active: state.physics.continuous_collision }"
+          :class="{ active: physics.continuous_collision }"
       >
         <span class="mem-toggle-icon">
           <v-icon>mdi-ray-start-arrow</v-icon>
@@ -129,7 +129,7 @@
         </span>
 
         <v-switch
-            :model-value="state.physics.continuous_collision"
+            :model-value="physics.continuous_collision"
             hide-details
             @update:model-value="setPhysicsBoolean('continuous_collision', $event)"
         />
@@ -145,11 +145,11 @@
       <div class="mem-control-card">
         <header>
           <strong>Mass</strong>
-          <small>{{ state.physics.mass }}</small>
+          <small>{{ physics.mass }}</small>
         </header>
 
         <v-slider
-            :model-value="state.physics.mass"
+            :model-value="physics.mass"
             :min="0"
             :max="100"
             :step="0.01"
@@ -162,11 +162,11 @@
       <div class="mem-control-card">
         <header>
           <strong>Friction</strong>
-          <small>{{ state.physics.friction }}</small>
+          <small>{{ physics.friction }}</small>
         </header>
 
         <v-slider
-            :model-value="state.physics.friction"
+            :model-value="physics.friction"
             :min="0"
             :max="1"
             :step="0.001"
@@ -179,11 +179,11 @@
       <div class="mem-control-card">
         <header>
           <strong>Restitution</strong>
-          <small>{{ state.physics.restitution }}</small>
+          <small>{{ physics.restitution }}</small>
         </header>
 
         <v-slider
-            :model-value="state.physics.restitution"
+            :model-value="physics.restitution"
             :min="0"
             :max="1"
             :step="0.001"
@@ -203,11 +203,11 @@
       <div class="mem-control-card">
         <header>
           <strong>Linear Damping</strong>
-          <small>{{ state.physics.damping_linear }}</small>
+          <small>{{ physics.damping_linear }}</small>
         </header>
 
         <v-slider
-            :model-value="state.physics.damping_linear"
+            :model-value="physics.damping_linear"
             :min="0"
             :max="1"
             :step="0.001"
@@ -220,11 +220,11 @@
       <div class="mem-control-card">
         <header>
           <strong>Angular Damping</strong>
-          <small>{{ state.physics.damping_angular }}</small>
+          <small>{{ physics.damping_angular }}</small>
         </header>
 
         <v-slider
-            :model-value="state.physics.damping_angular"
+            :model-value="physics.damping_angular"
             :min="0"
             :max="1"
             :step="0.001"
@@ -236,7 +236,7 @@
 
       <label
           class="mem-toggle-card"
-          :class="{ active: state.physics.gravity_enabled }"
+          :class="{ active: physics.gravity_enabled }"
       >
         <span class="mem-toggle-icon">
           <v-icon>mdi-arrow-down-bold</v-icon>
@@ -248,7 +248,7 @@
         </span>
 
         <v-switch
-            :model-value="state.physics.gravity_enabled"
+            :model-value="physics.gravity_enabled"
             hide-details
             @update:model-value="setPhysicsBoolean('gravity_enabled', $event)"
         />
@@ -257,11 +257,11 @@
       <div class="mem-control-card">
         <header>
           <strong>Gravity Scale</strong>
-          <small>{{ state.physics.gravity_scale }}</small>
+          <small>{{ physics.gravity_scale }}</small>
         </header>
 
         <v-slider
-            :model-value="state.physics.gravity_scale"
+            :model-value="physics.gravity_scale"
             :min="-4"
             :max="4"
             :step="0.001"
@@ -273,7 +273,7 @@
 
       <label
           class="mem-toggle-card"
-          :class="{ active: state.physics.sleep_enabled }"
+          :class="{ active: physics.sleep_enabled }"
       >
         <span class="mem-toggle-icon">
           <v-icon>mdi-sleep</v-icon>
@@ -285,7 +285,7 @@
         </span>
 
         <v-switch
-            :model-value="state.physics.sleep_enabled"
+            :model-value="physics.sleep_enabled"
             hide-details
             @update:model-value="setPhysicsBoolean('sleep_enabled', $event)"
         />
@@ -296,19 +296,15 @@
 
 <script>
 import { defineComponent } from "vue";
-import {
-  physicsModel,
-  physicsModelEmits,
-  physicsModelProps,
-} from "@/view/models/page/material/physics/model";
+import {physicsModel, physicsModelProps,} from "@/view/models/page/material/physics/model";
 
 export default defineComponent({
   name: "PhysicsEditor",
   props: physicsModelProps,
-  emits: physicsModelEmits,
   setup(props, { emit }) {
+    const model = physicsModel(props, emit);
     return {
-      ...physicsModel(props, emit),
+      ...model
     };
   },
 });

@@ -4,9 +4,7 @@
    Keep duplicate rules in _Material.scss for now.
    ========================================================== */
 
-.mem-header,
-.mem-content,
-.mem-actions {
+.mem-section {
   --mem-bg: #171923;
   --mem-surface: rgba(255, 255, 255, 0.045);
   --mem-surface-2: rgba(255, 255, 255, 0.07);

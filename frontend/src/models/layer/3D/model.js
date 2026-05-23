@@ -17,233 +17,20 @@ import {
     polygonArea, resolvePrincipled
 } from "@/models/layer/3D/canvas2DMaterialRender";
 import {WebGLRuntime} from "@/models/layer/3D/webglRuntime";
+import {
+    ALPHA_TEXTURE_SLOTS,
+    CANVAS2D_TEXTURE_SLOTS,
+    COLOR_TEXTURE_SLOTS,
+    createLight,
+    createSurface, FACE_NORMALS, MATERIAL_TEXTURE_SLOTS, SCALAR_TEXTURE_SLOT_KEYS,
+    SLOT_CANONICAL_KEYS, SURFACE_ALIASES, SURFACE_RANGES,
+    TEXTURE_SETTING_DEFAULTS, VISIBLE_TEXTURE_SLOTS
+} from "@/dataLayer/webgl";
+import {clamp, clone} from "@/utils/tools";
 
-const SURFACE_DEFAULTS = Object.freeze({
-    baseColor: [1, 1, 1, 1],
-    subsurface: 0,
-    subsurfaceRadius: [1, 0.2, 0.1],
-    subsurfaceColor: [1, 1, 1, 1],
-    subsurfaceScale: 1,
-    subsurfaceIor: 1.45,
-    subsurfaceAnisotropy: 0,
-    metallic: 0,
-    specular: 0.5,
-    specularTint: 0,
-    roughness: 0.5,
-    diffuseRoughness: 0,
-    anisotropic: 0,
-    anisotropicRotation: 0,
-    sheen: 0,
-    sheenRoughness: 0.5,
-    sheenTint: 0.5,
-    clearcoat: 0,
-    clearcoatRoughness: 0.03,
-    coatIor: 1.5,
-    coatTint: [1, 1, 1, 1],
-    ior: 1.45,
-    transmission: 0,
-    transmissionRoughness: 0,
-    emission: [0, 0, 0, 1],
-    emissionStrength: 0,
-    thinFilmThickness: 0,
-    thinFilmIor: 1.33,
-    alpha: 1,
-    normal: 0,
-    clearcoatNormal: 0,
-    tangent: 0,
-    bumpStrength: 0,
-    displacementStrength: 0,
-});
+const SURFACE_DEFAULTS = {...createSurface()};
+const LIGHT_DEFAULTS = {...createLight()};
 
-const SURFACE_ALIASES = Object.freeze({
-    baseColor: ["baseColor", "base_color"],
-    subsurfaceRadius: ["subsurfaceRadius", "subsurface_radius"],
-    subsurfaceColor: ["subsurfaceColor", "subsurface_color"],
-    subsurfaceScale: ["subsurfaceScale", "subsurface_scale"],
-    subsurfaceIor: ["subsurfaceIor", "subsurface_ior"],
-    subsurfaceAnisotropy: ["subsurfaceAnisotropy", "subsurface_anisotropy"],
-    specularTint: ["specularTint", "specular_tint"],
-    diffuseRoughness: ["diffuseRoughness", "diffuse_roughness"],
-    anisotropicRotation: ["anisotropicRotation", "anisotropic_rotation"],
-    sheenRoughness: ["sheenRoughness", "sheen_roughness"],
-    sheenTint: ["sheenTint", "sheen_tint"],
-    clearcoatRoughness: ["clearcoatRoughness", "clearcoat_roughness"],
-    coatIor: ["coatIor", "coat_ior", "clearcoatIor", "clearcoat_ior"],
-    coatTint: ["coatTint", "coat_tint", "clearcoatTint", "clearcoat_tint"],
-    transmissionRoughness: ["transmissionRoughness", "transmission_roughness"],
-    emissionStrength: ["emissionStrength", "emission_strength"],
-    thinFilmThickness: ["thinFilmThickness", "thin_film_thickness"],
-    thinFilmIor: ["thinFilmIor", "thin_film_ior"],
-    clearcoatNormal: ["clearcoatNormal", "clearcoat_normal"],
-    bumpStrength: ["bumpStrength", "bump_strength"],
-    displacementStrength: ["displacementStrength", "displacement_strength"],
-});
-
-const SURFACE_RANGES = Object.freeze({
-    emissionStrength: [0, 10],
-    ior: [1, 4],
-    subsurfaceScale: [0, 50],
-    subsurfaceIor: [1, 2],
-    coatIor: [1, 2],
-    thinFilmThickness: [0, 1200],
-    thinFilmIor: [1, 2],
-});
-
-const SCALAR_TEXTURE_SLOT_KEYS = Object.freeze([
-    "subsurface",
-    "subsurfaceScale",
-    "subsurface_scale",
-    "subsurfaceIor",
-    "subsurface_ior",
-    "subsurfaceAnisotropy",
-    "subsurface_anisotropy",
-    "metallic",
-    "specular",
-    "specularTint",
-    "specular_tint",
-    "roughness",
-    "diffuseRoughness",
-    "diffuse_roughness",
-    "anisotropic",
-    "anisotropicRotation",
-    "anisotropic_rotation",
-    "sheen",
-    "sheenRoughness",
-    "sheen_roughness",
-    "sheenTint",
-    "sheen_tint",
-    "clearcoat",
-    "clearcoatRoughness",
-    "clearcoat_roughness",
-    "coatIor",
-    "coat_ior",
-    "ior",
-    "transmission",
-    "transmissionRoughness",
-    "transmission_roughness",
-    "emissionStrength",
-    "emission_strength",
-    "thinFilmThickness",
-    "thin_film_thickness",
-    "thinFilmIor",
-    "thin_film_ior",
-    "normal",
-    "clearcoatNormal",
-    "clearcoat_normal",
-    "tangent",
-    "bumpStrength",
-    "bump_strength",
-    "displacementStrength",
-    "displacement_strength",
-]);
-
-const SLOT_CANONICAL_KEYS = Object.freeze({
-    base_color: "baseColor",
-    subsurface_radius: "subsurfaceRadius",
-    subsurface_color: "subsurfaceColor",
-    subsurface_scale: "subsurfaceScale",
-    subsurface_ior: "subsurfaceIor",
-    subsurface_anisotropy: "subsurfaceAnisotropy",
-    specular_tint: "specularTint",
-    diffuse_roughness: "diffuseRoughness",
-    anisotropic_rotation: "anisotropicRotation",
-    sheen_roughness: "sheenRoughness",
-    sheen_tint: "sheenTint",
-    clearcoat_roughness: "clearcoatRoughness",
-    coat_ior: "coatIor",
-    clearcoat_ior: "coatIor",
-    coat_tint: "coatTint",
-    clearcoat_tint: "coatTint",
-    transmission_roughness: "transmissionRoughness",
-    emission_color: "emission",
-    emission_strength: "emissionStrength",
-    thin_film_thickness: "thinFilmThickness",
-    thin_film_ior: "thinFilmIor",
-    clearcoat_normal: "clearcoatNormal",
-    bump_strength: "bumpStrength",
-    displacement_strength: "displacementStrength",
-});
-
-const VISIBLE_TEXTURE_SLOTS = Object.freeze([
-    "baseColor",
-    "base_color",
-    "subsurfaceColor",
-    "subsurface_color",
-    "coatTint",
-    "coat_tint",
-    "clearcoatTint",
-    "clearcoat_tint",
-    "emission",
-    "emission_color",
-    "alpha",
-    ...SCALAR_TEXTURE_SLOT_KEYS,
-]);
-
-const COLOR_TEXTURE_SLOTS = Object.freeze([
-    "baseColor",
-    "base_color",
-    "subsurfaceColor",
-    "subsurface_color",
-    "coatTint",
-    "coat_tint",
-    "clearcoatTint",
-    "clearcoat_tint",
-]);
-
-const ALPHA_TEXTURE_SLOTS = Object.freeze([
-    "alpha",
-]);
-
-const MATERIAL_TEXTURE_SLOTS = Object.freeze([
-    "baseColor",
-    "base_color",
-    "subsurfaceColor",
-    "subsurface_color",
-]);
-
-const CANVAS2D_TEXTURE_SLOTS = Object.freeze([
-    "baseColor",
-    "base_color",
-]);
-
-const FACE_NORMALS = Object.freeze({
-    front: [0, 0, 1],
-    back: [0, 0, -1],
-    left: [-1, 0, 0],
-    right: [1, 0, 0],
-    top: [0, 1, 0],
-    bottom: [0, -1, 0],
-});
-
-const LIGHT_DEFAULTS = Object.freeze({
-    enabled: true,
-    lightType: "sun",
-    mode: "sun",
-    intensity: 1,
-    ambient: 0.34,
-    softness: 0.32,
-    color: "#fff4e6",
-    ambient_color: "#b3c7e6",
-    environment_color: "#b8d1ff",
-    range: 4,
-    radius: 0.25,
-    decay: 2,
-    innerCone: 0.35,
-    outerCone: 0.75,
-    castShadow: false,
-    temperature: 6500,
-    position_x: 0,
-    position_y: 1.4,
-    position_z: 2.8,
-    direction_x: -0.35,
-    direction_y: -0.65,
-    direction_z: 0.72,
-});
-
-const TEXTURE_SETTING_DEFAULTS = Object.freeze({
-    channel: "rgba",
-    color_mode: "color",
-});
 
 const normalizeTextureSettings = (...sources) => {
     const settings = sources.reduce((acc, source) => ({
@@ -264,7 +51,7 @@ const normalizeTextureSettings = (...sources) => {
 
 const applySignedSlotValue = (value, strength = 1, offset = 0) => {
     const amount = Math.abs(Number(strength) || 0);
-    const input = Number(strength) < 0 ? 1 - clamp01(value) : Number(value ?? 0);
+    const input = Number(strength) < 0 ? 1 - clamp(value) : Number(value ?? 0);
 
     return input * amount + Number(offset || 0);
 };
@@ -296,7 +83,7 @@ const applyAdditiveSurfaceColor = (ctx, points, surface, slotKey) => {
     drawFacePath(ctx, points);
     ctx.clip();
     ctx.globalCompositeOperation = "lighter";
-    ctx.fillStyle = `rgba(${Math.round(clamp01(color[0]) * 255)}, ${Math.round(clamp01(color[1]) * 255)}, ${Math.round(clamp01(color[2]) * 255)}, ${clamp01(color[3] ?? 1) * 0.32})`;
+    ctx.fillStyle = `rgba(${Math.round(clamp(color[0]) * 255)}, ${Math.round(clamp(color[1]) * 255)}, ${Math.round(clamp(color[2]) * 255)}, ${clamp(color[3] ?? 1) * 0.32})`;
     ctx.fill();
     ctx.globalCompositeOperation = "source-over";
     ctx.restore();
@@ -304,16 +91,16 @@ const applyAdditiveSurfaceColor = (ctx, points, surface, slotKey) => {
 
 const applyCanvasColorShader = (ctx, points, surface, shade = 1) => {
     const baseColor = surface.baseColor || [1, 1, 1, 1];
-    const alpha = clamp01(surface.alpha ?? 1);
-    const specular = clamp01(surface.specular ?? 0);
+    const alpha = clamp(surface.alpha ?? 1);
+    const specular = clamp(surface.specular ?? 0);
     const diffuse = [
-        clamp01(baseColor[0] * shade),
-        clamp01(baseColor[1] * shade),
-        clamp01(baseColor[2] * shade),
+        clamp(baseColor[0] * shade),
+        clamp(baseColor[1] * shade),
+        clamp(baseColor[2] * shade),
     ];
     const highlight = Math.max(0, shade - 1) * specular;
 
-    const lit = diffuse.map(channel => clamp01(
+    const lit = diffuse.map(channel => clamp(
         channel * (1 - highlight) + highlight
     ));
 
@@ -451,28 +238,6 @@ const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 
 const canonicalSlotKey = slot => SLOT_CANONICAL_KEYS[slot] || slot;
 const isBwTextureSlot = slot => SCALAR_TEXTURE_SLOT_KEYS.includes(slot) || slot === "alpha";
-
-const clamp01 = value => {
-    const number = Number(value);
-
-    if (!Number.isFinite(number)) {
-        return 0;
-    }
-
-    return Math.min(Math.max(number, 0), 1);
-};
-
-const clonePlain = value => {
-    if (!value || typeof value !== "object") {
-        return value;
-    }
-
-    try {
-        return JSON.parse(JSON.stringify(value));
-    } catch (_error) {
-        return value;
-    }
-};
 
 const parsePlainObject = value => {
     if (!value) {
@@ -677,7 +442,7 @@ export function layer3DModel(props, emit) {
         const settings = parsePlainObject(layer?.settings || material.settings || {});
 
         return {
-            ...clonePlain(material),
+            ...clone(material, 'json'),
 
             surface: {
                 ...parsePlainObject(material.surface),
@@ -826,17 +591,8 @@ export function layer3DModel(props, emit) {
     };
 
     const resolveRendererMode = materialLayer => {
-        const value = String(
-            materialLayer?.settings?.render_backend ||
-            materialLayer?.settings?.renderer_mode ||
-            materialLayer?.render_backend ||
-            materialLayer?.renderer_mode ||
-            "WEBGL2"
-        ).toUpperCase();
-
-        return value === "CANVAS2D" || value === "CANVAS_2D" || value === "CANVAS"
-            ? "CANVAS2D"
-            : "WEBGL2";
+        const value = String(materialLayer?.settings?.render_backend || materialLayer?.render_backend || "WEBGL2").toUpperCase();
+        return value === "CANVAS2D" ? "CANVAS2D" : "WEBGL2";
     };
 
     const isMaterialConnected = layer => {
@@ -882,7 +638,7 @@ export function layer3DModel(props, emit) {
 
                 if (shouldApplySlot) {
                     for (let index = 0; index < 3; index += 1) {
-                        next[index] = clamp01(applySignedSlotValue(next[index] ?? 1, strength, offset));
+                        next[index] = clamp(applySignedSlotValue(next[index] ?? 1, strength, offset));
                     }
                 }
 
@@ -923,13 +679,13 @@ export function layer3DModel(props, emit) {
 
         return {
             baseColor: [
-                clamp01(baseColor[0]),
-                clamp01(baseColor[1]),
-                clamp01(baseColor[2]),
-                clamp01(baseColor[3] ?? 1),
+                clamp(baseColor[0]),
+                clamp(baseColor[1]),
+                clamp(baseColor[2]),
+                clamp(baseColor[3] ?? 1),
             ],
-            alpha: clamp01(surface.alpha ?? 1) * (wireframe ? 0.2 : 1),
-            specular: clamp01(surface.specular ?? SURFACE_DEFAULTS.specular),
+            alpha: clamp(surface.alpha ?? 1) * (wireframe ? 0.2 : 1),
+            specular: clamp(surface.specular ?? SURFACE_DEFAULTS.specular),
         };
     };
 
@@ -940,9 +696,7 @@ export function layer3DModel(props, emit) {
             ...parsePlainObject(materialLayer?.settings?.light),
         };
 
-        const lightType = ["sun", "directional", "point", "spot", "area"].includes(input.lightType || input.light_type || input.mode)
-            ? (input.lightType || input.light_type || input.mode)
-            : LIGHT_DEFAULTS.lightType;
+        const lightType = ["sun", "directional", "point", "spot", "area"].includes(input.lightType) ? input.lightType : LIGHT_DEFAULTS.lightType;
 
         return {
             enabled: input.enabled !== false,
@@ -981,7 +735,7 @@ export function layer3DModel(props, emit) {
             };
         }
 
-        const lightType = light.lightType || light.mode || "sun";
+        const lightType = light.lightType  || "sun";
         const position = [
             Number(light.position_x || 0),
             Number(light.position_y || 0),
@@ -1159,7 +913,7 @@ export function layer3DModel(props, emit) {
                 value = value >= 0.5 ? 1 : 0;
             }
 
-            textureSampleCache[cacheKey] = clamp01(value);
+            textureSampleCache[cacheKey] = clamp(value);
             return textureSampleCache[cacheKey];
         } catch (_error) {
             textureSampleCache[cacheKey] = null;

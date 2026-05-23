@@ -340,7 +340,7 @@
             <ParticleSystem
                 v-else-if="ui.activeTab === 'particleSystem'"
                 v-model:particle-system="values.particle_system"
-                :texture-layers="textureLayers"
+                v-model:texture-layers="textureLayers"
                 @change="handleParticleSystemChange"
                 @assign-texture-slot="assignTextureSlotFromSurface"
             />
@@ -1122,12 +1122,12 @@
                             <span>{{ field.label }}</span>
 
                             <select
-                                v-if="getShaderNodeFieldOptions(node, field.key).length"
-                                :value="normalizeNodeSettings(node)[field.key] || getShaderNodeFieldOptions(node, field.key)[0]"
+                                v-if="field.type === 'select'"
+                                :value="normalizeNodeSettings(node)[field.key] ?? field.items?.[0] ?? ''"
                                 @change="updateNodeSetting(node, field.key, $event.target.value)"
                             >
                               <option
-                                  v-for="option in getShaderNodeFieldOptions(node, field.key)"
+                                  v-for="option in field.items"
                                   :key="option"
                                   :value="option"
                               >
@@ -1136,24 +1136,27 @@
                             </select>
 
                             <input
-                                v-else-if="['clamp', 'normalize'].includes(field.key)"
+                                v-else-if="field.type === 'boolean'"
                                 type="checkbox"
                                 :checked="normalizeNodeSettings(node)[field.key] === true"
                                 @change="updateNodeSetting(node, field.key, $event.target.checked)"
                             />
 
                             <input
-                                v-else-if="['color', 'bitmap', 'curve', 'color_mode', 'color_interpolation'].includes(field.key)"
-                                type="text"
-                                :value="normalizeNodeSettings(node)[field.key] || ''"
-                                @input="updateNodeSetting(node, field.key, $event.target.value)"
+                                v-else-if="field.type === 'number'"
+                                type="number"
+                                :min="field.min"
+                                :max="field.max"
+                                :step="field.step ?? 0.001"
+                                :value="normalizeNodeSettings(node)[field.key] ?? 0"
+                                @input="updateNodeSetting(node, field.key, Number($event.target.value))"
                             />
 
                             <input
                                 v-else
-                                type="number"
-                                :value="normalizeNodeSettings(node)[field.key] ?? 0"
-                                @input="updateNodeSetting(node, field.key, Number($event.target.value))"
+                                type="text"
+                                :value="normalizeNodeSettings(node)[field.key] ?? ''"
+                                @input="updateNodeSetting(node, field.key, $event.target.value)"
                             />
                           </label>
                         </template>
@@ -1342,9 +1345,9 @@
                           :key="field.key"
                       >
                         <v-select
-                            v-if="getShaderNodeFieldOptions(activeShaderNode, field.key).length"
-                            :model-value="normalizeNodeSettings(activeShaderNode)[field.key] || 'Float'"
-                            :items="getShaderNodeFieldOptions(activeShaderNode, field.key)"
+                            v-if="field.type === 'select'"
+                            :model-value="normalizeNodeSettings(activeShaderNode)[field.key] ?? field.items?.[0] ?? ''"
+                            :items="field.items"
                             :label="field.label"
                             density="compact"
                             hide-details
@@ -1352,30 +1355,33 @@
                         />
 
                         <v-switch
-                            v-else-if="['clamp', 'normalize', 'mesh_collision', 'particle_collision'].includes(field.key)"
+                            v-else-if="field.type === 'boolean'"
                             :model-value="normalizeNodeSettings(activeShaderNode)[field.key] === true"
                             :label="field.label"
                             hide-details
-                            @update:model-value="updateNodeSetting(activeShaderNode, field.key, $event)"
+                            @update:model-value="updateNodeSetting(activeShaderNode, field.key, $event === true)"
                         />
 
                         <v-text-field
-                            v-else-if="['color', 'bitmap', 'curve', 'color_mode', 'color_interpolation'].includes(field.key)"
-                            :model-value="normalizeNodeSettings(activeShaderNode)[field.key] || ''"
+                            v-else-if="field.type === 'number'"
+                            :model-value="normalizeNodeSettings(activeShaderNode)[field.key] ?? 0"
                             :label="field.label"
+                            type="number"
+                            :min="field.min"
+                            :max="field.max"
+                            :step="field.step ?? 0.001"
                             density="compact"
                             hide-details
-                            @update:model-value="updateNodeSetting(activeShaderNode, field.key, $event)"
+                            @update:model-value="updateNodeSetting(activeShaderNode, field.key, Number($event))"
                         />
 
                         <v-text-field
                             v-else
-                            :model-value="normalizeNodeSettings(activeShaderNode)[field.key] ?? 0"
+                            :model-value="normalizeNodeSettings(activeShaderNode)[field.key] ?? ''"
                             :label="field.label"
-                            type="number"
                             density="compact"
                             hide-details
-                            @update:model-value="updateNodeSetting(activeShaderNode, field.key, Number($event))"
+                            @update:model-value="updateNodeSetting(activeShaderNode, field.key, $event)"
                         />
                       </template>
                     </div>

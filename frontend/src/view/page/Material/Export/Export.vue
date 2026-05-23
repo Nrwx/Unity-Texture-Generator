@@ -22,19 +22,15 @@
 
 <script>
 import { defineComponent } from "vue";
-import {
-    exportEmits,
-    exportModel,
-    exportProps,
-} from "@/view/models/page/material/export/model";
+import {exportModel, exportProps} from "@/view/models/page/material/export/model";
 
 export default defineComponent({
     name: "ExportEditor",
     props: exportProps,
-    emits: exportEmits,
     setup(props, { emit }) {
+      const model = exportModel(props, emit);
         return {
-            ...exportModel(props, emit),
+            ...model
         };
     },
 });

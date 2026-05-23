@@ -11,19 +11,9 @@ import {
 import { uuid } from "@/utils/uuid";
 import { eventRegister } from "@/dataLayer/event";
 import { useMouse } from "@/composables/mouse/model";
+import {clamp, clone, lerp} from "@/utils/tools";
 
 const DEG = Math.PI / 180;
-
-const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
-const lerp = (a, b, t) => a + (b - a) * t;
-
-const clonePlain = value => {
-    try {
-        return JSON.parse(JSON.stringify(value));
-    } catch (_error) {
-        return value;
-    }
-};
 
 const toNumber = (value, fallback = 0) => {
     const number = Number(value);
@@ -328,7 +318,7 @@ export function animatorModel(props, emit) {
         const cameraPayload = viewportCamera.value;
 
         return selectedMaterialLayers.value.map(layer => {
-            const cloned = clonePlain(layer);
+            const cloned = clone(layer, 'json');
 
             const mesh = {
                 ...(cloned.mesh || {}),

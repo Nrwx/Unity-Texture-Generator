@@ -903,6 +903,62 @@ export class Node {
         };
     }
 
+    static getFieldType(node, fieldKey) {
+        const options = Node.getFieldOptions(node, fieldKey);
+
+        if (options.length) {
+            return "select";
+        }
+
+        const settings = Node.normalizeSettings(node);
+        const value = settings[fieldKey];
+
+        if (typeof value === "boolean") {
+            return "boolean";
+        }
+
+        if (Array.isArray(value)) {
+            if (value.length === 4) {
+                return "color";
+            }
+
+            if (value.length === 3) {
+                return "vector3";
+            }
+
+            return "vector";
+        }
+
+        if (typeof value === "number") {
+            return "number";
+        }
+
+        return "text";
+    }
+
+    static getFieldRange(node, fieldKey) {
+        const settings = Node.normalizeSettings(node);
+        const value = settings[fieldKey];
+
+        if (typeof value !== "number") {
+            return {};
+        }
+
+        if (["factor", "strength", "roughness", "lacunarity", "distortion", "density", "scale"].includes(fieldKey)) {
+            return { min: 0, max: 1, step: 0.001 };
+        }
+
+        if (["detail", "resolution"].includes(fieldKey)) {
+            return { min: 0, max: 64, step: 1 };
+        }
+
+        if (["temperature"].includes(fieldKey)) {
+            return { min: 1000, max: 40000, step: 100 };
+        }
+
+        return { step: 0.001 };
+    }
+
     static getFieldItems(node) {
         const definition = Node.getDefinition(node);
 
@@ -917,10 +973,18 @@ export class Node {
         return Array.from(new Set([
             ...definition.fields,
             ...inputFields,
-        ])).map(field => ({
-            key: field,
-            label: field === "a" ? "A" : field === "b" ? "B" : field.replace(/_/g, " "),
-        }));
+        ])).map(fieldKey => {
+            const type = Node.getFieldType(node, fieldKey);
+            const options = Node.getFieldOptions(node, fieldKey);
+
+            return {
+                key: fieldKey,
+                label: fieldKey === "a" ? "A" : fieldKey === "b" ? "B" : fieldKey.replace(/_/g, " "),
+                type,
+                items: options,
+                ...Node.getFieldRange(node, fieldKey),
+            };
+        });
     }
 
     static getFieldOptions(node, fieldKey) {
@@ -1005,6 +1069,14 @@ export class Node {
 
         if (nodeKey === "color.mix" && fieldKey === "type") {
             return ["Color"];
+        }
+
+        if (nodeKey === "color.colorRamp" && fieldKey === "color_mode") {
+            return ["RGB", "HSV", "HSL"];
+        }
+
+        if (nodeKey === "color.colorRamp" && fieldKey === "color_interpolation") {
+            return ["Linear", "Ease", "Constant", "B-Spline", "Cardinal"];
         }
 
         if (nodeKey === "vector.mapping" && fieldKey === "type") {

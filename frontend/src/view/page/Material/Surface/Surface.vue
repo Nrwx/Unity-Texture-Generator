@@ -41,7 +41,7 @@
     </div>
 
     <div
-        v-for="group in surfaceGroups"
+        v-for="group in PRINCIPLED_SURFACE_GROUPS"
         :key="group.key"
         class="mem-surface-row"
         :class="{ active: getMapSlot(group.key)?.enabled }"
@@ -127,7 +127,7 @@
         <div class="w-30 d-flex ga-2 align-center flex-wrap">
           <v-select
               :model-value="getMapSlot(group.key)?.channel || 'rgba'"
-              :items="textureChannelOptions"
+              :items="TEXTURE_CHANNEL_OPTIONS"
               label="Image"
               density="compact"
               hide-details
@@ -136,7 +136,7 @@
 
           <v-select
               :model-value="getMapSlot(group.key)?.color_mode || 'color'"
-              :items="textureColorModeOptions"
+              :items="TEXTURE_COLOR_MODE_OPTIONS"
               label="Color"
               density="compact"
               hide-details

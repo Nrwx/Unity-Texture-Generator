@@ -15,7 +15,7 @@
 
       <label
           class="mem-toggle-card"
-          :class="{ active: state.light.enabled }"
+          :class="{ active: light.enabled }"
       >
         <span class="mem-toggle-icon">
           <v-icon>mdi-lightbulb-on-outline</v-icon>
@@ -27,15 +27,15 @@
         </span>
 
         <v-switch
-            :model-value="state.light.enabled"
+            :model-value="light.enabled"
             hide-details
             @update:model-value="setBooleanValue('enabled', $event)"
         />
       </label>
 
       <v-select
-          :model-value="state.light.lightType"
-          :items="lightTypeOptions"
+          :model-value="light.lightType"
+          :items="LIGHT_TYPE_OPTIONS"
           label="Light Type"
           density="compact"
           hide-details
@@ -44,37 +44,37 @@
 
       <div class="mem-color-line">
         <input
-            :value="state.light.color"
+            :value="light.color"
             type="color"
             @input="setLightValue('color', $event.target.value)"
         />
 
-        <span>Direct {{ state.light.color }}</span>
+        <span>Direct {{ light.color }}</span>
       </div>
 
       <div class="mem-color-line">
         <input
-            :value="state.light.environment_color"
+            :value="light.environment_color"
             type="color"
             @input="setLightValue('environment_color', $event.target.value)"
         />
 
-        <span>Reflection {{ state.light.environment_color }}</span>
+        <span>Reflection {{ light.environment_color }}</span>
       </div>
 
       <div class="mem-color-line">
         <input
-            :value="state.light.ambient_color"
+            :value="light.ambient_color"
             type="color"
             @input="setLightValue('ambient_color', $event.target.value)"
         />
 
-        <span>Ambient {{ state.light.ambient_color }}</span>
+        <span>Ambient {{ light.ambient_color }}</span>
       </div>
 
       <label
           class="mem-toggle-card"
-          :class="{ active: state.light.castShadow }"
+          :class="{ active: light.castShadow }"
       >
         <span class="mem-toggle-icon">
           <v-icon>mdi-box-shadow</v-icon>
@@ -86,7 +86,7 @@
         </span>
 
         <v-switch
-            :model-value="state.light.castShadow"
+            :model-value="light.castShadow"
             hide-details
             @update:model-value="setBooleanValue('castShadow', $event)"
         />
@@ -102,11 +102,11 @@
       <div class="mem-control-card">
         <header>
           <strong>Intensity</strong>
-          <small>{{ state.light.intensity }}</small>
+          <small>{{ light.intensity }}</small>
         </header>
 
         <v-slider
-            :model-value="state.light.intensity"
+            :model-value="light.intensity"
             :min="0"
             :max="2"
             :step="0.001"
@@ -119,11 +119,11 @@
       <div class="mem-control-card">
         <header>
           <strong>Ambient</strong>
-          <small>{{ state.light.ambient }}</small>
+          <small>{{ light.ambient }}</small>
         </header>
 
         <v-slider
-            :model-value="state.light.ambient"
+            :model-value="light.ambient"
             :min="0"
             :max="1"
             :step="0.001"
@@ -136,11 +136,11 @@
       <div class="mem-control-card">
         <header>
           <strong>Softness</strong>
-          <small>{{ state.light.softness }}</small>
+          <small>{{ light.softness }}</small>
         </header>
 
         <v-slider
-            :model-value="state.light.softness"
+            :model-value="light.softness"
             :min="0"
             :max="1"
             :step="0.001"
@@ -153,11 +153,11 @@
       <div class="mem-control-card">
         <header>
           <strong>Temperature</strong>
-          <small>{{ state.light.temperature }}K</small>
+          <small>{{ light.temperature }}K</small>
         </header>
 
         <v-slider
-            :model-value="state.light.temperature"
+            :model-value="light.temperature"
             :min="1000"
             :max="20000"
             :step="50"
@@ -177,7 +177,7 @@
       <div class="mem-geometry-vector">
         <v-text-field
             v-if="isPositionLight"
-            :model-value="state.light.position_x"
+            :model-value="light.position_x"
             label="PX"
             type="number"
             density="compact"
@@ -187,7 +187,7 @@
 
         <v-text-field
             v-if="isPositionLight"
-            :model-value="state.light.position_y"
+            :model-value="light.position_y"
             label="PY"
             type="number"
             density="compact"
@@ -197,7 +197,7 @@
 
         <v-text-field
             v-if="isPositionLight"
-            :model-value="state.light.position_z"
+            :model-value="light.position_z"
             label="PZ"
             type="number"
             density="compact"
@@ -207,7 +207,7 @@
 
         <v-text-field
             v-if="isDirectionalLight"
-            :model-value="state.light.direction_x"
+            :model-value="light.direction_x"
             label="DX"
             type="number"
             density="compact"
@@ -217,7 +217,7 @@
 
         <v-text-field
             v-if="isDirectionalLight"
-            :model-value="state.light.direction_y"
+            :model-value="light.direction_y"
             label="DY"
             type="number"
             density="compact"
@@ -227,7 +227,7 @@
 
         <v-text-field
             v-if="isDirectionalLight"
-            :model-value="state.light.direction_z"
+            :model-value="light.direction_z"
             label="DZ"
             type="number"
             density="compact"
@@ -249,11 +249,11 @@
       >
         <header>
           <strong>Range</strong>
-          <small>{{ state.light.range }}</small>
+          <small>{{ light.range }}</small>
         </header>
 
         <v-slider
-            :model-value="state.light.range"
+            :model-value="light.range"
             :min="0.001"
             :max="100"
             :step="0.001"
@@ -269,11 +269,11 @@
       >
         <header>
           <strong>{{ radiusLabel }}</strong>
-          <small>{{ state.light.radius }}</small>
+          <small>{{ light.radius }}</small>
         </header>
 
         <v-slider
-            :model-value="state.light.radius"
+            :model-value="light.radius"
             :min="0"
             :max="10"
             :step="0.001"
@@ -289,11 +289,11 @@
       >
         <header>
           <strong>Decay</strong>
-          <small>{{ state.light.decay }}</small>
+          <small>{{ light.decay }}</small>
         </header>
 
         <v-slider
-            :model-value="state.light.decay"
+            :model-value="light.decay"
             :min="0"
             :max="4"
             :step="0.001"
@@ -309,11 +309,11 @@
       >
         <header>
           <strong>Inner Cone</strong>
-          <small>{{ state.light.innerCone }}</small>
+          <small>{{ light.innerCone }}</small>
         </header>
 
         <v-slider
-            :model-value="state.light.innerCone"
+            :model-value="light.innerCone"
             :min="0"
             :max="1"
             :step="0.001"
@@ -329,11 +329,11 @@
       >
         <header>
           <strong>Outer Cone</strong>
-          <small>{{ state.light.outerCone }}</small>
+          <small>{{ light.outerCone }}</small>
         </header>
 
         <v-slider
-            :model-value="state.light.outerCone"
+            :model-value="light.outerCone"
             :min="0"
             :max="1"
             :step="0.001"
@@ -348,16 +348,11 @@
 
 <script>
 import { defineComponent } from "vue";
-import {
-    lightEmits,
-    lightModel,
-    lightProps,
-} from "@/view/models/page/material/light/model";
+import {lightModel, lightProps} from "@/view/models/page/material/light/model";
 
 export default defineComponent({
     name: "LightEditor",
     props: lightProps,
-    emits: lightEmits,
     setup(props, { emit }) {
         return {
             ...lightModel(props, emit),

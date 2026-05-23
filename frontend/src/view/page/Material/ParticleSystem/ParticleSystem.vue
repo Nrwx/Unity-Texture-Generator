@@ -14,7 +14,7 @@
         <small>Blend und Lifetime ColorRamp.</small>
       </header>
 
-      <v-select :model-value="state.particleSystem.blend" :items="particleBlendOptions" label="Blend" density="compact" hide-details @update:model-value="setParticleValue('blend', $event)" />
+      <v-select :model-value="particleSystem.blend" :items="PARTICLE_BLEND_OPTIONS" label="Blend" density="compact" hide-details @update:model-value="setParticleValue('blend', $event)" />
 
       <div class="mem-particle-gradient-editor">
         <button
@@ -67,8 +67,8 @@
       </header>
 
       <v-select
-          :model-value="state.particleSystem.mode"
-          :items="particleModeOptions"
+          :model-value="particleSystem.mode"
+          :items="PARTICLE_MODE_OPTIONS"
           label="Mode"
           density="compact"
           hide-details
@@ -84,8 +84,8 @@
       </header>
 
       <v-select
-          :model-value="state.particleSystem.root_animation"
-          :items="particleRootAnimationOptions"
+          :model-value="particleSystem.root_animation"
+          :items="PARTICLE_ROOT_ANIMATION_OPTIONS"
           label="Root Animation"
           density="compact"
           hide-details
@@ -93,8 +93,8 @@
       />
 
       <v-select
-          :model-value="state.particleSystem.volume_flow"
-          :items="particleVolumeFlowOptions"
+          :model-value="particleSystem.volume_flow"
+          :items="PARTICLE_VOLUME_FLOW_OPTIONS"
           label="Volume Flow"
           density="compact"
           hide-details
@@ -104,11 +104,11 @@
       <div class="mem-control-card">
         <header>
           <strong>Count</strong>
-          <small>{{ state.particleSystem.count }}</small>
+          <small>{{ particleSystem.count }}</small>
         </header>
 
         <v-slider
-            :model-value="state.particleSystem.count"
+            :model-value="particleSystem.count"
             :min="1"
             :max="5000"
             :step="1"
@@ -119,7 +119,7 @@
       </div>
 
       <v-text-field
-          :model-value="state.particleSystem.seed"
+          :model-value="particleSystem.seed"
           label="Seed"
           type="number"
           density="compact"
@@ -137,25 +137,25 @@
       <div class="mem-control-card">
         <header>
           <strong>Lifetime</strong>
-          <small>{{ state.particleSystem.lifetime }}</small>
+          <small>{{ particleSystem.lifetime }}</small>
         </header>
-        <v-slider :model-value="state.particleSystem.lifetime" :min="0.1" :max="20" :step="0.1" hide-details thumb-label @update:model-value="setParticleNumber('lifetime', $event)" />
+        <v-slider :model-value="particleSystem.lifetime" :min="0.1" :max="20" :step="0.1" hide-details thumb-label @update:model-value="setParticleNumber('lifetime', $event)" />
       </div>
 
       <div class="mem-control-card">
         <header>
           <strong>Orbit</strong>
-          <small>{{ state.particleSystem.orbit }}</small>
+          <small>{{ particleSystem.orbit }}</small>
         </header>
-        <v-slider :model-value="state.particleSystem.orbit" :min="-2" :max="2" :step="0.01" hide-details thumb-label @update:model-value="setParticleNumber('orbit', $event)" />
+        <v-slider :model-value="particleSystem.orbit" :min="-2" :max="2" :step="0.01" hide-details thumb-label @update:model-value="setParticleNumber('orbit', $event)" />
       </div>
 
       <div class="mem-control-card">
         <header>
           <strong>Dot Rotation</strong>
-          <small>{{ state.particleSystem.rotation }}</small>
+          <small>{{ particleSystem.rotation }}</small>
         </header>
-        <v-slider :model-value="state.particleSystem.rotation" :min="-180" :max="180" :step="1" hide-details thumb-label @update:model-value="setParticleNumber('rotation', $event)" />
+        <v-slider :model-value="particleSystem.rotation" :min="-180" :max="180" :step="1" hide-details thumb-label @update:model-value="setParticleNumber('rotation', $event)" />
       </div>
     </section>
 
@@ -166,21 +166,21 @@
       </header>
 
       <div class="mem-geometry-vector">
-        <v-text-field :model-value="state.particleSystem.spread_x" label="Spread X" type="number" density="compact" hide-details @update:model-value="setParticleNumber('spread_x', $event)" />
-        <v-text-field :model-value="state.particleSystem.spread_y" label="Spread Y" type="number" density="compact" hide-details @update:model-value="setParticleNumber('spread_y', $event)" />
-        <v-text-field :model-value="state.particleSystem.spread_z" label="Spread Z" type="number" density="compact" hide-details @update:model-value="setParticleNumber('spread_z', $event)" />
+        <v-text-field :model-value="particleSystem.spread_x" label="Spread X" type="number" density="compact" hide-details @update:model-value="setParticleNumber('spread_x', $event)" />
+        <v-text-field :model-value="particleSystem.spread_y" label="Spread Y" type="number" density="compact" hide-details @update:model-value="setParticleNumber('spread_y', $event)" />
+        <v-text-field :model-value="particleSystem.spread_z" label="Spread Z" type="number" density="compact" hide-details @update:model-value="setParticleNumber('spread_z', $event)" />
       </div>
 
       <div class="mem-control-card">
         <header>
           <strong>Size</strong>
-          <small>{{ state.particleSystem.size }}</small>
+          <small>{{ particleSystem.size }}</small>
         </header>
-        <v-slider :model-value="state.particleSystem.size" :min="1" :max="120" :step="1" hide-details thumb-label @update:model-value="setParticleNumber('size', $event)" />
+        <v-slider :model-value="particleSystem.size" :min="1" :max="120" :step="1" hide-details thumb-label @update:model-value="setParticleNumber('size', $event)" />
       </div>
 
       <div class="mem-geometry-vector">
-        <v-text-field :model-value="state.particleSystem.radius" label="Radius" type="number" :min="0" density="compact" hide-details @update:model-value="setParticleNumber('radius', $event)" />
+        <v-text-field :model-value="particleSystem.radius" label="Radius" type="number" :min="0" density="compact" hide-details @update:model-value="setParticleNumber('radius', $event)" />
       </div>
 
     </section>
@@ -193,8 +193,8 @@
 
       <div class="mem-particle-curve-head">
         <v-select
-            :model-value="state.interpolationAttribute"
-            :items="particleInterpolationAttributes"
+            :model-value="ui.interpolationAttribute"
+            :items="PARTICLE_INTERPOLATION_ATTRIBUTES"
             item-title="label"
             item-value="key"
             label="Interpolation Attribute"
@@ -223,7 +223,7 @@
           <polyline :points="interpolationPolyline" class="mem-particle-curve-line" />
           <circle
               v-for="(point, index) in activeInterpolationPoints"
-              :key="`${state.interpolationAttribute}-${index}`"
+              :key="`${ui.interpolationAttribute}-${index}`"
               :cx="(point.x / lifetimeWidth) * 100"
               :cy="interpolationPointY(point)"
               r="2.8"
@@ -236,7 +236,7 @@
         <div class="mem-particle-point-list">
           <div
               v-for="(point, index) in activeInterpolationPoints"
-              :key="`list-${state.interpolationAttribute}-${index}`"
+              :key="`list-${ui.interpolationAttribute}-${index}`"
               class="mem-particle-point-item"
               @contextmenu.prevent="deleteInterpolationPoint(index)"
           >
@@ -259,7 +259,7 @@
       </div>
     </section>
 
-    <section v-if="state.particleSystem.path_follow?.enabled" class="mem-geometry-card wide">
+    <section v-if="particleSystem.path_follow?.enabled" class="mem-geometry-card wide">
       <header>
         <span>
           <strong>Path Follow</strong>
@@ -271,14 +271,14 @@
       </header>
 
       <v-btn-toggle
-          :model-value="state.pathGridMode"
+          :model-value="ui.pathGridMode"
           density="compact"
           class="mem-particle-path-toggle"
           mandatory
           @update:model-value="setPathGridMode"
       >
         <v-btn
-            v-for="item in pathGridModes"
+            v-for="item in PATH_GRID_MODES"
             :key="item.value"
             :value="item.value"
         >
@@ -286,7 +286,7 @@
         </v-btn>
       </v-btn-toggle>
 
-      <div class="mem-particle-path-layout" :class="{ 'all-views': state.pathGridMode === 'all' }">
+      <div class="mem-particle-path-layout" :class="{ 'all-views': ui.pathGridMode === 'all' }">
         <div class="mem-particle-path-views">
           <div class="mem-particle-path-view timebar">
             <strong>Time</strong>
@@ -321,9 +321,9 @@
             <header class="mem-particle-path-view-header">
               <strong>{{ view.label }}</strong>
               <v-select
-                  v-if="state.pathGridMode === 'normal'"
+                  v-if="ui.pathGridMode === 'normal'"
                   :model-value="view.key"
-                  :items="pathViewOptions"
+                  :items="PATH_VIEW_OPTIONS"
                   density="compact"
                   hide-details
                   variant="outlined"
@@ -355,7 +355,7 @@
           </div>
         </div>
 
-        <div v-if="state.pathGridMode !== 'all'" class="mem-particle-path-list">
+        <div v-if="ui.pathGridMode !== 'all'" class="mem-particle-path-list">
           <button
               v-for="point in pathFollowPoints"
               :key="point.id"
@@ -371,7 +371,7 @@
         </div>
       </div>
 
-      <div v-if="activePathPoint && state.pathGridMode !== 'all'" class="mem-particle-path-editor">
+      <div v-if="activePathPoint && ui.pathGridMode !== 'all'" class="mem-particle-path-editor">
         <v-text-field v-for="axis in ['x','y','z']" :key="`tr-${axis}`" :model-value="activePathPoint.translate?.[axis]" :label="axis.toUpperCase()" type="number" density="compact" hide-details @update:model-value="updatePathPoint(activePathPoint.id, 'translate', axis, $event)" />
       </div>
     </section>
@@ -444,7 +444,7 @@
 
           <v-select
               :model-value="activeParticleLayer.sequence_mode"
-              :items="particleSequenceModeOptions"
+              :items="PARTICLE_SEQUENCE_MODE_OPTIONS"
               density="compact"
               hide-details
               variant="outlined"
@@ -513,8 +513,9 @@ export default defineComponent({
   props: particleSystemModelProps,
   emits: particleSystemModelEmits,
   setup(props, { emit }) {
+    const model = particleSystemModel(props, emit);
     return {
-      ...particleSystemModel(props, emit),
+      ...model
     };
   },
 });

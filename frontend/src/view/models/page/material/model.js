@@ -1,5 +1,5 @@
 import {computed, onBeforeUnmount, onMounted, reactive, ref, watch,} from "vue";
-import {clamp} from "@/utils/tools";
+import {clamp, clone} from "@/utils/tools";
 import {uuid} from "@/utils/uuid";
 import {colorArrayToHex, hexToRgbaArray} from "@/utils/color";
 import {Node} from "@/view/models/page/material/core/Node/Node";
@@ -9,28 +9,15 @@ import {ParticleSystem} from "@/view/models/page/material/core/ParticleSystem/Pa
 import {Volume} from "@/view/models/page/material/core/Volume/Volume";
 import {Fluid} from "@/view/models/page/material/core/Fluid/Fluid";
 import {
-    createBitmapMaps,
-    createSurface,
-    getTextureSettingDefaults,
-    PRINCIPLED_SURFACE_GROUPS,
-    SURFACE_FIELD_MAP,
-    SURFACE_FIELDS,
-    TEXTURE_CHANNEL_OPTIONS,
-    TEXTURE_COLOR_MODE_OPTIONS
-} from "@/view/models/page/material/surface/model";
-import {createGeometry} from "@/view/models/page/material/geometry/model";
-import {createLight} from "@/view/models/page/material/light/model";
-import {createSettings, normalizeTextureSize, TEXTURE_SIZE_OPTIONS} from "@/view/models/page/material/settings/model";
-import {createPhysics} from "@/view/models/page/material/physics/model";
-import {createParticleSystem} from "@/view/models/page/material/particleSystem/model";
+    createBitmapMaps, createSurface, createPhysics, createGeometry,
+    createLight, createSettings, createShaderNode, createParticles,
+    createMesh, createOutputNode, createShaderGraph, createUv, createPrincipledNode,
+    PRINCIPLED_SURFACE_GROUPS, SURFACE_FIELD_MAP, SURFACE_FIELDS, PREVIEW_DEBOUNCE_MS,
+    TEXTURE_CHANNEL_OPTIONS, TEXTURE_COLOR_MODE_OPTIONS, TEXTURE_SIZE_OPTIONS,
+    getTextureSettingDefaults
+} from "@/dataLayer/webgl";
 
-const PREVIEW_DEBOUNCE_MS = 220;
-
-const PRINCIPLED_NODE_INPUT_KEYS = PRINCIPLED_SURFACE_GROUPS.map(group => group.key);
-
-const createShaderNode = (nodeKey, position = { x: 280, y: 140 }) => {
-    return Node.create(nodeKey, position);
-};
+import {normalizeTextureSize} from "@/view/models/page/material/settings/model";
 
 
 const normalizeNodeSettings = node => Node.normalizeSettings(node);
@@ -66,34 +53,6 @@ const mergeTextureSettingsForSlot = (slotKey, ...sources) => mergeTextureSetting
     { slot: slotKey },
     ...sources,
 );
-
-const createUv = () => UV.create();
-const createMesh = geometry => Mesh.create(geometry || createGeometry(), {
-    rootKey: "material",
-    source: "material-editor",
-});
-const createParticles = (settings = {}, context = {}) => ParticleSystem.create(settings || createParticleSystem(), context);
-
-const createPrincipledNode = () => Node.createPrincipled({
-    surfaceFieldMap: SURFACE_FIELD_MAP,
-    principledNodeInputKeys: PRINCIPLED_NODE_INPUT_KEYS,
-    principledSurfaceGroups: PRINCIPLED_SURFACE_GROUPS,
-    createSurface,
-});
-
-const createOutputNode = () => Node.createOutput();
-
-const createShaderGraph = () => Node.createGraph({
-    createPrincipled: createPrincipledNode,
-});
-
-const clonePlain = value => {
-    try {
-        return JSON.parse(JSON.stringify(value));
-    } catch (_error) {
-        return value;
-    }
-};
 
 const hasTextureSlot = slot => {
     if (!slot) {
@@ -406,7 +365,7 @@ export function materialEditorModel(props, emit) {
          * canvasRect ist die echte sichtbare Canvas-Fläche nach CSS width,
          * max-width, translate und scale.
          *
-         * canvasPoint ist im internen 720er Zeichenraum.
+         * canvasPoint ist im internen 720er-Zeichenraum.
          */
         return {
             x: canvasRect.left - stageRect.left + (canvasPoint.x / UV_CANVAS_SIZE) * canvasRect.width,
@@ -549,7 +508,7 @@ export function materialEditorModel(props, emit) {
 
         applyUvLayoutToMesh({ source: `uv-align-${axis}` });
         await drawUvCanvas();
-        syncUvAndPreview();
+        await syncUvAndPreview();
     };
 
     const getMergeTargetPoint = mode => {
@@ -604,7 +563,7 @@ export function materialEditorModel(props, emit) {
 
         applyUvLayoutToMesh({ source: `uv-merge-${mode}` });
         await drawUvCanvas();
-        syncUvAndPreview();
+        await syncUvAndPreview();
     };
 
     const getIslandUvVertices = island => {
@@ -1471,16 +1430,17 @@ export function materialEditorModel(props, emit) {
         return clamp(value[0] * 0.2126 + value[1] * 0.7152 + value[2] * 0.0722, 0, 1);
     };
 
-    const mixColors = (a, b, factor) => {
+    const mixColors = (a, b, factor, shouldClamp = true) => {
         const amount = clamp(toFiniteNumber(factor, 0.5), 0, 1);
         const left = normalizeColorValue(a, [0, 0, 0, 1]);
         const right = normalizeColorValue(b, [1, 1, 1, 1]);
 
-        return left.map((channel, index) => (
-            index === 3
-                ? mixNumbers(channel, right[index] ?? 1, amount)
-                : clamp(mixNumbers(channel, right[index] ?? 0, amount), 0, 1)
-        ));
+        return left.map((channel, index) => {
+            const mixed = mixNumbers(channel, right[index] ?? (index === 3 ? 1 : 0), amount);
+            return index === 3 || shouldClamp === false
+                ? mixed
+                : clamp(mixed, 0, 1);
+        });
     };
 
     const kelvinToColor = value => {
@@ -1569,19 +1529,18 @@ export function materialEditorModel(props, emit) {
             const b = resolveInputValue(node.id, "b", new Set(seen)) ?? settings.b ?? [1, 1, 1];
             const amount = clamp(toFiniteNumber(factor, 0.5), 0, 1);
 
-            const left = Array.isArray(a)
-                ? a
-                : [toFiniteNumber(a, 0), toFiniteNumber(a, 0), toFiniteNumber(a, 0)];
+            const left = Array.isArray(a) ? a : [a, a, a].map(value => toFiniteNumber(value, 0));
+            const right = Array.isArray(b) ? b : [b, b, b].map(value => toFiniteNumber(value, 1));
 
-            const right = Array.isArray(b)
-                ? b
-                : [toFiniteNumber(b, 1), toFiniteNumber(b, 1), toFiniteNumber(b, 1)];
-
-            return [
+            const result = [
                 mixNumbers(left[0], right[0], amount),
                 mixNumbers(left[1], right[1], amount),
                 mixNumbers(left[2], right[2], amount),
             ];
+
+            return settings.clamp === false
+                ? result
+                : result.map(value => clamp(value, 0, 1));
         }
 
         if (nodeKey === "color.mix") {
@@ -2141,7 +2100,7 @@ export function materialEditorModel(props, emit) {
     };
 
     const sanitizeSurfaceBitmapMaps = bitmapMaps => {
-        const maps = clonePlain(bitmapMaps);
+        const maps = clone(bitmapMaps, 'json');
 
         SURFACE_FIELDS.forEach(field => {
             const slot = maps?.[field.key];
@@ -2185,7 +2144,7 @@ export function materialEditorModel(props, emit) {
             ...mesh,
             volume: Volume.toPlain(values.geometry.volume || {}),
             fluid: Fluid.toPlain(values.geometry.fluid || {}),
-            physics: clonePlain(values.physics || {}),
+            physics: clone(values.physics || {}, 'json'),
             meta: {
                 ...(mesh.meta || {}),
                 volume_enabled: values.geometry.volume?.enabled === true,
@@ -2211,7 +2170,7 @@ export function materialEditorModel(props, emit) {
         ...Mesh.toPlain(values.mesh || createMesh(values.geometry)),
         volume: Volume.toPlain(values.geometry.volume || values.mesh?.volume || {}),
         fluid: Fluid.toPlain(values.geometry.fluid || values.mesh?.fluid || {}),
-        physics: clonePlain(values.physics || values.mesh?.physics || {}),
+        physics: clone(values.physics || values.mesh?.physics || {}, 'json'),
     });
 
     const getPreviewPlainMesh = () => {
@@ -2234,13 +2193,13 @@ export function materialEditorModel(props, emit) {
     };
 
     const getPreviewUv = () => ({
-        ...clonePlain(values.uv),
+        ...clone(values.uv, 'json'),
         vertices: [],
         edges: [],
         triangles: [],
         seams: [],
         islands: (values.uv.islands || []).map(island => ({
-            ...clonePlain(island),
+            ...clone(island, 'json'),
             vertex_ids: [],
             edge_ids: [],
             triangle_ids: [],
@@ -2263,16 +2222,16 @@ export function materialEditorModel(props, emit) {
     const normalizeValues = ({ preview = false } = {}) => ({
         name: values.name || "Cube Material",
 
-        surface: clonePlain(values.surface),
-        geometry: clonePlain(values.geometry),
+        surface: clone(values.surface, 'json'),
+        geometry: clone(values.geometry, 'json'),
         mesh: preview ? getPreviewPlainMesh() : getPlainMesh(),
         particle_system: getPlainParticleSystem({ compact: preview }),
-        physics: clonePlain(values.physics),
-        light: clonePlain(values.light),
+        physics: clone(values.physics, 'json'),
+        light: clone(values.light, 'json'),
         bitmap_maps: sanitizeSurfaceBitmapMaps(values.bitmap_maps),
-        uv: preview ? getPreviewUv() : clonePlain(values.uv),
+        uv: preview ? getPreviewUv() : clone(values.uv, 'json'),
         shader_graph: {
-            ...clonePlain(values.shader_graph),
+            ...clone(values.shader_graph, 'json'),
             material_connected: materialConnected.value,
         },
 
@@ -7174,7 +7133,7 @@ export function materialEditorModel(props, emit) {
 
     const handlePhysicsChange = () => {
         if (values.mesh) {
-            values.mesh.physics = clonePlain(values.physics || {});
+            values.mesh.physics = clone(values.physics || {}, 'json');
         }
 
         if (values.particle_system?.enabled === true) {

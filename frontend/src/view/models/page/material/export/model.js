@@ -1,12 +1,5 @@
 import { computed } from "vue";
-
-const cloneData = value => {
-    try {
-        return JSON.parse(JSON.stringify(value));
-    } catch (_error) {
-        return value;
-    }
-};
+import {clone} from "@/utils/tools";
 
 export const exportProps = {
     previewLayer: {
@@ -20,13 +13,9 @@ export const exportProps = {
     },
 };
 
-export const exportEmits = [
-    "request-export",
-];
-
 export function exportModel(props, emit) {
     const exportPayload = computed(() => {
-        return cloneData(props.previewLayer || {});
+        return clone(props.previewLayer || {}, 'json');
     });
 
     const exportJson = computed(() => {

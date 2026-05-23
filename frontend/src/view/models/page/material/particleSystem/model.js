@@ -1,46 +1,25 @@
-import { computed, reactive, watch } from "vue";
+import {computed, ref} from "vue";
 import { ParticleSystem } from "@/view/models/page/material/core/ParticleSystem/ParticleSystem";
+import {clamp, clone} from "@/utils/tools";
+import {
+    INTERPOLATION_RANGES,
+    PARTICLE_BLEND_OPTIONS, PARTICLE_INTERPOLATION_ATTRIBUTES,
+    PARTICLE_LAYER_SETTING_KEYS,
+    PARTICLE_MODE_OPTIONS,
+    PARTICLE_ROOT_ANIMATION_OPTIONS, PARTICLE_SEQUENCE_MODE_OPTIONS,
+    PARTICLE_VOLUME_FLOW_OPTIONS, PATH_GRID_MODES, PATH_VIEW_DEFINITIONS, PATH_VIEW_OPTIONS
+} from "@/dataLayer/webgl";
 
-export const PARTICLE_MODE_OPTIONS = Object.freeze([
-    { title: "Standard", value: "texture" },
-    { title: "Mesh", value: "mesh" },
-]);
-export const PARTICLE_SOURCE_OPTIONS = Object.freeze(["texture", "mesh", "volume"]);
-export const PARTICLE_EMITTER_OPTIONS = Object.freeze(["volume", "surface", "vertices", "sphere", "plane"]);
-export const PARTICLE_ROOT_ANIMATION_OPTIONS = Object.freeze(["point", "inner", "outer"]);
-export const PARTICLE_VOLUME_FLOW_OPTIONS = Object.freeze([
-    { title: "Inside Volume", value: "inside" },
-    { title: "Outside Surface", value: "outside" },
-]);
-export const PARTICLE_BLEND_OPTIONS = Object.freeze(["alpha", "additive", "screen"]);
-export const PARTICLE_INTERPOLATION_ATTRIBUTES = ParticleSystem.INTERPOLATION_ATTRIBUTES;
-export const PARTICLE_SEQUENCE_MODE_OPTIONS = Object.freeze([
-    { title: "Clockwise", value: "clockwise" },
-    { title: "Random", value: "random" },
-]);
-
-export const createParticleSystem = () => ParticleSystem.create();
-
-const cloneData = value => {
-    try {
-        return JSON.parse(JSON.stringify(value));
-    } catch (_error) {
-        return value;
-    }
-};
-
-const normalizeParticleSystem = value => ParticleSystem.fromPlain(value || {});
 const toNumber = value => {
     const number = Number(value);
     return Number.isFinite(number) ? number : 0;
 };
-const clampValue = (value, minimum, maximum) => Math.min(Math.max(toNumber(value), minimum), maximum);
-const clamp01 = value => clampValue(value, 0, 1);
+
 const colorToHex = color => {
     const channels = Array.isArray(color) ? color : [1, 1, 1];
 
     return `#${channels.slice(0, 3).map(value => (
-        Math.round(clamp01(value) * 255).toString(16).padStart(2, "0")
+        Math.round(clamp(value) * 255).toString(16).padStart(2, "0")
     )).join("")}`;
 };
 const hexToColor = value => {
@@ -60,9 +39,9 @@ const hexToColor = value => {
 const parsePickerColor = value => {
     if (value && typeof value === "object" && Number.isFinite(Number(value.r))) {
         return [
-            clamp01(Number(value.r) / 255),
-            clamp01(Number(value.g) / 255),
-            clamp01(Number(value.b) / 255),
+            clamp(Number(value.r) / 255),
+            clamp(Number(value.g) / 255),
+            clamp(Number(value.b) / 255),
             1,
         ];
     }
@@ -71,86 +50,18 @@ const parsePickerColor = value => {
 };
 const normalizeColorRampStop = (stop = {}, index = 0) => ({
     id: stop.id || `particle-color-stop-${index}`,
-    t: clamp01(stop.t ?? index),
+    t: clamp(stop.t ?? index),
     color: Array.isArray(stop.color) ? stop.color : [1, 1, 1, 1],
 });
-const PARTICLE_LAYER_SETTING_KEYS = Object.freeze([
-    "mode",
-    "source",
-    "emitter",
-    "root_animation",
-    "volume_flow",
-    "count",
-    "seed",
-    "lifetime",
-    "time_scale",
-    "size",
-    "radius",
-    "random_size",
-    "size_randomness",
-    "size_x",
-    "size_y",
-    "alpha",
-    "spread_x",
-    "spread_y",
-    "spread_z",
-    "velocity",
-    "velocity_x",
-    "velocity_y",
-    "velocity_z",
-    "direction_x",
-    "direction_y",
-    "direction_z",
-    "rotation",
-    "velocity_randomness",
-    "gravity",
-    "turbulence",
-    "orbit",
-    "mesh_influence",
-    "color",
-    "color_ramp",
-    "blend",
-    "depth_write",
-    "sort",
-    "use_mesh_reference",
-    "interpolation_attribute",
-    "interpolations",
-    "path_follow",
-]);
-const INTERPOLATION_RANGES = Object.freeze({
-    alpha: { min: 0, max: 1, visualMax: 1, step: 0.01, label: "Alpha 0-1" },
-    size_x: { min: 0, max: null, visualMin: 0, visualMax: 100, step: 0.01, label: "Size X" },
-    size_y: { min: 0, max: null, visualMin: 0, visualMax: 100, step: 0.01, label: "Size Y" },
-    direction_x: { min: null, max: null, visualMin: -100, visualMax: 100, step: 1, label: "Direction X" },
-    direction_y: { min: null, max: null, visualMin: -100, visualMax: 100, step: 1, label: "Direction Y" },
-    direction_z: { min: null, max: null, visualMin: -100, visualMax: 100, step: 1, label: "Direction Z" },
-    rotation: { min: null, max: null, visualMin: -360, visualMax: 360, step: 1, label: "Rotation" },
-});
-const PATH_GRID_MODES = Object.freeze([
-    { title: "Normal", value: "normal" },
-    { title: "Alle", value: "all" },
-]);
-const PATH_VIEW_DEFINITIONS = Object.freeze({
-    top: { key: "top", label: "Top", horizontal: "x", vertical: "z", hSign: 1, vSign: -1 },
-    bottom: { key: "bottom", label: "Bottom", horizontal: "x", vertical: "z", hSign: 1, vSign: 1 },
-    left: { key: "left", label: "Left", horizontal: "z", vertical: "y", hSign: -1, vSign: -1 },
-    right: { key: "right", label: "Right", horizontal: "z", vertical: "y", hSign: 1, vSign: -1 },
-    front: { key: "front", label: "Front", horizontal: "x", vertical: "y", hSign: 1, vSign: -1 },
-    back: { key: "back", label: "Back", horizontal: "x", vertical: "y", hSign: -1, vSign: -1 },
-});
-const PATH_VIEW_OPTIONS = Object.freeze(Object.values(PATH_VIEW_DEFINITIONS).map(view => ({
-    title: view.label,
-    value: view.key,
-})));
 
 export const particleSystemModelProps = {
     particleSystem: {
         type: Object,
-        default: () => createParticleSystem(),
+        required: true
     },
     textureLayers: {
         type: Array,
-        default: () => [],
+        required: true
     },
 };
 
@@ -161,42 +72,33 @@ export const particleSystemModelEmits = [
 ];
 
 export function particleSystemModel(props, emit) {
-    const state = reactive({
-        particleSystem: normalizeParticleSystem(props.particleSystem),
+    const ui = ref({
         interpolationAttribute: props.particleSystem?.interpolation_attribute || "alpha",
         interpolationDrag: null,
         layerDragId: "",
+        pathPointDrag: null,
         activeColorRampStopId: "",
         colorRampDrag: null,
         pathGridMode: "normal",
         pathViewSlots: ["left", "top"],
     });
 
-    watch(
-        () => props.particleSystem,
-        value => {
-            state.particleSystem = normalizeParticleSystem(value);
-            state.interpolationAttribute = state.particleSystem.interpolation_attribute || state.interpolationAttribute || "alpha";
-        },
-        { deep: true }
-    );
-
-    const snapshotLayerSettings = (source = state.particleSystem) => (
+    const snapshotLayerSettings = (source = props.particleSystem) => (
         PARTICLE_LAYER_SETTING_KEYS.reduce((settings, key) => {
-            settings[key] = cloneData(source?.[key]);
+            settings[key] = clone(source?.[key], 'json');
             return settings;
         }, {})
     );
 
     const syncActiveParticleLayerSettings = () => {
-        const activeId = state.particleSystem.active_layer_id;
+        const activeId = props.particleSystem.active_layer_id;
 
-        if (!activeId || !Array.isArray(state.particleSystem.layers)) {
+        if (!activeId || !Array.isArray(props.particleSystem.layers)) {
             return;
         }
 
         const settings = snapshotLayerSettings();
-        state.particleSystem.layers = state.particleSystem.layers.map(layer => (
+        props.particleSystem.layers = props.particleSystem.layers.map(layer => (
             layer.id === activeId
                 ? { ...layer, settings }
                 : layer
@@ -210,17 +112,17 @@ export function particleSystemModel(props, emit) {
 
         PARTICLE_LAYER_SETTING_KEYS.forEach(key => {
             if (Object.prototype.hasOwnProperty.call(layer.settings, key)) {
-                state.particleSystem[key] = cloneData(layer.settings[key]);
+                props.particleSystem[key] = clone(layer.settings[key], 'json');
             }
         });
 
-        state.interpolationAttribute = state.particleSystem.interpolation_attribute || state.interpolationAttribute || "alpha";
+        ui.value.interpolationAttribute = props.particleSystem.interpolation_attribute || ui.value.interpolationAttribute || "alpha";
     };
 
     const restartParticleSystem = () => {
-        state.particleSystem.age = 0;
-        state.particleSystem.meta = {
-            ...(state.particleSystem.meta || {}),
+        props.particleSystem.age = 0;
+        props.particleSystem.meta = {
+            ...(props.particleSystem.meta || {}),
             restart_at: Date.now(),
         };
     };
@@ -230,22 +132,22 @@ export function particleSystemModel(props, emit) {
         const to = Math.max(0.001, Number(newLifetime) || 1);
         const ratio = to / from;
 
-        state.particleSystem.interpolations = Object.entries(state.particleSystem.interpolations || {})
+        props.particleSystem.interpolations = Object.entries(props.particleSystem?.interpolations || {})
             .reduce((acc, [key, points]) => {
                 acc[key] = Array.isArray(points)
                     ? points.map(point => ({
                         ...point,
-                        x: Math.round(clampValue((Number(point.x) || 0) * ratio, 0, to) * 1000) / 1000,
+                        x: Math.round(clamp((Number(point.x) || 0) * ratio, 0, to) * 1000) / 1000,
                     }))
                     : points;
                 return acc;
             }, {});
 
-        if (Array.isArray(state.particleSystem.path_follow?.points)) {
-            state.particleSystem.path_follow.points = state.particleSystem.path_follow.points
+        if (Array.isArray(props.particleSystem.path_follow?.points)) {
+            props.particleSystem.path_follow.points = props.particleSystem.path_follow.points
                 .map(point => ({
                     ...point,
-                    t: Math.round(clampValue((Number(point.t) || 0) * ratio, 0, to) * 1000) / 1000,
+                    t: Math.round(clamp((Number(point.t) || 0) * ratio, 0, to) * 1000) / 1000,
                 }))
                 .sort((a, b) => a.t - b.t);
         }
@@ -260,17 +162,17 @@ export function particleSystemModel(props, emit) {
             restartParticleSystem();
         }
 
-        const particleSystem = cloneData(state.particleSystem);
+        const particleSystem = clone(props.particleSystem, 'json');
 
         emit("update:particleSystem", particleSystem);
         emit("change", particleSystem);
     };
 
     const setParticleValue = (key, value) => {
-        state.particleSystem[key] = value;
+        props.particleSystem[key] = value;
         if (key === "texture_slot") {
-            const activeId = state.particleSystem.active_layer_id;
-            state.particleSystem.layers = (state.particleSystem.layers || []).map(layer => (
+            const activeId = props.particleSystem.active_layer_id;
+            props.particleSystem.layers = (props.particleSystem.layers || []).map(layer => (
                 layer.id === activeId ? { ...layer, texture_slot: value } : layer
             ));
         }
@@ -281,45 +183,45 @@ export function particleSystemModel(props, emit) {
         const nextValue = toNumber(value);
 
         if (key === "lifetime") {
-            scaleLifetimeCurves(state.particleSystem.lifetime, nextValue);
+            scaleLifetimeCurves(props.particleSystem.lifetime, nextValue);
         }
 
-        state.particleSystem[key] = nextValue;
+        props.particleSystem[key] = nextValue;
         emitParticleSystem({ restart: key !== "age" });
     };
 
     const setParticleBoolean = (key, value) => {
-        state.particleSystem[key] = value === true;
+        props.particleSystem[key] = value === true;
         if (key === "enabled" && value === true) {
-            state.particleSystem = {
-                ...state.particleSystem,
-                ...ParticleSystem.normalize(state.particleSystem),
+            props.particleSystem = {
+                ...props.particleSystem,
+                ...ParticleSystem.normalize(props.particleSystem),
             };
         }
         emitParticleSystem({ restart: true });
     };
 
     const setParticleColor = (index, value) => {
-        const color = Array.isArray(state.particleSystem.color)
-            ? [...state.particleSystem.color]
+        const color = Array.isArray(props.particleSystem.color)
+            ? [...props.particleSystem.color]
             : [1, 1, 1, 1];
 
         color[index] = toNumber(value);
-        state.particleSystem.color = color;
+        props.particleSystem.color = color;
         emitParticleSystem({ restart: true });
     };
 
-    const activeInterpolationPoints = computed(() => ensureInterpolationPoints(state.interpolationAttribute));
+    const activeInterpolationPoints = computed(() => ensureInterpolationPoints(ui.value.interpolationAttribute));
 
-    const lifetimeWidth = computed(() => Math.max(0.001, Number(state.particleSystem.lifetime) || 1));
+    const lifetimeWidth = computed(() => Math.max(0.001, Number(props.particleSystem.lifetime) || 1));
 
     const interpolationPolyline = computed(() => activeInterpolationPoints.value
         .map(point => `${(point.x / lifetimeWidth.value) * 100},${interpolationPointY(point)}`)
         .join(" "));
 
-    const pathFollowPoints = computed(() => state.particleSystem.path_follow?.points || []);
+    const pathFollowPoints = computed(() => props.particleSystem.path_follow?.points || []);
     const activePathPoint = computed(() => (
-        pathFollowPoints.value.find(point => point.id === state.particleSystem.path_follow?.active_point_id) ||
+        pathFollowPoints.value.find(point => point.id === props.particleSystem.path_follow?.active_point_id) ||
         pathFollowPoints.value[0] ||
         null
     ));
@@ -327,7 +229,7 @@ export function particleSystemModel(props, emit) {
         .map(point => `${(point.t / lifetimeWidth.value) * 100},12`)
         .join(" "));
     const pathViewItems = computed(() => (
-        state.pathGridMode === "all"
+        ui.value.pathGridMode === "all"
             ? [
                 PATH_VIEW_DEFINITIONS.top,
                 PATH_VIEW_DEFINITIONS.bottom,
@@ -336,11 +238,11 @@ export function particleSystemModel(props, emit) {
                 PATH_VIEW_DEFINITIONS.front,
                 PATH_VIEW_DEFINITIONS.back,
             ]
-            : state.pathViewSlots.map(key => PATH_VIEW_DEFINITIONS[key] || PATH_VIEW_DEFINITIONS.top)
+            : ui.value.pathViewSlots.map(key => PATH_VIEW_DEFINITIONS[key] || PATH_VIEW_DEFINITIONS.top)
     ));
-    const particleLayers = computed(() => state.particleSystem.layers || []);
+    const particleLayers = computed(() => props.particleSystem.layers || []);
     const activeParticleLayer = computed(() => (
-        particleLayers.value.find(layer => layer.id === state.particleSystem.active_layer_id) ||
+        particleLayers.value.find(layer => layer.id === props.particleSystem.active_layer_id) ||
         particleLayers.value[0] ||
         null
     ));
@@ -362,28 +264,28 @@ export function particleSystemModel(props, emit) {
     ));
 
     const ensureParticleLayers = () => {
-        state.particleSystem = {
-            ...state.particleSystem,
-            ...ParticleSystem.normalize(state.particleSystem),
+        props.particleSystem = {
+            ...props.particleSystem,
+            ...ParticleSystem.normalize(props.particleSystem),
         };
 
-        return state.particleSystem.layers || [];
+        return props.particleSystem.layers || [];
     };
 
     const setInterpolationAttribute = value => {
-        state.interpolationAttribute = value;
-        state.particleSystem.interpolation_attribute = value;
+        ui.value.interpolationAttribute = value;
+        props.particleSystem.interpolation_attribute = value;
         emitParticleSystem();
     };
 
     const ensureInterpolationPoints = attribute => {
-        state.particleSystem.interpolations = ParticleSystem.normalizeInterpolations(
-            state.particleSystem.interpolations || {},
+        props.particleSystem.interpolations = ParticleSystem.normalizeInterpolations(
+            props.particleSystem.interpolations || {},
             lifetimeWidth.value
         );
 
-        if (!state.particleSystem.interpolations[attribute]) {
-            state.particleSystem.interpolations[attribute] = ParticleSystem.normalizeInterpolations(
+        if (!props.particleSystem.interpolations[attribute]) {
+            props.particleSystem.interpolations[attribute] = ParticleSystem.normalizeInterpolations(
                 { [attribute]: [] },
                 lifetimeWidth.value
             )[attribute];
@@ -392,21 +294,21 @@ export function particleSystemModel(props, emit) {
         const range = INTERPOLATION_RANGES[attribute];
 
         if (range) {
-            state.particleSystem.interpolations[attribute] = state.particleSystem.interpolations[attribute]
+            props.particleSystem.interpolations[attribute] = props.particleSystem.interpolations[attribute]
                 .map(point => ({
                     ...point,
                     y: clampInterpolationValue(attribute, point.y),
                 }));
         }
 
-        return state.particleSystem.interpolations[attribute];
+        return props.particleSystem.interpolations[attribute];
     };
 
     const pointerToInterpolationPoint = (event, target = event.currentTarget) => {
         const rect = target.getBoundingClientRect();
         const x = Math.min(Math.max((event.clientX - rect.left) / Math.max(rect.width, 1), 0), 1) * lifetimeWidth.value;
         const rawRatio = Math.min(Math.max((event.clientY - rect.top) / Math.max(rect.height, 1), 0), 1);
-        const range = INTERPOLATION_RANGES[state.interpolationAttribute];
+        const range = INTERPOLATION_RANGES[ui.value.interpolationAttribute];
 
         if (range) {
             const visualMin = range.visualMin ?? range.min ?? 0;
@@ -416,18 +318,18 @@ export function particleSystemModel(props, emit) {
             return { x, y: Math.round(y * 1000) / 1000 };
         }
 
-        const y = clampValue((0.5 - rawRatio) * 100, -50, 50);
+        const y = clamp((0.5 - rawRatio) * 100, -50, 50);
 
         return { x, y };
     };
 
     const interpolationPointY = point => {
-        const range = INTERPOLATION_RANGES[state.interpolationAttribute];
+        const range = INTERPOLATION_RANGES[ui.value.interpolationAttribute];
 
         if (range) {
             const visualMin = range.visualMin ?? range.min ?? 0;
             const visualMax = range.visualMax ?? range.max ?? 1;
-            const amount = (clampValue(point?.y, visualMin, visualMax) - visualMin) / Math.max(visualMax - visualMin, 0.00001);
+            const amount = (clamp(point?.y, visualMin, visualMax) - visualMin) / Math.max(visualMax - visualMin, 0.00001);
             return 100 - amount * 100;
         }
 
@@ -453,7 +355,7 @@ export function particleSystemModel(props, emit) {
                 : Math.min(range.max, number);
         }
 
-        return clampValue(number, range.min, range.max);
+        return clamp(number, range.min, range.max);
     };
 
     const updateInterpolationPoint = (attribute, index, point) => {
@@ -461,7 +363,7 @@ export function particleSystemModel(props, emit) {
             itemIndex === index ? point : item
         ));
 
-        state.particleSystem.interpolations[attribute] = points
+        props.particleSystem.interpolations[attribute] = points
             .sort((a, b) => a.x - b.x)
             .map(item => ({
                 x: Math.round(item.x * 1000) / 1000,
@@ -470,7 +372,7 @@ export function particleSystemModel(props, emit) {
     };
 
     const updateInterpolationPointValue = (index, value) => {
-        const attribute = state.interpolationAttribute;
+        const attribute = ui.value.interpolationAttribute;
         const points = ensureInterpolationPoints(attribute);
         const current = points[index];
 
@@ -482,17 +384,17 @@ export function particleSystemModel(props, emit) {
             ...current,
             y: clampInterpolationValue(
                 attribute,
-                INTERPOLATION_RANGES[attribute] ? value : clampValue(value, -1000, 1000)
+                INTERPOLATION_RANGES[attribute] ? value : clamp(value, -1000, 1000)
             ),
         });
         emitParticleSystem({ restart: true });
     };
 
     const interpolationInputRange = computed(() => (
-        INTERPOLATION_RANGES[state.interpolationAttribute]
+        INTERPOLATION_RANGES[ui.value.interpolationAttribute]
             ? {
-                ...INTERPOLATION_RANGES[state.interpolationAttribute],
-                max: INTERPOLATION_RANGES[state.interpolationAttribute].max ?? undefined,
+                ...INTERPOLATION_RANGES[ui.value.interpolationAttribute],
+                max: INTERPOLATION_RANGES[ui.value.interpolationAttribute].max ?? undefined,
             }
             : {
             min: undefined,
@@ -503,22 +405,22 @@ export function particleSystemModel(props, emit) {
     ));
 
     const stopInterpolationDrag = () => {
-        if (!state.interpolationDrag) {
+        if (!ui.value.interpolationDrag) {
             return;
         }
 
-        state.interpolationDrag = null;
+        ui.value.interpolationDrag = null;
         window.removeEventListener("pointermove", moveInterpolationPoint);
         window.removeEventListener("pointerup", stopInterpolationDrag);
         emitParticleSystem({ restart: true });
     };
 
     const moveInterpolationPoint = event => {
-        if (!state.interpolationDrag) {
+        if (!ui.value.interpolationDrag) {
             return;
         }
 
-        const { attribute, index, target } = state.interpolationDrag;
+        const { attribute, index, target } = ui.value.interpolationDrag;
         updateInterpolationPoint(attribute, index, pointerToInterpolationPoint(event, target));
     };
 
@@ -530,16 +432,16 @@ export function particleSystemModel(props, emit) {
         event.preventDefault();
         event.stopPropagation();
 
-        state.interpolationDrag = {
-            attribute: state.interpolationAttribute,
+        ui.value.interpolationDrag = {
+            attribute: ui.value.interpolationAttribute,
             index,
             target: event.currentTarget.closest(".mem-particle-curve-box"),
         };
 
         updateInterpolationPoint(
-            state.interpolationAttribute,
+            ui.value.interpolationAttribute,
             index,
-            pointerToInterpolationPoint(event, state.interpolationDrag.target)
+            pointerToInterpolationPoint(event, ui.value.interpolationDrag?.target)
         );
 
         window.addEventListener("pointermove", moveInterpolationPoint);
@@ -551,24 +453,24 @@ export function particleSystemModel(props, emit) {
             return;
         }
 
-        const attribute = state.interpolationAttribute;
+        const attribute = ui.value.interpolationAttribute;
         const point = pointerToInterpolationPoint(event);
         const points = ensureInterpolationPoints(attribute);
 
         points.push(point);
-        state.particleSystem.interpolations[attribute] = points.sort((a, b) => a.x - b.x);
+        props.particleSystem.interpolations[attribute] = points.sort((a, b) => a.x - b.x);
         emitParticleSystem({ restart: true });
     };
 
     const deleteInterpolationPoint = index => {
-        const attribute = state.interpolationAttribute;
+        const attribute = ui.value.interpolationAttribute;
         const points = ensureInterpolationPoints(attribute);
 
         if (points.length <= 1) {
             return;
         }
 
-        state.particleSystem.interpolations[attribute] = points.filter((_point, pointIndex) => pointIndex !== index);
+        props.particleSystem.interpolations[attribute] = points.filter((_point, pointIndex) => pointIndex !== index);
         emitParticleSystem({ restart: true });
     };
 
@@ -584,7 +486,7 @@ export function particleSystemModel(props, emit) {
             return;
         }
 
-        const points = ensureInterpolationPoints(state.interpolationAttribute);
+        const points = ensureInterpolationPoints(ui.value.interpolationAttribute);
         const point = pointerToInterpolationPoint(event);
         const nearestIndex = points.reduce((best, item, itemIndex) => {
             const distance = Math.hypot(item.x - point.x, item.y - point.y);
@@ -597,10 +499,10 @@ export function particleSystemModel(props, emit) {
     };
 
     const resetInterpolation = () => {
-        const attribute = state.interpolationAttribute;
+        const attribute = ui.value.interpolationAttribute;
         const fallback = PARTICLE_INTERPOLATION_ATTRIBUTES.find(item => item.key === attribute)?.defaultValue ?? 0;
-        state.particleSystem.interpolations = {
-            ...(state.particleSystem.interpolations || {}),
+        props.particleSystem.interpolations = {
+            ...(props.particleSystem.interpolations || {}),
             [attribute]: [
                 { x: 0, y: fallback },
                 { x: lifetimeWidth.value / 2, y: fallback },
@@ -611,12 +513,12 @@ export function particleSystemModel(props, emit) {
     };
 
     const ensurePathFollow = () => {
-        state.particleSystem.path_follow = ParticleSystem.normalizePathFollow(
-            state.particleSystem.path_follow || {},
+        props.particleSystem.path_follow = ParticleSystem.normalizePathFollow(
+            props.particleSystem.path_follow || {},
             lifetimeWidth.value
         );
 
-        return state.particleSystem.path_follow;
+        return props.particleSystem.path_follow;
     };
 
     const setPathFollowEnabled = value => {
@@ -640,18 +542,18 @@ export function particleSystemModel(props, emit) {
             return;
         }
 
-        state.particleSystem.active_layer_id = layer.id;
-        state.particleSystem.texture_slot = "baseColor";
+        props.particleSystem.active_layer_id = layer.id;
+        props.particleSystem.texture_slot = "baseColor";
         applyParticleLayerSettings(layer);
         emitParticleSystem({ restart: true });
     };
 
     const colorRampStops = computed(() => {
-        const stops = Array.isArray(state.particleSystem.color_ramp) && state.particleSystem.color_ramp.length
-            ? state.particleSystem.color_ramp
+        const stops = Array.isArray(props.particleSystem.color_ramp) && props.particleSystem.color_ramp.length
+            ? props.particleSystem.color_ramp
             : [
-                { id: "particle-color-start", t: 0, color: state.particleSystem.color || [1, 1, 1, 1] },
-                { id: "particle-color-end", t: 1, color: state.particleSystem.color || [1, 1, 1, 1] },
+                { id: "particle-color-start", t: 0, color: props.particleSystem.color || [1, 1, 1, 1] },
+                { id: "particle-color-end", t: 1, color: props.particleSystem.color || [1, 1, 1, 1] },
             ];
 
         return stops.map(normalizeColorRampStop).sort((a, b) => a.t - b.t);
@@ -664,7 +566,7 @@ export function particleSystemModel(props, emit) {
     }));
 
     const activeColorRampStop = computed(() => (
-        colorRampStops.value.find(stop => stop.id === state.activeColorRampStopId) ||
+        colorRampStops.value.find(stop => stop.id === ui.value.activeColorRampStopId) ||
         colorRampStops.value[0] ||
         null
     ));
@@ -672,12 +574,12 @@ export function particleSystemModel(props, emit) {
     const activeColorRampColor = computed(() => colorToHex(activeColorRampStop.value?.color || [1, 1, 1, 1]));
 
     const colorRampMarkerStyle = stop => ({
-        left: `${clamp01(stop?.t) * 100}%`,
+        left: `${clamp(stop?.t) * 100}%`,
         background: colorToHex(stop?.color || [1, 1, 1, 1]),
     });
 
     const setColorRampStops = stops => {
-        state.particleSystem.color_ramp = stops
+        props.particleSystem.color_ramp = stops
             .map(normalizeColorRampStop)
             .sort((a, b) => a.t - b.t);
         emitParticleSystem({ restart: true });
@@ -685,7 +587,7 @@ export function particleSystemModel(props, emit) {
 
     const pointerToColorRampT = (event, target) => {
         const rect = target.getBoundingClientRect();
-        return Math.round(clamp01((event.clientX - rect.left) / Math.max(rect.width, 1)) * 1000) / 1000;
+        return Math.round(clamp((event.clientX - rect.left) / Math.max(rect.width, 1)) * 1000) / 1000;
     };
 
     const addColorRampStopAt = event => {
@@ -694,39 +596,39 @@ export function particleSystemModel(props, emit) {
         }
 
         const rect = event.currentTarget.getBoundingClientRect();
-        const t = clamp01((event.clientX - rect.left) / Math.max(rect.width, 1));
+        const t = clamp((event.clientX - rect.left) / Math.max(rect.width, 1));
         const stop = {
             id: `particle-color-stop-${Date.now()}`,
             t: Math.round(t * 1000) / 1000,
-            color: activeColorRampStop.value?.color || state.particleSystem.color || [1, 1, 1, 1],
+            color: activeColorRampStop.value?.color || props.particleSystem.color || [1, 1, 1, 1],
         };
 
-        state.activeColorRampStopId = stop.id;
+        ui.value.activeColorRampStopId = stop.id;
         setColorRampStops([...colorRampStops.value, stop]);
     };
 
     const selectColorRampStop = stopId => {
-        state.activeColorRampStopId = stopId;
+        ui.value.activeColorRampStopId = stopId;
     };
 
     const moveColorRampStop = event => {
-        if (!state.colorRampDrag) {
+        if (!ui.value.colorRampDrag) {
             return;
         }
 
-        const { stopId, target } = state.colorRampDrag;
+        const { stopId, target } = ui.value.colorRampDrag;
         const t = pointerToColorRampT(event, target);
-        state.particleSystem.color_ramp = colorRampStops.value
+        props.particleSystem.color_ramp = colorRampStops.value
             .map(stop => stop.id === stopId ? { ...stop, t } : stop)
             .sort((a, b) => a.t - b.t);
     };
 
     const stopColorRampDrag = () => {
-        if (!state.colorRampDrag) {
+        if (!ui.value.colorRampDrag) {
             return;
         }
 
-        state.colorRampDrag = null;
+        ui.value.colorRampDrag = null;
         window.removeEventListener("pointermove", moveColorRampStop);
         window.removeEventListener("pointerup", stopColorRampDrag);
         emitParticleSystem({ restart: true });
@@ -739,8 +641,8 @@ export function particleSystemModel(props, emit) {
 
         event.preventDefault();
         event.stopPropagation();
-        state.activeColorRampStopId = stopId;
-        state.colorRampDrag = {
+        ui.value.activeColorRampStopId = stopId;
+        ui.value.colorRampDrag = {
             stopId,
             target: event.currentTarget.closest(".mem-particle-gradient-bar"),
         };
@@ -761,7 +663,7 @@ export function particleSystemModel(props, emit) {
                 ? {
                     ...stop,
                     ...patch,
-                    t: patch.t !== undefined ? clamp01(patch.t) : stop.t,
+                    t: patch.t !== undefined ? clamp(patch.t) : stop.t,
                     color: patch.color !== undefined ? parsePickerColor(patch.color) : stop.color,
                 }
                 : stop
@@ -774,7 +676,7 @@ export function particleSystemModel(props, emit) {
         }
 
         const nextStops = colorRampStops.value.filter(stop => stop.id !== stopId);
-        state.activeColorRampStopId = nextStops[0]?.id || "";
+        ui.value.activeColorRampStopId = nextStops[0]?.id || "";
         setColorRampStops(nextStops);
     };
 
@@ -794,22 +696,22 @@ export function particleSystemModel(props, emit) {
             settings: snapshotLayerSettings(),
         };
 
-        state.particleSystem.layers = [...layers, nextLayer];
-        state.particleSystem.active_layer_id = nextLayer.id;
-        state.particleSystem.texture_slot = "baseColor";
+        props.particleSystem.layers = [...layers, nextLayer];
+        props.particleSystem.active_layer_id = nextLayer.id;
+        props.particleSystem.texture_slot = "baseColor";
         emitParticleSystem({ restart: true });
     };
 
     const startParticleLayerDrag = (event, layerId) => {
-        state.layerDragId = layerId;
+        ui.value.layerDragId = layerId;
         event.dataTransfer.effectAllowed = "move";
         event.dataTransfer.setData("text/plain", layerId);
     };
 
     const dropParticleLayer = (event, targetLayerId) => {
         event.preventDefault();
-        const sourceId = state.layerDragId || event.dataTransfer.getData("text/plain");
-        state.layerDragId = "";
+        const sourceId = ui.value.layerDragId || event.dataTransfer.getData("text/plain");
+        ui.value.layerDragId = "";
 
         if (!sourceId || sourceId === targetLayerId) {
             return;
@@ -826,7 +728,7 @@ export function particleSystemModel(props, emit) {
         const nextLayers = layers.slice();
         const [sourceLayer] = nextLayers.splice(sourceIndex, 1);
         nextLayers.splice(targetIndex, 0, sourceLayer);
-        state.particleSystem.layers = nextLayers;
+        props.particleSystem.layers = nextLayers;
         emitParticleSystem({ restart: true });
     };
 
@@ -836,7 +738,7 @@ export function particleSystemModel(props, emit) {
         const textureLayer = (props.textureLayers || []).find(layer => layer.id === layerId);
         const slotKey = "baseColor";
 
-        state.particleSystem.layers = layers.map(layer => (
+        props.particleSystem.layers = layers.map(layer => (
             layer.id === activeId
                 ? {
                     ...layer,
@@ -855,7 +757,7 @@ export function particleSystemModel(props, emit) {
         const layers = ensureParticleLayers();
         const activeId = activeParticleLayer.value?.id;
 
-        state.particleSystem.layers = layers.map(layer => (
+        props.particleSystem.layers = layers.map(layer => (
             layer.id === activeId
                 ? { ...layer, ...patch }
                 : layer
@@ -921,15 +823,15 @@ export function particleSystemModel(props, emit) {
         const nextLayers = layers.filter(layer => layer.id !== layerId);
         const nextActive = nextLayers[0];
 
-        state.particleSystem.layers = nextLayers;
-        state.particleSystem.active_layer_id = nextActive?.id || "";
-        state.particleSystem.texture_slot = "baseColor";
+        props.particleSystem.layers = nextLayers;
+        props.particleSystem.active_layer_id = nextActive?.id || "";
+        props.particleSystem.texture_slot = "baseColor";
         emitParticleSystem({ restart: true });
     };
 
     const resetPathFollow = () => {
-        const wasEnabled = state.particleSystem.path_follow?.enabled === true;
-        state.particleSystem.path_follow = ParticleSystem.normalizePathFollow({
+        const wasEnabled = props.particleSystem.path_follow?.enabled === true;
+        props.particleSystem.path_follow = ParticleSystem.normalizePathFollow({
             enabled: wasEnabled,
             points: [],
         }, lifetimeWidth.value);
@@ -974,7 +876,7 @@ export function particleSystemModel(props, emit) {
         const sorted = (Array.isArray(points) ? points : [])
             .map(point => ({
                 ...point,
-                t: clampValue(point?.t, 0, lifetimeWidth.value),
+                t: clamp(point?.t, 0, lifetimeWidth.value),
                 translate: {
                     x: toNumber(point?.translate?.x),
                     y: toNumber(point?.translate?.y),
@@ -1015,7 +917,7 @@ export function particleSystemModel(props, emit) {
         const sorted = (Array.isArray(points) ? points : [])
             .map(point => ({
                 id: point.id,
-                t: clampValue(point?.t, 0, lifetimeWidth.value),
+                t: clamp(point?.t, 0, lifetimeWidth.value),
             }))
             .sort((a, b) => a.t - b.t);
 
@@ -1023,7 +925,7 @@ export function particleSystemModel(props, emit) {
             return { newTime: 0 };
         }
 
-        const activeId = state.particleSystem.path_follow?.active_point_id;
+        const activeId = props.particleSystem.path_follow?.active_point_id;
         const foundIndex = sorted.findIndex(point => point.id === activeId);
         const activeIndex = foundIndex >= 0 ? foundIndex : sorted.length - 1;
         const active = sorted[activeIndex];
@@ -1038,22 +940,22 @@ export function particleSystemModel(props, emit) {
         return {
             newTime: active.t,
             shiftedPointId: active.id,
-            shiftedTime: clampValue(shiftTarget, 0, lifetimeWidth.value),
+            shiftedTime: clamp(shiftTarget, 0, lifetimeWidth.value),
         };
     };
 
     const setPathGridMode = value => {
-        state.pathGridMode = ["normal", "all"].includes(value) ? value : "normal";
+        ui.value.pathGridMode = ["normal", "all"].includes(value) ? value : "normal";
     };
 
     const setPathViewSlot = (index, value) => {
         const nextView = PATH_VIEW_DEFINITIONS[value] ? value : "top";
-        const nextSlots = Array.isArray(state.pathViewSlots) && state.pathViewSlots.length === 2
-            ? [...state.pathViewSlots]
+        const nextSlots = Array.isArray(ui.value.pathViewSlots) && ui.value.pathViewSlots.length === 2
+            ? [...ui.value.pathViewSlots]
             : ["left", "top"];
 
         nextSlots[index === 1 ? 1 : 0] = nextView;
-        state.pathViewSlots = nextSlots;
+        ui.value.pathViewSlots = nextSlots;
     };
 
     const pointerToPathPoint = (event, target, view = "side") => {
@@ -1124,22 +1026,22 @@ export function particleSystemModel(props, emit) {
     };
 
     const stopPathPointDrag = () => {
-        if (!state.pathPointDrag) {
+        if (!ui.value.pathPointDrag) {
             return;
         }
 
-        state.pathPointDrag = null;
+        ui.value.pathPointDrag = null;
         window.removeEventListener("pointermove", movePathPoint);
         window.removeEventListener("pointerup", stopPathPointDrag);
         emitParticleSystem({ restart: true });
     };
 
     const movePathPoint = event => {
-        if (!state.pathPointDrag) {
+        if (!ui.value.pathPointDrag) {
             return;
         }
 
-        const { pointId, target, view } = state.pathPointDrag;
+        const { pointId, target, view } = ui.value.pathPointDrag;
         updatePathPointFromPointer(pointId, event, target, view);
     };
 
@@ -1150,12 +1052,12 @@ export function particleSystemModel(props, emit) {
 
         event.preventDefault();
         event.stopPropagation();
-        state.pathPointDrag = {
+        ui.value.pathPointDrag = {
             pointId,
             view,
             target: event.currentTarget.closest("svg"),
         };
-        updatePathPointFromPointer(pointId, event, state.pathPointDrag.target, view);
+        updatePathPointFromPointer(pointId, event, ui.value.pathPointDrag?.target, view);
         window.addEventListener("pointermove", movePathPoint);
         window.addEventListener("pointerup", stopPathPointDrag);
     };
@@ -1217,7 +1119,7 @@ export function particleSystemModel(props, emit) {
             return;
         }
 
-        let nearest = null;
+        let nearest;
 
         if (view === "time") {
             const time = pointerToPathTime(event, event.currentTarget);
@@ -1252,16 +1154,15 @@ export function particleSystemModel(props, emit) {
     };
 
     return {
-        state,
-        particleModeOptions: PARTICLE_MODE_OPTIONS,
-        particleSourceOptions: PARTICLE_SOURCE_OPTIONS,
-        particleEmitterOptions: PARTICLE_EMITTER_OPTIONS,
-        particleRootAnimationOptions: PARTICLE_ROOT_ANIMATION_OPTIONS,
-        particleVolumeFlowOptions: PARTICLE_VOLUME_FLOW_OPTIONS,
-        particleBlendOptions: PARTICLE_BLEND_OPTIONS,
-        particleInterpolationAttributes: PARTICLE_INTERPOLATION_ATTRIBUTES,
-        pathGridModes: PATH_GRID_MODES,
-        pathViewOptions: PATH_VIEW_OPTIONS,
+        ui,
+        PARTICLE_MODE_OPTIONS,
+        PARTICLE_ROOT_ANIMATION_OPTIONS,
+        PARTICLE_VOLUME_FLOW_OPTIONS,
+        PARTICLE_BLEND_OPTIONS,
+        PARTICLE_INTERPOLATION_ATTRIBUTES,
+        PARTICLE_SEQUENCE_MODE_OPTIONS,
+        PATH_GRID_MODES,
+        PATH_VIEW_OPTIONS,
         colorRampStops,
         colorRampStyle,
         activeColorRampStop,
@@ -1312,7 +1213,6 @@ export function particleSystemModel(props, emit) {
         addActiveParticleSequenceTexture,
         updateActiveParticleSequenceTexture,
         removeActiveParticleSequenceTexture,
-        particleSequenceModeOptions: PARTICLE_SEQUENCE_MODE_OPTIONS,
         interpolationPointY,
         resetPathFollow,
         updatePathPoint,

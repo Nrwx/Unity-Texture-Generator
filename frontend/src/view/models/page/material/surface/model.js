@@ -1,247 +1,8 @@
 import { computed, ref } from "vue";
 import { colorArrayToHex, hexToRgbaArray } from "@/utils/color";
-import { Node } from "@/view/models/page/material/core/Node/Node";
 import { clone, hasChanged } from "@/utils/tools";
 import { uuid } from "@/utils/uuid";
-
-export const SURFACE_FIELDS = Object.freeze([
-    { key: "baseColor", label: "Base Color", type: "color" },
-    { key: "subsurface", label: "Subsurface", type: "number", min: 0, max: 1, step: 0.001 },
-    { key: "subsurfaceRadius", label: "Subsurface Radius", type: "vector3" },
-    { key: "subsurfaceColor", label: "Subsurface Color", type: "color" },
-    { key: "subsurfaceScale", label: "Subsurface Scale", type: "number", min: 0, max: 50, step: 0.01 },
-    { key: "subsurfaceIor", label: "Subsurface IOR", type: "number", min: 1, max: 2, step: 0.001 },
-    { key: "subsurfaceAnisotropy", label: "Subsurface Anisotropy", type: "number", min: 0, max: 1, step: 0.001 },
-    { key: "metallic", label: "Metallic", type: "number", min: 0, max: 1, step: 0.001 },
-    { key: "specular", label: "Specular IOR Level", type: "number", min: 0, max: 1, step: 0.001 },
-    { key: "specularTint", label: "Specular Tint", type: "number", min: 0, max: 1, step: 0.001 },
-    { key: "roughness", label: "Roughness", type: "number", min: 0, max: 1, step: 0.001 },
-    { key: "diffuseRoughness", label: "Diffuse Roughness", type: "number", min: 0, max: 1, step: 0.001 },
-    { key: "anisotropic", label: "Anisotropic", type: "number", min: 0, max: 1, step: 0.001 },
-    { key: "anisotropicRotation", label: "Anisotropic Rotation", type: "number", min: 0, max: 1, step: 0.001 },
-    { key: "sheen", label: "Sheen", type: "number", min: 0, max: 1, step: 0.001 },
-    { key: "sheenRoughness", label: "Sheen Roughness", type: "number", min: 0, max: 1, step: 0.001 },
-    { key: "sheenTint", label: "Sheen Tint", type: "number", min: 0, max: 1, step: 0.001 },
-    { key: "clearcoat", label: "Coat Weight", type: "number", min: 0, max: 1, step: 0.001 },
-    { key: "clearcoatRoughness", label: "Coat Roughness", type: "number", min: 0, max: 1, step: 0.001 },
-    { key: "coatIor", label: "Coat IOR", type: "number", min: 1, max: 2, step: 0.001 },
-    { key: "coatTint", label: "Coat Tint", type: "color" },
-    { key: "ior", label: "IOR", type: "number", min: 1, max: 4, step: 0.001 },
-    { key: "transmission", label: "Transmission Weight", type: "number", min: 0, max: 1, step: 0.001 },
-    { key: "transmissionRoughness", label: "Transmission Roughness", type: "number", min: 0, max: 1, step: 0.001 },
-    { key: "emission", label: "Emission", type: "color" },
-    { key: "emissionStrength", label: "Emission Strength", type: "number", min: 0, max: 10, step: 0.01 },
-    { key: "thinFilmThickness", label: "Thin Film Thickness", type: "number", min: 0, max: 1200, step: 1 },
-    { key: "thinFilmIor", label: "Thin Film IOR", type: "number", min: 1, max: 2, step: 0.001 },
-    { key: "alpha", label: "Alpha", type: "number", min: 0, max: 1, step: 0.001 },
-    { key: "normal", label: "Normal", type: "number", min: 0, max: 1, step: 0.001 },
-    { key: "clearcoatNormal", label: "Clearcoat Normal", type: "number", min: 0, max: 1, step: 0.001 },
-    { key: "tangent", label: "Tangent", type: "number", min: 0, max: 1, step: 0.001 },
-    { key: "bumpStrength", label: "Bump / Height", type: "number", min: 0, max: 1, step: 0.001 },
-    { key: "displacementStrength", label: "Displacement Height", type: "number", min: 0, max: 1, step: 0.001, hidden: true },
-]);
-
-export const SURFACE_FIELD_MAP = Object.freeze(
-    SURFACE_FIELDS.reduce((acc, field) => {
-        acc[field.key] = field;
-        return acc;
-    }, {})
-);
-
-export const PRINCIPLED_SURFACE_GROUPS = Object.freeze([
-    {
-        key: "baseColor",
-        label: "Base Color",
-        relation: "Diffuse, subsurface, metal and transmission color",
-    },
-    {
-        key: "metallic",
-        label: "Metallic",
-        relation: "Dielectric to metal reflection blend",
-    },
-    {
-        key: "roughness",
-        label: "Roughness",
-        relation: "Specular and transmission microfacet roughness",
-    },
-    {
-        key: "ior",
-        label: "IOR",
-        relation: "Specular and transmission refraction index",
-    },
-    {
-        key: "alpha",
-        label: "Alpha",
-        relation: "Surface opacity / texture alpha mask",
-    },
-    {
-        key: "normal",
-        label: "Normal",
-        relation: "Base layer normal response",
-    },
-    {
-        key: "subsurface",
-        label: "Subsurface",
-        relation: "Weight -> Radius -> Scale -> IOR -> Anisotropy",
-        affects: ["subsurfaceRadius", "subsurfaceColor", "subsurfaceScale", "subsurfaceIor", "subsurfaceAnisotropy"],
-    },
-    {
-        key: "specular",
-        label: "Specular",
-        relation: "IOR Level -> Tint -> Anisotropic -> Anisotropic Rotation -> Tangent",
-        affects: ["specularTint", "anisotropic", "anisotropicRotation", "tangent"],
-    },
-    {
-        key: "transmission",
-        label: "Transmission",
-        relation: "Weight",
-        affects: ["transmissionRoughness"],
-    },
-    {
-        key: "clearcoat",
-        label: "Coat",
-        relation: "Weight -> Roughness -> IOR -> Tint -> Normal",
-        affects: ["clearcoatRoughness", "coatIor", "coatTint", "clearcoatNormal"],
-    },
-    {
-        key: "sheen",
-        label: "Sheen",
-        relation: "Weight -> Roughness -> Tint",
-        affects: ["sheenRoughness", "sheenTint"],
-    },
-    {
-        key: "emission",
-        label: "Emission",
-        relation: "Color -> Strength -> Tint",
-        affects: ["emissionStrength"],
-    },
-].map(group => ({
-    ...group,
-    field: SURFACE_FIELD_MAP[group.key],
-})));
-
-export const TEXTURE_CHANNEL_OPTIONS = Object.freeze(["rgba", "rgb"]);
-export const TEXTURE_COLOR_MODE_OPTIONS = Object.freeze(["color", "bw"]);
-
-export const BW_TEXTURE_SLOTS = Object.freeze([
-    "subsurface",
-    "subsurfaceScale",
-    "subsurfaceIor",
-    "subsurfaceAnisotropy",
-    "metallic",
-    "specular",
-    "specularTint",
-    "roughness",
-    "diffuseRoughness",
-    "anisotropic",
-    "anisotropicRotation",
-    "sheen",
-    "sheenRoughness",
-    "sheenTint",
-    "clearcoat",
-    "clearcoatRoughness",
-    "coatIor",
-    "ior",
-    "transmission",
-    "transmissionRoughness",
-    "emissionStrength",
-    "thinFilmThickness",
-    "thinFilmIor",
-    "alpha",
-    "normal",
-    "clearcoatNormal",
-    "tangent",
-    "bumpStrength",
-    "displacementStrength",
-]);
-
-export const getTextureSettingDefaults = slotKey => ({
-    ...Node.TEXTURE_SETTING_DEFAULTS,
-    color_mode: BW_TEXTURE_SLOTS.includes(slotKey) ? "bw" : "color",
-});
-
-export const createSurface = () => ({
-    baseColor: [1, 1, 1, 1],
-    subsurface: 0,
-    subsurfaceRadius: [1, 0.2, 0.1],
-    subsurfaceColor: [1, 1, 1, 1],
-    subsurfaceScale: 1,
-    subsurfaceIor: 1.45,
-    subsurfaceAnisotropy: 0,
-    metallic: 0,
-    specular: 0.5,
-    specularTint: 0,
-    roughness: 0.5,
-    diffuseRoughness: 0,
-    anisotropic: 0,
-    anisotropicRotation: 0,
-    sheen: 0,
-    sheenRoughness: 0.5,
-    sheenTint: 0.5,
-    clearcoat: 0,
-    clearcoatRoughness: 0.03,
-    coatIor: 1.5,
-    coatTint: [1, 1, 1, 1],
-    ior: 1.45,
-    transmission: 0,
-    transmissionRoughness: 0,
-    emission: [0, 0, 0, 1],
-    emissionStrength: 0,
-    thinFilmThickness: 0,
-    thinFilmIor: 1.33,
-    alpha: 1,
-    normal: 0,
-    clearcoatNormal: 0,
-    tangent: 0,
-    bumpStrength: 0,
-    displacementStrength: 0,
-});
-
-/**
- * @returns {Record<string, any>}
- */
-export const createBitmapMaps = () => {
-    return SURFACE_FIELDS.reduce((acc, field) => {
-        acc[field.key] = {
-            enabled: false,
-            source_type: "none",
-
-            layer_id: "",
-            url: "",
-            name: "",
-
-            node_id: "",
-            uv_node_id: "",
-
-            faces: {},
-            mapped_faces: [],
-            texture_groups: [],
-
-            filename: "",
-            cached: false,
-
-            ...getTextureSettingDefaults(field.key),
-
-            strength: 1,
-            offset: 0,
-            invert: false,
-            blend: "replace",
-        };
-
-        return acc;
-    }, /** @type {Record<string, any>} */ ({}));
-};
-
-const isBitmapSlotConnected = slot => {
-    return Boolean(
-        slot?.enabled ||
-        slot?.url ||
-        slot?.layer_id ||
-        slot?.node_id ||
-        slot?.source_type === "shader" ||
-        slot?.source_type === "multitexture"
-    );
-};
+import { createBitmapMaps, createSurface, PRINCIPLED_SURFACE_GROUPS, TEXTURE_CHANNEL_OPTIONS, TEXTURE_COLOR_MODE_OPTIONS } from "@/dataLayer/webgl";
 
 export const surfaceEditorProps = {
     name: {
@@ -267,56 +28,26 @@ export const surfaceEditorProps = {
 
 export function surfaceEditorModel(props, emit) {
     const selectedLayer = ref(null);
-    const surfaceGroups = computed(() => PRINCIPLED_SURFACE_GROUPS);
-    const textureChannelOptions = computed(() => TEXTURE_CHANNEL_OPTIONS);
-    const textureColorModeOptions = computed(() => TEXTURE_COLOR_MODE_OPTIONS);
-    const visibleSurfaceSlotKeys = computed(() => {return surfaceGroups.value.map(group => group.key);});
+    const visibleSurfaceSlotKeys = computed(() => {return PRINCIPLED_SURFACE_GROUPS.map(group => group.key);});
     const totalSurfaceSlots = computed(() => {return visibleSurfaceSlotKeys.value.length;});
     const connectedSurfaceSlotKeys = computed(() => {return visibleSurfaceSlotKeys.value.filter(key => {return isBitmapSlotConnected(props.bitmapMaps[key]);});});
     const connectedSurfaceSlots = computed(() => {return connectedSurfaceSlotKeys.value.length;});
     const availableTextureLayers = computed(() => {return props.textureLayers?.length || 0;});
-    const colorSlotKeys = computed(() => {return surfaceGroups.value.filter(group => group.field?.type === "color").map(group => group.key);});
+    const colorSlotKeys = computed(() => {return PRINCIPLED_SURFACE_GROUPS.filter(group => group.field?.type === "color").map(group => group.key);});
     const connectedColorSlots = computed(() => {return colorSlotKeys.value.filter(key => {return isBitmapSlotConnected(props.bitmapMaps[key]);}).length;});
-    const factorSlotKeys = computed(() => {return surfaceGroups.value.filter(group => group.field?.type === "number").map(group => group.key);});
+    const factorSlotKeys = computed(() => {return PRINCIPLED_SURFACE_GROUPS.filter(group => group.field?.type === "number").map(group => group.key);});
     const connectedFactorSlots = computed(() => {return factorSlotKeys.value.filter(key => {return isBitmapSlotConnected(props.bitmapMaps[key]);}).length;});
     const nodeTextureSlots = computed(() => {return visibleSurfaceSlotKeys.value.filter(key => {const slot = props.bitmapMaps[key];return (slot?.source_type === "shader" || slot?.source_type === "multitexture");}).length;});
     const changedSurfaceValues = computed(() => {const defaults = createSurface();return visibleSurfaceSlotKeys.value.filter(key => {return !hasChanged(props.surface[key], defaults[key]);}).length;});
-
-    const textureImageCount = computed(() => {
-        return props.textureLayers?.length || 0;
-    });
-
-    const selectedTextureImage = computed(() => {
-        return selectedLayer.value;
-    });
-
-    const hasSelectedTextureImage = computed(() => {
-        return Boolean(selectedTextureImage.value);
-    });
-
+    const textureImageCount = computed(() => {return props.textureLayers?.length || 0;});
+    const selectedTextureImage = computed(() => {return selectedLayer.value;});
+    const hasSelectedTextureImage = computed(() => {return Boolean(selectedTextureImage.value);});
     const textureImageHeaderMessage = computed(() => {
-        if (!textureImageCount.value) {
-            return "Keine Texturen";
-        }
-
-        if (!selectedTextureImage.value) {
-            return `${textureImageCount.value} Texturen`;
-        }
-
-        const width =
-            selectedTextureImage.value.width ||
-            selectedTextureImage.value.size?.width ||
-            selectedTextureImage.value.image?.width;
-
-        const height =
-            selectedTextureImage.value.height ||
-            selectedTextureImage.value.size?.height ||
-            selectedTextureImage.value.image?.height;
-
-        if (!width || !height) {
-            return `${textureImageCount.value} Texturen`;
-        }
-
+        if (!textureImageCount.value) return "Keine Texturen";
+        if (!selectedTextureImage.value) return `${textureImageCount.value} Texturen`;
+        const width = selectedTextureImage.value.width;
+        const height = selectedTextureImage.value.height;
+        if (!width || !height) return `${textureImageCount.value} Texturen`;
         return `${width} × ${height}`;
     });
 
@@ -584,6 +315,17 @@ export function surfaceEditorModel(props, emit) {
         return "Drop Layer here";
     };
 
+    const isBitmapSlotConnected = slot => {
+        return Boolean(
+            slot?.enabled ||
+            slot?.url ||
+            slot?.layer_id ||
+            slot?.node_id ||
+            slot?.source_type === "shader" ||
+            slot?.source_type === "multitexture"
+        );
+    };
+
     const clearMapSlot = slotKey => {
         selectedLayer.value = null;
         props.bitmapMaps[slotKey] = {
@@ -628,9 +370,9 @@ export function surfaceEditorModel(props, emit) {
     return {
         ui,
         selectedLayer,
-        surfaceGroups,
-        textureChannelOptions,
-        textureColorModeOptions,
+        PRINCIPLED_SURFACE_GROUPS,
+        TEXTURE_CHANNEL_OPTIONS,
+        TEXTURE_COLOR_MODE_OPTIONS,
 
         setLayer,
         setName,
