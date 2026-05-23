@@ -295,6 +295,31 @@ PARAMETERS = {
         "invert_colors": {"type": bool, "default": False},
         "color_lookup": {"type": int, "default": 0},
         # COLOR MODIFIER PARAMS END
+        # DETAILS MODIFIER
+        "details_effect": {"type": str, "default": "sharpness"},
+        "sharpness": {"type": float, "default": 1.5},
+        "blur": {"type": float, "default": 5},
+        "blur_mode": {"type": int, "default": 1},
+        "blur_radius": {"type": int, "default": 15},
+        "blur_falloff_mode": {"type": int, "default": 1},
+        "blur_type": {"type": int, "default": 1},
+        "edge_detection": {"type": bool, "default": True},
+        "edge_method": {"type": str, "default": "canny"},
+        "edge_threshold1": {"type": int, "default": 50},
+        "edge_threshold2": {"type": int, "default": 150},
+        "edge_kernel_size": {"type": int, "default": 3},
+        "edge_alpha": {"type": float, "default": 0.5},
+        "edge_threshold_min": {"type": int, "default": 1},
+        "edge_threshold_max": {"type": int, "default": 250},
+        "mask_expand": {"type": float, "default": 1.5},
+        "sharpness_boost": {"type": float, "default": 1.2},
+        "blending_intensity": {"type": float, "default": 50},
+        # POINT INFLUENCE
+        "points": {"type": str, "default": "[]"},
+        "point_radius": {"type": int, "default": 35},
+        "point_falloff": {"type": str, "default": "radial"},
+        "point_strength": {"type": float, "default": 1.0},
+        "point_chain": {"type": bool, "default": True},
     },
     "export": {
         "method": {"type": str, "required": True},
@@ -335,7 +360,34 @@ PARAMETERS = {
         "select_mask_y": {"type": int, "default": 0},
         "select_mask_width": {"type": int, "default": 0},
         "select_mask_height": {"type": int, "default": 0},
-        "select_mask_shape": {"type": str, "default": "rectangle"}
+        "select_mask_shape": {"type": str, "default": "rectangle"},
+
+        # DETAILS MODIFIER PREVIEW
+        "details_effect": {"type": str, "default": "sharpness"},
+        "sharpness": {"type": float, "default": 1.5},
+        "blur": {"type": float, "default": 5},
+        "blur_mode": {"type": int, "default": 1},
+        "blur_radius": {"type": int, "default": 15},
+        "blur_falloff_mode": {"type": int, "default": 1},
+        "blur_type": {"type": int, "default": 1},
+        "edge_detection": {"type": bool, "default": True},
+        "edge_method": {"type": str, "default": "canny"},
+        "edge_threshold1": {"type": int, "default": 50},
+        "edge_threshold2": {"type": int, "default": 150},
+        "edge_kernel_size": {"type": int, "default": 3},
+        "edge_alpha": {"type": float, "default": 0.5},
+        "edge_threshold_min": {"type": int, "default": 1},
+        "edge_threshold_max": {"type": int, "default": 250},
+        "mask_expand": {"type": float, "default": 1.5},
+        "sharpness_boost": {"type": float, "default": 1.2},
+        "blending_intensity": {"type": float, "default": 50},
+
+        # POINT INFLUENCE
+        "points": {"type": str, "default": "[]"},
+        "point_radius": {"type": int, "default": 35},
+        "point_falloff": {"type": str, "default": "radial"},
+        "point_strength": {"type": float, "default": 1.0},
+        "point_chain": {"type": bool, "default": True}
     },
     "path": {
         "method": {"type": str, "required": True},

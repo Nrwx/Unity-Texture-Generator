@@ -1,18 +1,10 @@
-import {computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch} from "vue";
+import {computed, onBeforeUnmount, onMounted, reactive, ref, watch} from "vue";
 
 import { settings } from "@/dataLayer/parameter";
+import {clamp, intersect} from "@/utils/tools";
+import {drawToCanvas} from "@/utils/canvas";
 
 const PREVIEW_DEBOUNCE_MS = 220;
-
-const clamp = (value, min, max) => {
-    const number = Number(value);
-
-    if (!Number.isFinite(number)) {
-        return min;
-    }
-
-    return Math.min(Math.max(number, min), max);
-};
 
 export function modifierColorModel(props, emit) {
     const previewCanvas = ref(null);
@@ -80,28 +72,6 @@ export function modifierColorModel(props, emit) {
         };
     };
 
-    const intersectBoxes = (a, b) => {
-        if (!a || !b) {
-            return null;
-        }
-
-        const left = Math.max(a.x, b.x);
-        const top = Math.max(a.y, b.y);
-        const right = Math.min(a.x + a.width, b.x + b.width);
-        const bottom = Math.min(a.y + a.height, b.y + b.height);
-
-        if (right <= left || bottom <= top) {
-            return null;
-        }
-
-        return {
-            x: left,
-            y: top,
-            width: right - left,
-            height: bottom - top,
-        };
-    };
-
     const getSelectMaskLayerBox = () => {
         if (!props.selectMask || !imageWidth.value || !imageHeight.value) {
             return null;
@@ -120,7 +90,7 @@ export function modifierColorModel(props, emit) {
             return null;
         }
 
-        const visibleSelectBox = intersectBoxes(selectBox, viewportBox);
+        const visibleSelectBox = intersect(selectBox, viewportBox);
 
         if (!visibleSelectBox) {
             return null;
@@ -135,7 +105,7 @@ export function modifierColorModel(props, emit) {
             height: imageHeight.value,
         };
 
-        const overlap = intersectBoxes(visibleSelectBox, layerBox);
+        const overlap = intersect(visibleSelectBox, layerBox);
 
         if (!overlap) {
             return null;
@@ -300,38 +270,6 @@ export function modifierColorModel(props, emit) {
         return "Ganze Ebene";
     });
 
-    const drawSrcToCanvas = async (src) => {
-        await nextTick();
-
-        if (!previewCanvas.value || !src) {
-            return;
-        }
-
-        const image = new Image();
-
-        image.crossOrigin = "anonymous";
-
-        image.onload = () => {
-            const canvas = previewCanvas.value;
-            const ctx = canvas.getContext("2d", { willReadFrequently: true });
-
-            if (!ctx) {
-                return;
-            }
-
-            const width = image.naturalWidth || image.width;
-            const height = image.naturalHeight || image.height;
-
-            canvas.width = width;
-            canvas.height = height;
-
-            ctx.clearRect(0, 0, width, height);
-            ctx.drawImage(image, 0, 0, width, height);
-        };
-
-        image.src = src;
-    };
-
     const requestPreviewNow = async () => {
         if (!props.layer?.id) {
             return;
@@ -415,15 +353,15 @@ export function modifierColorModel(props, emit) {
                 return;
             }
 
-            await drawSrcToCanvas(src);
+            if (previewCanvas.value) await drawToCanvas(src, previewCanvas.value);
         }
     );
 
     watch(
         () => props.layer?.url,
         async (url) => {
-            if (url) {
-                await drawSrcToCanvas(url);
+            if (url && previewCanvas.value) {
+                await drawToCanvas(url, previewCanvas.value);
                 requestPreviewDebounced();
             }
         },
@@ -447,8 +385,8 @@ export function modifierColorModel(props, emit) {
     onMounted(async () => {
         resetAll();
 
-        if (props.layer?.url) {
-            await drawSrcToCanvas(props.layer.url);
+        if (props.layer?.url && previewCanvas.value) {
+            await drawToCanvas(props.layer.url, previewCanvas.value);
         }
 
         requestPreviewDebounced();

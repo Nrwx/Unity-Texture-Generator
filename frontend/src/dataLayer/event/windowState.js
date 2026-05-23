@@ -343,4 +343,13 @@ export const windowStateEvent = (route) => ({
             route.loadingStates.modifierColor.value = false;
         }
     },
+    "modifier-details:state": async (payload) => {
+        route.modifierStates.details.value = payload;
+        if(!payload){
+            route.tempData.activeLayer.value = null;
+            route.tempData.preview.value.src = "";
+            route.tempData.preview.value.counter = 0;
+            route.loadingStates.modifierDetails.value = false;
+        }
+    },
 });

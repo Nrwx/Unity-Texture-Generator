@@ -18,7 +18,7 @@
     "project_name": "unity-texture-generator"
   },
   "dependencies": {
-    "last_build": "2026-05-22T16:05:55.198124Z",
+    "last_build": "2026-05-22T18:05:02.932003Z",
     "config": {
       "library_policy": {
         "auto_update": true,
@@ -909,6 +909,35 @@
             "select_mask_shape"
           ],
           "function": "color"
+        },
+        "details": {
+          "keys": [
+            "id",
+            "details_effect",
+            "sharpness",
+            "blur",
+            "blur_mode",
+            "blur_radius",
+            "blur_falloff_mode",
+            "blur_type",
+            "edge_detection",
+            "edge_method",
+            "edge_threshold1",
+            "edge_threshold2",
+            "edge_kernel_size",
+            "edge_alpha",
+            "edge_threshold_min",
+            "edge_threshold_max",
+            "mask_expand",
+            "sharpness_boost",
+            "blending_intensity",
+            "points",
+            "point_radius",
+            "point_falloff",
+            "point_strength",
+            "point_chain"
+          ],
+          "function": "details"
         }
       },
       "api": {
@@ -1179,6 +1208,35 @@
             "select_mask_shape"
           ],
           "function": "color_preview"
+        },
+        "details-preview": {
+          "keys": [
+            "id",
+            "details_effect",
+            "sharpness",
+            "blur",
+            "blur_mode",
+            "blur_radius",
+            "blur_falloff_mode",
+            "blur_type",
+            "edge_detection",
+            "edge_method",
+            "edge_threshold1",
+            "edge_threshold2",
+            "edge_kernel_size",
+            "edge_alpha",
+            "edge_threshold_min",
+            "edge_threshold_max",
+            "mask_expand",
+            "sharpness_boost",
+            "blending_intensity",
+            "points",
+            "point_radius",
+            "point_falloff",
+            "point_strength",
+            "point_chain"
+          ],
+          "function": "details_preview"
         },
         "thumbnail": {
           "keys": [

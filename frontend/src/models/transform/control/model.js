@@ -1,4 +1,5 @@
 import {computed, onBeforeUnmount, onMounted} from "vue";
+import {clamp} from "@/utils/tools";
 
 export function controlModel(props, emit) {
 
@@ -10,14 +11,14 @@ export function controlModel(props, emit) {
     const normalizedX = computed(() => {
         if (!props.data.width) return 0.5;
         const halfWidth = props.data.width / 2;
-        const clamped = Math.max(-halfWidth, Math.min(halfWidth, props.data.x));
+        const clamped = clamp(props.data.x, -halfWidth, halfWidth)
         return 0.5 + clamped / props.data.width;
     });
 
     const normalizedY = computed(() => {
         if (!props.data.height) return 0.5;
         const halfHeight = props.data.height / 2;
-        const clamped = Math.max(-halfHeight, Math.min(halfHeight, props.data.y));
+        const clamped = clamp(props.data.y, -halfHeight, halfHeight);
         return 0.5 + clamped / props.data.height;
     });
 

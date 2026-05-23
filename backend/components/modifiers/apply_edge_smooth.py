@@ -14,7 +14,7 @@ def apply_edge_smooth(pil_img, edge_threshold=(1, 250), mask_expand=1.5, sharpne
     np_img = np.array(pil_img)
     b, g, r, a = cv2.split(np_img)
 
-    # Halbtransparente Pixel identifizieren (z. B. durch Rotation entstanden)
+    # Halbtransparente Pixel identifizieren (z.B. durch Rotation entstanden)
     edge_mask = cv2.inRange(a, edge_threshold[0], edge_threshold[1])
 
     if mask_expand > 0:

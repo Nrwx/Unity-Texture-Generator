@@ -2,15 +2,26 @@ import os
 import uuid
 import shutil
 import base64
+
 from config.data.constant import LAYERS, VIEWPORT_CONFIG
 from model.base.main import BaseModel
 from model.layer_model import LayerModel
 from model.fonts_model import FontsModel
 from model.modifier_model import ModifierModel
-from components import (apply_channel, generate_text_path_map, render_svg, generate_thumbnail_map)
-from generated.paths import PUBLIC_TEMP_RENDER_FOLDER, PUBLIC_LAYER_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER
+from components import (
+    apply_channel,
+    generate_text_path_map,
+    render_svg,
+    generate_thumbnail_map,
+)
+from generated.paths import (
+    PUBLIC_TEMP_RENDER_FOLDER,
+    PUBLIC_LAYER_FOLDER,
+    PUBLIC_TEMP_UPLOAD_FOLDER,
+)
 from PIL import Image
-from utils import (layer_transform, time)
+from utils import layer_transform, time
+
 
 class RenderModel(BaseModel):
     @classmethod
@@ -21,51 +32,47 @@ class RenderModel(BaseModel):
 
             viewport_width = VIEWPORT_CONFIG[0]["width"]
             viewport_height = VIEWPORT_CONFIG[0]["height"]
-            composite_image = Image.new('RGBA', (viewport_width, viewport_height), (0, 0, 0, 0))
 
-            # --- layer_id immer als Liste behandeln ---
+            composite_image = Image.new(
+                "RGBA",
+                (viewport_width, viewport_height),
+                (0, 0, 0, 0),
+            )
+
             layer_ids = layer_id if isinstance(layer_id, list) else [layer_id] if layer_id else None
 
             if layer_ids:
-                render_layers = [l for l in LAYERS if l["id"] in layer_ids]
+                render_layers = [layer for layer in LAYERS if layer.get("id") in layer_ids]
+
                 if not render_layers:
                     return {"error": "None of the specified layer_ids found."}, 404
             else:
-                render_layers = [l for l in LAYERS if l.get("hidden", 0) != 1]
+                render_layers = [layer for layer in LAYERS if layer.get("hidden", 0) != 1]
 
             for layer in render_layers:
-                # Bild laden
-                if layer.get("type") == 2:  # Path Layer
-                    layer_img = render_svg(layer['id'])
-                    if not layer_img:
-                        continue
-                elif layer.get("type") == 1:  # Text Layer
-                    layer_img = FontsModel.render(layer)
-                    if not layer_img:
-                        continue
-                else:
-                    layer_path = os.path.join(PUBLIC_LAYER_FOLDER, f"{layer['id']}.png")
-                    if not os.path.exists(layer_path):
-                        continue
-                    layer_img = Image.open(layer_path).convert('RGBA')
+                layer_img = cls.load_layer_image(layer)
 
-                channel_config = layer.get("channel", {})
-                layer_img = apply_channel(layer_img, channel_config)
+                if not layer_img:
+                    continue
 
-                # Transformation anwenden
+                layer_img = cls.prepare_layer_image(layer, layer_img)
+
                 transformed_img, paste_x, paste_y = layer_transform(
                     layer,
                     layer_img,
-                    apply_opacity=True
+                    apply_opacity=True,
                 )
 
-                # In Gesamtdarstellung einfügen
-                composite_image.paste(transformed_img, (paste_x, paste_y), transformed_img)
+                composite_image.paste(
+                    transformed_img,
+                    (paste_x, paste_y),
+                    transformed_img,
+                )
 
-            # Speichern & Rückgabe
             map_id = str(uuid.uuid4())
             map_filename = f"{map_id}.png"
             map_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER, map_filename)
+
             composite_image.save(map_path, format="PNG", quality=100)
 
             if return_image:
@@ -74,11 +81,102 @@ class RenderModel(BaseModel):
             return {
                 "id": map_id,
                 "title": "preview",
-                "src": f"/download/{map_filename}"
+                "src": f"/download/{map_filename}?ts={time('unix_ms')}",
             }, 200
 
         except Exception as e:
             return cls.handle_error(e)
+
+    @classmethod
+    def load_layer_image(cls, layer):
+        """
+        Lädt genau ein Layer-Bild.
+        Unterstützt:
+        - type 2: SVG / Path Layer
+        - type 1: Text Layer
+        - default: PNG Layer aus PUBLIC_LAYER_FOLDER
+        """
+        if not layer:
+            return None
+
+        if layer.get("type") == 2:
+            layer_img = render_svg(layer["id"])
+
+            if not layer_img:
+                return None
+
+            return layer_img.convert("RGBA")
+
+        if layer.get("type") == 1:
+            layer_img = FontsModel.render(layer)
+
+            if not layer_img:
+                return None
+
+            return layer_img.convert("RGBA")
+
+        layer_path = os.path.join(
+            PUBLIC_LAYER_FOLDER,
+            f"{layer['id']}.png",
+        )
+
+        if not os.path.exists(layer_path):
+            return None
+
+        return Image.open(layer_path).convert("RGBA")
+
+    @classmethod
+    def prepare_layer_image(cls, layer, layer_img):
+        """
+        Wendet Channel-Konfiguration auf ein einzelnes Layer-Bild an.
+        """
+        channel_config = layer.get("channel", {})
+        return apply_channel(layer_img, channel_config)
+
+    @classmethod
+    def render_single_layer_preview(cls, layer, layer_img, title):
+        """
+        Rendert ausschließlich den angegebenen Layer in eine transparente Viewport-Fläche.
+        Andere sichtbare Layer werden bewusst ignoriert.
+
+        Das ist wichtig für Modifier-Previews:
+        - Color Preview zeigt nur den aktiven Layer.
+        - Details Preview zeigt nur den aktiven Layer.
+        """
+        viewport_width = VIEWPORT_CONFIG[0]["width"]
+        viewport_height = VIEWPORT_CONFIG[0]["height"]
+
+        composite_image = Image.new(
+            "RGBA",
+            (viewport_width, viewport_height),
+            (0, 0, 0, 0),
+        )
+
+        layer_img = cls.prepare_layer_image(layer, layer_img)
+
+        transformed_img, paste_x, paste_y = layer_transform(
+            layer,
+            layer_img,
+            apply_opacity=True,
+        )
+
+        composite_image.paste(
+            transformed_img,
+            (paste_x, paste_y),
+            transformed_img,
+        )
+
+        map_id = str(uuid.uuid4())
+        map_filename = f"{map_id}.png"
+        map_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER, map_filename)
+
+        composite_image.save(map_path, format="PNG", quality=100)
+
+        return {
+            "id": map_id,
+            "title": title,
+            "src": f"/download/{map_filename}?ts={time('unix_ms')}",
+        }, 200
 
     @classmethod
     def color_preview(
@@ -96,98 +194,143 @@ class RenderModel(BaseModel):
         select_mask_y=0,
         select_mask_width=0,
         select_mask_height=0,
-        select_mask_shape="rectangle"
+        select_mask_shape="rectangle",
     ):
         try:
             if not LAYERS:
                 return {"error": "No layers to preview"}, 404
 
-            viewport_width = VIEWPORT_CONFIG[0]["width"]
-            viewport_height = VIEWPORT_CONFIG[0]["height"]
-
-            composite_image = Image.new(
-                "RGBA",
-                (viewport_width, viewport_height),
-                (0, 0, 0, 0)
+            target_layer = next(
+                (layer for layer in LAYERS if layer.get("id") == id),
+                None,
             )
-
-            target_layer = next((l for l in LAYERS if l.get("id") == id), None)
 
             if not target_layer:
                 return {"error": f"Layer with id '{id}' not found."}, 404
 
-            render_layers = [l for l in LAYERS if l.get("hidden", 0) != 1]
+            layer_img = cls.load_layer_image(target_layer)
 
-            for layer in render_layers:
-                if layer.get("type") == 2:
-                    layer_img = render_svg(layer["id"])
+            if not layer_img:
+                return {"error": f"Layer image for id '{id}' not found."}, 404
 
-                    if not layer_img:
-                        continue
+            layer_img = ModifierModel.apply_color_stack(
+                image=layer_img,
+                layer=target_layer,
 
-                elif layer.get("type") == 1:
-                    layer_img = FontsModel.render(layer)
+                brightness=brightness,
+                contrast=contrast,
+                color_shift=color_shift,
+                hue_variation=hue_variation,
+                invert_colors=invert_colors,
+                color_lookup=color_lookup,
 
-                    if not layer_img:
-                        continue
+                mask_type=mask_type,
+                select_mask_x=select_mask_x,
+                select_mask_y=select_mask_y,
+                select_mask_width=select_mask_width,
+                select_mask_height=select_mask_height,
+                select_mask_shape=select_mask_shape,
+            )
 
-                else:
-                    layer_path = os.path.join(
-                        PUBLIC_LAYER_FOLDER,
-                        f"{layer['id']}.png"
-                    )
+            return cls.render_single_layer_preview(
+                layer=target_layer,
+                layer_img=layer_img,
+                title="modifier-color-preview",
+            )
 
-                    if not os.path.exists(layer_path):
-                        continue
+        except Exception as e:
+            return cls.handle_error(e)
 
-                    layer_img = Image.open(layer_path).convert("RGBA")
+    @classmethod
+    def details_preview(
+        cls,
+        id,
 
-                if layer.get("id") == id:
-                    layer_img = ModifierModel.apply_color_stack(
-                        image=layer_img,
-                        layer=layer,
+        details_effect="sharpness",
 
-                        brightness=brightness,
-                        contrast=contrast,
-                        color_shift=color_shift,
-                        hue_variation=hue_variation,
-                        invert_colors=invert_colors,
-                        color_lookup=color_lookup,
+        sharpness=1.5,
 
-                        mask_type=mask_type,
-                        select_mask_x=select_mask_x,
-                        select_mask_y=select_mask_y,
-                        select_mask_width=select_mask_width,
-                        select_mask_height=select_mask_height,
-                        select_mask_shape=select_mask_shape,
-                    )
+        blur=5,
+        blur_mode=1,
+        blur_radius=15,
+        blur_falloff_mode=1,
+        blur_type=1,
 
-                channel_config = layer.get("channel", {})
-                layer_img = apply_channel(layer_img, channel_config)
+        edge_detection=True,
+        edge_method="canny",
+        edge_threshold1=50,
+        edge_threshold2=150,
+        edge_kernel_size=3,
+        edge_alpha=0.5,
 
-                transformed_img, paste_x, paste_y = layer_transform(
-                    layer,
-                    layer_img,
-                    apply_opacity=True
-                )
+        edge_threshold_min=1,
+        edge_threshold_max=250,
+        mask_expand=1.5,
+        sharpness_boost=1.2,
 
-                composite_image.paste(
-                    transformed_img,
-                    (paste_x, paste_y),
-                    transformed_img
-                )
+        blending_intensity=50,
 
-            map_id = str(uuid.uuid4())
-            map_filename = f"{map_id}.png"
-            map_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER, map_filename)
+        points="[]",
+        point_radius=35,
+        point_falloff="radial",
+        point_strength=1.0,
+        point_chain=True,
+    ):
+        try:
+            if not LAYERS:
+                return {"error": "No layers to preview"}, 404
 
-            composite_image.save(map_path, format="PNG", quality=100)
+            target_layer = next(
+                (layer for layer in LAYERS if layer.get("id") == id),
+                None,
+            )
 
-            return {
-                "id": map_id,
-                "title": "modifier-color-preview",
-                "src": f"/download/{map_filename}?ts={time('unix_ms')}"
-            }, 200
+            if not target_layer:
+                return {"error": f"Layer with id '{id}' not found."}, 404
+
+            layer_img = cls.load_layer_image(target_layer)
+
+            if not layer_img:
+                return {"error": f"Layer image for id '{id}' not found."}, 404
+
+            layer_img = ModifierModel.apply_details_stack(
+                image=layer_img,
+                details_effect=details_effect,
+
+                sharpness=sharpness,
+
+                blur=blur,
+                blur_mode=blur_mode,
+                blur_radius=blur_radius,
+                blur_falloff_mode=blur_falloff_mode,
+                blur_type=blur_type,
+
+                edge_detection=edge_detection,
+                edge_method=edge_method,
+                edge_threshold1=edge_threshold1,
+                edge_threshold2=edge_threshold2,
+                edge_kernel_size=edge_kernel_size,
+                edge_alpha=edge_alpha,
+
+                edge_threshold_min=edge_threshold_min,
+                edge_threshold_max=edge_threshold_max,
+                mask_expand=mask_expand,
+                sharpness_boost=sharpness_boost,
+
+                blending_intensity=blending_intensity,
+
+                points=points,
+                point_radius=point_radius,
+                point_falloff=point_falloff,
+                point_strength=point_strength,
+                point_chain=point_chain,
+            )
+
+            return cls.render_single_layer_preview(
+                layer=target_layer,
+                layer_img=layer_img,
+                title="details-preview",
+            )
 
         except Exception as e:
             return cls.handle_error(e)
@@ -195,7 +338,8 @@ class RenderModel(BaseModel):
     @classmethod
     def text_to_path(cls, id):
         try:
-            layer = next((l for l in LAYERS if l.get("id") == id), None)
+            layer = next((layer for layer in LAYERS if layer.get("id") == id), None)
+
             if not layer:
                 raise ValueError(f"Layer mit ID '{id}' nicht gefunden")
 
@@ -212,49 +356,49 @@ class RenderModel(BaseModel):
                 "strokeDashType": "",
                 "fill": path_map["fill"],
                 "fillOpacity": 1,
-                "gradient": {"type": "linear", "angle": 90, "stops": []},
-                "closed": True
+                "gradient": {
+                    "type": "linear",
+                    "angle": 90,
+                    "stops": [],
+                },
+                "closed": True,
             }
+
             new_layer, status_code = LayerModel.addPath(**add_form)
+
             if status_code != 200:
                 return {"error": "Neuer Pfad-Layer konnte nicht hinzugefügt werden"}, 500
 
             delete_result, delete_status = LayerModel.delete(layer["id"])
+
             if delete_status != 200:
                 return {"error": "Alter Layer konnte nicht gelöscht werden"}, 500
 
             if layer in LAYERS:
                 LAYERS.remove(layer)
 
-            return {"message": f"Umwandlung erfolgreich auf ID {new_layer['id']}"}, 200
+            return {
+                "message": f"Umwandlung erfolgreich auf ID {new_layer['id']}",
+            }, 200
+
         except Exception as e:
             return cls.handle_error(e)
 
     @classmethod
     def upload_base64(cls, image_base64, id=None):
-        """
-        Nimmt einen Base64-String (PNG) und speichert ihn im Upload-Folder.
-        Optional kann eine Layer-ID mitgegeben werden, ansonsten wird eine UUID erzeugt.
-        Gibt URL, ID und Pfad zurück.
-        """
         try:
-            # Falls "data:image/png;base64," enthalten ist, entfernen
             if image_base64.startswith("data:image"):
                 image_base64 = image_base64.split(",", 1)[1]
 
-            # Base64 dekodieren
             image_data = base64.b64decode(image_base64)
 
-            # Falls keine ID angegeben wurde, generieren wir eine neue
             layer_id = id or str(uuid.uuid4())
             filename = f"{layer_id}.png"
             file_path = os.path.join(PUBLIC_LAYER_FOLDER, filename)
 
-            # Datei schreiben
-            with open(file_path, "wb") as f:
-                f.write(image_data)
+            with open(file_path, "wb") as file:
+                file.write(image_data)
 
-            # Rückgabe-URL
             return {
                 "id": layer_id,
                 "url": f"/download/{filename}",
@@ -265,41 +409,35 @@ class RenderModel(BaseModel):
 
     @classmethod
     def overwrite_image(cls, id, files):
-        """
-        Überschreibt das Bild eines bestehenden Layers mit einem PNG-Blob/File
-        """
         try:
-            # Layer prüfen
-            layer = next((l for l in LAYERS if l.get("id") == id), None)
+            layer = next((layer for layer in LAYERS if layer.get("id") == id), None)
+
             if not layer:
                 return {"error": "Layer not found"}, 404
 
-            # Zielpfad
             file_path = os.path.join(PUBLIC_LAYER_FOLDER, f"{id}.png")
-            if "file" in files:
-                img = Image.open(files["file"].stream)
-                width, height = img.size
-                img.save(file_path, "PNG", optimize=True)
 
-            # Layer-Metadaten aktualisieren
+            if "file" not in files:
+                return {"error": "No file provided"}, 400
+
+            img = Image.open(files["file"].stream)
+            width, height = img.size
+            img.save(file_path, "PNG", optimize=True)
+
             layer["width"] = width
             layer["height"] = height
             layer["time"] = time("unix_ms")
-
-            # Cache-Busting URL
             layer["url"] = f"/download/{id}.png?t={layer['time']}"
-
-            # Thumbnail neu erzeugen
             layer["thumbnail"] = generate_thumbnail_map(
                 id,
                 path=file_path,
-                size=64
+                size=64,
             )
 
             return {
                 "success": True,
                 "id": id,
-                "url": layer["url"]
+                "url": layer["url"],
             }, 200
 
         except Exception as e:
@@ -307,7 +445,4 @@ class RenderModel(BaseModel):
 
     @staticmethod
     def _thumbnail(id, path, size=128):
-        """
-        Erzeugt ein Thumbnail über externe Utility und gibt die URL zurück.
-        """
         return generate_thumbnail_map(id, path, size)

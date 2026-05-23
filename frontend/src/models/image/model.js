@@ -1,14 +1,13 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { eventRegister } from "@/dataLayer/event";
+import {clamp, lerp} from "@/utils/tools";
+import {applyEase, easeIn, easeInOut, easeOut, linear} from "@/utils/animation";
 
 const DEFAULT_MATRIX = Object.freeze({
     a: 1, b: 0, c: 0, d: 1,
     x: 0, y: 0,
     rotate: 0
 });
-
-const lerp = (a, b, t) => a + (b - a) * t;
-const clamp01 = (t) => Math.max(0, Math.min(1, t));
 
 const normalizeMatrix = (m = {}) => ({
     a: Number.isFinite(m.a) ? m.a : 1,
@@ -20,24 +19,19 @@ const normalizeMatrix = (m = {}) => ({
     rotate: Number.isFinite(m.rotate) ? m.rotate : 0
 });
 
-const applyBezierEase = (t, cp1, cp2) => {
-    const u = 1 - t;
-    return (3 * u * u * t * cp1.value) + (3 * u * t * t * cp2.value) + (t * t * t);
-};
-
 const applyEasing = (factor, easeType, bezier) => {
-    const t = clamp01(factor);
+    const t = clamp(factor);
     if (easeType === "linear") return t;
-    if (bezier?.cp1 && bezier?.cp2) return applyBezierEase(t, bezier.cp1, bezier.cp2);
+    if (bezier?.cp1 && bezier?.cp2) return applyEase(t, [0, bezier.cp1, bezier.cp2, 1]);
 
     const easeFns = {
-        linear: (x) => x,
-        "ease-in": (x) => x * x,
-        "ease-out": (x) => x * (2 - x),
-        "ease-in-out": (x) => (x < 0.5 ? 2 * x * x : -1 + (4 - 2 * x) * x),
+        linear,
+        "ease-in": easeIn,
+        "ease-out": easeOut,
+        "ease-in-out": easeInOut
     };
 
-    return clamp01((easeFns[easeType] || easeFns.linear)(t));
+    return clamp((easeFns[easeType] || easeFns.linear)(t));
 };
 
 export function imageModel(props, emit) {

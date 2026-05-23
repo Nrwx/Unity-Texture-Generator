@@ -1,4 +1,5 @@
 import {computed, onBeforeUnmount, onMounted, reactive} from "vue";
+import {clamp} from "@/utils/tools";
 
 const RESIZE_STEPS = [
     {
@@ -69,16 +70,6 @@ const UPSCALE_METHODS = [
         description: "Aktuell Placeholder über OpenCV Cubic.",
     },
 ];
-
-const clamp = (value, min, max) => {
-    const number = Number(value);
-
-    if (!Number.isFinite(number)) {
-        return min;
-    }
-
-    return Math.min(Math.max(number, min), max);
-};
 
 export function modifierResizeModel(props, emit) {
 

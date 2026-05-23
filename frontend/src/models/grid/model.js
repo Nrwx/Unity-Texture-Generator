@@ -2,6 +2,9 @@ import {computed, nextTick, onBeforeUnmount, onMounted, ref} from "vue";
 import {uuid} from "@/utils/uuid";
 import {eventRegister} from "@/dataLayer/event";
 import {useMouse} from "@/composables/mouse/model";
+import {clamp, distance, getRect, hasChanged, store} from "@/utils/tools";
+import {parseColor} from "@/utils/color";
+import {getSnappedAngle} from "@/utils/transform";
 
 export function gridModel(props, emit) {
 
@@ -199,29 +202,6 @@ export function gridModel(props, emit) {
         return off;
     };
 
-    const parseColor = (() => {
-        const cache = {};
-        const context = document.createElement('canvas').getContext('2d');
-
-        return (str) => {
-            if (cache[str]) return cache[str];
-
-            context.fillStyle = str;
-            context.fillRect(0, 0, 1, 1);
-
-            const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data;
-
-            cache[str] = {
-                r,
-                g,
-                b,
-                a: a / 255
-            };
-
-            return cache[str];
-        };
-    })();
-
     const resizeDirection = ref('');
     const rotationStartAngle = ref(0);
     const fineSnapAngle = 360 / 64; // 5.625° pro Schritt
@@ -271,8 +251,6 @@ export function gridModel(props, emit) {
 
         anchorPoint.value = { x: 0.5, y: 0.5 };
     };
-
-    const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
     const cycleAlignMode = (e) => {
         if (props.layerStates.align.value) {
@@ -549,26 +527,6 @@ export function gridModel(props, emit) {
         return angle * (180 / Math.PI);
     };
 
-    const getSnappedAngle = (angle) => {
-        const remainder = angle % fineSnapAngle;
-        if (remainder < fineSnapAngle / 2) {
-            return angle - remainder;
-        } else {
-            return angle + (fineSnapAngle - remainder);
-        }
-    };
-
-    const getRect = (target) => {
-        let el = target;
-        if (typeof target === 'string') {
-            el = document.querySelector(target);
-        }
-        if (!el || !el.getBoundingClientRect) {
-            return null;
-        }
-        return el.getBoundingClientRect();
-    };
-
     const rotate = async (event) => {
         emitEvent('backup:action', 'Bild Rotieren')
         event.preventDefault();
@@ -579,9 +537,9 @@ export function gridModel(props, emit) {
 
         const dx = event.clientX - centerX;
         const dy = event.clientY - centerY;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        const pDistance = distance(dx, dy);
 
-        const dampingFactor = Math.min(1, distance / 100);
+        const dampingFactor = Math.min(1, pDistance / 100);
 
         const currentAngle = calculateRotation(event.clientX, event.clientY);
         let deltaAngle = currentAngle - rotationStartAngle.value;
@@ -596,7 +554,7 @@ export function gridModel(props, emit) {
                 let newRotation = (layer.matrix.rotate + deltaAngle + 360) % 360;
 
                 if (props.layerStates.align.value) {
-                    newRotation = getSnappedAngle(newRotation);
+                    newRotation = getSnappedAngle(newRotation, fineSnapAngle);
                 }
 
                 layer.matrix.rotate = parseFloat(newRotation.toFixed(2));
@@ -605,7 +563,7 @@ export function gridModel(props, emit) {
             let newRotation = (grid.value.container.matrix.rotate + deltaAngle + 360) % 360;
 
             if (props.containerStates.align?.value) {
-                newRotation = getSnappedAngle(newRotation);
+                newRotation = getSnappedAngle(newRotation, fineSnapAngle);
             }
 
             grid.value.container.matrix.rotate = parseFloat(newRotation.toFixed(2));
@@ -658,7 +616,7 @@ export function gridModel(props, emit) {
         mouse.setLast(event);
 
         props.selectedLayer.forEach(layer => {
-            storeLayer(layer);
+            store(layer, "matrix", "__originalMatrix");
         });
 
         register("add", window, "pointerup", stopTransform);
@@ -762,32 +720,8 @@ export function gridModel(props, emit) {
         grid.value.container.matrix = {a: 1, b: 0, c: 0, d: 1, x: 0, y: 0, rotate: 0}
     };
 
-    const layerChanged = (a, b) => {
-        if (!a || !b) return false;
-
-        for (const key in a) {
-            if (a[key] !== b[key]) {
-                return true;
-            }
-        }
-
-        return false;
-    };
-
-    const storeLayer = (layer) => {
-        layer.__originalMatrix = {
-            a: layer.matrix.a,
-            b: layer.matrix.b,
-            c: layer.matrix.c,
-            d: layer.matrix.d,
-            x: layer.matrix.x,
-            y: layer.matrix.y,
-            rotate: layer.matrix.rotate
-        };
-    };
-
     const updateLayer = (layer) => {
-        const check = layerChanged(layer.__originalMatrix, layer.matrix)
+        const check = hasChanged(layer.__originalMatrix, layer.matrix)
         if (check) {
             emitEvent("backup:create-global", {id: layer.id, state: layer, title: props.backup});
             emitEvent('update-layer', layer);
@@ -802,10 +736,10 @@ export function gridModel(props, emit) {
         emitEvent('reset:layer-states', false)
         const data = props.selectedLayer;
         const index = data.findIndex(l => l.id === layer.id);
-        storeLayer(layer);
+        store(layer, "matrix", "__originalMatrix");
         if (event.ctrlKey) {
             if (index === -1) {
-                storeLayer(layer);
+                store(layer, "matrix", "__originalMatrix");
                 data.push(layer);
                 emitEvent('layer:select', data);
             } else {
@@ -813,7 +747,7 @@ export function gridModel(props, emit) {
                 emitEvent('layer:select', data);
             }
         } else {
-            storeLayer(layer);
+            store(layer, "matrix", "__originalMatrix");
             emitEvent('layer:select',[layer]);
         }
         syncAnchorToSelection();

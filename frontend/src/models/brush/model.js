@@ -3,6 +3,7 @@ import { eventRegister } from "@/dataLayer/event";
 import { nowMs } from "@/utils/dayJs";
 import { matrixCombine } from "@/utils/matrix";
 import { useMouse } from "@/composables/mouse/model";
+import {clamp, lerp} from "@/utils/tools";
 
 export function brushModel(props, emit) {
     const canvas = ref(null);
@@ -148,14 +149,6 @@ export function brushModel(props, emit) {
         elementId: props.canvasId,
         mode: "local",
     });
-
-    const clamp = (v, min = 0, max = 1) => {
-        return Math.min(max, Math.max(min, Number.isFinite(v) ? v : min));
-    };
-
-    const lerp = (a, b, t) => {
-        return a + (b - a) * t;
-    };
 
     const getMoveThreshold = () => {
         /**

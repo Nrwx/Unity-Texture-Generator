@@ -1,5 +1,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { eventRegister } from "@/dataLayer/event";
+import {clamp} from "@/utils/tools";
+import {getNiceStep} from "@/utils/ui";
 
 export function guideModel(props, emit) {
     const guide = ref(null);
@@ -17,10 +19,6 @@ export function guideModel(props, emit) {
     };
 
     const { register } = eventRegister("listener:guide-panel", emitEvent);
-
-    const clamp = (value, min, max) => {
-        return Math.max(min, Math.min(max, value));
-    };
 
     const getUnitSuffix = () => {
         const unit = props.settings.unit || "px";
@@ -61,34 +59,6 @@ export function guideModel(props, emit) {
         }
 
         return `${Number(value.toFixed(2))}${getUnitSuffix()}`;
-    };
-
-    /**
-     * Gibt schöne Werte zurück:
-     * 1, 2, 5, 10, 20, 50, 100, 200, 500 ...
-     */
-    const getNiceStep = (rawStep) => {
-        if (!Number.isFinite(rawStep) || rawStep <= 0) {
-            return 50;
-        }
-
-        const exponent = Math.floor(Math.log10(rawStep));
-        const base = Math.pow(10, exponent);
-        const fraction = rawStep / base;
-
-        let niceFraction;
-
-        if (fraction <= 1) {
-            niceFraction = 1;
-        } else if (fraction <= 2) {
-            niceFraction = 2;
-        } else if (fraction <= 5) {
-            niceFraction = 5;
-        } else {
-            niceFraction = 10;
-        }
-
-        return niceFraction * base;
     };
 
     const getRulerStep = (scale) => {

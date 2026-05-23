@@ -1,6 +1,7 @@
 import { ref, onMounted, onBeforeUnmount } from "vue";
 import { eventRegister } from "@/dataLayer/event";
 import { uuid } from "@/utils/uuid";
+import {clamp, clone} from "@/utils/tools";
 
 export function pathDragModel(props, emit) {
     const wrapper = ref(null);
@@ -17,12 +18,6 @@ export function pathDragModel(props, emit) {
 
     const emitEvent = (event, payload) => emit("update:component-event", event, payload);
     const { register } = eventRegister("listener:path", emitEvent);
-
-    const deepClone = (value) => JSON.parse(JSON.stringify(value));
-
-    const clamp = (value, min, max) => {
-        return Math.max(min, Math.min(max, value));
-    };
 
     const getPointerPosition = (e) => {
         if (!wrapper.value) {
@@ -109,7 +104,7 @@ export function pathDragModel(props, emit) {
     };
 
     const translatePath = (path, dx, dy) => {
-        const nextPath = deepClone(path);
+        const nextPath = clone(path);
 
         if (Array.isArray(nextPath.points)) {
             nextPath.points.forEach((pt) => {
@@ -142,7 +137,7 @@ export function pathDragModel(props, emit) {
     };
 
     const transformPathFromOrigin = (originPath, pivotX, pivotY, scaleX, scaleY) => {
-        const nextPath = deepClone(originPath);
+        const nextPath = clone(originPath);
 
         if (Array.isArray(nextPath.points)) {
             nextPath.points.forEach((pt) => {
@@ -200,7 +195,7 @@ export function pathDragModel(props, emit) {
 
         const startMouse = getPointerPosition(e);
 
-        const selectedPath = deepClone(props.selected);
+        const selectedPath = clone(props.selected);
         const selectedBounds = getBounds(selectedPath.points || []);
 
         const moveX = startMouse.x - selectedBounds.minX;
@@ -218,7 +213,7 @@ export function pathDragModel(props, emit) {
             startY: startMouse.y,
         };
 
-        dragPath.value = deepClone(originPath);
+        dragPath.value = clone(originPath);
 
         emitEvent("path-drag-state", true);
 

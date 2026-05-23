@@ -50,13 +50,16 @@ export const loadingStates = {
     mixer: ref(false),
     viewport: ref(false),
     modifierColor: ref(false),
-    modifierColorPreview: ref(false)
+    modifierDetails: ref(false),
+    modifierColorPreview: ref(false),
+    modifierDetailsPreview: ref(false)
 };
 
 export const modifierStates = {
     fill: ref(false),
     resize: ref(false),
-    color: ref(false)
+    color: ref(false),
+    details: ref(false)
 };
 
 export const timelineStates = {

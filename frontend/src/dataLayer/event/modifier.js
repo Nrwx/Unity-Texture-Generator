@@ -43,9 +43,21 @@ export const modifierEvent = (route) => ({
         }
     },
 
-    "modifier:color-preview-src": async (payload) => {
-        route.tempData.preview.value.src = payload.src;
-        route.loadingStates.modifierColorPreview.value = false;
+    "modifier:details-preview": async (payload) => {
+        route.loadingStates.modifierDetailsPreview.value = true;
+        route.tempData.preview.value.counter = payload.requestId;
+        const response = await route.api.detailsPreview(payload);
+        if (
+            response?.src &&
+            route.tempData.preview.value.counter === payload.requestId
+        ) {
+            await route.emit("modifier:details-preview-src", {
+                requestId: payload.requestId,
+                id: response.id,
+                title: response.title,
+                src: response.src,
+            });
+        }
     },
 
     "modifier:color-applied": async (payload) => {
@@ -63,6 +75,31 @@ export const modifierEvent = (route) => ({
             await route.emit("modifier-color:state", false);
             await route.emit("fetch-layer");
         }
+    },
+
+    "modifier:details-applied": async (payload) => {
+        route.loadingStates.modifierDetails.value = true;
+        const response = await route.api.detailsModifier(payload);
+
+        if (response) {
+            route.tempData.activeLayer.value = null;
+            route.tempData.preview.value.src = "";
+            route.tempData.preview.value.counter = 0;
+            route.loadingStates.modifierDetails.value = false;
+
+            await route.emit("modifier-details:state", false);
+            await route.emit("fetch-layer");
+        }
+    },
+
+    "modifier:details-preview-src": async (payload) => {
+        route.tempData.preview.value = payload;
+        route.loadingStates.modifierDetailsPreview.value = false;
+    },
+
+    "modifier:color-preview-src": async (payload) => {
+        route.tempData.preview.value = payload;
+        route.loadingStates.modifierColorPreview.value = false;
     },
 
     "select:mask-shape": async (payload) => {

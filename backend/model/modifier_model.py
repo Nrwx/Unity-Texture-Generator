@@ -3,6 +3,8 @@ import os
 import uuid
 import shutil
 import numpy as np
+import json
+import cv2
 
 from generated.paths import (
     PUBLIC_LAYER_FOLDER,
@@ -28,7 +30,13 @@ from components import (
     apply_color_shift,
     apply_hue_rotation,
     apply_invert_colors,
-    apply_color_lookup
+    apply_color_lookup,
+
+    apply_sharpness,
+    apply_blur,
+    apply_edge_detection,
+    apply_edge_smooth,
+    apply_blend_edges
 )
 
 from utils import (
@@ -143,6 +151,144 @@ class ModifierModel(BaseModel):
             "width": overlap["width"],
             "height": overlap["height"],
         }
+
+    @classmethod
+    def parse_points(cls, points):
+        if isinstance(points, list):
+            raw_points = points
+        else:
+            try:
+                raw_points = json.loads(points or "[]")
+            except Exception:
+                raw_points = []
+
+        parsed = []
+
+        for point in raw_points:
+            try:
+                x = float(point.get("x", 0.5))
+                y = float(point.get("y", 0.5))
+
+                parsed.append({
+                    "x": max(0.0, min(1.0, x)),
+                    "y": max(0.0, min(1.0, y)),
+                })
+            except Exception:
+                continue
+
+        return parsed
+
+
+    @classmethod
+    def point_distance_to_segment(cls, px, py, ax, ay, bx, by):
+        abx = bx - ax
+        aby = by - ay
+
+        apx = px - ax
+        apy = py - ay
+
+        length_sq = abx * abx + aby * aby
+
+        if length_sq <= 1e-8:
+            return np.sqrt((px - ax) ** 2 + (py - ay) ** 2)
+
+        t = (apx * abx + apy * aby) / length_sq
+        t = np.clip(t, 0.0, 1.0)
+
+        closest_x = ax + abx * t
+        closest_y = ay + aby * t
+
+        return np.sqrt((px - closest_x) ** 2 + (py - closest_y) ** 2)
+
+
+    @classmethod
+    def apply_point_falloff(cls, normalized_distance, mode="radial", strength=1.0):
+        d = np.clip(normalized_distance, 0.0, 1.0)
+        strength = max(float(strength or 1.0), 0.001)
+
+        if mode == "point":
+            return np.clip(1.0 - d, 0.0, 1.0)
+
+        if mode == "linear":
+            return np.clip(1.0 - d, 0.0, 1.0)
+
+        if mode == "cubic":
+            return np.clip(1.0 - d ** 3, 0.0, 1.0)
+
+        if mode == "quadratic":
+            return np.clip(1.0 - d ** 2, 0.0, 1.0)
+
+        if mode == "exponential":
+            return np.clip(np.exp(-d * 4.0 * strength), 0.0, 1.0)
+
+        # radial default = smoother ease-out
+        return np.clip((1.0 - d) ** 2, 0.0, 1.0)
+
+
+    @classmethod
+    def build_point_influence_map(
+        cls,
+        image_size,
+        points,
+        point_radius=35,
+        point_falloff="radial",
+        point_strength=1.0,
+        point_chain=True,
+    ):
+        width, height = image_size
+        points = cls.parse_points(points)
+
+        if not points:
+            return np.ones((height, width), dtype=np.float32)
+
+        radius_px = max(1.0, float(point_radius or 35) / 100.0 * max(width, height))
+        yy, xx = np.mgrid[0:height, 0:width]
+
+        influence = np.zeros((height, width), dtype=np.float32)
+
+        pixel_points = [
+            {
+                "x": point["x"] * width,
+                "y": point["y"] * height,
+            }
+            for point in points
+        ]
+
+        for point in pixel_points:
+            distance = np.sqrt((xx - point["x"]) ** 2 + (yy - point["y"]) ** 2)
+            normalized = distance / radius_px
+            point_map = cls.apply_point_falloff(
+                normalized,
+                mode=point_falloff,
+                strength=point_strength,
+            )
+            influence = np.maximum(influence, point_map)
+
+        if point_chain and len(pixel_points) > 1:
+            for index in range(len(pixel_points) - 1):
+                a = pixel_points[index]
+                b = pixel_points[index + 1]
+
+                distance = cls.point_distance_to_segment(
+                    xx,
+                    yy,
+                    a["x"],
+                    a["y"],
+                    b["x"],
+                    b["y"],
+                )
+
+                normalized = distance / radius_px
+
+                segment_map = cls.apply_point_falloff(
+                    normalized,
+                    mode=point_falloff,
+                    strength=point_strength,
+                )
+
+                influence = np.maximum(influence, segment_map)
+
+        return np.clip(influence, 0.0, 1.0).astype(np.float32)
 
     @classmethod
     def fill(cls, id, x, y, color, tolerance=0):
@@ -393,6 +539,271 @@ class ModifierModel(BaseModel):
 
             return {
                 "message": "Farbe erfolgreich bearbeitet.",
+                "id": new_id,
+                "url": layer["url"],
+                "width": layer["width"],
+                "height": layer["height"],
+                "thumbnail": layer["thumbnail"],
+            }, 200
+
+        except Exception as e:
+            return cls.handle_error(e)
+
+    @classmethod
+    def apply_details_stack(
+        cls,
+        image,
+        details_effect="sharpness",
+
+        sharpness=1.5,
+
+        blur=5,
+        blur_mode=1,
+        blur_radius=15,
+        blur_falloff_mode=1,
+        blur_type=1,
+
+        edge_detection=True,
+        edge_method="canny",
+        edge_threshold1=50,
+        edge_threshold2=150,
+        edge_kernel_size=3,
+        edge_alpha=0.5,
+
+        edge_threshold_min=1,
+        edge_threshold_max=250,
+        mask_expand=1.5,
+        sharpness_boost=1.2,
+
+        blending_intensity=50,
+
+        points="[]",
+        point_radius=35,
+        point_falloff="radial",
+        point_strength=1.0,
+        point_chain=True,
+    ):
+        image = image.convert("RGBA")
+        original = image.copy()
+
+        alpha = image.getchannel("A")
+        rgb = image.convert("RGB")
+        img = np.array(rgb)
+
+        effect = str(details_effect or "sharpness")
+
+        if effect == "sharpness":
+            modified = apply_sharpness(
+                img,
+                sharpness=float(sharpness or 1.5),
+            )
+
+        elif effect == "blur":
+            width, height = image.size
+            parsed_points = cls.parse_points(points)
+
+            if parsed_points:
+                first = parsed_points[0]
+                blur_center = (
+                    int(first["x"] * width),
+                    int(first["y"] * height),
+                )
+            else:
+                blur_center = None
+
+            modified = apply_blur(
+                img,
+                blur=float(blur or 5),
+                blur_mode=int(blur_mode or 1),
+                blur_radius=int(blur_radius or 15),
+                blur_falloff_mode=int(blur_falloff_mode or 1),
+                blur_type=int(blur_type or 1),
+                blur_center=blur_center,
+                blur_falloff_strength=float(point_strength or 1.0),
+            )
+
+        elif effect == "edge_detection":
+            modified = apply_edge_detection(
+                img,
+                edge_detection=edge_detection,
+                method=str(edge_method or "canny"),
+                threshold1=int(edge_threshold1 or 50),
+                threshold2=int(edge_threshold2 or 150),
+                kernel_size=int(edge_kernel_size or 3),
+                alpha=float(edge_alpha or 0.5),
+            )
+
+        elif effect == "edge_smooth":
+            modified = apply_edge_smooth(
+                image,
+                edge_threshold=(
+                    int(edge_threshold_min or 1),
+                    int(edge_threshold_max or 250),
+                ),
+                mask_expand=float(mask_expand or 1.5),
+                sharpness_boost=float(sharpness_boost or 1.2),
+            )
+
+        elif effect == "blend_edges":
+            width, height = image.size
+
+            modified = apply_blend_edges(
+                img,
+                width=width,
+                height=height,
+                blending_intensity=float(blending_intensity or 0),
+            )
+
+        else:
+            modified = img
+
+        if isinstance(modified, Image.Image):
+            modified_image = modified.convert("RGBA")
+        else:
+            modified = np.array(modified)
+
+            if modified.ndim == 2:
+                modified_image = Image.fromarray(modified.astype(np.uint8)).convert("RGBA")
+            elif len(modified.shape) == 3 and modified.shape[2] == 4:
+                modified_image = Image.fromarray(modified.astype(np.uint8)).convert("RGBA")
+            else:
+                modified_image = Image.fromarray(modified.astype(np.uint8)).convert("RGBA")
+
+        if modified_image.size == alpha.size:
+            modified_image.putalpha(alpha)
+
+        influence = cls.build_point_influence_map(
+            image_size=image.size,
+            points=points,
+            point_radius=point_radius,
+            point_falloff=point_falloff,
+            point_strength=point_strength,
+            point_chain=point_chain,
+        )
+
+        blend = max(0.0, min(float(point_strength or 1.0), 1.0))
+        influence = np.clip(influence * blend, 0.0, 1.0)
+
+        original_np = np.array(original).astype(np.float32)
+        modified_np = np.array(modified_image).astype(np.float32)
+
+        influence_np = influence[..., np.newaxis]
+
+        result_np = original_np * (1.0 - influence_np) + modified_np * influence_np
+        result_np = np.clip(result_np, 0, 255).astype(np.uint8)
+
+        return Image.fromarray(result_np).convert("RGBA")
+
+    @classmethod
+    def details(
+        cls,
+        id,
+
+        details_effect="sharpness",
+
+        sharpness=1.5,
+
+        blur=5,
+        blur_mode=1,
+        blur_radius=15,
+        blur_falloff_mode=1,
+        blur_type=1,
+
+        edge_detection=True,
+        edge_method="canny",
+        edge_threshold1=50,
+        edge_threshold2=150,
+        edge_kernel_size=3,
+        edge_alpha=0.5,
+
+        edge_threshold_min=1,
+        edge_threshold_max=250,
+        mask_expand=1.5,
+        sharpness_boost=1.2,
+
+        blending_intensity=50,
+
+        points="[]",
+        point_radius=35,
+        point_falloff="radial",
+        point_strength=1.0,
+        point_chain=True,
+    ):
+        try:
+            layer = next((l for l in LAYERS if l["id"] == id), None)
+
+            if not layer:
+                return {"error": f"Layer with id '{id}' not found."}, 404
+
+            image_path = os.path.join(PUBLIC_LAYER_FOLDER, f"{id}.png")
+
+            if not os.path.exists(image_path):
+                return {"error": "Image file not found."}, 404
+
+            if not os.path.exists(PUBLIC_BACKUP_FOLDER):
+                os.makedirs(PUBLIC_BACKUP_FOLDER)
+
+            backup_path = os.path.join(PUBLIC_BACKUP_FOLDER, f"{id}.png")
+            shutil.copy2(image_path, backup_path)
+
+            image = Image.open(image_path).convert("RGBA")
+
+            result = cls.apply_details_stack(
+                image=image,
+                details_effect=details_effect,
+
+                sharpness=sharpness,
+
+                blur=blur,
+                blur_mode=blur_mode,
+                blur_radius=blur_radius,
+                blur_falloff_mode=blur_falloff_mode,
+                blur_type=blur_type,
+
+                edge_detection=edge_detection,
+                edge_method=edge_method,
+                edge_threshold1=edge_threshold1,
+                edge_threshold2=edge_threshold2,
+                edge_kernel_size=edge_kernel_size,
+                edge_alpha=edge_alpha,
+
+                edge_threshold_min=edge_threshold_min,
+                edge_threshold_max=edge_threshold_max,
+                mask_expand=mask_expand,
+                sharpness_boost=sharpness_boost,
+
+                blending_intensity=blending_intensity,
+
+                points=points,
+                point_radius=point_radius,
+                point_falloff=point_falloff,
+                point_strength=point_strength,
+                point_chain=point_chain,
+            )
+
+            new_id = str(uuid.uuid4())
+            new_filename = f"{new_id}.png"
+            new_save_path = os.path.join(PUBLIC_LAYER_FOLDER, new_filename)
+
+            result.save(new_save_path)
+
+            os.remove(image_path)
+
+            layer["url"] = f"/download/{new_filename}?ts={time('unix_ms')}"
+            layer["id"] = new_id
+            layer["source"] = id
+            layer["width"] = result.size[0]
+            layer["height"] = result.size[1]
+            layer["thumbnail"] = generate_thumbnail_map(
+                new_id,
+                path=new_save_path,
+                size=64,
+                image=None,
+            )
+            layer["time"] = time("unix_ms")
+
+            return {
+                "message": "Details erfolgreich bearbeitet.",
                 "id": new_id,
                 "url": layer["url"],
                 "width": layer["width"],

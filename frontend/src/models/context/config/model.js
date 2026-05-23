@@ -57,7 +57,7 @@ const imageFilterChildren = [
                 active: true,
                 label: 'Schärfen',
                 icon: 'mdi-image-filter-center-focus-strong',
-                action: 'apply:sharpness',
+                action: 'sharpness',
                 modifier: 'apply_sharpness.py',
                 disabled: false
             },

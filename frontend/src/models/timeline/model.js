@@ -1,6 +1,9 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { eventRegister } from "@/dataLayer/event";
 import { uuid } from "@/utils/uuid";
+import { clamp, clampBetween, clone, getElById, lerp, normalize } from "@/utils/tools";
+import { lighten } from "@/utils/color";
+import { cubicBezier, easeIn, easeInOut, easeOut, linear, normalizeTime} from "@/utils/animation";
 
 export function timelineModel(props, emit) {
     const wrapper = ref(null);
@@ -23,10 +26,10 @@ export function timelineModel(props, emit) {
     const width = computed(() => props.config.width);
 
     const ease = {
-        linear: (t) => t,
-        "ease-in": (t) => t * t,
-        "ease-out": (t) => t * (2 - t),
-        "ease-in-out": (t) => (t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t),
+        linear,
+        "ease-in": easeIn,
+        "ease-out": easeOut,
+        "ease-in-out": easeInOut
     };
 
     const presets = {
@@ -76,33 +79,11 @@ export function timelineModel(props, emit) {
     // -------------------------
     // Core helpers
     // -------------------------
-    const lerp = (a, b, t) => a + (b - a) * t;
-
-    const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-
-    const clampBetween = (value, a, b) => {
-        const min = Math.min(a, b);
-        const max = Math.max(a, b);
-        return clamp(value, min, max);
-    };
-
-    const cloneBezier = (bezier) => (bezier ? structuredClone(bezier) : null);
 
     const _ensureLayerKeyframes = (layerObj) => {
         if (!Array.isArray(layerObj.keyframes)) {
             layerObj.keyframes = [];
         }
-    };
-
-    const _getLayerById = (layerId) => props.selectedLayer.find(l => l.id === layerId);
-
-    const _normalizeTime = (time) => {
-        const start = props.config.startTime;
-        const end = props.config.endTime;
-        const minT = Math.min(start, end);
-        const maxT = Math.max(start, end);
-        if (minT === maxT) return start;
-        return clamp(time, minT, maxT);
     };
 
     const _timeToPosition = (time) => {
@@ -118,10 +99,6 @@ export function timelineModel(props, emit) {
     };
 
     const _applyBezierEasing = (factor, cp1, cp2) => {
-        const cubicBezier = (t, p0, p1, p2, p3) => {
-            const u = 1 - t;
-            return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3;
-        };
         return cubicBezier(factor, 0, cp1.value, cp2.value, 1);
     };
 
@@ -136,16 +113,6 @@ export function timelineModel(props, emit) {
         let hash = 0;
         for (let i = 0; i < layerId.length; i++) hash = (hash << 5) - hash + layerId.charCodeAt(i);
         return trackPalette[Math.abs(hash) % trackPalette.length];
-    };
-
-    const lighten = (hex, amt) => {
-        let col = hex.replace("#", "");
-        if (col.length === 3) col = col.split("").map(c => c + c).join("");
-        const num = parseInt(col, 16);
-        let r = (num >> 16) + amt; r = clamp(r, 0, 255);
-        let g = ((num >> 8) & 0x00FF) + amt; g = clamp(g, 0, 255);
-        let b = (num & 0x0000FF) + amt; b = clamp(b, 0, 255);
-        return "#" + (r << 16 | g << 8 | b).toString(16).padStart(6, "0");
     };
 
     const trackTop = () => props.config?.height * 0.32;
@@ -192,7 +159,7 @@ export function timelineModel(props, emit) {
         id: k.id,
         time: k.time,
         ease: k.ease,
-        bezier: cloneBezier(k.bezier),
+        bezier: clone(k.bezier),
         left: _timeToPosition(k.time),
         layerId,
         _orig: k,
@@ -206,7 +173,7 @@ export function timelineModel(props, emit) {
             .sort((a, b) => a.time - b.time)
             .map(k => ({
                 ...cloneKeyframe(k, layerObj.id),
-                ...(withMatrix ? { matrix: structuredClone(k.matrix ?? {}) } : {}),
+                ...(withMatrix ? { matrix: clone(k.matrix ?? {}) } : {}),
             }));
 
         for (let i = 0; i < frames.length - 1; i++) {
@@ -353,7 +320,7 @@ export function timelineModel(props, emit) {
         if (dt === 0) return;
 
         const easeType = kf.ease || "linear";
-        const preset = structuredClone(presets[easeType] || presets.linear);
+        const preset = clone(presets[easeType] || presets.linear);
 
         if (Math.sign(dt) < 0) {
             const cp1t = preset.cp1.t;
@@ -438,7 +405,7 @@ export function timelineModel(props, emit) {
                 id: k.id,
                 time: k.time,
                 ease: k.ease,
-                bezier: k.bezier ? structuredClone(k.bezier) : null,
+                bezier: k.bezier ? clone(k.bezier) : null,
                 left: _timeToPosition(k.time),
                 _orig: k,
             }));
@@ -502,7 +469,7 @@ export function timelineModel(props, emit) {
             const nextKf = arr[i + 1];
             const isLinear = kf.ease === "linear";
 
-            const layer = _getLayerById(kf.layerId);
+            const layer = getElById(props.selectedLayer, kf.layerId);
             if (!layer) continue;
 
             const originalKf = layer.keyframes.find(k => k.id === kf.id);
@@ -634,11 +601,6 @@ export function timelineModel(props, emit) {
         return { samples, min, max };
     };
 
-    const normalizeValue = (value, min, max) => {
-        if (max - min === 0) return 0.5;
-        return (value - min) / (max - min);
-    };
-
     const buildGraphPath = (curve, layer, trackType, trackIndex, sampler, valueKey) => {
         if (!layer || typeof layer !== "object") return "";
 
@@ -648,7 +610,7 @@ export function timelineModel(props, emit) {
 
         const points = samples.map((sample) => {
             const v = sample[valueKey];
-            const norm = normalizeValue(v, min, max);
+            const norm = normalize(v, min, max);
             const x = curve.start.left + sample.t * (curve.end.left - curve.start.left);
             const y = baseY - norm * height;
             return `${x} ${y}`;
@@ -671,7 +633,7 @@ export function timelineModel(props, emit) {
             const sample = samples[i];
             const v = sample[valueKey];
             const x = curve.start.left + sample.t * (curve.end.left - curve.start.left);
-            const y = baseY - normalizeValue(v, min, max) * height;
+            const y = baseY - normalize(v, min, max) * height;
 
             labels.push({
                 x,
@@ -704,7 +666,7 @@ export function timelineModel(props, emit) {
     const getZeroLineY = (curve, layer, trackType, trackIndex) => {
         const { min, max } = sampleCurveAcceleration(curve, layer, trackType);
         const baseY = getCurveBaseY(trackIndex);
-        return baseY - normalizeValue(0, min, max) * getGraphHeight();
+        return baseY - normalize(0, min, max) * getGraphHeight();
     };
 
     // -------------------------
@@ -867,7 +829,7 @@ export function timelineModel(props, emit) {
                 if (index === -1) data = [frame.id];
             }
 
-            const layer = _getLayerById(frame.layerId);
+            const layer = getElById(props.selectedLayer, frame.layerId);
             if (layer) {
                 const index = layer.keyframes.findIndex(k => k.id === frame.id);
 
@@ -907,9 +869,9 @@ export function timelineModel(props, emit) {
         const rect = timeline.value.getBoundingClientRect();
         const scrollLeft = wrapper.value?.scrollLeft || 0;
         const x = ev.clientX - rect.left + scrollLeft;
-        const time = _normalizeTime(_positionToTime(x));
+        const time = normalizeTime(_positionToTime(x), props.config.startTime, props.config.endTime);
 
-        const layer = _getLayerById(dragging.value.layerId);
+        const layer = getElById(props.selectedLayer, dragging.value.layerId);
         if (!layer) return;
 
         const kfIndex = layer.keyframes.findIndex(k => k.id === dragging.value.id);
@@ -969,7 +931,7 @@ export function timelineModel(props, emit) {
 
         const value = (baseY - y) / curveHeight;
 
-        const layerObj = _getLayerById(start.layerId);
+        const layerObj = getElById(props.selectedLayer, start.layerId);
         if (!layerObj) return;
 
         const originalKf = layerObj.keyframes.find(k => k.id === start.id);
@@ -1033,7 +995,7 @@ export function timelineModel(props, emit) {
         const x = evt.clientX - rect.left + scrollLeft;
 
         const rawTime = _positionToTime(x);
-        const newTime = _normalizeTime(Math.round(rawTime));
+        const newTime = normalizeTime(Math.round(rawTime), props.config.startTime, props.config.endTime);
 
         emitEvent("timeline:time", newTime);
     };
@@ -1110,7 +1072,7 @@ export function timelineModel(props, emit) {
         const end = props.config.endTime;
         const total = end - start;
 
-        if (!props.config.loop) return _normalizeTime(time);
+        if (!props.config.loop) return normalizeTime(time, props.config.startTime, props.config.endTime);
 
         if (total > 0) {
             if (direction === "forward" && time > end) return start;
@@ -1251,7 +1213,7 @@ export function timelineModel(props, emit) {
     };
 
     const onTimeInput = async (newTime) => {
-        const time = _normalizeTime(Math.round(newTime));
+        const time = normalizeTime(newTime, props.config.startTime, props.config.endTime);
         emitEvent("timeline:time", time);
         await interpolateAtCurrentTime();
     };
