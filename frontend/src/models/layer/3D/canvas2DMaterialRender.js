@@ -152,17 +152,20 @@ export const createCubeVertices = (width, height, rotation = 0, geometry = {}) =
         let rz = x * sinY + z * cosY;
         let ry = y;
 
-        const ry2 = ry * cosX - rz * sinX;
-        const rz2 = ry * sinX + rz * cosX;
-
-        ry = ry2;
-        rz = rz2;
-
+        // Apply the idle/object spin before the fixed preview pitch. This mirrors the
+        // WebGL matrix order: front-facing tilt stays stable while the mesh rotates
+        // around its own Z axis.
         const rx2 = rx * cosZ - ry * sinZ;
-        const ry3 = rx * sinZ + ry * cosZ;
+        const ry2 = rx * sinZ + ry * cosZ;
 
         rx = rx2;
+        ry = ry2;
+
+        const ry3 = ry * cosX - rz * sinX;
+        const rz2 = ry * sinX + rz * cosX;
+
         ry = ry3;
+        rz = rz2;
 
         const perspective = 3.25 / (3.25 + rz * 0.26);
 

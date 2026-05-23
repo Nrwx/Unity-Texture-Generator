@@ -40,9 +40,22 @@ const normalizeBrush = (brush) => ({
     falloffOffset: clamp(brush?.falloffOffset ?? brush?.offset ?? 0, 0, 0.95),
     invert: brush?.invert === true,
     detailEnabled: brush?.detail?.enabled === true || brush?.dynamicTopology === true,
-    detailPercent: clamp(brush?.detail?.percent ?? brush?.detailPercent ?? 0, 0, 200),
+    detailPercent: clamp(
+        brush?.detail?.percent ??
+        brush?.detail?.detailPercent ??
+        brush?.detailPercent ??
+        0,
+        0,
+        200
+    ),
     detailTolerance: clamp(brush?.detail?.tolerance ?? brush?.detailTolerance ?? 0.42, 0.01, 1),
-    detailMaxTriangles: Math.max(128, Math.trunc(number(brush?.detail?.maxTriangles, 4096))),
+    detailMaxTriangles: Math.max(128, Math.trunc(number(
+        brush?.detail?.maxTriangles ??
+        brush?.detail?.maxSubdivisionsPerStroke ??
+        brush?.detailMaxTriangles ??
+        brush?.maxSubdivisionsPerStroke,
+        4096
+    ))),
     texture: brush?.texture || "",
     opacity: clamp(brush?.opacity ?? brush?.strength ?? 1, 0, 1),
     textureMode: brush?.textureMode || "alpha",
@@ -255,7 +268,7 @@ export const applySculptBrushToMesh = ({ mesh, hit, brush: rawBrush }) => {
                 vertex.position[1] !== position[1] ||
                 vertex.position[2] !== position[2])
         ) {
-            Mesh.write3(vertices, stride, index, POSITION_OFFSET, vertex.position);
+            Mesh.write3(vertices, stride, index, vertex.position, POSITION_OFFSET);
             deformed = true;
         }
     }

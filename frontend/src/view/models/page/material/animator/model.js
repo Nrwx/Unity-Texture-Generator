@@ -16,6 +16,23 @@ import {CoordinateSystem} from "@/models/layer/3D/core/coordinate/model";
 import {DEG, isFiniteNumber, number} from "@/utils/math";
 
 const WORLD_PIVOT = Object.freeze({ x: 0, y: 0, z: 0 });
+const TAU = Math.PI * 2;
+
+const normalizeAngleRad = value => {
+    const n = number(value, 0);
+    const normalized = ((n + Math.PI) % TAU + TAU) % TAU - Math.PI;
+
+    return normalized === -Math.PI ? Math.PI : normalized;
+};
+
+const normalizeAngleDeg = value => {
+    const n = number(value, 0);
+    const normalized = ((n + 180) % 360 + 360) % 360 - 180;
+
+    return normalized === -180 ? 180 : normalized;
+};
+
+const clampPointerDelta = value => clamp(number(value, 0), -2048, 2048);
 
 const buildRendererPickCamera = (cameraPayload = {}, viewport = { width: 1, height: 1 }) => {
     const viewProjectionMatrix =
@@ -229,11 +246,11 @@ export function animatorModel(props, emit) {
             fov: number(core.fov, props.cameraConfig?.fov ?? 50),
             near: number(core.near, props.cameraConfig?.near ?? 0.01),
             far: number(core.far, props.cameraConfig?.far ?? 1000),
-            theta: number(orbit.theta, props.cameraConfig?.theta ?? props.orbitConfig?.theta ?? -Math.PI / 4),
+            theta: normalizeAngleRad(number(orbit.theta, props.cameraConfig?.theta ?? props.orbitConfig?.theta ?? -Math.PI / 4)),
             phi: number(orbit.phi, props.cameraConfig?.phi ?? props.orbitConfig?.phi ?? 58 * DEG),
             radius: number(orbit.radius, props.cameraConfig?.radius ?? props.orbitConfig?.radius ?? 4.6),
             orthographicScale: number(core.orthographicScale, props.cameraConfig?.orthographicScale ?? props.orbitConfig?.orthographicScale ?? 5),
-            smoothTheta: number(orbit.smoothTheta, props.orbitConfig?.smoothTheta ?? orbit.theta ?? -Math.PI / 4),
+            smoothTheta: normalizeAngleRad(number(orbit.smoothTheta, props.orbitConfig?.smoothTheta ?? orbit.theta ?? -Math.PI / 4)),
             smoothPhi: number(orbit.smoothPhi, props.orbitConfig?.smoothPhi ?? orbit.phi ?? 58 * DEG),
             smoothRadius: number(orbit.smoothRadius, props.orbitConfig?.smoothRadius ?? orbit.radius ?? 4.6),
             smoothOrthographicScale: number(core.orthographicScale, props.orbitConfig?.smoothOrthographicScale ?? props.cameraConfig?.orthographicScale ?? 5),
@@ -1601,11 +1618,11 @@ export function animatorModel(props, emit) {
         }
 
         if (key === "theta") {
-            core.orbit.setAngles(n * DEG, core.orbit.phi);
+            core.orbit.setAngles(normalizeAngleDeg(n) * DEG, core.orbit.phi);
         }
 
         if (key === "phi") {
-            core.orbit.setAngles(core.orbit.theta, n * DEG);
+            core.orbit.setAngles(core.orbit.theta, clamp(n, -89.5, 89.5) * DEG);
         }
 
         if (["target_x", "target_y", "target_z"].includes(key)) {
@@ -1959,7 +1976,7 @@ export function animatorModel(props, emit) {
         const sx = props.orbitConfig.invertOrbitX ? -1 : 1;
         const sy = props.orbitConfig.invertOrbitY ? -1 : 1;
 
-        core.orbit.orbit(dx * sx, dy * sy);
+        core.orbit.orbit(clampPointerDelta(dx) * sx, clampPointerDelta(dy) * sy);
         markCameraDirty();
     };
 
@@ -1970,24 +1987,27 @@ export function animatorModel(props, emit) {
             : core.orbit.radius;
 
         const scale = distanceFactor * core.orbit.panSpeed;
+        const safeDx = clampPointerDelta(dx);
+        const safeDy = clampPointerDelta(dy);
 
         core.orbit.target
-            .addScaled(core.orbit.right, -dx * scale)
-            .addScaled(core.orbit.up, dy * scale);
+            .addScaled(core.orbit.right, -safeDx * scale)
+            .addScaled(core.orbit.up, safeDy * scale);
         markCameraDirty();
     };
 
     const dollyByDelta = dy => {
         const core = getCameraCore();
+        const safeDy = clampPointerDelta(dy);
 
         if (core.projection === "orthographic") {
-            core.setOrthographicScale(core.orthographicScale * Math.exp(dy * core.orbit.dollySpeed));
+            core.setOrthographicScale(core.orthographicScale * Math.exp(safeDy * core.orbit.dollySpeed));
             markCameraDirty();
 
             return;
         }
 
-        core.orbit.setRadius(core.orbit.radius * Math.exp(dy * core.orbit.dollySpeed));
+        core.orbit.setRadius(core.orbit.radius * Math.exp(safeDy * core.orbit.dollySpeed));
         markCameraDirty();
     };
 

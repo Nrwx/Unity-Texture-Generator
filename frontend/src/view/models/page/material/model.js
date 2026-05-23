@@ -1801,7 +1801,57 @@ export function materialEditorModel(props, emit) {
         });
     };
 
+    const meshHasAuthoredTopology = mesh => {
+        const meta = mesh?.meta || {};
+        const source = String(meta.source || "");
+        const vertexCount = Math.floor((mesh?.vertices?.length || 0) / Math.max(1, Number(mesh?.stride || Mesh.STRIDE)));
+        const indexCount = mesh?.indices?.length || 0;
+
+        return vertexCount > 0 && indexCount >= 3 && (
+            meta.customGeometry === true ||
+            meta.sculpted === true ||
+            meta.localEditDraft === true ||
+            Number(meta.editRevision || 0) > 1 ||
+            source.includes("geometry-edit") ||
+            source.includes("sculpt")
+        );
+    };
+
+    const syncAuthoredMeshSidecars = () => {
+        if (!values.mesh) {
+            return;
+        }
+
+        const plain = Mesh.toPlain(values.mesh);
+        values.mesh = {
+            ...Mesh.fromPlain(plain, values.geometry),
+            settings: {
+                ...(plain.settings || {}),
+                ...(values.geometry || {}),
+            },
+            volume: Volume.toPlain(values.geometry.volume || values.mesh.volume || {}),
+            fluid: Fluid.toPlain(values.geometry.fluid || values.mesh.fluid || {}),
+            physics: clone(values.physics || values.mesh.physics || {}, 'json'),
+            meta: {
+                ...(values.mesh.meta || {}),
+                customGeometry: true,
+                volume_enabled: values.geometry.volume?.enabled === true,
+                fluid_enabled: values.geometry.volume?.enabled === true && values.geometry.fluid?.enabled === true,
+            },
+        };
+    };
+
     const rebuildMaterialMesh = ({ preserveLayout = true } = {}) => {
+        // MeshEdit/Sculpt author real topology. Do not rebuild it from primitive
+        // defaults during preview/submit, and do not replay a stale UV layout over a
+        // changed vertex/index buffer. That was the source of submit-time geometry
+        // corruption and UV-less detail vertices. Explicit geometry/UV resets still
+        // pass preserveLayout:false and rebuild intentionally.
+        if (preserveLayout && meshHasAuthoredTopology(values.mesh)) {
+            syncAuthoredMeshSidecars();
+            return;
+        }
+
         const mesh = createMesh(values.geometry);
         values.mesh = {
             ...mesh,

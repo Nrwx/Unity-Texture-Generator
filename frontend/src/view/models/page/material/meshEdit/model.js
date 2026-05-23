@@ -1,4 +1,9 @@
 import { Mesh } from "@/view/models/page/material/core/Mesh/Mesh";
+const clampFinite = (value, min, max, fallback = 0) => {
+    const number = toNumber(value, fallback);
+    return Math.min(Math.max(number, min), max);
+};
+
 
 const toNumber = (value, fallback = 0) => Mesh.toNumber(value, fallback);
 const edgeKey = (a, b) => Mesh.edgeKey(a, b);
@@ -230,12 +235,9 @@ const makeFaceFromVertices = ({ layer, mesh, vertices, indices, stride, values }
         indices.push(values[0], values[1], values[2], values[0], values[2], values[3]);
     }
 
-    const next = applyMeshToLayer(layer, mesh, vertices, indices, stride, "geometry-edit:make-face", {
-        uvReset: true,
+    return applyMeshToLayer(layer, mesh, vertices, indices, stride, "geometry-edit:make-face", {
+        uvPreserved: true,
     });
-
-    Mesh.resetUv(next);
-    return next;
 };
 
 const addEditEdge = (layer, mesh, a, b) => {
@@ -320,8 +322,10 @@ export const transformMeshEditSelection = ({ state, layer, delta = [0, 0, 0], sc
         return acc;
     }, [0, 0, 0]);
 
-    const amount = Array.isArray(delta) ? delta.map(v => toNumber(v, 0)) : [0, 0, 0];
-    const factor = Math.max(0.001, toNumber(scale, 1));
+    const amount = Array.isArray(delta)
+        ? delta.map(v => clampFinite(v, -1000000, 1000000, 0))
+        : [0, 0, 0];
+    const factor = clampFinite(scale, 0.001, 100000, 1);
 
     selected.forEach(i => {
         const p = Mesh.read3(vertices, normalized.stride, i);
@@ -342,10 +346,8 @@ export const transformMeshEditSelection = ({ state, layer, delta = [0, 0, 0], sc
     });
 
     applyMeshToLayer(layer, mesh, vertices, indices, normalized.stride, "geometry-edit:transform", {
-        uvReset: true,
+        uvPreserved: true,
     });
-
-    Mesh.resetUv(layer.mesh);
 
     state.lastAction = factor === 1 ? "Auswahl verschoben" : "Auswahl skaliert";
 
@@ -394,10 +396,8 @@ export const applyMeshEditOperation = ({ state, layer, action = "", payload = {}
         const index = Mesh.addVertex(vertices, normalized.stride, point);
 
         applyMeshToLayer(layer, mesh, vertices, indices, normalized.stride, "geometry-edit:add-vertex", {
-            uvReset: true,
+            uvPreserved: true,
         });
-
-        Mesh.resetUv(layer.mesh);
 
         state.selection.vertices = [index];
         state.mode = "vertex";
@@ -540,10 +540,8 @@ export const applyMeshEditOperation = ({ state, layer, action = "", payload = {}
         });
 
         applyMeshToLayer(layer, mesh, vertices, indices, normalized.stride, "geometry-edit:extrude", {
-            uvReset: true,
+            uvPreserved: true,
         });
-
-        Mesh.resetUv(layer.mesh);
 
         state.selection.vertices = Array.from(cloneMap.values());
         state.mode = "vertex";
@@ -564,10 +562,8 @@ export const applyMeshEditOperation = ({ state, layer, action = "", payload = {}
             }
 
             applyMeshToLayer(layer, mesh, vertices, next, normalized.stride, "geometry-edit:delete-faces", {
-                uvReset: true,
+                uvPreserved: true,
             });
-
-            Mesh.resetUv(layer.mesh);
             clearMeshEditSelection(state);
 
             state.lastAction = "Faces gelöscht";

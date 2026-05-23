@@ -838,7 +838,10 @@ const resolveViewportCamera = ({
             fov: 42,
             near: 0.01,
             far: 1000,
-            position: [-1.7236637240151509, 1.7236637240151513, 3.901021242319559],
+            // Default material preview: front view with a small Z-up elevation.
+            // Idle rotation spins the object around its mesh Z axis instead of
+            // starting from an unintended top/isometric camera.
+            position: [0, -4.5, 0.72],
             target: [0, 0, 0],
             up: [0, 0, 1],
             orthographicScale: 5,
@@ -875,7 +878,7 @@ const resolveViewportCamera = ({
             )
         ),
 
-        position: asVec3Array(source.position, [-1.7236637240151509, 1.7236637240151513, 3.901021242319559]),
+        position: asVec3Array(source.position, [0, -4.5, 0.72]),
         target: asVec3Array(source.target, [0, 0, 0]),
         up: normalize3(asVec3Array(source.up, [0, 0, 1])),
     };
@@ -1884,6 +1887,20 @@ export class WebGLMaterialRenderer {
             toNumber(rendererGeometry?.depth, 1) * toNumber(rendererGeometry?.scale_z, 1)
         );
 
+        const previewIdleEnabled = !viewportCamera && (
+            materialLayer?.preview?.idle_rotation?.enabled === true ||
+            materialLayer?.preview?.rotate === true ||
+            materialLayer?.settings?.rotate_preview === true
+        );
+        const previewTilt = previewIdleEnabled
+            ? toNumber(materialLayer?.preview?.idle_rotation?.tilt, 0.42)
+            : 0;
+
+        // Keep the material preview tilt as a fixed view/object presentation offset.
+        // The idle spin must stay on the mesh Z axis; otherwise the tilt is baked into
+        // the animated rotation and the cube appears to wobble into a top/iso view.
+        const previewTiltMatrix = Matrix.fromQuaternion(Quaternion.fromAxisAngle([1, 0, 0], previewTilt));
+
         const rx = Matrix.fromQuaternion(Quaternion.fromAxisAngle([1, 0, 0],
             toNumber(rendererGeometry?.rotation_x, 0) * Math.PI / 180
         ));
@@ -1899,6 +1916,7 @@ export class WebGLMaterialRenderer {
 
         const model = position
             .multiply(pivot)
+            .multiply(previewTiltMatrix)
             .multiply(rz)
             .multiply(ry)
             .multiply(rx)

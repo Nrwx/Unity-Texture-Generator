@@ -3,6 +3,13 @@ import {isFiniteNumber} from "@/utils/math";
 
 const DEG = Math.PI / 180;
 
+const normalizeAngleDeg = value => {
+    const n = toNumber(value, 0);
+    const normalized = ((n + 180) % 360 + 360) % 360 - 180;
+
+    return normalized === -180 ? 180 : normalized;
+};
+
 const toNumber = (value, fallback = 0) => {
     const number = Number(value);
     return isFiniteNumber(number) ? number : fallback;
@@ -49,11 +56,11 @@ export function cameraModel(props, emit) {
         }
 
         if (key === "theta") {
-            return Math.round(toNumber(orbit.value.theta ?? camera.value.theta, 0) / DEG);
+            return Math.round(normalizeAngleDeg(toNumber(orbit.value.theta ?? camera.value.theta, 0) / DEG));
         }
 
         if (key === "phi") {
-            return Math.round(toNumber(orbit.value.phi ?? camera.value.phi, 0) / DEG);
+            return Math.round(Math.min(Math.max(toNumber(orbit.value.phi ?? camera.value.phi, 0) / DEG, -89.5), 89.5));
         }
 
         if (key.startsWith("target_")) {
@@ -73,8 +80,12 @@ export function cameraModel(props, emit) {
         const numberValue = toNumber(value, fieldValue(key));
         const payload = { key, value: numberValue };
 
-        if (key === "theta" || key === "phi") {
-            payload.value = numberValue * DEG;
+        if (key === "theta") {
+            payload.value = normalizeAngleDeg(numberValue) * DEG;
+        }
+
+        if (key === "phi") {
+            payload.value = Math.min(Math.max(numberValue, -89.5), 89.5) * DEG;
         }
 
         if (key === "orthographicScale") {

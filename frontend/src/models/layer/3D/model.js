@@ -1384,8 +1384,18 @@ export function layer3DModel(props, emit) {
         const useObjectTextures = overlaySettings.wireframe !== true;
 
         const uv = materialLayer.uv || {};
+        const geometry = materialLayer.geometry || {};
+        const previewTiltDeg = shouldRotatePreview(materialLayer)
+            ? (Number(materialLayer?.preview?.idle_rotation?.tilt ?? 0.42) || 0) * 180 / Math.PI
+            : 0;
+        const previewGeometry = previewTiltDeg
+            ? {
+                ...geometry,
+                rotation_x: (Number(geometry.rotation_x) || 0) + previewTiltDeg,
+            }
+            : geometry;
 
-        const vertices = createCubeVertices(width, height, rotation, materialLayer.geometry || {});
+        const vertices = createCubeVertices(width, height, rotation, previewGeometry);
 
         const faces = [...CUBE_FACES]
             .map(face => ({

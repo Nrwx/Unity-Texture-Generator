@@ -14,6 +14,30 @@ import {AXIS_PLANES, AXIS_VECTORS, EPSILON, number, toDeg} from "@/utils/math";
 const originFromGeometry = (g = {}) =>
     CoordinateSystem.originFromGeometry(g);
 
+const finite = (value, fallback = 0) => {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : fallback;
+};
+
+const normalizeDegrees = value => {
+    const n = finite(value, 0);
+    const normalized = ((n + 180) % 360 + 360) % 360 - 180;
+
+    return normalized === -180 ? 180 : normalized;
+};
+
+const normalizeRadians = value => {
+    const n = finite(value, 0);
+    const tau = Math.PI * 2;
+    const normalized = ((n + Math.PI) % tau + tau) % tau - Math.PI;
+
+    return normalized === -Math.PI ? Math.PI : normalized;
+};
+
+const clampDelta = (value, limit = 4096) => clamp(finite(value, 0), -limit, limit);
+const clampScale = value => clamp(finite(value, 1), 0.001, 100000);
+const clampWorldDelta = value => clamp(finite(value, 0), -1000000, 1000000);
+
 const axisMask = (axis) => {
     if (axis === "free") return [1, 1, 1];
     if (AXIS_VECTORS[axis]) return AXIS_VECTORS[axis];
@@ -273,8 +297,8 @@ export class TransformController {
             ? { x: event.local.x, y: event.local.y }
             : this.lastLocal;
 
-        const dx = currentLocal.x - this.startLocal.x;
-        const dy = currentLocal.y - this.startLocal.y;
+        const dx = clampDelta(currentLocal.x - this.startLocal.x);
+        const dy = clampDelta(currentLocal.y - this.startLocal.y);
 
         const point = hit?.point || this.lastPoint || this.startPoint;
 
@@ -312,8 +336,8 @@ export class TransformController {
         const up = Vector.normalize(this.camera?.orbit?.up || this.camera?.up, [0, 0, 1]);
 
         return Vector.sub(
-            Vector.scale(right, dx * worldPerPixel),
-            Vector.scale(up, dy * worldPerPixel),
+            Vector.scale(right, clampDelta(dx) * worldPerPixel),
+            Vector.scale(up, clampDelta(dy) * worldPerPixel),
         ).toArray();
     }
 
@@ -342,8 +366,8 @@ export class TransformController {
     screenAxisDelta(currentLocal) {
         if (!this.startAxisScreen || !AXIS_VECTORS[this.axis]) return null;
 
-        const dx = currentLocal.x - this.startLocal.x;
-        const dy = currentLocal.y - this.startLocal.y;
+        const dx = clampDelta(currentLocal.x - this.startLocal.x);
+        const dy = clampDelta(currentLocal.y - this.startLocal.y);
 
         const p =
             (dx * this.startAxisScreen.dx + dy * this.startAxisScreen.dy) /
@@ -353,21 +377,21 @@ export class TransformController {
     }
 
     applyTranslate(delta) {
-        this.geometry.position_x = number(this.startGeometry.position_x, 0) + delta[0];
-        this.geometry.position_y = number(this.startGeometry.position_y, 0) + delta[1];
-        this.geometry.position_z = number(this.startGeometry.position_z, 0) + delta[2];
+        this.geometry.position_x = number(this.startGeometry.position_x, 0) + clampWorldDelta(delta[0]);
+        this.geometry.position_y = number(this.startGeometry.position_y, 0) + clampWorldDelta(delta[1]);
+        this.geometry.position_z = number(this.startGeometry.position_z, 0) + clampWorldDelta(delta[2]);
     }
 
     applyPivot(delta) {
         const comp = pivotCompensationDelta(this.startGeometry, delta);
 
-        this.geometry.pivot_x = number(this.startGeometry.pivot_x, 0) + delta[0];
-        this.geometry.pivot_y = number(this.startGeometry.pivot_y, 0) + delta[1];
-        this.geometry.pivot_z = number(this.startGeometry.pivot_z, 0) + delta[2];
+        this.geometry.pivot_x = number(this.startGeometry.pivot_x, 0) + clampWorldDelta(delta[0]);
+        this.geometry.pivot_y = number(this.startGeometry.pivot_y, 0) + clampWorldDelta(delta[1]);
+        this.geometry.pivot_z = number(this.startGeometry.pivot_z, 0) + clampWorldDelta(delta[2]);
 
-        this.geometry.position_x = number(this.startGeometry.position_x, 0) + comp[0];
-        this.geometry.position_y = number(this.startGeometry.position_y, 0) + comp[1];
-        this.geometry.position_z = number(this.startGeometry.position_z, 0) + comp[2];
+        this.geometry.position_x = number(this.startGeometry.position_x, 0) + clampWorldDelta(comp[0]);
+        this.geometry.position_y = number(this.startGeometry.position_y, 0) + clampWorldDelta(comp[1]);
+        this.geometry.position_z = number(this.startGeometry.position_z, 0) + clampWorldDelta(comp[2]);
     }
 
     applyScale(dx, dy, currentLocal = this.lastLocal) {
@@ -379,7 +403,7 @@ export class TransformController {
                 this.startAxisScreen.invLen;
         }
 
-        const f = Math.max(0.001, Math.exp(clamp(px, -180, 180) * 0.008));
+        const f = Math.max(0.001, Math.exp(clamp(px, -360, 360) * 0.006));
 
         const m = axisMask(this.axis);
 
@@ -387,9 +411,9 @@ export class TransformController {
         const sy = m[1] ? f : 1;
         const sz = m[2] ? f : 1;
 
-        this.geometry.scale_x = Math.max(0.001, number(this.startGeometry.scale_x, 1) * sx);
-        this.geometry.scale_y = Math.max(0.001, number(this.startGeometry.scale_y, 1) * sy);
-        this.geometry.scale_z = Math.max(0.001, number(this.startGeometry.scale_z, 1) * sz);
+        this.geometry.scale_x = clampScale(number(this.startGeometry.scale_x, 1) * sx);
+        this.geometry.scale_y = clampScale(number(this.startGeometry.scale_y, 1) * sy);
+        this.geometry.scale_z = clampScale(number(this.startGeometry.scale_z, 1) * sz);
 
         if (this.pivotMode !== "object" && this.pivotMode !== "median") {
             const start = this.objectOrigin;
@@ -398,51 +422,93 @@ export class TransformController {
             const next = Vector.add(this.pivotPoint, scaled).toArray();
             const d = Vector.sub(next, start).toArray();
 
-            this.geometry.position_x = number(this.startGeometry.position_x, 0) + d[0];
-            this.geometry.position_y = number(this.startGeometry.position_y, 0) + d[1];
-            this.geometry.position_z = number(this.startGeometry.position_z, 0) + d[2];
+            this.geometry.position_x = number(this.startGeometry.position_x, 0) + clampWorldDelta(d[0]);
+            this.geometry.position_y = number(this.startGeometry.position_y, 0) + clampWorldDelta(d[1]);
+            this.geometry.position_z = number(this.startGeometry.position_z, 0) + clampWorldDelta(d[2]);
         }
+    }
+
+    screenRotationAngle(currentLocal = this.lastLocal, axis = [0, 0, 1]) {
+        const pivot = this.projectScenePoint(this.pivotPoint);
+
+        if (!pivot || !this.startLocal || !currentLocal) {
+            return null;
+        }
+
+        const startX = this.startLocal.x - pivot.x;
+        const startY = this.startLocal.y - pivot.y;
+        const currentX = currentLocal.x - pivot.x;
+        const currentY = currentLocal.y - pivot.y;
+
+        const startLength = Math.hypot(startX, startY);
+        const currentLength = Math.hypot(currentX, currentY);
+
+        if (startLength < 6 || currentLength < 6) {
+            return null;
+        }
+
+        const startAngle = Math.atan2(startY, startX);
+        const currentAngle = Math.atan2(currentY, currentX);
+        let angle = normalizeRadians(currentAngle - startAngle);
+
+        const forward = Vector.normalize(
+            this.camera?.orbit?.forward || this.camera?.forward,
+            [0, 1, 0],
+        );
+
+        // Screen-space angles flip when the axis points away from the camera.
+        // Keeping this sign explicit avoids sudden 180/360 degree jumps while dragging rings.
+        if (Vector.from(forward).dot(axis) > 0) {
+            angle *= -1;
+        }
+
+        return angle;
     }
 
     applyRotate(point, dx, dy) {
         const axis = AXIS_VECTORS[this.axis] || [0, 0, 1];
-
-        const a = Vector.normalize(
-            Vector.sub(this.startPoint, this.pivotPoint),
-            [1, 0, 0],
-        );
-
-        const b = Vector.normalize(
-            Vector.sub(point, this.pivotPoint),
-            a.toArray(),
-        );
-
-        let angle = Math.atan2(
-            Vector.dot(axis, Vector.cross(a, b)),
-            Vector.dot(a, b),
-        );
+        const currentLocal = this.lastLocal || this.startLocal;
+        let angle = this.screenRotationAngle(currentLocal, axis);
 
         if (!Number.isFinite(angle) || Math.abs(angle) < EPSILON) {
-            angle = (dx + dy) * 0.006;
+            const a = Vector.normalize(
+                Vector.sub(this.startPoint, this.pivotPoint),
+                [1, 0, 0],
+            );
+
+            const b = Vector.normalize(
+                Vector.sub(point, this.pivotPoint),
+                a.toArray(),
+            );
+
+            angle = Math.atan2(
+                Vector.dot(axis, Vector.cross(a, b)),
+                Vector.dot(a, b),
+            );
         }
 
+        if (!Number.isFinite(angle) || Math.abs(angle) < EPSILON) {
+            angle = clampDelta(dx + dy, 1024) * 0.006;
+        }
+
+        angle = normalizeRadians(angle);
         const deg = toDeg(angle);
 
-        this.geometry.rotation_x = number(this.startGeometry.rotation_x, 0);
-        this.geometry.rotation_y = number(this.startGeometry.rotation_y, 0);
-        this.geometry.rotation_z = number(this.startGeometry.rotation_z, 0);
+        this.geometry.rotation_x = normalizeDegrees(number(this.startGeometry.rotation_x, 0));
+        this.geometry.rotation_y = normalizeDegrees(number(this.startGeometry.rotation_y, 0));
+        this.geometry.rotation_z = normalizeDegrees(number(this.startGeometry.rotation_z, 0));
 
-        if (this.axis === "x") this.geometry.rotation_x += deg;
-        else if (this.axis === "y") this.geometry.rotation_y += deg;
-        else this.geometry.rotation_z += deg;
+        if (this.axis === "x") this.geometry.rotation_x = normalizeDegrees(this.geometry.rotation_x + deg);
+        else if (this.axis === "y") this.geometry.rotation_y = normalizeDegrees(this.geometry.rotation_y + deg);
+        else this.geometry.rotation_z = normalizeDegrees(this.geometry.rotation_z + deg);
 
         if (this.pivotMode !== "object" && this.pivotMode !== "median") {
             const next = rotateAroundAxis(this.objectOrigin, this.pivotPoint, axis, angle);
             const d = Vector.sub(next, this.objectOrigin).toArray();
 
-            this.geometry.position_x = number(this.startGeometry.position_x, 0) + d[0];
-            this.geometry.position_y = number(this.startGeometry.position_y, 0) + d[1];
-            this.geometry.position_z = number(this.startGeometry.position_z, 0) + d[2];
+            this.geometry.position_x = number(this.startGeometry.position_x, 0) + clampWorldDelta(d[0]);
+            this.geometry.position_y = number(this.startGeometry.position_y, 0) + clampWorldDelta(d[1]);
+            this.geometry.position_z = number(this.startGeometry.position_z, 0) + clampWorldDelta(d[2]);
         }
     }
 

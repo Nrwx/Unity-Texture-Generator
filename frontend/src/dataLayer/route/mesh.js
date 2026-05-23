@@ -1,3 +1,4 @@
+import { Mesh } from "@/view/models/page/material/core/Mesh/Mesh";
 import api from "@/dataLayer/api";
 
 const stringify = value => JSON.stringify(value);
@@ -8,6 +9,32 @@ const appendIfPresent = (formData, key, value, serialize = value => value) => {
     }
 
     formData.append(key, serialize(value));
+};
+
+
+const normalizeMeshPayload = payload => {
+    if (!payload || typeof payload !== "object" || !payload.mesh) {
+        return payload;
+    }
+
+    const mesh = Mesh.toPlain(payload.mesh);
+
+    return {
+        ...payload,
+        mesh,
+        material: payload.material
+            ? {
+                ...payload.material,
+                mesh,
+            }
+            : payload.material,
+        shader: payload.shader
+            ? {
+                ...payload.shader,
+                mesh,
+            }
+            : payload.shader,
+    };
 };
 
 const appendMeshPayload = (formData, layer = {}) => {
@@ -38,8 +65,9 @@ const appendMeshPayload = (formData, layer = {}) => {
 const postMesh = async (method, payload = {}) => {
     try {
         const formData = new FormData();
+        const normalizedPayload = normalizeMeshPayload(payload);
         formData.append("method", method);
-        appendMeshPayload(formData, payload);
+        appendMeshPayload(formData, normalizedPayload);
 
         const response = await api.post("/mesh", formData, {
             headers: {"Content-Type": "multipart/form-data"},

@@ -279,8 +279,8 @@ export const engineEvent = route => ({
             route.meshStates.edit.value = !route.meshStates.edit.value;
         }
         return writeRef(route.engineData.edit, {
-        operation: payload || "",
-        operationTick: (route.engineData.edit.value?.operationTick || 0) + 1,
+            operation: payload || "",
+            operationTick: (route.engineData.edit.value?.operationTick || 0) + 1,
         });
     },
 
@@ -297,7 +297,4 @@ export const engineEvent = route => ({
         lastPick: toPlain(payload || {}),
         selection: { objectId: "", face: null, edge: null, vertex: null },
     }),
-
-    "mesh-edit:commit": async payload => toPlain(payload || {}),
-    "sculpt:commit": async payload => toPlain(payload || {}),
 });

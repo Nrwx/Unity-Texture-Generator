@@ -2,6 +2,23 @@ import {Vector} from "@/view/models/page/material/core/Math/Vector/Vector";
 import {Quaternion} from "@/view/models/page/material/core/Math/Quaternion/Quaternion";
 
 const DEG = Math.PI / 180;
+const TAU = Math.PI * 2;
+
+const finite = (value, fallback = 0) => {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : fallback;
+};
+
+const normalizeAngle = value => {
+    const number = finite(value, 0);
+    const normalized = ((number + Math.PI) % TAU + TAU) % TAU - Math.PI;
+
+    return normalized === -Math.PI ? Math.PI : normalized;
+};
+
+const shortestAngleDelta = (from, to) => normalizeAngle(finite(to, from) - finite(from, 0));
+const nearestAngle = (target, reference = 0) => finite(reference, 0) + shortestAngleDelta(reference, target);
+const clampDelta = (value, limit = 2048) => Math.min(Math.max(finite(value, 0), -limit), limit);
 
 export class Orbit {
     constructor(camera, {
@@ -21,25 +38,25 @@ export class Orbit {
     } = {}) {
         this.camera = camera;
 
-        this.theta = theta;
-        this.phi = phi;
-        this.radius = radius;
+        this.minRadius = minRadius;
+        this.maxRadius = maxRadius;
+        this.minPhi = minPhi;
+        this.maxPhi = maxPhi;
+
+        this.theta = normalizeAngle(theta);
+        this.phi = this.clampPhi(phi);
+        this.radius = Math.min(Math.max(finite(radius, 4.6), this.minRadius), this.maxRadius);
         this.target = Vector.from(target);
 
-        this.smoothTheta = theta;
-        this.smoothPhi = phi;
-        this.smoothRadius = radius;
+        this.smoothTheta = this.theta;
+        this.smoothPhi = this.phi;
+        this.smoothRadius = this.radius;
         this.smoothTarget = this.target.clone();
 
         this.damping = damping;
         this.rotateSpeed = rotateSpeed;
         this.panSpeed = panSpeed;
         this.dollySpeed = dollySpeed;
-
-        this.minRadius = minRadius;
-        this.maxRadius = maxRadius;
-        this.minPhi = minPhi;
-        this.maxPhi = maxPhi;
         this.worldUp = Vector.from(worldUp, [0, 0, 1]).normalize([0, 0, 1]);
 
         this.position = Vector.zero();
@@ -75,7 +92,7 @@ export class Orbit {
             ? 1
             : 1 - Math.exp(-this.damping * dt);
 
-        this.smoothTheta += (this.theta - this.smoothTheta) * alpha;
+        this.smoothTheta = normalizeAngle(this.smoothTheta + shortestAngleDelta(this.smoothTheta, this.theta) * alpha);
         this.smoothPhi += (this.phi - this.smoothPhi) * alpha;
         this.smoothRadius += (this.radius - this.smoothRadius) * alpha;
         this.smoothTarget.lerp(this.target, alpha);
@@ -129,7 +146,7 @@ export class Orbit {
         this.radius = radius;
         this.smoothRadius = radius;
 
-        this.theta = Math.atan2(offset.x, offset.y);
+        this.theta = normalizeAngle(Math.atan2(offset.x, offset.y));
         this.smoothTheta = this.theta;
 
         this.phi = Math.asin(Math.min(Math.max(offset.z / radius, -1), 1));
@@ -142,8 +159,8 @@ export class Orbit {
     orbit(deltaX = 0, deltaY = 0) {
         // Screen drag follows the pointer in a Z-up scene: dragging right rotates
         // the view to the right, dragging up rotates the view upward.
-        this.theta += deltaX * this.rotateSpeed;
-        this.phi += deltaY * this.rotateSpeed;
+        this.theta = normalizeAngle(this.theta + clampDelta(deltaX) * this.rotateSpeed);
+        this.phi += clampDelta(deltaY) * this.rotateSpeed;
         this.phi = this.clampPhi(this.phi);
 
         return this;
@@ -174,7 +191,7 @@ export class Orbit {
                  sync = false,
              } = {}) {
         this.radius = Math.min(Math.max(Vector.number(radius, this.radius), this.minRadius), this.maxRadius);
-        this.theta = Vector.number(theta, this.theta);
+        this.theta = nearestAngle(Vector.number(theta, this.theta), this.smoothTheta);
         this.phi = this.clampPhi(Vector.number(phi, this.phi));
         this.target.copy(target);
 
@@ -199,14 +216,22 @@ export class Orbit {
     }
 
     setAngles(theta = this.theta, phi = this.phi) {
-        this.theta = Vector.number(theta, this.theta);
+        this.theta = nearestAngle(Vector.number(theta, this.theta), this.smoothTheta);
         this.phi = this.clampPhi(Vector.number(phi, this.phi));
 
         return this;
     }
 
+    syncAngles() {
+        this.theta = normalizeAngle(this.theta);
+        this.smoothTheta = this.theta;
+        this.smoothPhi = this.phi;
+
+        return this;
+    }
+
     clampPhi(value) {
-        return Math.min(Math.max(value, this.minPhi), this.maxPhi);
+        return Math.min(Math.max(finite(value, 0), this.minPhi), this.maxPhi);
     }
 
     pointerdown = event => {

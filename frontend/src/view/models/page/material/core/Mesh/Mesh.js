@@ -319,6 +319,53 @@ export class Mesh {
         ];
     }
 
+    static sanitizeTriangleIndices(indices = [], vertexCount = 0) {
+        const source = Mesh.toIndexArray(indices);
+        const next = [];
+        const max = Math.max(0, Math.trunc(Mesh.toNumber(vertexCount, 0)));
+
+        for (let offset = 0; offset + 2 < source.length; offset += 3) {
+            const a = source[offset];
+            const b = source[offset + 1];
+            const c = source[offset + 2];
+
+            if (![a, b, c].every(index => index >= 0 && index < max)) {
+                continue;
+            }
+
+            if (a === b || b === c || c === a) {
+                continue;
+            }
+
+            next.push(a, b, c);
+        }
+
+        return next;
+    }
+
+    static toPlainArray(value = []) {
+        if (value instanceof Float32Array || value instanceof Uint32Array || value instanceof Uint16Array) {
+            return Array.from(value);
+        }
+
+        if (Array.isArray(value)) {
+            return value.slice();
+        }
+
+        if (value && typeof value === "object" && Number.isInteger(Number(value.length))) {
+            return Array.from(value);
+        }
+
+        if (value && typeof value === "object") {
+            return Object.keys(value)
+                .filter(key => /^\d+$/.test(key))
+                .sort((a, b) => Number(a) - Number(b))
+                .map(key => value[key]);
+        }
+
+        return [];
+    }
+
     static createIndexArray(indices, preferredType = "") {
         const maxIndex = indices.reduce((max, item) => Math.max(max, item), 0);
 
@@ -332,25 +379,30 @@ export class Mesh {
     }
 
     static finalizeMesh(mesh, { vertices, indices, stride, source = "edit", meta = {} } = {}) {
-        const typedIndices = Mesh.createIndexArray(indices, mesh?.indexType);
-
+        const safeStride = Math.max(Mesh.STRIDE, Math.trunc(Mesh.toNumber(stride, Mesh.STRIDE)));
+        const sourceVertices = Mesh.upgradeVertexLayout(vertices || [], safeStride);
+        const sourceIndices = Mesh.sanitizeTriangleIndices(indices || [], Mesh.vertexCount(sourceVertices, safeStride));
         const nextMesh = {
             ...(mesh || {}),
-            stride,
-            vertices: new Float32Array(vertices),
-            indices: typedIndices,
-            indexType: typedIndices instanceof Uint32Array ? "uint32" : "uint16",
-            count: typedIndices.length,
+            stride: safeStride,
             meta: {
                 ...(mesh?.meta || {}),
                 ...meta,
                 source,
                 editRevision: Math.trunc(Mesh.toNumber(mesh?.meta?.editRevision, 0)) + 1,
-                renderCacheKey: `${mesh?.id || "mesh"}:${source}:${Date.now()}:${vertices.length}:${indices.length}`,
+                renderCacheKey: `${mesh?.id || "mesh"}:${source}:${Date.now()}:${sourceVertices.length}:${sourceIndices.length}`,
             },
         };
 
-        Mesh.recomputeNormalsAndBounds(nextMesh, vertices, indices, stride);
+        Mesh.recomputeNormalsAndBounds(nextMesh, sourceVertices, sourceIndices, safeStride);
+        const typedIndices = Mesh.createIndexArray(sourceIndices, mesh?.indexType);
+
+        nextMesh.vertices = new Float32Array(sourceVertices);
+        nextMesh.indices = typedIndices;
+        nextMesh.indexType = typedIndices instanceof Uint32Array ? "uint32" : "uint16";
+        nextMesh.count = typedIndices.length;
+        nextMesh.meta.vertexLayout = "position-normal-uv-tangent";
+
         return nextMesh;
     }
 
@@ -632,17 +684,14 @@ export class Mesh {
             return null;
         }
 
-        const vertices = mesh.vertices instanceof Float32Array
-            ? Array.from(mesh.vertices)
-            : Array.isArray(mesh.vertices)
-                ? mesh.vertices.map(value => Number(value) || 0)
-                : [];
+        const sourceStride = Math.max(3, Math.trunc(Mesh.toNumber(mesh.stride, Mesh.STRIDE)));
+        const vertices = Mesh.upgradeVertexLayout(Mesh.toPlainArray(mesh.vertices), sourceStride)
+            .map(value => Mesh.toNumber(value, 0));
 
-        const indices = mesh.indices instanceof Uint32Array || mesh.indices instanceof Uint16Array
-            ? Array.from(mesh.indices)
-            : Array.isArray(mesh.indices)
-                ? mesh.indices.map(value => Math.max(0, Math.trunc(Number(value) || 0)))
-                : [];
+        const indices = Mesh.sanitizeTriangleIndices(
+            Mesh.toPlainArray(mesh.indices),
+            Mesh.vertexCount(vertices, Mesh.STRIDE),
+        );
 
         const maxIndex = indices.reduce((max, index) => Math.max(max, index), 0);
         const settings = Mesh.normalizeSettings(mesh.settings || mesh);
@@ -654,9 +703,9 @@ export class Mesh {
             icon: mesh.icon || Mesh.get(settings.primitive).icon,
             vertices,
             indices,
-            stride: Number(mesh.stride || Mesh.STRIDE),
+            stride: Mesh.STRIDE,
             indexType: mesh.indexType || (maxIndex > 65535 ? "uint32" : "uint16"),
-            count: Number(mesh.count || indices.length),
+            count: indices.length,
             parts: JSON.parse(JSON.stringify(mesh.parts || [])),
             bounds: JSON.parse(JSON.stringify(mesh.bounds || {})),
             settings,
@@ -665,15 +714,21 @@ export class Mesh {
     }
 
     static fromPlain(mesh = null, fallbackSettings = {}) {
-        if (!mesh || !Array.isArray(mesh.vertices) || !Array.isArray(mesh.indices)) {
+        if (!mesh || !mesh.vertices || !mesh.indices) {
             return Mesh.create(fallbackSettings);
         }
 
-        const maxIndex = mesh.indices.reduce((max, index) => Math.max(max, Number(index) || 0), 0);
+        const sourceStride = Math.max(3, Math.trunc(Mesh.toNumber(mesh.stride, Mesh.STRIDE)));
+        const vertexArray = Mesh.upgradeVertexLayout(Mesh.toPlainArray(mesh.vertices), sourceStride);
+        const indexArray = Mesh.sanitizeTriangleIndices(
+            Mesh.toPlainArray(mesh.indices),
+            Mesh.vertexCount(vertexArray, Mesh.STRIDE),
+        );
+        const maxIndex = indexArray.reduce((max, index) => Math.max(max, Number(index) || 0), 0);
         const indices = (mesh.indexType === "uint32" || maxIndex > 65535)
-            ? new Uint32Array(mesh.indices)
-            : new Uint16Array(mesh.indices);
-        const vertices = new Float32Array(mesh.vertices);
+            ? new Uint32Array(indexArray)
+            : new Uint16Array(indexArray);
+        const vertices = new Float32Array(vertexArray);
         const settings = Mesh.normalizeSettings(mesh.settings || fallbackSettings);
 
         return {
@@ -682,14 +737,17 @@ export class Mesh {
             label: mesh.label || Mesh.get(settings.primitive).label,
             icon: mesh.icon || Mesh.get(settings.primitive).icon,
             settings,
-            stride: Number(mesh.stride || Mesh.STRIDE),
+            stride: Mesh.STRIDE,
             vertices,
             indices,
             indexType: indices instanceof Uint32Array ? "uint32" : "uint16",
-            count: Number(mesh.count || indices.length),
+            count: indices.length,
             parts: clone(mesh.parts || []),
             bounds: mesh.bounds || Mesh.computeBounds(vertices),
-            meta: clone(mesh.meta || {}),
+            meta: {
+                ...clone(mesh.meta || {}),
+                vertexLayout: "position-normal-uv-tangent",
+            },
         };
     }
 
@@ -1308,6 +1366,20 @@ export class Mesh {
         return vertices.slice(index * stride, index * stride + stride);
     }
 
+    static pushClonedVertex(vertices, stride, index, position = null) {
+        const template = Mesh.cloneVertex(vertices, stride, index);
+        const next = Mesh.upgradeVertexLayout(template, Math.max(3, Math.trunc(Mesh.toNumber(stride, Mesh.STRIDE))));
+
+        if (Array.isArray(position)) {
+            next[Mesh.POSITION_OFFSET] = Mesh.toNumber(position[0], 0);
+            next[Mesh.POSITION_OFFSET + 1] = Mesh.toNumber(position[1], 0);
+            next[Mesh.POSITION_OFFSET + 2] = Mesh.toNumber(position[2], 0);
+        }
+
+        Mesh.pushVertexArray(vertices, Mesh.STRIDE, next);
+        return Mesh.vertexCount(vertices, Mesh.STRIDE) - 1;
+    }
+
     static pushVertex(vertices, position, normal, uv, tangent) {
         vertices.push(
             position[0], position[1], position[2],
@@ -1318,7 +1390,27 @@ export class Mesh {
     }
 
     static pushVertexArray(vertices, stride, template) {
-        vertices.push(...template.slice(0, stride));
+        const safeStride = Math.max(Mesh.STRIDE, Math.trunc(Number(stride) || Mesh.STRIDE));
+        const source = Array.isArray(template) ? template : Array.from(template || []);
+        const next = new Array(safeStride).fill(0);
+
+        for (let index = 0; index < Math.min(source.length, safeStride); index += 1) {
+            next[index] = Mesh.toNumber(source[index], 0);
+        }
+
+        if (safeStride >= Mesh.NORMAL_OFFSET + 3) {
+            next[Mesh.NORMAL_OFFSET] = Mesh.toNumber(next[Mesh.NORMAL_OFFSET], 0);
+            next[Mesh.NORMAL_OFFSET + 1] = Mesh.toNumber(next[Mesh.NORMAL_OFFSET + 1], 0);
+            next[Mesh.NORMAL_OFFSET + 2] = Mesh.toNumber(next[Mesh.NORMAL_OFFSET + 2], 1);
+        }
+
+        if (safeStride >= Mesh.TANGENT_OFFSET + 3) {
+            next[Mesh.TANGENT_OFFSET] = Mesh.toNumber(next[Mesh.TANGENT_OFFSET], 1);
+            next[Mesh.TANGENT_OFFSET + 1] = Mesh.toNumber(next[Mesh.TANGENT_OFFSET + 1], 0);
+            next[Mesh.TANGENT_OFFSET + 2] = Mesh.toNumber(next[Mesh.TANGENT_OFFSET + 2], 0);
+        }
+
+        vertices.push(...next);
     }
 
     static normalize3(vector, fallback = [0, 0, 1]) {
@@ -1403,14 +1495,87 @@ export class Mesh {
         return Mesh.normalize3(Mesh.cross3(Mesh.sub3(b, a), Mesh.sub3(c, a)));
     }
 
+    static upgradeVertexLayout(vertices, stride) {
+        const sourceStride = Math.max(3, Math.trunc(Mesh.toNumber(stride, Mesh.STRIDE)));
+        const source = Mesh.toArray(vertices).map(value => Mesh.toNumber(value, 0));
+        const count = Mesh.vertexCount(source, sourceStride);
+
+        if (sourceStride >= Mesh.STRIDE) {
+            return source;
+        }
+
+        const bounds = Mesh.computeBoundsForStride(source, sourceStride);
+        const spanX = Math.max(0.000001, bounds.max[0] - bounds.min[0]);
+        const spanY = Math.max(0.000001, bounds.max[1] - bounds.min[1]);
+        const next = [];
+
+        for (let index = 0; index < count; index += 1) {
+            const base = index * sourceStride;
+            const position = [
+                Mesh.toNumber(source[base], 0),
+                Mesh.toNumber(source[base + 1], 0),
+                Mesh.toNumber(source[base + 2], 0),
+            ];
+            const normal = sourceStride >= Mesh.NORMAL_OFFSET + 3
+                ? [
+                    Mesh.toNumber(source[base + Mesh.NORMAL_OFFSET], 0),
+                    Mesh.toNumber(source[base + Mesh.NORMAL_OFFSET + 1], 0),
+                    Mesh.toNumber(source[base + Mesh.NORMAL_OFFSET + 2], 1),
+                ]
+                : [0, 0, 1];
+            const uv = sourceStride >= Mesh.UV_OFFSET + 2
+                ? [
+                    Mesh.toNumber(source[base + Mesh.UV_OFFSET], 0),
+                    Mesh.toNumber(source[base + Mesh.UV_OFFSET + 1], 0),
+                ]
+                : [
+                    (position[0] - bounds.min[0]) / spanX,
+                    (position[1] - bounds.min[1]) / spanY,
+                ];
+            const tangent = sourceStride >= Mesh.TANGENT_OFFSET + 3
+                ? [
+                    Mesh.toNumber(source[base + Mesh.TANGENT_OFFSET], 1),
+                    Mesh.toNumber(source[base + Mesh.TANGENT_OFFSET + 1], 0),
+                    Mesh.toNumber(source[base + Mesh.TANGENT_OFFSET + 2], 0),
+                ]
+                : [1, 0, 0];
+
+            Mesh.pushVertex(next, position, normal, uv, tangent);
+        }
+
+        return next;
+    }
+
+    static computeBoundsForStride(vertices, stride = Mesh.STRIDE) {
+        const sourceStride = Math.max(3, Math.trunc(Mesh.toNumber(stride, Mesh.STRIDE)));
+        const min = [Infinity, Infinity, Infinity];
+        const max = [-Infinity, -Infinity, -Infinity];
+
+        for (let i = 0; i + 2 < vertices.length; i += sourceStride) {
+            min[0] = Math.min(min[0], Mesh.toNumber(vertices[i], 0));
+            min[1] = Math.min(min[1], Mesh.toNumber(vertices[i + 1], 0));
+            min[2] = Math.min(min[2], Mesh.toNumber(vertices[i + 2], 0));
+            max[0] = Math.max(max[0], Mesh.toNumber(vertices[i], 0));
+            max[1] = Math.max(max[1], Mesh.toNumber(vertices[i + 1], 0));
+            max[2] = Math.max(max[2], Mesh.toNumber(vertices[i + 2], 0));
+        }
+
+        if (!min.every(Number.isFinite) || !max.every(Number.isFinite)) {
+            return { min: [0, 0, 0], max: [1, 1, 1] };
+        }
+
+        return { min, max };
+    }
+
     static normalizeEditableMesh(mesh) {
         if (!mesh?.vertices || !mesh?.indices) {
             return null;
         }
 
-        const stride = Math.max(3, Math.trunc(Mesh.toNumber(mesh.stride, Mesh.STRIDE)));
-        const vertices = Mesh.toArray(mesh.vertices).map(value => Mesh.toNumber(value, 0));
-        const indices = Mesh.toIndexArray(mesh.indices);
+        const sourceStride = Math.max(3, Math.trunc(Mesh.toNumber(mesh.stride, Mesh.STRIDE)));
+        const vertices = Mesh.upgradeVertexLayout(Mesh.toPlainArray(mesh.vertices), sourceStride);
+        const stride = Mesh.STRIDE;
+        const indices = Mesh.sanitizeTriangleIndices(Mesh.toPlainArray(mesh.indices), Mesh.vertexCount(vertices, stride));
         const vertexCount = Mesh.vertexCount(vertices, stride);
 
         if (vertexCount <= 0 || indices.length < 3) {
