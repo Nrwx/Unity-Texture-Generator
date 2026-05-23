@@ -149,6 +149,13 @@
                 @change="handleGeometryChange"
             />
 
+            <!-- PARTICLE SYSTEM -->
+            <ParticleSystem
+                v-else-if="ui.activeTab === 'particleSystem'"
+                v-model:particle-system="values.particle_system"
+                @change="handleParticleSystemChange"
+            />
+
             <!-- PHYSICS -->
             <Physics
                 v-else-if="ui.activeTab === 'physics'"
@@ -1214,6 +1221,7 @@ import Preview from "@/view/page/Material/Preview/Preview";
 import {materialEditorModel, materialEditorProps} from "@/view/models/page/material/model";
 import Surface from "@/view/page/Material/Surface/Surface";
 import Geometry from "@/view/page/Material/Geometry/Geometry";
+import ParticleSystem from "@/view/page/Material/ParticleSystem/ParticleSystem";
 import Light from "@/view/page/Material/Light/Light";
 import Export from "@/view/page/Material/Export/Export";
 import Settings from "@/view/page/Material/Settings/Settings";
@@ -1228,6 +1236,7 @@ export default defineComponent({
     Preview,
     Surface,
     Geometry,
+    ParticleSystem,
     Physics,
     Light,
     Export,

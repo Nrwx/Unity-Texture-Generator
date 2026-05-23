@@ -2494,6 +2494,71 @@ class MaterialModel(BaseModel):
         }
 
     @classmethod
+    def normalize_particle_system(cls, particle_system):
+        data = json_loads(particle_system, {})
+
+        if not isinstance(data, dict):
+            data = {}
+
+        particles = data.get("particles", {})
+        if not isinstance(particles, dict):
+            particles = {}
+
+        def clamp_value(value, minimum, maximum, fallback=0):
+            try:
+                number = float(value)
+            except (TypeError, ValueError):
+                number = fallback
+            return max(minimum, min(maximum, number))
+
+        def clamp_int(value, minimum, maximum, fallback=0):
+            return int(clamp_value(value, minimum, maximum, fallback))
+
+        return {
+            "id": str(data.get("id", "") or "particle-system"),
+            "version": int(data.get("version", 1) or 1),
+            "enabled": cls.safe_bool(data.get("enabled", False)),
+            "mode": str(data.get("mode", "texture") or "texture"),
+            "source": str(data.get("source", "texture") or "texture"),
+            "emitter": str(data.get("emitter", "volume") or "volume"),
+            "texture_slot": str(data.get("texture_slot", "baseColor") or "baseColor"),
+            "count": clamp_int(data.get("count", 320), 1, 5000, 320),
+            "seed": clamp_int(data.get("seed", 1337), 1, 9999999, 1337),
+            "lifetime": clamp_value(data.get("lifetime", 4), 0.1, 60, 4),
+            "age": clamp_value(data.get("age", 1.2), 0, 60, 1.2),
+            "time_scale": clamp_value(data.get("time_scale", 1), 0, 8, 1),
+            "size": clamp_value(data.get("size", 18), 1, 120, 18),
+            "size_randomness": clamp_value(data.get("size_randomness", 0.45), 0, 1, 0.45),
+            "alpha": clamp_value(data.get("alpha", 0.92), 0, 1, 0.92),
+            "spread_x": clamp_value(data.get("spread_x", 1), 0.001, 20, 1),
+            "spread_y": clamp_value(data.get("spread_y", 1), 0.001, 20, 1),
+            "spread_z": clamp_value(data.get("spread_z", 1), 0.001, 20, 1),
+            "velocity_x": clamp_value(data.get("velocity_x", 0), -10, 10, 0),
+            "velocity_y": clamp_value(data.get("velocity_y", 0.18), -10, 10, 0.18),
+            "velocity_z": clamp_value(data.get("velocity_z", 0), -10, 10, 0),
+            "velocity_randomness": clamp_value(data.get("velocity_randomness", 0.35), 0, 10, 0.35),
+            "gravity": clamp_value(data.get("gravity", -0.08), -10, 10, -0.08),
+            "turbulence": clamp_value(data.get("turbulence", 0.22), 0, 10, 0.22),
+            "orbit": clamp_value(data.get("orbit", 0.18), -10, 10, 0.18),
+            "mesh_influence": clamp_value(data.get("mesh_influence", 0.65), 0, 1, 0.65),
+            "color": data.get("color", [1, 1, 1, 1]) if isinstance(data.get("color", []), list) else [1, 1, 1, 1],
+            "blend": str(data.get("blend", "alpha") or "alpha"),
+            "depth_write": cls.safe_bool(data.get("depth_write", False)),
+            "sort": data.get("sort", True) is not False,
+            "use_mesh_reference": cls.safe_bool(data.get("use_mesh_reference", False)),
+            "particles": {
+                "stride": int(particles.get("stride", 6) or 6),
+                "count": clamp_int(particles.get("count", data.get("count", 320)), 0, 5000, 0),
+                "positions": particles.get("positions", []) if isinstance(particles.get("positions", []), list) else [],
+                "sizes": particles.get("sizes", []) if isinstance(particles.get("sizes", []), list) else [],
+                "alphas": particles.get("alphas", []) if isinstance(particles.get("alphas", []), list) else [],
+                "phases": particles.get("phases", []) if isinstance(particles.get("phases", []), list) else [],
+                "compact": cls.safe_bool(particles.get("compact", False)),
+            },
+            "meta": data.get("meta", {}) if isinstance(data.get("meta", {}), dict) else {},
+        }
+
+    @classmethod
     def build_shader_payload(
         cls,
         surface,
@@ -2652,6 +2717,7 @@ class MaterialModel(BaseModel):
         uv_data = raw_values.get("uv", uv)
         shader_graph_data = raw_values.get("shader_graph", shader_graph)
         mesh_data = raw_values.get("mesh", fallbacks.get("mesh", {}))
+        particle_system_data = raw_values.get("particle_system", fallbacks.get("particle_system", {}))
 
         if not isinstance(surface_data, dict):
             surface_data = json_loads(surface_data, {})
@@ -2671,6 +2737,9 @@ class MaterialModel(BaseModel):
         if not isinstance(mesh_data, dict):
             mesh_data = json_loads(mesh_data, {})
 
+        if not isinstance(particle_system_data, dict):
+            particle_system_data = json_loads(particle_system_data, {})
+
         resolved = {
             "name": raw_values.get("name", name or "Cube Material"),
 
@@ -2680,6 +2749,7 @@ class MaterialModel(BaseModel):
             "uv": uv_data if isinstance(uv_data, dict) else {},
             "shader_graph": shader_graph_data if isinstance(shader_graph_data, dict) else {},
             "mesh": mesh_data if isinstance(mesh_data, dict) else {},
+            "particle_system": particle_system_data if isinstance(particle_system_data, dict) else {},
 
             "cube_size": raw_values.get("cube_size", cube_size),
             "rotate_preview": raw_values.get("rotate_preview", rotate_preview),
@@ -2782,6 +2852,7 @@ class MaterialModel(BaseModel):
             geometry=normalized_geometry,
         )
         mesh = cls.normalize_mesh(payload.get("mesh", {}), fallback_mesh)
+        particle_system = cls.normalize_particle_system(payload.get("particle_system", {}))
 
         shader = cls.build_shader_payload(
             surface=normalized_surface,
@@ -2790,6 +2861,7 @@ class MaterialModel(BaseModel):
             uv=normalized_uv,
             shader_graph=normalized_graph,
         )
+        shader["particle_system"] = particle_system
 
         primary_url = cls.resolve_primary_preview_url({
             "bitmap_maps": normalized_maps,
@@ -2823,6 +2895,7 @@ class MaterialModel(BaseModel):
             use_nodes=payload["use_nodes"],
             texture_size=texture_size,
         )
+        material["particle_system"] = particle_system
 
         package = {
             "id": material_id,
@@ -2843,6 +2916,7 @@ class MaterialModel(BaseModel):
             "bitmap_maps": normalized_maps,
             "uv": normalized_uv,
             "shader_graph": normalized_graph,
+            "particle_system": particle_system,
 
             "texture": texture,
             "material": material,
@@ -3011,6 +3085,7 @@ class MaterialModel(BaseModel):
             "bitmap_maps": package["bitmap_maps"],
             "uv": package["uv"],
             "shader_graph": package["shader_graph"],
+            "particle_system": package.get("particle_system", {}),
 
             "material": package["material"],
             "mesh": package["mesh"],
@@ -3074,6 +3149,7 @@ class MaterialModel(BaseModel):
             "bitmap_maps": package["bitmap_maps"],
             "uv": package["uv"],
             "shader_graph": package["shader_graph"],
+            "particle_system": package.get("particle_system", {}),
 
             "material": package["material"],
             "mesh": package["mesh"],

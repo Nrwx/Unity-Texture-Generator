@@ -542,6 +542,11 @@ export function layer3DModel(props, emit) {
                 ...parsePlainObject(shader.mesh),
                 ...parsePlainObject(layer?.mesh),
             },
+            particle_system: {
+                ...parsePlainObject(material.particle_system),
+                ...parsePlainObject(shader.particle_system),
+                ...parsePlainObject(layer?.particle_system),
+            },
             light: {
                 ...parsePlainObject(material.light),
                 ...parsePlainObject(shader.light),

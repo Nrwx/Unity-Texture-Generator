@@ -5,6 +5,7 @@ import {colorArrayToHex, hexToRgbaArray} from "@/utils/color";
 import {Node} from "@/view/models/page/material/core/Node/Node";
 import {Mesh} from "@/view/models/page/material/core/Mesh/Mesh";
 import {UV} from "@/view/models/page/material/core/UV/UV";
+import {ParticleSystem} from "@/view/models/page/material/core/ParticleSystem/ParticleSystem";
 import {
     createBitmapMaps,
     createSurface,
@@ -15,12 +16,14 @@ import {createGeometry} from "@/view/models/page/material/geometry/model";
 import {createLight} from "@/view/models/page/material/light/model";
 import {createSettings, normalizeTextureSize, TEXTURE_SIZE_OPTIONS} from "@/view/models/page/material/settings/model";
 import {createPhysics} from "@/view/models/page/material/physics/model";
+import {createParticleSystem} from "@/view/models/page/material/particleSystem/model";
 
 const PREVIEW_DEBOUNCE_MS = 220;
 
 const TABS = [
     { key: "surface", title: "Surface", icon: "mdi-tune-variant" },
     { key: "geometry", title: "Geometry", icon: "mdi-cube-outline" },
+    { key: "particleSystem", title: "Particle System", icon: "mdi-particle" },
     { key: "physics", title: "Physics", icon: "mdi-atom" },
     { key: "light", title: "Light", icon: "mdi-lightbulb-spot" },
     { key: "uv", title: "UV", icon: "mdi-vector-square" },
@@ -75,6 +78,7 @@ const createMesh = geometry => Mesh.create(geometry || createGeometry(), {
     rootKey: "material",
     source: "material-editor",
 });
+const createParticles = (settings = {}, context = {}) => ParticleSystem.create(settings || createParticleSystem(), context);
 
 const createPrincipledNode = () => Node.createPrincipled({
     surfaceFieldMap: SURFACE_FIELD_MAP,
@@ -163,6 +167,7 @@ export function materialEditorModel(props, emit) {
         surface: createSurface(),
         geometry: createGeometry(),
         mesh: createMesh(createGeometry()),
+        particle_system: createParticles(),
         physics: createPhysics(),
         light: createLight(),
         bitmap_maps: createBitmapMaps(),
@@ -290,10 +295,12 @@ export function materialEditorModel(props, emit) {
                 source: selectedSourceLayer.value?.id || props.layer?.id || backendLayer.source || "",
                 source_layer_id: selectedSourceLayer.value?.id || props.layer?.id || backendLayer.source_layer_id || "",
                 mesh: normalized.mesh,
+                particle_system: getPlainParticleSystem(),
                 light: previewLight,
                 shader: {
                     ...(backendLayer.shader || {}),
                     mesh: normalized.mesh,
+                    particle_system: getPlainParticleSystem(),
                     light: previewLight,
                 },
                 settings: {
@@ -346,6 +353,7 @@ export function materialEditorModel(props, emit) {
             surface: normalized.surface,
             geometry: normalized.geometry,
             mesh: normalized.mesh,
+            particle_system: getPlainParticleSystem(),
             physics: normalized.physics,
             light: previewLight,
             bitmap_maps: normalized.bitmap_maps,
@@ -356,6 +364,7 @@ export function materialEditorModel(props, emit) {
                 surface: normalized.surface,
                 geometry: normalized.geometry,
                 mesh: normalized.mesh,
+                particle_system: getPlainParticleSystem(),
                 physics: normalized.physics,
                 light: previewLight,
                 bitmap_maps: normalized.bitmap_maps,
@@ -373,6 +382,7 @@ export function materialEditorModel(props, emit) {
                 surface: normalized.surface,
                 geometry: normalized.geometry,
                 mesh: normalized.mesh,
+                particle_system: getPlainParticleSystem(),
                 physics: normalized.physics,
                 light: previewLight,
                 bitmap_maps: normalized.bitmap_maps,
@@ -1709,12 +1719,18 @@ export function materialEditorModel(props, emit) {
         })),
     });
 
+    const getPlainParticleSystem = ({ compact = false } = {}) => ParticleSystem.toPlain(
+        values.particle_system || createParticles(),
+        { compact }
+    );
+
     const normalizeValues = ({ preview = false } = {}) => ({
         name: values.name || "Cube Material",
 
         surface: clonePlain(values.surface),
         geometry: clonePlain(values.geometry),
         mesh: preview ? getPreviewPlainMesh() : getPlainMesh(),
+        particle_system: getPlainParticleSystem({ compact: preview }),
         physics: clonePlain(values.physics),
         light: clonePlain(values.light),
         bitmap_maps: sanitizeSurfaceBitmapMaps(values.bitmap_maps),
@@ -3879,6 +3895,10 @@ export function materialEditorModel(props, emit) {
             cloneData(source.mesh || source.material?.mesh || {}),
             values.geometry,
         );
+        values.particle_system = ParticleSystem.fromPlain(
+            cloneData(source.particle_system || source.material?.particle_system || source.shader?.particle_system || {}),
+            { mesh: values.mesh },
+        );
         values.light = {
             ...createLight(),
             ...(cloneData(source.light || source.settings?.light || source.shader?.light || {})),
@@ -5873,11 +5893,17 @@ export function materialEditorModel(props, emit) {
 
     const handleGeometryChange = () => {
         rebuildMaterialMesh({ preserveLayout: false });
+        values.particle_system = ParticleSystem.update(values.particle_system, {}, { mesh: values.mesh });
         requestPreviewDebounced();
 
         if (ui.value.activeTab === "uv") {
             drawUvCanvas();
         }
+    };
+
+    const handleParticleSystemChange = particleSystem => {
+        values.particle_system = ParticleSystem.fromPlain(particleSystem, { mesh: values.mesh });
+        requestPreviewDebounced();
     };
 
     const ensureDefaultUvMapNode = () => {
@@ -6163,6 +6189,7 @@ export function materialEditorModel(props, emit) {
         syncUnwrapReferenceMap,
         setPreviewSetting,
         handleGeometryChange,
+        handleParticleSystemChange,
 
         isUvFaceSelected,
         toggleUvFaceSelection,

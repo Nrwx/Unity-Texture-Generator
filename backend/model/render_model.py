@@ -570,6 +570,7 @@ class RenderModel(BaseModel):
                 "bitmap_maps": package["bitmap_maps"],
                 "uv": package["uv"],
                 "shader_graph": package["shader_graph"],
+                "particle_system": package.get("particle_system", {}),
 
                 "material": package["material"],
                 "mesh": package["mesh"],
