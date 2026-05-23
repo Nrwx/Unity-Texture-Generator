@@ -884,8 +884,8 @@ button {
   }
 }
 
-.mem-node-inspector{
-  max-height: 370px;
+.mem-node-inspector, .mem-shader-source-panel{
+  max-height: 400px;
   overflow: hidden;
   overflow-y: auto;
 }
@@ -2024,10 +2024,9 @@ button {
   display: flex;
   flex-wrap: nowrap;
   gap: 7px;
-  justify-content: flex-end;
-  max-width: min(720px, 58vw);
+  max-width: min(475px, 25vw);
+  overflow: hidden;
   overflow-x: auto;
-  overflow-y: visible;
   padding-bottom: 4px;
 
   &:has(.mem-node-action-group.open) {

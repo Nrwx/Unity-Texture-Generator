@@ -2,6 +2,7 @@ import {computed, onBeforeUnmount, onMounted, reactive, ref, watch,} from "vue";
 import {clamp} from "@/utils/tools";
 import {uuid} from "@/utils/uuid";
 import {colorArrayToHex, hexToRgbaArray} from "@/utils/color";
+import {Node} from "@/view/models/page/material/core/Node/Node";
 
 const PREVIEW_DEBOUNCE_MS = 220;
 
@@ -131,727 +132,16 @@ const PRINCIPLED_SURFACE_GROUPS = [
 
 const PRINCIPLED_NODE_INPUT_KEYS = PRINCIPLED_SURFACE_GROUPS.map(group => group.key);
 
-const NODE_TYPE_ORDER = ["Shader", "Texture", "UV", "Math", "Vector", "Color", "Output"];
-
-const createNodeDefinition = ({
-                                  key,
-                                  type,
-                                  label,
-                                  icon,
-                                  fields = [],
-                                  inputs = {},
-                                  outputs = {},
-                                  defaults = {},
-                              }) => Object.freeze({
-    key,
-    type,
-    group: type,
-    label,
-    icon,
-    fields,
-    inputs,
-    outputs,
-    defaults: Object.freeze(defaults),
-});
-
-const TEXTURE_SETTING_DEFAULTS = Object.freeze({
-    channel: "rgba",
-    color_mode: "color",
-});
-
-const nodeSocket = (type, label = "") => ({ type, label });
-
-const NODE_DEFINITIONS = Object.freeze([
-    createNodeDefinition({
-        key: "shader.principled",
-        type: "Shader",
-        label: "Principled BSDF",
-        icon: "mdi-material-design",
-    }),
-
-    createNodeDefinition({
-        key: "texture.bitmap",
-        type: "Texture",
-        label: "Bitmap/Image",
-        icon: "mdi-image",
-        fields: ["bitmap", "interpolation", "projection", "extension"],
-        inputs: {
-            uv: nodeSocket("vector"),
-        },
-        outputs: {
-            color: nodeSocket("color"),
-            alpha: nodeSocket("float"),
-        },
-        defaults: {
-            ...TEXTURE_SETTING_DEFAULTS,
-            strength: 1,
-            offset: 0,
-            invert: false,
-            blend: "replace",
-            bitmap: "",
-        },
-    }),
-
-    createNodeDefinition({
-        key: "texture.multitexture",
-        type: "Texture",
-        label: "Multi Texture",
-        icon: "mdi-image-multiple",
-        fields: ["bitmap", "interpolation", "projection", "extension"],
-        inputs: {
-            uv: nodeSocket("vector"),
-        },
-        outputs: {
-            color: nodeSocket("color"),
-            alpha: nodeSocket("float"),
-        },
-        defaults: {
-            mode: "cubemap-url-group-composite",
-            ...TEXTURE_SETTING_DEFAULTS,
-            strength: 1,
-            offset: 0,
-            blend: "replace",
-        },
-    }),
-
-    createNodeDefinition({
-        key: "texture.gradient",
-        type: "Texture",
-        label: "Gradient",
-        icon: "mdi-gradient-horizontal",
-        fields: ["type"],
-        inputs: {
-            vector: nodeSocket("vector"),
-        },
-        outputs: {
-            color: nodeSocket("color"),
-            factor: nodeSocket("float"),
-        },
-        defaults: {
-            type: "Linear",
-            strength: 1,
-            offset: 0,
-            clamp: true,
-        },
-    }),
-
-    createNodeDefinition({
-        key: "texture.noise",
-        type: "Texture",
-        label: "Noise",
-        icon: "mdi-blur",
-        fields: ["dimensions", "normalize", "type"],
-        inputs: {
-            vector: nodeSocket("vector"),
-            scale: nodeSocket("float"),
-            detail: nodeSocket("float"),
-            roughness: nodeSocket("float"),
-            lacunarity: nodeSocket("float"),
-            distortion: nodeSocket("float"),
-        },
-        outputs: {
-            factor: nodeSocket("float"),
-            color: nodeSocket("color"),
-        },
-        defaults: {
-            dimensions: "3D",
-            normalize: true,
-            type: "fBM",
-            scale: 0.5,
-            detail: 2,
-            roughness: 0.5,
-            lacunarity: 2,
-            distortion: 0,
-            clamp: true,
-        },
-    }),
-
-    createNodeDefinition({
-        key: "texture.wave",
-        type: "Texture",
-        label: "Wave",
-        icon: "mdi-sine-wave",
-        fields: ["type", "direction", "wave"],
-        inputs: {
-            vector: nodeSocket("vector"),
-            scale: nodeSocket("float"),
-            distortion: nodeSocket("float"),
-            detail: nodeSocket("float"),
-            "detail scale": nodeSocket("float"),
-            "detail roughness": nodeSocket("float"),
-            Phase: nodeSocket("float"),
-        },
-        outputs: {
-            color: nodeSocket("color"),
-            factor: nodeSocket("float"),
-        },
-        defaults: {
-            type: "Bands",
-            direction: "X",
-            wave: "Sine",
-            scale: 0.5,
-            distortion: 0,
-            detail: 2,
-            clamp: true,
-        },
-    }),
-
-    createNodeDefinition({
-        key: "uv.map",
-        type: "UV",
-        label: "UV-Map",
-        icon: "mdi-vector-square",
-        outputs: {
-            uv: nodeSocket("vector", "UV"),
-        },
-        defaults: {
-            uv_map: "",
-        },
-    }),
-
-    createNodeDefinition({
-        key: "math.clamp",
-        type: "Math",
-        label: "Clamp",
-        icon: "mdi-lock-outline",
-        fields: ["type", "value", "min", "max"],
-        inputs: {
-            value: nodeSocket("float"),
-            min: nodeSocket("float"),
-            max: nodeSocket("float"),
-        },
-        outputs: {
-            result: nodeSocket("float"),
-        },
-        defaults: {
-            type: "Min Max",
-            value: 0,
-            min: 0,
-            max: 1,
-        },
-    }),
-
-    createNodeDefinition({
-        key: "math.floatCurve",
-        type: "Math",
-        label: "Float Curve",
-        icon: "mdi-chart-bell-curve-cumulative",
-        fields: ["curve", "factor", "value"],
-        inputs: {
-            factor: nodeSocket("float"),
-            value: nodeSocket("float"),
-        },
-        outputs: {
-            value: nodeSocket("float"),
-        },
-        defaults: {
-            curve: null,
-            factor: 1,
-            value: 0,
-        },
-    }),
-
-    createNodeDefinition({
-        key: "math.operation",
-        type: "Math",
-        label: "Math",
-        icon: "mdi-function",
-        fields: ["mode", "clamp", "a", "b"],
-        inputs: {
-            a: nodeSocket("float", "value"),
-            b: nodeSocket("float", "value"),
-        },
-        outputs: {
-            value: nodeSocket("float"),
-        },
-        defaults: {
-            mode: "Add",
-            clamp: true,
-            a: 0,
-            b: 0,
-            value: 0,
-            factor: 1,
-        },
-    }),
-
-    createNodeDefinition({
-        key: "math.mix",
-        type: "Math",
-        label: "Mix",
-        icon: "mdi-blender-software",
-        fields: ["type", "clamp", "factor", "a", "b"],
-        inputs: {
-            factor: nodeSocket("float"),
-            a: nodeSocket("float"),
-            b: nodeSocket("float"),
-        },
-        outputs: {
-            result: nodeSocket("float"),
-        },
-        defaults: {
-            type: "Float",
-            clamp: true,
-            factor: 1,
-            a: 0,
-            b: 1,
-        },
-    }),
-
-    createNodeDefinition({
-        key: "math.value",
-        type: "Math",
-        label: "Value",
-        icon: "mdi-numeric",
-        fields: ["value"],
-        outputs: {
-            value: nodeSocket("float"),
-        },
-        defaults: {
-            value: 0,
-        },
-    }),
-
-    createNodeDefinition({
-        key: "vector.combineXYZ",
-        type: "Vector",
-        label: "Combine XYZ",
-        icon: "mdi-vector-polyline",
-        fields: ["x", "y", "z"],
-        inputs: {
-            x: nodeSocket("float"),
-            y: nodeSocket("float"),
-            z: nodeSocket("float"),
-        },
-        outputs: {
-            vector: nodeSocket("vector"),
-        },
-        defaults: {
-            x: 0,
-            y: 0,
-            z: 0,
-        },
-    }),
-
-    createNodeDefinition({
-        key: "vector.mix",
-        type: "Vector",
-        label: "Mix",
-        icon: "mdi-vector-combine",
-        fields: ["type", "clamp", "factor", "a", "b", "x", "y", "z"],
-        inputs: {
-            factor: nodeSocket("float"),
-            a: nodeSocket("vector"),
-            b: nodeSocket("vector"),
-        },
-        outputs: {
-            vector: nodeSocket("vector"),
-        },
-        defaults: {
-            type: "Vector",
-            clamp: true,
-            factor: 1,
-            a: [0, 0, 0],
-            b: [1, 1, 1],
-            x: 0,
-            y: 0,
-            z: 0,
-        },
-    }),
-
-    createNodeDefinition({
-        key: "vector.separateXYZ",
-        type: "Vector",
-        label: "Separate XYZ",
-        icon: "mdi-vector-difference",
-        fields: ["x", "y", "z"],
-        inputs: {
-            vector: nodeSocket("vector"),
-        },
-        outputs: {
-            x: nodeSocket("float"),
-            y: nodeSocket("float"),
-            z: nodeSocket("float"),
-        },
-        defaults: {
-            x: 0,
-            y: 0,
-            z: 0,
-        },
-    }),
-
-    createNodeDefinition({
-        key: "vector.mapping",
-        type: "Vector",
-        label: "Mapping",
-        icon: "mdi-vector-square",
-        fields: ["type", "vector", "location", "rotation", "scale"],
-        inputs: {
-            vector: nodeSocket("vector"),
-            location: nodeSocket("vector"),
-            rotation: nodeSocket("vector"),
-            scale: nodeSocket("vector"),
-        },
-        outputs: {
-            vector: nodeSocket("vector"),
-        },
-        defaults: {
-            type: "Point",
-            vector: [0, 0, 0],
-            location: [0, 0, 0],
-            rotation: [0, 0, 0],
-            scale: [1, 1, 1],
-        },
-    }),
-
-    createNodeDefinition({
-        key: "color.blackbody",
-        type: "Color",
-        label: "Blackbody",
-        icon: "mdi-thermometer",
-        fields: ["temperature"],
-        inputs: {
-            temperature: nodeSocket("float", "Temperature (K)"),
-        },
-        outputs: {
-            color: nodeSocket("color"),
-        },
-        defaults: {
-            temperature: 6500,
-        },
-    }),
-
-    createNodeDefinition({
-        key: "color.brightnessContrast",
-        type: "Color",
-        label: "Brightness/Contrast",
-        icon: "mdi-brightness-6",
-        fields: ["bitmap", "brightness", "contrast"],
-        inputs: {
-            bitmap: nodeSocket("image"),
-            brightness: nodeSocket("float"),
-            contrast: nodeSocket("float"),
-        },
-        outputs: {
-            bitmap: nodeSocket("image"),
-        },
-        defaults: {
-            bitmap: null,
-            brightness: 0,
-            contrast: 0,
-        },
-    }),
-
-    createNodeDefinition({
-        key: "color.colorRamp",
-        type: "Color",
-        label: "Color Ramp",
-        icon: "mdi-gradient-horizontal",
-        fields: ["color_mode", "color_interpolation", "active_color_stop", "position", "color", "factor"],
-        inputs: {
-            factor: nodeSocket("float"),
-        },
-        outputs: {
-            bitmap: nodeSocket("image"),
-            alpha: nodeSocket("float"),
-        },
-        defaults: {
-            color_mode: "RGB",
-            color_interpolation: "Linear",
-            active_color_stop: 0,
-            position: 0.5,
-            color: [1, 1, 1, 1],
-            factor: 0.5,
-        },
-    }),
-
-    createNodeDefinition({
-        key: "color.gamma",
-        type: "Color",
-        label: "Gamma",
-        icon: "mdi-chart-bell-curve",
-        fields: ["color", "gamma"],
-        inputs: {
-            color: nodeSocket("color"),
-            gamma: nodeSocket("float"),
-        },
-        outputs: {
-            color: nodeSocket("color"),
-        },
-        defaults: {
-            color: [1, 1, 1, 1],
-            gamma: 1,
-        },
-    }),
-
-    createNodeDefinition({
-        key: "color.hsv",
-        type: "Color",
-        label: "Hue/Saturation/Value",
-        icon: "mdi-palette",
-        fields: ["bitmap", "hue", "saturation", "value", "factor"],
-        inputs: {
-            bitmap: nodeSocket("image"),
-            hue: nodeSocket("float"),
-            saturation: nodeSocket("float"),
-            value: nodeSocket("float"),
-            factor: nodeSocket("float"),
-        },
-        outputs: {
-            bitmap: nodeSocket("image"),
-        },
-        defaults: {
-            bitmap: null,
-            hue: 0.5,
-            saturation: 1,
-            value: 1,
-            factor: 1,
-        },
-    }),
-
-    createNodeDefinition({
-        key: "color.invert",
-        type: "Color",
-        label: "Invert Color",
-        icon: "mdi-invert-colors",
-        fields: ["factor", "color"],
-        inputs: {
-            factor: nodeSocket("float"),
-            color: nodeSocket("color"),
-        },
-        outputs: {
-            color: nodeSocket("color"),
-        },
-        defaults: {
-            factor: 1,
-            color: [1, 1, 1, 1],
-        },
-    }),
-
-    createNodeDefinition({
-        key: "color.mix",
-        type: "Color",
-        label: "Mix",
-        icon: "mdi-blender-software",
-        fields: ["type", "clamp", "factor", "a", "b"],
-        inputs: {
-            factor: nodeSocket("float"),
-            a: nodeSocket("color"),
-            b: nodeSocket("color"),
-        },
-        outputs: {
-            color: nodeSocket("color"),
-        },
-        defaults: {
-            type: "Color",
-            clamp: true,
-            factor: 1,
-            a: [0, 0, 0, 1],
-            b: [1, 1, 1, 1],
-        },
-    }),
-
-    createNodeDefinition({
-        key: "color.combine",
-        type: "Color",
-        label: "Combine Color",
-        icon: "mdi-format-color-fill",
-        fields: ["mode", "red", "green", "blue", "alpha"],
-        inputs: {
-            red: nodeSocket("float"),
-            green: nodeSocket("float"),
-            blue: nodeSocket("float"),
-            alpha: nodeSocket("float"),
-        },
-        outputs: {
-            color: nodeSocket("color"),
-        },
-        defaults: {
-            mode: "RGB",
-            red: 0,
-            green: 0,
-            blue: 0,
-            alpha: 1,
-        },
-    }),
-
-    createNodeDefinition({
-        key: "color.separate",
-        type: "Color",
-        label: "Separate Color",
-        icon: "mdi-format-color-highlight",
-        fields: ["mode", "red", "green", "blue", "alpha"],
-        inputs: {
-            color: nodeSocket("color"),
-        },
-        outputs: {
-            red: nodeSocket("float"),
-            green: nodeSocket("float"),
-            blue: nodeSocket("float"),
-            alpha: nodeSocket("float"),
-        },
-        defaults: {
-            mode: "RGB",
-            color: [1, 1, 1, 1],
-        },
-    }),
-
-    createNodeDefinition({
-        key: "color.rgbToBw",
-        type: "Color",
-        label: "RGB to BW",
-        icon: "mdi-circle-half-full",
-        fields: ["bitmap"],
-        inputs: {
-            bitmap: nodeSocket("image"),
-        },
-        outputs: {
-            value: nodeSocket("float"),
-        },
-        defaults: {
-            bitmap: null,
-        },
-    }),
-
-    createNodeDefinition({
-        key: "output.material",
-        type: "Output",
-        label: "Output",
-        icon: "mdi-export",
-    }),
-]);
-
-const NODE_DEFINITION_MAP = Object.freeze(
-    NODE_DEFINITIONS.reduce((acc, definition) => {
-        acc[definition.key] = definition;
-        return acc;
-    }, {})
-);
-
-const NODE_TYPES = Object.freeze(
-    NODE_DEFINITIONS.map(({ key, type, group, label, icon }) => ({
-        key,
-        type,
-        group,
-        label,
-        icon,
-    }))
-);
-
-const SHADER_NODE_DEFINITIONS = Object.freeze(
-    NODE_DEFINITIONS.reduce((acc, definition) => {
-        acc[definition.key] = {
-            fields: definition.fields,
-            inputs: definition.inputs,
-            outputs: definition.outputs,
-        };
-
-        return acc;
-    }, {})
-);
-
-const NODE_VALUE_DEFAULTS = Object.freeze(
-    NODE_DEFINITIONS.reduce((acc, definition) => {
-        acc[definition.key] = definition.defaults || {};
-        return acc;
-    }, {})
-);
-
-const getNodeDescriptor = nodeKey => {
-    if (typeof nodeKey === "object" && nodeKey?.key) {
-        return NODE_DEFINITION_MAP[nodeKey.key] || null;
-    }
-
-    return NODE_DEFINITION_MAP[nodeKey] || null;
-};
-
-const createShaderNodeIO = nodeKey => {
-    const definition = SHADER_NODE_DEFINITIONS[nodeKey];
-
-    return {
-        inputs: clonePlain(definition?.inputs || {}),
-        outputs: clonePlain(definition?.outputs || {}),
-    };
-};
-
 const createShaderNode = (nodeKey, position = { x: 280, y: 140 }) => {
-    const definition = getNodeDescriptor(nodeKey);
-
-    if (!definition) {
-        return null;
-    }
-
-    return {
-        id: uuid("shader-node"),
-        type: definition.type,
-        label: definition.label,
-        locked: false,
-        position,
-        ...createShaderNodeIO(definition.key),
-        settings: {
-            ...(NODE_VALUE_DEFAULTS[definition.key] || {}),
-            node_key: definition.key,
-            node_name: definition.label,
-            group: definition.group,
-        },
-    };
+    return Node.create(nodeKey, position);
 };
 
-const normalizeNodeSettings = node => {
-    if (!node) {
-        return {};
-    }
 
-    const nodeKey = node.settings?.node_key;
-
-    if (!nodeKey || !NODE_DEFINITION_MAP[nodeKey]) {
-        return {
-            ...(node.settings || {}),
-        };
-    }
-
-    const definition = NODE_DEFINITION_MAP[nodeKey];
-
-    return {
-        ...(NODE_VALUE_DEFAULTS[nodeKey] || {}),
-        ...(node.settings || {}),
-        node_key: definition.key,
-        node_name: definition.label,
-        group: definition.group,
-    };
-};
-
-const getShaderNodeDefinition = node => {
-    const nodeKey = node?.settings?.node_key;
-
-    return nodeKey
-        ? SHADER_NODE_DEFINITIONS[nodeKey] || null
-        : null;
-};
-
-const isEditableNodeInput = socket => {
-    if (!socket || typeof socket !== "object") {
-        return false;
-    }
-
-    return ["float", "value", "color", "vector"].includes(socket.type);
-};
-
-const getNodeCategoryChip = node => {
-    if (!node) {
-        return "";
-    }
-
-    const settings = normalizeNodeSettings(node);
-    const definition = NODE_DEFINITION_MAP[settings.node_key];
-
-    return definition?.group || settings.group || node.type || "";
-};
-
-const getShaderNodeIcon = node => {
-    const definition = NODE_DEFINITION_MAP[node?.settings?.node_key];
-
-    return definition?.icon || "mdi-function";
-};
+const normalizeNodeSettings = node => Node.normalizeSettings(node);
+const getShaderNodeFieldItems = node => Node.getFieldItems(node);
+const getShaderNodeFieldOptions = (node, fieldKey) => Node.getFieldOptions(node, fieldKey);
+const getNodeCategoryChip = node => Node.getGroup(node);
+const getShaderNodeIcon = node => Node.getIcon(node);
 
 const TEXTURE_CHANNEL_OPTIONS = ["rgba", "rgb"];
 const TEXTURE_COLOR_MODE_OPTIONS = ["color", "bw"];
@@ -889,7 +179,7 @@ const BW_TEXTURE_SLOTS = Object.freeze([
 ]);
 
 const getTextureSettingDefaults = slotKey => ({
-    ...TEXTURE_SETTING_DEFAULTS,
+    ...Node.TEXTURE_SETTING_DEFAULTS,
     color_mode: BW_TEXTURE_SLOTS.includes(slotKey) ? "bw" : "color",
 });
 
@@ -1076,7 +366,7 @@ const createCubeFace = (face, x, y, width = 0.25, height = 1 / 3) => ({
         name: "",
         width: 0,
         height: 0,
-        ...TEXTURE_SETTING_DEFAULTS,
+        ...Node.TEXTURE_SETTING_DEFAULTS,
     },
 });
 
@@ -1100,71 +390,17 @@ const createUv = () => ({
     },
 });
 
-const createPrincipledNode = () => ({
-    id: "principled-bsdf",
-    type: "Shader",
-    label: "Principled BSDF",
-    locked: false,
-    position: { x: 620, y: 130 },
-    inputs: PRINCIPLED_NODE_INPUT_KEYS.reduce((acc, key) => {
-        const field = SURFACE_FIELD_MAP[key];
-        acc[field.key] = {
-            type: Array.isArray(createSurface()[field.key]) ? "color" : "float",
-            relation: PRINCIPLED_SURFACE_GROUPS.find(group => group.key === key)?.relation || "",
-        };
-
-        return acc;
-    }, {}),
-    outputs: {
-        bsdf: { type: "shader" },
-    },
-    settings: {
-        source: "surface",
-        node_key: "shader.principled",
-        node_name: "Principled BSDF",
-        group: "Shader",
-    },
+const createPrincipledNode = () => Node.createPrincipled({
+    surfaceFieldMap: SURFACE_FIELD_MAP,
+    principledNodeInputKeys: PRINCIPLED_NODE_INPUT_KEYS,
+    principledSurfaceGroups: PRINCIPLED_SURFACE_GROUPS,
+    createSurface,
 });
 
-const createOutputNode = () => ({
-    id: "material-output",
-    type: "Output",
-    label: "Material Output",
-    locked: false,
-    position: { x: 940, y: 220 },
-    inputs: {
-        surface: { type: "shader" },
-        volume: { type: "shader" },
-        displacement: { type: "vector" },
-    },
-    outputs: {},
-    settings: {
-        node_key: "output.material",
-        node_name: "Output",
-        group: "Output",
-    },
-});
+const createOutputNode = () => Node.createOutput();
 
-const createShaderGraph = () => ({
-    version: 1,
-    nodes: [
-        createPrincipledNode(),
-        createOutputNode(),
-    ],
-    edges: [
-        {
-            id: "edge-principled-output",
-            core: true,
-            from: {
-                node: "principled-bsdf",
-                socket: "bsdf",
-            },
-            to: {
-                node: "material-output",
-                socket: "surface",
-            },
-        },
-    ],
+const createShaderGraph = () => Node.createGraph({
+    createPrincipled: createPrincipledNode,
 });
 
 const clonePlain = value => {
@@ -1425,7 +661,7 @@ export function materialEditorModel(props, emit) {
     });
 
     const nodeTypeGroups = computed(() => {
-        const groups = NODE_TYPES.reduce((acc, item) => {
+        const groups = Node.TYPES.reduce((acc, item) => {
             const group = item.group;
 
             if (!acc[group]) {
@@ -1436,7 +672,7 @@ export function materialEditorModel(props, emit) {
             return acc;
         }, {});
 
-        return NODE_TYPE_ORDER
+        return Node.TYPE_ORDER
             .filter(group => Array.isArray(groups[group]) && groups[group].length)
             .map(group => ({
                 key: group,
@@ -1525,100 +761,6 @@ export function materialEditorModel(props, emit) {
 
     const getGraphNode = id => {
         return values.shader_graph.nodes.find(node => node.id === id);
-    };
-
-    const getShaderNodeFieldItems = node => {
-        const definition = getShaderNodeDefinition(node);
-
-        if (!definition) {
-            return [];
-        }
-
-        const inputFields = Object.entries(definition.inputs || {})
-            .filter(([, socket]) => isEditableNodeInput(socket))
-            .map(([key]) => key);
-
-        return Array.from(new Set([
-            ...definition.fields,
-            ...inputFields,
-        ])).map(field => ({
-            key: field,
-            label: field === "a" ? "A" : field === "b" ? "B" : field.replace(/_/g, " "),
-        }));
-    };
-
-    const getShaderNodeFieldOptions = (node, fieldKey) => {
-        const settings = normalizeNodeSettings(node);
-        const nodeKey = settings.node_key || "";
-
-        if (fieldKey === "interpolation") {
-            return ["Linear", "Cubic", "Closest", "Smart"];
-        }
-
-        if (fieldKey === "projection") {
-            return ["Flat", "Box", "Sphere", "Tube"];
-        }
-
-        if (fieldKey === "extension") {
-            return ["Repeat", "Extend", "Clip"];
-        }
-
-        if (nodeKey === "texture.gradient" && fieldKey === "type") {
-            return ["Linear", "Quadratic", "Easing", "Diagonal", "Spherical", "Sphere", "Radial"];
-        }
-
-        if (nodeKey === "texture.noise" && fieldKey === "dimensions") {
-            return ["1D", "2D", "3D", "4D"];
-        }
-
-        if (nodeKey === "texture.noise" && fieldKey === "type") {
-            return ["fBM", "Multifractal", "Hybrid Multifractal", "Ridged Multifractal", "Hetero Terrain"];
-        }
-
-        if (nodeKey === "texture.wave" && fieldKey === "type") {
-            return ["Bands", "Rings"];
-        }
-
-        if (nodeKey === "texture.wave" && fieldKey === "direction") {
-            return ["X", "Y", "Z", "Diagonal", "Spherical"];
-        }
-
-        if (nodeKey === "texture.wave" && fieldKey === "wave") {
-            return ["Sine", "Saw", "Triangle", "Rings"];
-        }
-
-        if (nodeKey === "math.operation" && fieldKey === "mode") {
-            return ["Add", "Subtract", "Multiply", "Divide", "Min", "Max", "Power", "Mix"];
-        }
-
-        if (nodeKey === "math.clamp" && fieldKey === "type") {
-            return ["Min Max", "Range"];
-        }
-
-        if (nodeKey === "math.mix" && fieldKey === "type") {
-            return ["Float"];
-        }
-
-        if (nodeKey === "vector.mix" && fieldKey === "type") {
-            return ["Vector"];
-        }
-
-        if (nodeKey === "color.mix" && fieldKey === "type") {
-            return ["Color"];
-        }
-
-        if (nodeKey === "vector.mapping" && fieldKey === "type") {
-            return ["Point", "Texture", "Vector", "Normal"];
-        }
-
-        if (
-            (nodeKey === "color.combine" || nodeKey === "color.separate") &&
-            fieldKey === "mode"
-        ) {
-            return ["RGB", "HSV", "HSL"];
-        }
-
-        return [];
     };
 
     const getNodeSocketLabel = (nodeId, socket, direction) => {
@@ -3624,7 +2766,7 @@ export function materialEditorModel(props, emit) {
             return "Separate XYZ";
         }
 
-        const definition = getShaderNodeDefinition(node);
+        const definition = Node.getDefinition(node);
 
         if (definition?.fields?.length) {
             return definition.fields
@@ -4062,7 +3204,7 @@ export function materialEditorModel(props, emit) {
         let node = getGraphNode(nodeId);
 
         if (!node) {
-            const bitmapDefinition = NODE_DEFINITION_MAP["texture.bitmap"];
+            const bitmapDefinition = Node.get("texture.bitmap");
             node = {
                 id: nodeId,
                 type: bitmapDefinition.type,
@@ -4072,9 +3214,9 @@ export function materialEditorModel(props, emit) {
                     x: 70,
                     y: 80 + SURFACE_FIELDS.findIndex(field => field.key === slotKey) * 44,
                 },
-                ...createShaderNodeIO(bitmapDefinition.key),
+                ...Node.getSockets(bitmapDefinition.key),
                 settings: {
-                    ...(NODE_VALUE_DEFAULTS[bitmapDefinition.key] || {}),
+                    ...(Node.getDefaults(bitmapDefinition.key) || {}),
                     node_key: bitmapDefinition.key,
                     node_name: bitmapDefinition.label,
                     group: bitmapDefinition.group,
@@ -4094,7 +3236,7 @@ export function materialEditorModel(props, emit) {
             values.shader_graph.nodes.push(node);
         } else {
             node.settings = {
-                ...(NODE_VALUE_DEFAULTS["texture.bitmap"] || {}),
+                ...(Node.getDefaults("texture.bitmap") || {}),
                 ...node.settings,
                 node_key: "texture.bitmap",
                 node_name: "Bitmap/Image",
@@ -4421,13 +3563,13 @@ export function materialEditorModel(props, emit) {
             }
 
             const settings = normalizeNodeSettings(node);
-            const definition = NODE_DEFINITION_MAP[settings.node_key];
+            const definition = Node.get(settings.node_key);
 
             if (!definition) {
                 return node;
             }
 
-            const nodeIO = createShaderNodeIO(definition.key);
+            const nodeIO = Node.getSockets(definition.key);
 
             return {
                 ...node,
@@ -4481,10 +3623,10 @@ export function materialEditorModel(props, emit) {
         applyRememberedNodePositions();
     };
 
-    const hasShaderNodeDefinition = node => Boolean(getShaderNodeDefinition(node));
+    const hasShaderNodeDefinition = node => Boolean(Node.getDefinition(node));
 
     const addShaderNode = (nodeType, position = null) => {
-        const descriptor = getNodeDescriptor(nodeType);
+        const descriptor = Node.get(nodeType);
 
         if (!descriptor) {
             return;
@@ -4518,7 +3660,7 @@ export function materialEditorModel(props, emit) {
                 node.type = "Output";
                 node.label = "Material Output";
                 node.settings = {
-                    ...(NODE_VALUE_DEFAULTS["output.material"] || {}),
+                    ...(Node.getDefaults("output.material") || {}),
                     ...(node.settings || {}),
                     node_key: "output.material",
                     node_name: "Output",
@@ -5419,7 +4561,7 @@ export function materialEditorModel(props, emit) {
                     { x: 70, y: 430 }
                 ),
             ),
-            ...createShaderNodeIO("uv.map"),
+            ...Node.getSockets("uv.map"),
             settings: mergeGeneratedUvSettings(generatedUvSnapshots, uvNodeId, {
                 node_key: "uv.map",
                 node_name: "UV-Map",
@@ -5536,7 +4678,7 @@ export function materialEditorModel(props, emit) {
                         { x: 350, y: 430 }
                     ),
                 ),
-                ...createShaderNodeIO("texture.bitmap"),
+                ...Node.getSockets("texture.bitmap"),
                 settings: mergeGeneratedUvSettings(generatedUvSnapshots, bitmapNodeId, {
                     node_key: "texture.bitmap",
                     node_name: "Bitmap/Image",
@@ -5660,7 +4802,7 @@ export function materialEditorModel(props, emit) {
                         { x: 350, y: 350 + index * 92 }
                     ),
                 ),
-                ...createShaderNodeIO("texture.bitmap"),
+                ...Node.getSockets("texture.bitmap"),
                 settings: mergeGeneratedUvSettings(generatedUvSnapshots, bitmapNodeId, {
                     node_key: "texture.bitmap",
                     node_name: "Bitmap/Image",
@@ -6369,7 +5511,6 @@ export function materialEditorModel(props, emit) {
         tabs: TABS,
         surfaceFields: SURFACE_FIELDS,
         surfaceGroups: PRINCIPLED_SURFACE_GROUPS,
-        nodeTypes: NODE_TYPES,
         nodeTypeGroups,
         textureChannelOptions: TEXTURE_CHANNEL_OPTIONS,
         textureColorModeOptions: TEXTURE_COLOR_MODE_OPTIONS,
