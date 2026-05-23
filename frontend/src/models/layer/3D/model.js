@@ -6,14 +6,15 @@ import {
     ref,
     watch,
 } from "vue";
+
+import { WebGLMaterialRenderer } from "@/models/layer/3D/webglMaterialRenderer";
 import {
     createCubeVertices, createImage,
-    CUBE_FACES, drawTextureFace,
+    CUBE_FACES,
+    drawTextureFace,
     faceDepth,
-    polygonArea,
-    resolvePrincipled
-} from "@/view/models/page/material/core/model";
-import { WebGLMaterialRenderer } from "@/models/layer/3D/webglMaterialRenderer";
+    polygonArea, resolvePrincipled
+} from "@/models/layer/3D/canvas2DMaterialRender";
 
 const SURFACE_DEFAULTS = Object.freeze({
     baseColor: [1, 1, 1, 1],
@@ -1181,7 +1182,9 @@ export function layer3DModel(props, emit) {
                 return;
             }
 
-            if (node?.type === "bitmap" && settings.url) {
+            const nodeKey = settings.node_key || "";
+
+            if (nodeKey === "texture.bitmap" && settings.url) {
                 entries.push({
                     key: `${settings.slot || settings.target_slot || "baseColor"}:${settings.url}`,
                     url: settings.url,

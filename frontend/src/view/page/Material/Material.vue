@@ -306,35 +306,6 @@
                       />
 
                     </div>
-
-                    <div class="mem-slot-node-actions">
-                      <button
-                          type="button"
-                          class="mem-mini-btn"
-                          :disabled="!getMapSlot(group.key)?.enabled"
-                          @click="insertNodeBetweenSurfaceSlot(group.key, 'modifier')"
-                      >
-                        Modifier
-                      </button>
-
-                      <button
-                          type="button"
-                          class="mem-mini-btn"
-                          :disabled="!getMapSlot(group.key)?.enabled"
-                          @click="insertNodeBetweenSurfaceSlot(group.key, 'falloff')"
-                      >
-                        Falloff
-                      </button>
-
-                      <button
-                          type="button"
-                          class="mem-mini-btn"
-                          :disabled="!getMapSlot(group.key)?.enabled"
-                          @click="insertNodeBetweenSurfaceSlot(group.key, 'filter')"
-                      >
-                        Filter
-                      </button>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -964,7 +935,7 @@
                         thumb-label
                         hide-details
                         @update:model-value="requestPreviewDebounced"
-                      />
+                    />
                   </div>
 
                   <div
@@ -984,7 +955,7 @@
                         thumb-label
                         hide-details
                         @update:model-value="requestPreviewDebounced"
-                      />
+                    />
                   </div>
 
                   <div
@@ -1506,25 +1477,7 @@
                     >
                       <header>
                         <v-icon size="18">
-                          {{
-                            node.type === 'output'
-                                ? 'mdi-export'
-                                : node.type === 'principled'
-                                    ? 'mdi-material-design'
-                                    : node.type === 'bitmap'
-                                        ? 'mdi-image'
-                                        : node.type === 'uv-map'
-                                            ? 'mdi-vector-square'
-                                            : node.type === 'falloff'
-                                                ? 'mdi-chart-bell-curve'
-                                                : node.type === 'blend'
-                                                    ? 'mdi-blender-software'
-                                                    : node.type === 'filter'
-                                                        ? 'mdi-filter'
-                                                        : node.type === 'preview'
-                                                            ? 'mdi-eye'
-                                                            : 'mdi-function'
-                          }}
+                          {{ getShaderNodeIcon(node) }}
                         </v-icon>
 
                         <span class="mem-node-title">
@@ -1563,16 +1516,16 @@
                       <div class="mem-node-sockets">
                         <div class="mem-node-socket-col">
           <span
-                          v-for="(_socket, socketName) in node.inputs"
-                          :key="`input-${socketName}`"
-                          class="mem-node-socket input"
-                          :class="getNodeSocketVisualType(node.id, socketName, 'input')"
-                          data-socket
-                          :data-node-id="node.id"
-                          :data-socket-name="socketName"
-                          data-socket-direction="input"
-                          @mousedown.stop="startConnection($event, node, socketName, 'input')"
-                          @mouseup.stop="completeConnection($event, node, socketName, 'input')"
+              v-for="(_socket, socketName) in node.inputs"
+              :key="`input-${socketName}`"
+              class="mem-node-socket input"
+              :class="getNodeSocketVisualType(node.id, socketName, 'input')"
+              data-socket
+              :data-node-id="node.id"
+              :data-socket-name="socketName"
+              data-socket-direction="input"
+              @mousedown.stop="startConnection($event, node, socketName, 'input')"
+              @mouseup.stop="completeConnection($event, node, socketName, 'input')"
           >
             <i />
             {{ getNodeSocketLabel(node.id, socketName, 'input') }}
@@ -1715,7 +1668,7 @@
                         @update:model-value="syncNodeValuesToSurface(activeShaderNode)"
                     />
 
-                    <template v-if="activeShaderNode.type === 'bitmap'">
+                    <template v-if="activeShaderNode?.settings?.node_key === 'texture.bitmap'">
                       <v-select
                           :model-value="normalizeNodeSettings(activeShaderNode).channel"
                           :items="textureChannelOptions"
@@ -1743,7 +1696,7 @@
                       />
                     </template>
 
-                    <template v-if="activeShaderNode.type === 'multitexture'">
+                    <template v-if="activeShaderNode?.settings?.node_key === 'texture.multitexture'">
                       <v-select
                           :model-value="normalizeNodeSettings(activeShaderNode).channel"
                           :items="textureChannelOptions"
@@ -1792,7 +1745,7 @@
                       </div>
                     </template>
 
-                    <template v-if="activeShaderNode.type === 'uv-map' && !getShaderNodeFieldItems(activeShaderNode).length">
+                    <template v-if="activeShaderNode?.settings?.node_key === 'uv.map' && !getShaderNodeFieldItems(activeShaderNode).length">
                       <v-text-field
                           :model-value="normalizeNodeSettings(activeShaderNode).offset_x"
                           label="Offset X"
@@ -1818,39 +1771,6 @@
                           density="compact"
                           hide-details
                           @update:model-value="updateNodeSetting(activeShaderNode, 'rotate', Number($event))"
-                      />
-                    </template>
-
-                    <template v-if="activeShaderNode.type === 'filter' && !getShaderNodeFieldItems(activeShaderNode).length">
-                      <v-select
-                          :model-value="normalizeNodeSettings(activeShaderNode).filter"
-                          :items="['none', 'blur', 'sharpen', 'contrast', 'hue', 'invert', 'grayscale']"
-                          label="Filter"
-                          density="compact"
-                          hide-details
-                          @update:model-value="updateNodeSetting(activeShaderNode, 'filter', $event)"
-                      />
-                    </template>
-
-                    <template v-if="activeShaderNode.type === 'falloff' && !getShaderNodeFieldItems(activeShaderNode).length">
-                      <v-select
-                          :model-value="normalizeNodeSettings(activeShaderNode).falloff"
-                          :items="['smooth', 'sphere', 'root', 'sharp', 'linear', 'constant', 'random', 'inverted']"
-                          label="Falloff"
-                          density="compact"
-                          hide-details
-                          @update:model-value="updateNodeSetting(activeShaderNode, 'falloff', $event)"
-                      />
-                    </template>
-
-                    <template v-if="['blend', 'math', 'modifier'].includes(activeShaderNode.type) && !getShaderNodeFieldItems(activeShaderNode).length">
-                      <v-select
-                          :model-value="normalizeNodeSettings(activeShaderNode).operation"
-                          :items="['none', 'multiply', 'add', 'subtract', 'divide', 'mix', 'screen', 'overlay', 'difference', 'clamp', 'invert']"
-                          label="Operation"
-                          density="compact"
-                          hide-details
-                          @update:model-value="updateNodeSetting(activeShaderNode, 'operation', $event)"
                       />
                     </template>
 
