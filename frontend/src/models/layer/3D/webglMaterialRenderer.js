@@ -1,3 +1,5 @@
+import {Buffer} from "@/models/layer/3D/core/buffer/model";
+
 const FACE_DEFS = Object.freeze({
     front: {
         normal: [0, 0, 1],
@@ -279,14 +281,12 @@ float readSlotScalar(
 
     if (enabled == 1) {
         vec4 s = texture(tex, uv);
-        inputValue = dot(s.rgb, vec3(0.299, 0.587, 0.114)) * s.a;
+
+        inputValue = dot(s.rgb, vec3(0.299, 0.587, 0.114));
+        inputValue *= s.a;
     }
 
     float mapped = applySlotMath(inputValue, strength, offset, invertInput);
-
-    if (enabled == 1) {
-        return mix(minValue, maxValue, hardMask(mapped));
-    }
 
     return clamp(mapped, minValue, maxValue);
 }
@@ -512,10 +512,17 @@ void main() {
         ((1.0 - roughness) * (0.24 + specular * 0.8 + metallic * 0.8 + clearcoat * 0.55)) *
         (1.0 - roughness * 0.82) *
         (0.35 + specular + clearcoat * 0.65);
-    vec3 emission = uEmissionColor.rgb * uEmissionStrength;
-    if (uUseEmissionMap == 1) {
-        emission *= texture(uEmissionMap, vUv).rgb;
-    }
+    vec3 emissionColor = readSlotColor(
+        uEmissionMap,
+        vUv,
+        uEmissionColor.rgb,
+        uUseEmissionMap,
+        1.0,
+        0.0,
+        0
+    );
+    
+    vec3 emission = emissionColor * uEmissionStrength;
 
     vec3 color = ambient + light + reflection + emission;
     color *= 1.0 + emission.r * 0.04 + transmission * 0.08 + metallic * 0.05;
@@ -1421,28 +1428,10 @@ export class WebGLMaterialRenderer {
     getMesh(faceName) {
         if (!this.meshes.has(faceName)) {
             const mesh = buildFaceMesh(faceName);
-            const gl = this.gl;
 
-            mesh.vao = gl.createVertexArray();
-            mesh.vbo = gl.createBuffer();
-            mesh.ibo = gl.createBuffer();
-
-            gl.bindVertexArray(mesh.vao);
-            gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vbo);
-            gl.bufferData(gl.ARRAY_BUFFER, mesh.vertices, gl.STATIC_DRAW);
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.ibo);
-            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, mesh.indices, gl.STATIC_DRAW);
-
-            const stride = mesh.stride * 4;
-            gl.enableVertexAttribArray(0);
-            gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
-            gl.enableVertexAttribArray(1);
-            gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 3 * 4);
-            gl.enableVertexAttribArray(2);
-            gl.vertexAttribPointer(2, 2, gl.FLOAT, false, stride, 6 * 4);
-            gl.enableVertexAttribArray(3);
-            gl.vertexAttribPointer(3, 3, gl.FLOAT, false, stride, 8 * 4);
-            gl.bindVertexArray(null);
+            mesh.buffer = Buffer.materialMesh(this.gl, mesh, {
+                label: `face:${faceName}`,
+            });
 
             this.meshes.set(faceName, mesh);
         }
@@ -1452,15 +1441,8 @@ export class WebGLMaterialRenderer {
 
     getOverlayMesh(faceName) {
         if (!this.overlayMeshes.has(faceName)) {
-            const gl = this.gl;
-
-            // Faces sollen echte Face-Flächen zeigen, nicht das feine Render-Mesh.
             const faceMesh = buildFaceQuadMesh(faceName);
-
-            // Wireframe bekommt ein eigenes gröberes Grid.
             const lineMesh = buildCoarseFaceMesh(faceName, 8);
-
-            // Vertices bleiben ebenfalls am gröberen Grid, nicht am 48er Render-Mesh.
             const pointMesh = lineMesh;
 
             const lineOverlay = buildOverlayGeometry(lineMesh);
@@ -1468,45 +1450,21 @@ export class WebGLMaterialRenderer {
 
             const overlay = {
                 faceMesh,
-
-                linePositions: lineOverlay.linePositions,
                 lineCount: lineOverlay.lineCount,
-
-                pointPositions: pointOverlay.pointPositions,
                 pointCount: pointOverlay.pointCount,
+
+                faceBuffer: Buffer.materialMesh(this.gl, faceMesh, {
+                    label: `overlay-face:${faceName}`,
+                }),
+
+                lineBuffer: Buffer.positions(this.gl, lineOverlay.linePositions, {
+                    label: `overlay-line:${faceName}`,
+                }),
+
+                pointBuffer: Buffer.positions(this.gl, pointOverlay.pointPositions, {
+                    label: `overlay-points:${faceName}`,
+                }),
             };
-
-            overlay.faceVao = gl.createVertexArray();
-            overlay.faceVbo = gl.createBuffer();
-            overlay.faceIbo = gl.createBuffer();
-
-            gl.bindVertexArray(overlay.faceVao);
-            gl.bindBuffer(gl.ARRAY_BUFFER, overlay.faceVbo);
-            gl.bufferData(gl.ARRAY_BUFFER, faceMesh.vertices, gl.STATIC_DRAW);
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, overlay.faceIbo);
-            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, faceMesh.indices, gl.STATIC_DRAW);
-            gl.enableVertexAttribArray(0);
-            gl.vertexAttribPointer(0, 3, gl.FLOAT, false, faceMesh.stride * 4, 0);
-
-            overlay.lineVao = gl.createVertexArray();
-            overlay.lineVbo = gl.createBuffer();
-
-            gl.bindVertexArray(overlay.lineVao);
-            gl.bindBuffer(gl.ARRAY_BUFFER, overlay.lineVbo);
-            gl.bufferData(gl.ARRAY_BUFFER, overlay.linePositions, gl.STATIC_DRAW);
-            gl.enableVertexAttribArray(0);
-            gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 3 * 4, 0);
-
-            overlay.pointVao = gl.createVertexArray();
-            overlay.pointVbo = gl.createBuffer();
-
-            gl.bindVertexArray(overlay.pointVao);
-            gl.bindBuffer(gl.ARRAY_BUFFER, overlay.pointVbo);
-            gl.bufferData(gl.ARRAY_BUFFER, overlay.pointPositions, gl.STATIC_DRAW);
-            gl.enableVertexAttribArray(0);
-            gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 3 * 4, 0);
-
-            gl.bindVertexArray(null);
 
             this.overlayMeshes.set(faceName, overlay);
         }
@@ -1524,29 +1482,12 @@ export class WebGLMaterialRenderer {
         const key = `mesh:${normalized.cacheKey}`;
 
         if (!this.meshes.has(key)) {
-            const gl = this.gl;
-            const mesh = normalized;
-
-            mesh.vao = gl.createVertexArray();
-            mesh.vbo = gl.createBuffer();
-            mesh.ibo = gl.createBuffer();
-
-            gl.bindVertexArray(mesh.vao);
-            gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vbo);
-            gl.bufferData(gl.ARRAY_BUFFER, mesh.vertices, gl.STATIC_DRAW);
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.ibo);
-            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, mesh.indices, gl.STATIC_DRAW);
-
-            const stride = mesh.stride * 4;
-            gl.enableVertexAttribArray(0);
-            gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
-            gl.enableVertexAttribArray(1);
-            gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 3 * 4);
-            gl.enableVertexAttribArray(2);
-            gl.vertexAttribPointer(2, 2, gl.FLOAT, false, stride, 6 * 4);
-            gl.enableVertexAttribArray(3);
-            gl.vertexAttribPointer(3, 3, gl.FLOAT, false, stride, 8 * 4);
-            gl.bindVertexArray(null);
+            const mesh = {
+                ...normalized,
+                buffer: Buffer.materialMesh(this.gl, normalized, {
+                    label: key,
+                }),
+            };
 
             this.meshes.set(key, mesh);
         }
@@ -1554,8 +1495,8 @@ export class WebGLMaterialRenderer {
         return this.meshes.get(key);
     }
 
-    getParticleBuffer(sourceSystem) {
-        const normalized = normalizeParticleSystem(sourceSystem);
+    getParticleBuffer(system) {
+        const normalized = normalizeParticleSystem(system);
 
         if (!normalized) {
             return null;
@@ -1564,31 +1505,27 @@ export class WebGLMaterialRenderer {
         const key = `particles:${normalized.id}`;
 
         if (!this.particleBuffers.has(key)) {
-            const gl = this.gl;
             const buffer = {
                 ...normalized,
-                vao: gl.createVertexArray(),
-                vbo: gl.createBuffer(),
+                buffer: new Buffer(this.gl, {
+                    label: key,
+                    stride: normalized.stride * 4,
+                    indexed: false,
+                    usage: this.gl.STATIC_DRAW,
+                    attributes: [
+                        { location: 0, size: 3, offset: 0 },
+                        { location: 1, size: 1, offset: 3 * 4 },
+                        { location: 2, size: 1, offset: 4 * 4 },
+                        { location: 3, size: 1, offset: 5 * 4 },
+                        { location: 4, size: 2, offset: 6 * 4 },
+                        { location: 5, size: 4, offset: 8 * 4 },
+                    ],
+                }),
             };
 
-            gl.bindVertexArray(buffer.vao);
-            gl.bindBuffer(gl.ARRAY_BUFFER, buffer.vbo);
-            gl.bufferData(gl.ARRAY_BUFFER, buffer.data, gl.STATIC_DRAW);
-
-            const stride = buffer.stride * 4;
-            gl.enableVertexAttribArray(0);
-            gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
-            gl.enableVertexAttribArray(1);
-            gl.vertexAttribPointer(1, 1, gl.FLOAT, false, stride, 3 * 4);
-            gl.enableVertexAttribArray(2);
-            gl.vertexAttribPointer(2, 1, gl.FLOAT, false, stride, 4 * 4);
-            gl.enableVertexAttribArray(3);
-            gl.vertexAttribPointer(3, 1, gl.FLOAT, false, stride, 5 * 4);
-            gl.enableVertexAttribArray(4);
-            gl.vertexAttribPointer(4, 2, gl.FLOAT, false, stride, 6 * 4);
-            gl.enableVertexAttribArray(5);
-            gl.vertexAttribPointer(5, 4, gl.FLOAT, false, stride, 8 * 4);
-            gl.bindVertexArray(null);
+            buffer.buffer.upload({
+                vertices: normalized.data,
+            });
 
             this.particleBuffers.set(key, buffer);
         }
@@ -1596,15 +1533,12 @@ export class WebGLMaterialRenderer {
         const buffer = this.particleBuffers.get(key);
 
         if (buffer.cacheKey !== normalized.cacheKey) {
-            const gl = this.gl;
             Object.assign(buffer, {
                 ...normalized,
-                vao: buffer.vao,
-                vbo: buffer.vbo,
+                buffer: buffer.buffer,
             });
-            gl.bindBuffer(gl.ARRAY_BUFFER, buffer.vbo);
-            gl.bufferData(gl.ARRAY_BUFFER, buffer.data, gl.DYNAMIC_DRAW);
-            gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+            buffer.buffer.updateVertices(normalized.data, this.gl.DYNAMIC_DRAW);
         }
 
         return buffer;
@@ -1620,37 +1554,25 @@ export class WebGLMaterialRenderer {
         const key = `overlay:${mesh.cacheKey}`;
 
         if (!this.overlayMeshes.has(key)) {
-            const gl = this.gl;
             const lineOverlay = buildOverlayGeometry(mesh);
 
             const overlay = {
                 faceMesh: mesh,
-                linePositions: lineOverlay.linePositions,
                 lineCount: lineOverlay.lineCount,
-                pointPositions: lineOverlay.pointPositions,
                 pointCount: lineOverlay.pointCount,
+
+                // Face nutzt denselben Render-Mesh-Buffer.
+                faceBuffer: mesh.buffer,
+
+                lineBuffer: Buffer.positions(this.gl, lineOverlay.linePositions, {
+                    label: `${key}:lines`,
+                }),
+
+                pointBuffer: Buffer.positions(this.gl, lineOverlay.pointPositions, {
+                    label: `${key}:points`,
+                }),
             };
 
-            overlay.faceVao = mesh.vao;
-            overlay.lineVao = gl.createVertexArray();
-            overlay.lineVbo = gl.createBuffer();
-
-            gl.bindVertexArray(overlay.lineVao);
-            gl.bindBuffer(gl.ARRAY_BUFFER, overlay.lineVbo);
-            gl.bufferData(gl.ARRAY_BUFFER, overlay.linePositions, gl.STATIC_DRAW);
-            gl.enableVertexAttribArray(0);
-            gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 3 * 4, 0);
-
-            overlay.pointVao = gl.createVertexArray();
-            overlay.pointVbo = gl.createBuffer();
-
-            gl.bindVertexArray(overlay.pointVao);
-            gl.bindBuffer(gl.ARRAY_BUFFER, overlay.pointVbo);
-            gl.bufferData(gl.ARRAY_BUFFER, overlay.pointPositions, gl.STATIC_DRAW);
-            gl.enableVertexAttribArray(0);
-            gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 3 * 4, 0);
-
-            gl.bindVertexArray(null);
             this.overlayMeshes.set(key, overlay);
         }
 
@@ -1875,8 +1797,11 @@ export class WebGLMaterialRenderer {
                 uAlpha: layerParticles.alpha ?? particles.alpha,
                 uUseParticleMap: mapEnabled(true, particleTexture),
             });
-            gl.bindVertexArray(layerParticles.vao);
-            gl.drawArrays(gl.POINTS, 0, layerParticles.count);
+
+            layerParticles.buffer?.drawArrays(
+                gl.POINTS,
+                layerParticles.count
+            );
         });
         gl.bindVertexArray(null);
         gl.depthMask(true);
@@ -1939,11 +1864,9 @@ export class WebGLMaterialRenderer {
                         : [0.72, 0.54, 1.0, 0.18],
                 });
 
-                gl.bindVertexArray(overlay.faceVao);
-                gl.drawElements(
+                overlay.faceBuffer?.drawElements(
                     gl.TRIANGLES,
-                    overlay.faceMesh.count,
-                    overlay.faceMesh.indexType === "uint32" ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT,
+                    overlay.faceMesh.count || overlay.faceBuffer.indexCount,
                     0
                 );
             }
@@ -1954,8 +1877,11 @@ export class WebGLMaterialRenderer {
                     uColor: [0.38, 0.90, 1.0, 0.86],
                 });
 
-                gl.bindVertexArray(overlay.lineVao);
-                gl.drawArrays(gl.LINES, 0, overlay.lineCount);
+                overlay.faceBuffer?.drawElements(
+                    gl.TRIANGLES,
+                    overlay.faceMesh.count || overlay.faceBuffer.indexCount,
+                    0
+                );
             }
 
             if (showVertices) {
@@ -1965,8 +1891,7 @@ export class WebGLMaterialRenderer {
                     uColor: [1.0, 1.0, 1.0, 0.96],
                 });
 
-                gl.bindVertexArray(overlay.pointVao);
-                gl.drawArrays(gl.POINTS, 0, overlay.pointCount);
+                overlay.pointBuffer?.drawArrays(gl.POINTS, overlay.pointCount);
 
                 this.setUniforms(this.overlayProgram, {
                     uPointMode: 1,
@@ -1974,7 +1899,7 @@ export class WebGLMaterialRenderer {
                     uColor: [0.38, 0.90, 1.0, 0.28],
                 });
 
-                gl.drawArrays(gl.POINTS, 0, overlay.pointCount);
+                overlay.pointBuffer?.drawArrays(gl.POINTS, overlay.pointCount);
             }
         });
 
@@ -2488,14 +2413,20 @@ export class WebGLMaterialRenderer {
                 uSubsurfaceTranslucency: objectTextureSettings.subsurface_translucency ? 1 : 0,
             });
 
-            const mesh = entry.mesh;
-            const indexType = mesh.indexType === "uint32" ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT;
-            const indexBytes = indexType === gl.UNSIGNED_INT ? 4 : 2;
-            const count = entry.count || mesh.count;
-            const offset = entry.start * indexBytes;
+            drawEntries.forEach(entry => {
+                const mesh = entry.mesh;
 
-            gl.bindVertexArray(mesh.vao);
-            gl.drawElements(gl.TRIANGLES, count, indexType, offset);
+                if (!mesh?.buffer) {
+                    return;
+                }
+
+                const indexType = mesh.buffer.indexType;
+                const indexBytes = indexType === gl.UNSIGNED_INT ? 4 : 2;
+                const count = entry.count || mesh.count;
+                const offset = entry.start * indexBytes;
+
+                mesh.buffer.drawElements(gl.TRIANGLES, count, offset);
+            });
         });
 
         this.drawOverlayPass({
@@ -2527,26 +2458,29 @@ export class WebGLMaterialRenderer {
             return;
         }
 
+        const destroyedBuffers = new Set();
+
+        const destroyBufferOnce = buffer => {
+            if (!buffer || destroyedBuffers.has(buffer)) {
+                return;
+            }
+
+            destroyedBuffers.add(buffer);
+            buffer.destroy?.();
+        };
+
         this.meshes.forEach(mesh => {
-            if (mesh.vao) gl.deleteVertexArray(mesh.vao);
-            if (mesh.vbo) gl.deleteBuffer(mesh.vbo);
-            if (mesh.ibo) gl.deleteBuffer(mesh.ibo);
+            destroyBufferOnce(mesh.buffer);
         });
 
-        this.overlayMeshes.forEach(mesh => {
-            if (mesh.faceVao) gl.deleteVertexArray(mesh.faceVao);
-            if (mesh.faceVbo) gl.deleteBuffer(mesh.faceVbo);
-            if (mesh.faceIbo) gl.deleteBuffer(mesh.faceIbo);
-
-            if (mesh.lineVao) gl.deleteVertexArray(mesh.lineVao);
-            if (mesh.lineVbo) gl.deleteBuffer(mesh.lineVbo);
-            if (mesh.pointVao) gl.deleteVertexArray(mesh.pointVao);
-            if (mesh.pointVbo) gl.deleteBuffer(mesh.pointVbo);
+        this.overlayMeshes.forEach(overlay => {
+            destroyBufferOnce(overlay.faceBuffer);
+            destroyBufferOnce(overlay.lineBuffer);
+            destroyBufferOnce(overlay.pointBuffer);
         });
 
-        this.particleBuffers.forEach(buffer => {
-            if (buffer.vao) gl.deleteVertexArray(buffer.vao);
-            if (buffer.vbo) gl.deleteBuffer(buffer.vbo);
+        this.particleBuffers.forEach(particles => {
+            destroyBufferOnce(particles.buffer);
         });
 
         Object.values(this.fallbackTextures || {}).forEach(texture => {
