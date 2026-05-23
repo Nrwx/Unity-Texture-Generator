@@ -375,7 +375,7 @@ export function materialEditorModel(props, emit) {
         }
 
         return (
-            layer.masked ||
+            layer?.masked ||
             layer.texture?.url ||
             layer.url ||
             layer.svg ||

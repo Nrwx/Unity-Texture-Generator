@@ -1043,27 +1043,12 @@
             </template>
 
             <!-- EXPORT -->
-            <template v-else-if="ui.activeTab === 'export'">
-              <div class="mem-view-head">
-                <div>
-                  <strong>Export</strong>
-                  <span>Blender-kompatibles Materialpaket, Shader Graph und UV-Daten.</span>
-                </div>
-
-                <button
-                    type="button"
-                    class="mem-ghost-btn"
-                    :disabled="!isEditingMaterialLayer"
-                    @click="requestExport"
-                >
-                  Export anfragen
-                </button>
-              </div>
-
-              <div class="mem-section">
-                <pre class="mem-export-json">{{ JSON.stringify(previewLayer, null, 2) }}</pre>
-              </div>
-            </template>
+            <Export
+                v-else-if="ui.activeTab === 'export'"
+                :preview-layer="previewLayer"
+                :is-editing-material-layer="isEditingMaterialLayer"
+                @request-export="requestExport"
+            />
 
             <!-- SETTINGS -->
             <Settings
@@ -1117,6 +1102,7 @@ import {materialEditorModel, materialEditorProps} from "@/view/models/page/mater
 import Surface from "@/view/page/Material/Surface/Surface";
 import Geometry from "@/view/page/Material/Geometry/Geometry";
 import Light from "@/view/page/Material/Light/Light";
+import Export from "@/view/page/Material/Export/Export";
 import Settings from "@/view/page/Material/Settings/Settings";
 
 export default defineComponent({
@@ -1127,6 +1113,7 @@ export default defineComponent({
     Surface,
     Geometry,
     Light,
+    Export,
     Settings
   },
   props: materialEditorProps,
