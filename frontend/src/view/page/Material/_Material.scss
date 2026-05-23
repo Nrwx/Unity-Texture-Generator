@@ -1449,7 +1449,6 @@ button {
 }
 
 .mem-uv-canvas-stage {
-  position: relative;
   display: grid;
   place-items: center;
   width: 100%;
@@ -1465,16 +1464,52 @@ button {
           linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
           rgba(0, 0, 0, 0.20);
   background-size: auto, 24px 24px, 24px 24px, auto;
-  cursor: grab;
   user-select: none;
   touch-action: none;
   box-shadow:
           0 18px 34px rgba(0, 0, 0, 0.20),
           inset 0 1px 0 rgba(255, 255, 255, 0.055);
 
-  &:active {
+  cursor: default;
+
+  &.hover-empty {
+    cursor: grab;
+  }
+
+  &.hover-vertex,
+  &.hover-island {
+    cursor: pointer;
+  }
+
+  &.is-dragging-uv {
     cursor: grabbing;
   }
+
+  &.is-panning {
+    cursor: grabbing;
+  }
+
+  &.box-select-active {
+    cursor: crosshair;
+  }
+
+  &.box-select-active * {
+    cursor: crosshair;
+  }
+}
+
+.selection-root{
+  z-index: 5;
+}
+
+.mem-uv-selection-actions {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 30;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .mem-uv-live-canvas {
@@ -1490,6 +1525,9 @@ button {
           0 18px 34px rgba(0, 0, 0, 0.32),
           0 0 24px rgba(97, 230, 255, 0.08);
   will-change: transform;
+  &.box-select-disabled {
+    pointer-events: none;
+  }
 }
 
 .mem-uv-canvas-hud,

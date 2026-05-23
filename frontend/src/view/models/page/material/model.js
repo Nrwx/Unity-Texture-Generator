@@ -12,7 +12,11 @@ import {
     createBitmapMaps,
     createSurface,
     getTextureSettingDefaults,
-    PRINCIPLED_SURFACE_GROUPS, SURFACE_FIELD_MAP, SURFACE_FIELDS, TEXTURE_CHANNEL_OPTIONS, TEXTURE_COLOR_MODE_OPTIONS
+    PRINCIPLED_SURFACE_GROUPS,
+    SURFACE_FIELD_MAP,
+    SURFACE_FIELDS,
+    TEXTURE_CHANNEL_OPTIONS,
+    TEXTURE_COLOR_MODE_OPTIONS
 } from "@/view/models/page/material/surface/model";
 import {createGeometry} from "@/view/models/page/material/geometry/model";
 import {createLight} from "@/view/models/page/material/light/model";
@@ -120,6 +124,11 @@ export function materialEditorModel(props, emit) {
     const activeShaderNodeId = ref("principled-bsdf");
     const uvCanvasRef = ref(null);
     const uvViewportRef = ref(null);
+    const uvViewportId = `uv-viewport-${uuid()}`;
+    const uvCanvasId = `uv-canvas-${uuid()}`;
+    const uvBoxSelectState = ref(false);
+    const uvMoveAxis = ref("");
+    const uvHoverState = ref("empty");
     const activeSnapEdgeId = ref("");
     const SNAP_EDGE_DISTANCE = 34;
     const pauseAutoSync = ref(false);
@@ -187,6 +196,7 @@ export function materialEditorModel(props, emit) {
 
     const uvCanvasStyle = computed(() => ({
         transform: `translate(${uvViewport.panX}px, ${uvViewport.panY}px) scale(${uvViewport.zoom})`,
+        transformOrigin: "0 0",
     }));
 
     const isEditingMaterialLayer = computed(() => {
@@ -223,6 +233,587 @@ export function materialEditorModel(props, emit) {
         }
 
         return [0, 2, 5].includes(Number(layer.type));
+    };
+
+    const uvSelectedVertexCount = computed(() => (
+        Array.isArray(values.uv.selected_vertex_ids)
+            ? values.uv.selected_vertex_ids.length
+            : 0
+    ));
+
+    const selectedUvVertices = computed(() => {
+        const selected = new Set(values.uv.selected_vertex_ids || []);
+
+        return (values.uv.vertices || []).filter(vertex => (
+            selected.has(vertex.id)
+        ));
+    });
+
+    const getUvVertexX = vertex => Number(
+        vertex?.x ??
+        vertex?.u ??
+        vertex?.uv?.x ??
+        vertex?.uv?.[0] ??
+        0
+    );
+
+    const getUvVertexY = vertex => Number(
+        vertex?.y ??
+        vertex?.v ??
+        vertex?.uv?.y ??
+        vertex?.uv?.[1] ??
+        0
+    );
+
+    const setUvVertexPosition = (vertex, x, y) => {
+        if (!vertex) {
+            return vertex;
+        }
+
+        const next = {
+            ...vertex,
+        };
+
+        if ("x" in next || !("u" in next)) {
+            next.x = x;
+        }
+
+        if ("y" in next || !("v" in next)) {
+            next.y = y;
+        }
+
+        if ("u" in next) {
+            next.u = x;
+        }
+
+        if ("v" in next) {
+            next.v = y;
+        }
+
+        if (next.uv && typeof next.uv === "object") {
+            if (Array.isArray(next.uv)) {
+                next.uv = [x, y];
+            } else {
+                next.uv = {
+                    ...next.uv,
+                    x,
+                    y,
+                };
+            }
+        }
+
+        return next;
+    };
+
+    const setUvBoxSelectState = state => {
+        uvBoxSelectState.value = state === true;
+
+        emitEvent("select-state", uvBoxSelectState.value);
+    };
+
+    const toggleUvBoxSelect = () => {
+        setUvBoxSelectState(!uvBoxSelectState.value);
+    };
+
+    const clearUvSelection = () => {
+        values.uv.selected_vertex_ids = [];
+        values.uv.selected_edge_ids = [];
+        values.uv.selected_island_ids = [];
+    };
+
+    const UV_CANVAS_SIZE = 720;
+    const UV_CANVAS_PADDING = 42;
+
+    const getUvGridSize = () => UV_CANVAS_SIZE - UV_CANVAS_PADDING * 2;
+
+    const normalizeSelectionBox = box => {
+        if (!box) {
+            return null;
+        }
+
+        const x = Number(box.x || 0);
+        const y = Number(box.y || 0);
+        const width = Number(box.width || 0);
+        const height = Number(box.height || 0);
+
+        return {
+            x,
+            y,
+            width,
+            height,
+            left: x,
+            top: y,
+            right: x + width,
+            bottom: y + height,
+        };
+    };
+
+    const getSelectionBoxInUvStageSpace = box => {
+        const normalized = normalizeSelectionBox(box);
+        const stage = uvViewportRef.value;
+
+        if (!normalized || !stage) {
+            return null;
+        }
+
+        const selectionRoot = stage.querySelector(".selection-root");
+
+        if (!selectionRoot) {
+            return normalized;
+        }
+
+        const stageRect = stage.getBoundingClientRect();
+        const selectionRect = selectionRoot.getBoundingClientRect();
+
+        const x = normalized.x + selectionRect.left - stageRect.left;
+        const y = normalized.y + selectionRect.top - stageRect.top;
+
+        return {
+            x,
+            y,
+            width: normalized.width,
+            height: normalized.height,
+            left: x,
+            top: y,
+            right: x + normalized.width,
+            bottom: y + normalized.height,
+        };
+    };
+
+    const getUvVertexCanvasPoint = vertex => {
+        const gridSize = getUvGridSize();
+
+        return {
+            x: UV_CANVAS_PADDING + getUvVertexX(vertex) * gridSize,
+            y: UV_CANVAS_PADDING + getUvVertexY(vertex) * gridSize,
+        };
+    };
+
+    const getUvVertexStagePoint = vertex => {
+        const stage = uvViewportRef.value;
+        const canvas = uvCanvasRef.value;
+
+        if (!stage || !canvas) {
+            return null;
+        }
+
+        const stageRect = stage.getBoundingClientRect();
+        const canvasRect = canvas.getBoundingClientRect();
+        const canvasPoint = getUvVertexCanvasPoint(vertex);
+
+        /**
+         * Wichtig:
+         * canvasRect ist die echte sichtbare Canvas-Fläche nach CSS width,
+         * max-width, translate und scale.
+         *
+         * canvasPoint ist im internen 720er Zeichenraum.
+         */
+        return {
+            x: canvasRect.left - stageRect.left + (canvasPoint.x / UV_CANVAS_SIZE) * canvasRect.width,
+            y: canvasRect.top - stageRect.top + (canvasPoint.y / UV_CANVAS_SIZE) * canvasRect.height,
+        };
+    };
+
+    const isUvPointInsideBox = (point, box, tolerance = 0) => {
+        if (!point || !box) {
+            return false;
+        }
+
+        return (
+            point.x >= box.left - tolerance &&
+            point.x <= box.right + tolerance &&
+            point.y >= box.top - tolerance &&
+            point.y <= box.bottom + tolerance
+        );
+    };
+
+    const getUvVerticesInsideSelectionBox = box => {
+        const selectionBox = getSelectionBoxInUvStageSpace(box);
+
+        if (!selectionBox) {
+            return [];
+        }
+
+        const canvas = uvCanvasRef.value;
+        const canvasRect = canvas?.getBoundingClientRect?.();
+
+        const visualScale = canvasRect
+            ? Math.max(canvasRect.width, canvasRect.height) / UV_CANVAS_SIZE
+            : 1;
+
+        const tolerance = Math.max(3, 5 * visualScale);
+
+        return (values.uv.vertices || []).filter(vertex => {
+            const point = getUvVertexStagePoint(vertex);
+
+            return isUvPointInsideBox(point, selectionBox, tolerance);
+        });
+    };
+
+    const selectUvVerticesByBox = async box => {
+        if (values.uv.view_mode !== "unwrap") {
+            return;
+        }
+
+        if (!box) {
+            clearUvSelection();
+            await drawUvCanvas();
+            return;
+        }
+
+        if (!values.uv.vertices.length || !values.uv.triangles.length) {
+            rebuildMaterialMesh({ preserveLayout: false });
+        }
+
+        const selectedIds = getUvVerticesInsideSelectionBox(box)
+            .map(vertex => vertex.id)
+            .filter(Boolean);
+
+        const islandIds = resolveIslandIdsFromVertexIds(selectedIds);
+
+        values.uv.selected_vertex_ids = selectedIds;
+        values.uv.selected_island_ids = islandIds;
+
+        if (islandIds.length) {
+            values.uv.active_island_id = islandIds[0];
+        }
+
+        await drawUvCanvas();
+        setUvBoxSelectState(false);
+    };
+
+    const resolveIslandIdsFromVertexIds = vertexIds => {
+        const selected = new Set(vertexIds || []);
+
+        return (values.uv.islands || [])
+            .filter(island => {
+                const islandVertexIds = getIslandVertexIds(island);
+
+                return islandVertexIds.some(id => selected.has(id));
+            })
+            .map(island => island.id)
+            .filter(Boolean);
+    };
+
+    const getIslandVertexIds = island => {
+        if (!island) {
+            return [];
+        }
+
+        if (Array.isArray(island.vertex_ids)) {
+            return island.vertex_ids;
+        }
+
+        if (Array.isArray(island.vertices)) {
+            return island.vertices.map(vertex => (
+                typeof vertex === "object" ? vertex.id : vertex
+            ));
+        }
+
+        if (Array.isArray(island.triangle_ids)) {
+            const triangleIds = new Set(island.triangle_ids);
+
+            return (values.uv.triangles || [])
+                .filter(triangle => triangleIds.has(triangle.id))
+                .flatMap(triangle => triangle.vertex_ids || triangle.vertices || [])
+                .map(vertex => (typeof vertex === "object" ? vertex.id : vertex))
+                .filter(Boolean);
+        }
+
+        return [];
+    };
+
+    const alignSelectedUvVertices = async axis => {
+        const vertices = selectedUvVertices.value;
+
+        if (vertices.length < 2) {
+            return;
+        }
+
+        const target = axis === "y"
+            ? vertices.reduce((sum, vertex) => sum + getUvVertexY(vertex), 0) / vertices.length
+            : vertices.reduce((sum, vertex) => sum + getUvVertexX(vertex), 0) / vertices.length;
+
+        const selected = new Set(values.uv.selected_vertex_ids || []);
+
+        values.uv.vertices = values.uv.vertices.map(vertex => {
+            if (!selected.has(vertex.id)) {
+                return vertex;
+            }
+
+            const x = axis === "x" ? target : getUvVertexX(vertex);
+            const y = axis === "y" ? target : getUvVertexY(vertex);
+
+            return setUvVertexPosition(vertex, x, y);
+        });
+
+        applyUvLayoutToMesh({ source: `uv-align-${axis}` });
+        await drawUvCanvas();
+        syncUvAndPreview();
+    };
+
+    const getMergeTargetPoint = mode => {
+        const vertices = selectedUvVertices.value;
+
+        if (!vertices.length) {
+            return null;
+        }
+
+        if (mode === "first") {
+            const first = vertices[0];
+
+            return {
+                x: getUvVertexX(first),
+                y: getUvVertexY(first),
+            };
+        }
+
+        if (mode === "last") {
+            const last = vertices[vertices.length - 1];
+
+            return {
+                x: getUvVertexX(last),
+                y: getUvVertexY(last),
+            };
+        }
+
+        return {
+            x: vertices.reduce((sum, vertex) => sum + getUvVertexX(vertex), 0) / vertices.length,
+            y: vertices.reduce((sum, vertex) => sum + getUvVertexY(vertex), 0) / vertices.length,
+        };
+    };
+
+    const mergeSelectedUvVertices = async (mode = "center") => {
+        const selected = new Set(values.uv.selected_vertex_ids || []);
+
+        if (selected.size < 2) {
+            return;
+        }
+
+        const target = getMergeTargetPoint(mode);
+
+        if (!target) {
+            return;
+        }
+
+        values.uv.vertices = values.uv.vertices.map(vertex => (
+            selected.has(vertex.id)
+                ? setUvVertexPosition(vertex, target.x, target.y)
+                : vertex
+        ));
+
+        applyUvLayoutToMesh({ source: `uv-merge-${mode}` });
+        await drawUvCanvas();
+        syncUvAndPreview();
+    };
+
+    const getIslandTriangleSourceKey = (uv, island) => {
+        const triangleIds = new Set(island?.triangle_ids || []);
+
+        return (uv.triangles || [])
+            .filter(triangle => triangleIds.has(triangle.id))
+            .flatMap(triangle => triangle.source_indices || [])
+            .map(index => Number(index))
+            .filter(Number.isFinite)
+            .sort((a, b) => a - b)
+            .join(":");
+    };
+
+    const findMatchingResetIsland = (resetLayout, currentUv, currentIsland) => {
+        if (!resetLayout?.islands?.length || !currentIsland) {
+            return null;
+        }
+
+        const currentSourceKey = getIslandTriangleSourceKey(currentUv, currentIsland);
+
+        if (currentSourceKey) {
+            const bySource = resetLayout.islands.find(island => (
+                getIslandTriangleSourceKey(resetLayout, island) === currentSourceKey
+            ));
+
+            if (bySource) {
+                return bySource;
+            }
+        }
+
+        const byPart = resetLayout.islands.find(island => (
+            island.faceName === currentIsland.faceName &&
+            island.partName === currentIsland.partName &&
+            island.primitive === currentIsland.primitive
+        ));
+
+        if (byPart) {
+            return byPart;
+        }
+
+        return resetLayout.islands.find(island => (
+            island.name === currentIsland.name ||
+            island.faceName === currentIsland.faceName
+        )) || null;
+    };
+
+    const normalizeResetIslandToAvailableArea = (vertices, padding = 0.015) => {
+        if (!Array.isArray(vertices) || !vertices.length) {
+            return vertices || [];
+        }
+
+        const minX = Math.min(...vertices.map(getUvVertexX));
+        const maxX = Math.max(...vertices.map(getUvVertexX));
+        const minY = Math.min(...vertices.map(getUvVertexY));
+        const maxY = Math.max(...vertices.map(getUvVertexY));
+
+        const width = Math.max(maxX - minX, 0.000001);
+        const height = Math.max(maxY - minY, 0.000001);
+        const size = Math.max(0.000001, 1 - padding * 2);
+
+        return vertices.map(vertex => {
+            const x = padding + ((getUvVertexX(vertex) - minX) / width) * size;
+            const y = padding + ((getUvVertexY(vertex) - minY) / height) * size;
+
+            return setUvVertexPosition(vertex, x, y);
+        });
+    };
+
+    const replaceIslandLayoutFromReset = (currentUv, currentIsland, resetLayout, resetIsland) => {
+        const currentVertexIds = new Set(getIslandVertexIds(currentIsland));
+        const currentTriangleIds = new Set(currentIsland.triangle_ids || []);
+        const currentEdgeIds = new Set(currentIsland.edge_ids || []);
+
+        const resetVertexIds = new Set(getIslandVertexIds(resetIsland));
+        const resetTriangleIds = new Set(resetIsland.triangle_ids || []);
+        const resetEdgeIds = new Set(resetIsland.edge_ids || []);
+
+        const padding = Number(currentUv.unwrap_padding ?? 0.015);
+
+        const resetVertices = normalizeResetIslandToAvailableArea(
+            (resetLayout.vertices || [])
+                .filter(vertex => resetVertexIds.has(vertex.id))
+                .map(vertex => ({
+                    ...vertex,
+                    selected: true,
+                    island_id: currentIsland.id,
+                })),
+            padding
+        );
+
+        const resetTriangles = (resetLayout.triangles || [])
+            .filter(triangle => resetTriangleIds.has(triangle.id))
+            .map(triangle => ({
+                ...triangle,
+                island_id: currentIsland.id,
+                vertex_ids: [...(triangle.vertex_ids || [])],
+            }))
+            .filter(triangle => triangle.vertex_ids.length >= 3);
+
+        const resetEdges = (resetLayout.edges || [])
+            .filter(edge => resetEdgeIds.has(edge.id))
+            .map(edge => ({
+                ...edge,
+                island_id: currentIsland.id,
+            }));
+
+        const nextVertexIds = resetVertices.map(vertex => vertex.id);
+        const nextTriangleIds = resetTriangles.map(triangle => triangle.id);
+        const nextEdgeIds = resetEdges.map(edge => edge.id);
+
+        return {
+            ...currentUv,
+
+            vertices: [
+                ...(currentUv.vertices || []).filter(vertex => !currentVertexIds.has(vertex.id)),
+                ...resetVertices,
+            ],
+
+            triangles: [
+                ...(currentUv.triangles || []).filter(triangle => !currentTriangleIds.has(triangle.id)),
+                ...resetTriangles,
+            ],
+
+            edges: [
+                ...(currentUv.edges || []).filter(edge => !currentEdgeIds.has(edge.id)),
+                ...resetEdges,
+            ],
+
+            islands: (currentUv.islands || []).map(island => (
+                island.id === currentIsland.id
+                    ? {
+                        ...currentIsland,
+                        vertex_ids: nextVertexIds,
+                        triangle_ids: nextTriangleIds,
+                        edge_ids: nextEdgeIds,
+
+                        // alte UI-/Bitmap-Daten behalten
+                        bitmap: currentIsland.bitmap,
+                        bitmaps: currentIsland.bitmaps,
+
+                        // Transform Reset der Island selbst
+                        translate_x: 0,
+                        translate_y: 0,
+                        scale_x: 1,
+                        scale_y: 1,
+                        rotate: 0,
+                    }
+                    : island
+            )),
+
+            active_island_id: currentIsland.id,
+            selected_island_ids: [currentIsland.id],
+            selected_vertex_ids: nextVertexIds,
+        };
+    };
+
+    const unwrapActiveUvIsland = async () => {
+        const island = activeUvIsland.value;
+
+        if (!island || values.uv.view_mode !== "unwrap") {
+            return;
+        }
+
+        const sourceMesh = values.mesh;
+
+        if (!sourceMesh?.indices?.length || !sourceMesh?.vertices?.length) {
+            return;
+        }
+
+        const resetLayout = UV.createPrimitiveLayout(
+            sourceMesh,
+            {
+                ...values.uv,
+                vertices: [],
+                edges: [],
+                triangles: [],
+                islands: [],
+                seams: [],
+            },
+            {
+                geometry: values.geometry,
+                source: "uv-reset-active-island",
+                rootKey: "material",
+            }
+        );
+
+        const resetIsland = findMatchingResetIsland(resetLayout, values.uv, island);
+
+        if (!resetIsland) {
+            return;
+        }
+
+        const nextUv = replaceIslandLayoutFromReset(
+            values.uv,
+            island,
+            resetLayout,
+            resetIsland
+        );
+
+        Object.keys(values.uv).forEach(key => {
+            delete values.uv[key];
+        });
+
+        Object.assign(values.uv, nextUv);
+
+        applyUvLayoutToMesh({ source: "uv-reset-active-island" });
+        await drawUvCanvas();
+        syncUvAndPreview();
     };
 
     const fallbackSourceLayer = computed(() => {
@@ -559,6 +1150,11 @@ export function materialEditorModel(props, emit) {
                         subtitle: 'Verbinde Shader → Output, um das Material wieder anzuzeigen.'
                     }
                 }
+            }
+        },
+        uv: {
+            main: {
+                id: uuid('uv'),
             }
         }
     });
@@ -2164,8 +2760,8 @@ export function materialEditorModel(props, emit) {
             y: nodeCanvas.panY,
         };
 
-        window.addEventListener("mousemove", moveCanvasPan);
-        window.addEventListener("mouseup", stopCanvasPan);
+        window.addEventListener("pointermove", moveCanvasPan);
+        window.addEventListener("pointerup", stopCanvasPan);
     };
 
     const moveCanvasPan = event => {
@@ -2180,8 +2776,8 @@ export function materialEditorModel(props, emit) {
     const stopCanvasPan = () => {
         nodeCanvas.isPanning = false;
 
-        window.removeEventListener("mousemove", moveCanvasPan);
-        window.removeEventListener("mouseup", stopCanvasPan);
+        window.removeEventListener("pointermove", moveCanvasPan);
+        window.removeEventListener("pointerup", stopCanvasPan);
     };
 
     const handleCanvasWheel = event => {
@@ -3030,8 +3626,8 @@ export function materialEditorModel(props, emit) {
 
         rememberNodePosition(node);
 
-        window.addEventListener("mousemove", moveNode);
-        window.addEventListener("mouseup", stopMoveNode);
+        window.addEventListener("pointermove", moveNode);
+        window.addEventListener("pointerup", stopMoveNode);
     };
 
     const moveNode = event => {
@@ -3071,8 +3667,8 @@ export function materialEditorModel(props, emit) {
 
         draggingNode.value = null;
 
-        window.removeEventListener("mousemove", moveNode);
-        window.removeEventListener("mouseup", stopMoveNode);
+        window.removeEventListener("pointermove", moveNode);
+        window.removeEventListener("pointerup", stopMoveNode);
 
         if (draggedNodeId && snapEdgeId) {
             insertNodeIntoEdge(draggedNodeId, snapEdgeId);
@@ -3099,8 +3695,8 @@ export function materialEditorModel(props, emit) {
 
         pointerPosition.value = getCanvasPoint(event);
 
-        window.addEventListener("mousemove", moveConnection);
-        window.addEventListener("mouseup", cancelConnection);
+        window.addEventListener("pointermove", moveConnection);
+        window.addEventListener("pointerup", cancelConnection);
     };
 
     const moveConnection = event => {
@@ -3110,8 +3706,8 @@ export function materialEditorModel(props, emit) {
     const cancelConnection = () => {
         activeConnection.value = null;
 
-        window.removeEventListener("mousemove", moveConnection);
-        window.removeEventListener("mouseup", cancelConnection);
+        window.removeEventListener("pointermove", moveConnection);
+        window.removeEventListener("pointerup", cancelConnection);
     };
 
     const completeConnection = (event, node, socket, direction) => {
@@ -3808,6 +4404,43 @@ export function materialEditorModel(props, emit) {
         );
     };
 
+    const connectEdgeUnique = (from, to, extra = {}) => {
+        const exists = values.shader_graph.edges.some(edge => (
+            edge.from.node === from.node &&
+            edge.from.socket === from.socket &&
+            edge.to.node === to.node &&
+            edge.to.socket === to.socket
+        ));
+
+        if (exists) {
+            return;
+        }
+
+        if (extra.replaceInput === false && isSocketOccupied(to)) {
+            return;
+        }
+
+        if (extra.replaceInput !== false) {
+            values.shader_graph.edges = values.shader_graph.edges.filter(edge => !(
+                edge.to.node === to.node &&
+                edge.to.socket === to.socket
+            ));
+        }
+
+        values.shader_graph.edges.push({
+            id: uuid('shader-node'),
+            from,
+            to,
+            ...Object.fromEntries(
+                Object.entries(extra).filter(([key]) => key !== "replaceInput")
+            ),
+        });
+    };
+
+    const normalizeTextureUrl = url => {
+        return String(url || "").trim();
+    };
+
     const assignLayerToUvFace = (face, layer) => {
         if (!values.uv.faces[face] || !isUsableTextureLayer(layer)) {
             return;
@@ -3930,13 +4563,283 @@ export function materialEditorModel(props, emit) {
         }
     };
 
+    const resolveMaterialEditSource = (layer, materialPackage = null) => {
+        const packageValues =
+            materialPackage?.values ||
+            materialPackage?.material ||
+            materialPackage ||
+            {};
+
+        const layerValues =
+            layer?.values ||
+            layer?.material ||
+            {};
+
+        return {
+            ...cloneData(layerValues),
+            ...cloneData(packageValues),
+
+            surface: {
+                ...cloneData(layerValues.surface || layerValues.principled_bsdf || {}),
+                ...cloneData(packageValues.surface || packageValues.principled_bsdf || {}),
+                ...cloneData(layer?.surface || {}),
+            },
+
+            geometry: {
+                ...cloneData(layerValues.geometry || {}),
+                ...cloneData(packageValues.geometry || {}),
+                ...cloneData(layer?.geometry || {}),
+            },
+
+            mesh: {
+                ...cloneData(layerValues.mesh || {}),
+                ...cloneData(packageValues.mesh || {}),
+                ...cloneData(layer?.mesh || {}),
+            },
+
+            particle_system: {
+                ...cloneData(layerValues.particle_system || {}),
+                ...cloneData(packageValues.particle_system || {}),
+                ...cloneData(layer?.particle_system || {}),
+            },
+
+            light: {
+                ...cloneData(layerValues.light || {}),
+                ...cloneData(packageValues.light || {}),
+                ...cloneData(packageValues.settings?.light || {}),
+                ...cloneData(layer?.light || {}),
+                ...cloneData(layer?.settings?.light || {}),
+            },
+
+            bitmap_maps: {
+                ...cloneData(layerValues.bitmap_maps || {}),
+                ...cloneData(packageValues.bitmap_maps || {}),
+                ...cloneData(layer?.bitmap_maps || {}),
+            },
+
+            uv: {
+                ...cloneData(layerValues.uv || {}),
+                ...cloneData(packageValues.uv || {}),
+                ...cloneData(layer?.uv || {}),
+            },
+
+            shader_graph: resolveImportedShaderGraphSource(layer, packageValues),
+
+            preview: {
+                ...cloneData(layerValues.preview || {}),
+                ...cloneData(packageValues.preview || {}),
+                ...cloneData(layer?.preview || {}),
+            },
+
+            settings: {
+                ...cloneData(layerValues.settings || {}),
+                ...cloneData(packageValues.settings || {}),
+                ...cloneData(layer?.settings || {}),
+            },
+        };
+    };
+
+    const resolveImportedShaderGraphSource = (layer, source = {}) => {
+        const candidates = [
+            source.shader_graph,
+            source.shader?.graph,
+            source.material?.shader_graph,
+            source.material?.shader?.graph,
+
+            layer?.shader_graph,
+            layer?.shader?.graph,
+            layer?.material?.shader_graph,
+            layer?.material?.shader?.graph,
+            layer?.values?.shader_graph,
+            layer?.values?.shader?.graph,
+        ];
+
+        return candidates.find(graph => (
+            graph &&
+            Array.isArray(graph.nodes) &&
+            graph.nodes.length
+        )) || null;
+    };
+
+    const isMaterialOutputNode = node => (
+        node?.id === "material-output" ||
+        node?.settings?.node_key === "output.material"
+    );
+
+    const isPrincipledNode = node => (
+        node?.id === "principled-bsdf" ||
+        node?.settings?.node_key === "shader.principled" ||
+        node?.settings?.node_key === "principled.bsdf"
+    );
+
+    const normalizeImportedShaderGraph = graph => {
+        const fallback = createShaderGraph();
+
+        const sourceNodes = Array.isArray(graph?.nodes)
+            ? cloneData(graph.nodes)
+            : cloneData(fallback.nodes);
+
+        const sourceEdges = Array.isArray(graph?.edges)
+            ? cloneData(graph.edges)
+            : cloneData(fallback.edges);
+
+        let nodes = sourceNodes.map(node => ({
+            ...node,
+            settings: Node.normalizeSettings(node),
+        }));
+
+        let edges = sourceEdges.map(edge => ({
+            ...edge,
+            from: { ...(edge.from || {}) },
+            to: { ...(edge.to || {}) },
+        }));
+
+        // -------------------------
+        // Principled kanonisieren
+        // -------------------------
+        const principledNodes = nodes.filter(isPrincipledNode);
+
+        if (!principledNodes.length) {
+            nodes.push(createPrincipledNode());
+        } else {
+            const keeper =
+                principledNodes.find(node => node.id === "principled-bsdf") ||
+                principledNodes[0];
+
+            const duplicateIds = principledNodes
+                .filter(node => node !== keeper)
+                .map(node => node.id)
+                .filter(Boolean);
+
+            keeper.id = "principled-bsdf";
+            keeper.settings = {
+                ...(keeper.settings || {}),
+                node_key: keeper.settings?.node_key || "shader.principled",
+            };
+
+            edges = edges.map(edge => {
+                const next = {
+                    ...edge,
+                    from: { ...(edge.from || {}) },
+                    to: { ...(edge.to || {}) },
+                };
+
+                if (duplicateIds.includes(next.from.node)) {
+                    next.from.node = keeper.id;
+                }
+
+                if (duplicateIds.includes(next.to.node)) {
+                    next.to.node = keeper.id;
+                }
+
+                return next;
+            });
+
+            nodes = nodes.filter(node => (
+                node === keeper ||
+                !duplicateIds.includes(node.id)
+            ));
+        }
+
+        // -------------------------
+        // Material Output kanonisieren
+        // -------------------------
+        const outputNodes = nodes.filter(isMaterialOutputNode);
+
+        if (!outputNodes.length) {
+            nodes.push(createOutputNode());
+        } else {
+            const keeper =
+                outputNodes.find(node => node.id === "material-output") ||
+                outputNodes[0];
+
+            const duplicateIds = outputNodes
+                .filter(node => node !== keeper)
+                .map(node => node.id)
+                .filter(Boolean);
+
+            keeper.id = "material-output";
+            keeper.settings = {
+                ...(keeper.settings || {}),
+                node_key: "output.material",
+            };
+
+            edges = edges.map(edge => {
+                const next = {
+                    ...edge,
+                    from: { ...(edge.from || {}) },
+                    to: { ...(edge.to || {}) },
+                };
+
+                if (duplicateIds.includes(next.from.node)) {
+                    next.from.node = keeper.id;
+                }
+
+                if (duplicateIds.includes(next.to.node)) {
+                    next.to.node = keeper.id;
+                }
+
+                return next;
+            });
+
+            nodes = nodes.filter(node => (
+                node === keeper ||
+                !duplicateIds.includes(node.id)
+            ));
+        }
+
+        const nodeIds = new Set(nodes.map(node => node.id));
+
+        edges = edges.filter(edge => (
+            edge?.from?.node &&
+            edge?.from?.socket &&
+            edge?.to?.node &&
+            edge?.to?.socket &&
+            nodeIds.has(edge.from.node) &&
+            nodeIds.has(edge.to.node) &&
+            edge.from.node !== edge.to.node
+        ));
+
+        // Surface-Verbindung nur ergänzen, wenn keine existiert.
+        const hasSurfaceConnection = edges.some(edge => (
+            edge.from.node === "principled-bsdf" &&
+            edge.from.socket === "bsdf" &&
+            edge.to.node === "material-output" &&
+            edge.to.socket === "surface"
+        ));
+
+        if (!hasSurfaceConnection) {
+            edges.push({
+                id: uuid("edge"),
+                from: {
+                    node: "principled-bsdf",
+                    socket: "bsdf",
+                },
+                to: {
+                    node: "material-output",
+                    socket: "surface",
+                },
+                generated: true,
+                system: "material-core",
+            });
+        }
+
+        return {
+            ...(graph || {}),
+            nodes,
+            edges,
+        };
+    };
+
     const hydrateFromMaterialLayer = async layer => {
         if (!layer || Number(layer.type) !== 5) {
             return;
         }
 
+        pauseAutoSync.value = true;
+
         const materialPackage = await loadMaterialPackage(layer);
-        const source = materialPackage || layer;
+        const source = resolveMaterialEditSource(layer, materialPackage);
 
         values.name = layer.name || values.name;
         values.surface = {
@@ -3969,10 +4872,7 @@ export function materialEditorModel(props, emit) {
         if (!values.uv.vertices.length || !values.uv.triangles.length) {
             applyUvLayoutToMesh({ source: "hydrate" });
         }
-        values.shader_graph = {
-            ...createShaderGraph(),
-            ...(cloneData(source.shader_graph || source.shader?.graph || {})),
-        };
+        values.shader_graph = normalizeImportedShaderGraph(source.shader_graph);
         rememberAllNodePositions();
         values.cube_size = Number(source.settings?.cube_size || values.cube_size || 256);
         values.texture_size = normalizeTextureSize(
@@ -4004,11 +4904,15 @@ export function materialEditorModel(props, emit) {
         values.subsurface_translucency = source.settings?.subsurface_translucency ?? values.subsurface_translucency;
         values.use_nodes = source.settings?.use_nodes ?? values.use_nodes;
 
-        ensureCoreNodes();
         syncGeometryVolumeShaderGraph();
         syncParticleSystemGeometryVolumeBinding();
         syncSurfaceSlotFromUvCubeMap();
         syncAllSurfaceSlotsFromShaderGraph();
+
+        queueMicrotask(() => {
+            pauseAutoSync.value = false;
+            requestPreviewDebounced();
+        });
     };
 
     const CUBE_FACE_ORDER = ["front", "back", "left", "right", "top", "bottom"];
@@ -4053,10 +4957,6 @@ export function materialEditorModel(props, emit) {
 
     const getMappedUvFaces = () => {
         return CUBE_FACE_ORDER.filter(face => Boolean(values.uv.faces[face]?.bitmap?.url));
-    };
-
-    const normalizeTextureUrl = url => {
-        return String(url || "").trim();
     };
 
     const getMappedUvTextureGroups = () => {
@@ -4729,39 +5629,6 @@ export function materialEditorModel(props, emit) {
         return null;
     };
 
-    const connectEdgeUnique = (from, to, extra = {}) => {
-        const exists = values.shader_graph.edges.some(edge => (
-            edge.from.node === from.node &&
-            edge.from.socket === from.socket &&
-            edge.to.node === to.node &&
-            edge.to.socket === to.socket
-        ));
-
-        if (exists) {
-            return;
-        }
-
-        if (extra.replaceInput === false && isSocketOccupied(to)) {
-            return;
-        }
-
-        if (extra.replaceInput !== false) {
-            values.shader_graph.edges = values.shader_graph.edges.filter(edge => !(
-                edge.to.node === to.node &&
-                edge.to.socket === to.socket
-            ));
-        }
-
-        values.shader_graph.edges.push({
-            id: uuid('shader-node'),
-            from,
-            to,
-            ...Object.fromEntries(
-                Object.entries(extra).filter(([key]) => key !== "replaceInput")
-            ),
-        });
-    };
-
     const getUvMapTextureNodeIdForSlot = slotKey => {
         syncUvToBitmapSlot(slotKey);
         ensureBitmapNodeForSlot(slotKey);
@@ -5205,6 +6072,7 @@ export function materialEditorModel(props, emit) {
     };
 
     const setUvEditorMode = async mode => {
+        setUvBoxSelectState(false);
         if (!["unwrap", "cubemap"].includes(mode)) {
             return;
         }
@@ -5269,6 +6137,32 @@ export function materialEditorModel(props, emit) {
         return selectedUvFaces.value.includes(face);
     };
 
+    const applyUvMoveAxisLock = delta => {
+        if (uvMoveAxis.value === "x") {
+            return {
+                x: delta.x,
+                y: 0,
+            };
+        }
+
+        if (uvMoveAxis.value === "y") {
+            return {
+                x: 0,
+                y: delta.y,
+            };
+        }
+
+        return delta;
+    };
+
+    const setUvMoveAxis = axis => {
+        uvMoveAxis.value = uvMoveAxis.value === axis ? "" : axis;
+    };
+
+    const clearUvMoveAxis = () => {
+        uvMoveAxis.value = "";
+    };
+
     const toggleUvFaceSelection = async (face, event = null) => {
         if (!values.uv.faces[face]) {
             return;
@@ -5303,15 +6197,37 @@ export function materialEditorModel(props, emit) {
         await drawUvCanvas();
     };
 
+    const unwrapAllUvIslands = async () => {
+        if (values.uv.view_mode !== "unwrap") {
+            values.uv.mode = "unwrap";
+            values.uv.view_mode = "unwrap";
+        }
+
+        values.uv.vertices = [];
+        values.uv.edges = [];
+        values.uv.triangles = [];
+        values.uv.islands = [];
+        values.uv.selected_vertex_ids = [];
+        values.uv.selected_edge_ids = [];
+        values.uv.selected_island_ids = [];
+        values.uv.active_island_id = "";
+
+        rebuildMaterialMesh({
+            preserveLayout: false,
+        });
+
+        values.uv.active_island_id = values.uv.islands[0]?.id || "";
+        values.uv.selected_island_ids = values.uv.active_island_id
+            ? [values.uv.active_island_id]
+            : [];
+
+        await drawUvCanvas();
+        requestPreviewDebounced();
+    };
+
     const resetSelectedUvFaces = async () => {
         if (values.uv.view_mode === "unwrap") {
-            values.uv.vertices = [];
-            values.uv.edges = [];
-            values.uv.triangles = [];
-            values.uv.islands = [];
-            rebuildMaterialMesh({ preserveLayout: false });
-            await drawUvCanvas();
-            requestPreviewDebounced();
+            await unwrapAllUvIslands();
             return;
         }
 
@@ -5323,7 +6239,7 @@ export function materialEditorModel(props, emit) {
 
         await drawUvCanvas();
         requestPreviewDebounced();
-    };
+    }
 
     const syncUvAndPreview = async () => {
         if (values.uv.view_mode === "unwrap") {
@@ -5816,11 +6732,17 @@ export function materialEditorModel(props, emit) {
     };
 
     const startUvPan = event => {
+        if (uvBoxSelectState.value) {
+            event?.preventDefault?.();
+            event?.stopPropagation?.();
+            return;
+        }
         if (event.button !== 0) {
             return;
         }
 
         uvViewport.isPanning = true;
+        uvHoverState.value = "pan";
         uvViewport.panStart = {
             x: event.clientX,
             y: event.clientY,
@@ -5831,8 +6753,8 @@ export function materialEditorModel(props, emit) {
             y: uvViewport.panY,
         };
 
-        window.addEventListener("mousemove", moveUvPan);
-        window.addEventListener("mouseup", stopUvPan);
+        window.addEventListener("pointermove", moveUvPan);
+        window.addEventListener("pointerup", stopUvPan);
     };
 
     const moveUvPan = event => {
@@ -5846,9 +6768,10 @@ export function materialEditorModel(props, emit) {
 
     const stopUvPan = () => {
         uvViewport.isPanning = false;
+        uvHoverState.value = "empty";
 
-        window.removeEventListener("mousemove", moveUvPan);
-        window.removeEventListener("mouseup", stopUvPan);
+        window.removeEventListener("pointermove", moveUvPan);
+        window.removeEventListener("pointerup", stopUvPan);
     };
 
     const handleUvWheel = event => {
@@ -5856,7 +6779,53 @@ export function materialEditorModel(props, emit) {
         uvViewport.zoom = clamp(oldZoom + (event.deltaY > 0 ? -0.08 : 0.08), 0.35, 4);
     };
 
+    const setUvHoverStateFromEvent = event => {
+        if (
+            uvBoxSelectState.value ||
+            values.uv.view_mode !== "unwrap" ||
+            uvDragState.active ||
+            uvViewport.isPanning
+        ) {
+            return;
+        }
+
+        if (!values.uv.vertices.length || !values.uv.triangles.length) {
+            uvHoverState.value = "empty";
+            return;
+        }
+
+        const point = getUvPointFromEvent(event);
+        const vertex = UV.pickVertex(values.uv, point, 0.018 / uvViewport.zoom);
+
+        if (vertex) {
+            uvHoverState.value = "vertex";
+            return;
+        }
+
+        const island = UV.pickIsland(values.uv, point);
+
+        uvHoverState.value = island ? "island" : "empty";
+    };
+
+    const clearUvHoverState = () => {
+        uvHoverState.value = "empty";
+    };
+
+    const uvCursorClass = computed(() => ({
+        "box-select-active": uvBoxSelectState.value,
+        "is-panning": uvViewport.isPanning,
+        "is-dragging-uv": uvDragState.active,
+        "hover-vertex": uvHoverState.value === "vertex",
+        "hover-island": uvHoverState.value === "island",
+        "hover-empty": uvHoverState.value === "empty",
+    }));
+
     const startUvCanvasPointer = async event => {
+        if (uvBoxSelectState.value) {
+            event?.preventDefault?.();
+            event?.stopPropagation?.();
+            return;
+        }
         if (values.uv.view_mode !== "unwrap" || event.button !== 0) {
             return;
         }
@@ -5876,19 +6845,25 @@ export function materialEditorModel(props, emit) {
         if (vertex) {
             values.uv = UV.selectVertex(values.uv, vertex.id, { additive });
             uvDragState.mode = "vertex";
+            uvHoverState.value = "vertex";
         } else {
             const island = UV.pickIsland(values.uv, point);
 
             if (island) {
                 values.uv = UV.selectIsland(values.uv, island.id, { additive });
                 uvDragState.mode = "island";
+                uvHoverState.value = "island";
             } else {
                 values.uv = UV.clearSelection(values.uv);
                 uvDragState.mode = "";
+
                 queueMicrotask(() => {
                     pauseAutoSync.value = false;
                 });
+
                 await drawUvCanvas();
+
+                startUvPan(event);
                 return;
             }
         }
@@ -5896,8 +6871,8 @@ export function materialEditorModel(props, emit) {
         uvDragState.active = true;
         uvDragState.last = point;
 
-        window.addEventListener("mousemove", moveUvCanvasPointer);
-        window.addEventListener("mouseup", stopUvCanvasPointer);
+        window.addEventListener("pointermove", moveUvCanvasPointer);
+        window.addEventListener("pointerup", stopUvCanvasPointer);
 
         await drawUvCanvas();
     };
@@ -5907,18 +6882,31 @@ export function materialEditorModel(props, emit) {
             return;
         }
 
+        uvHoverState.value = uvDragState.mode || "vertex";
+
         const point = getUvPointFromEvent(event);
-        const dx = point.x - uvDragState.last.x;
-        const dy = point.y - uvDragState.last.y;
+
+        const rawDelta = {
+            x: point.x - uvDragState.last.x,
+            y: point.y - uvDragState.last.y,
+        };
 
         uvDragState.last = point;
 
-        if (Math.abs(dx) < 0.000001 && Math.abs(dy) < 0.000001) {
+        const delta = applyUvMoveAxisLock(rawDelta);
+
+        if (Math.abs(delta.x) < 0.000001 && Math.abs(delta.y) < 0.000001) {
             return;
         }
 
-        values.uv = UV.moveSelection(values.uv, dx, dy);
-        applyUvLayoutToMesh({ source: "uv-drag" });
+        values.uv = UV.moveSelection(values.uv, delta.x, delta.y);
+
+        applyUvLayoutToMesh({
+            source: uvMoveAxis.value
+                ? `uv-drag-align-${uvMoveAxis.value}`
+                : "uv-drag",
+        });
+
         await drawUvCanvas();
     };
 
@@ -5929,9 +6917,10 @@ export function materialEditorModel(props, emit) {
 
         uvDragState.active = false;
         uvDragState.mode = "";
+        uvHoverState.value = "empty";
 
-        window.removeEventListener("mousemove", moveUvCanvasPointer);
-        window.removeEventListener("mouseup", stopUvCanvasPointer);
+        window.removeEventListener("pointermove", moveUvCanvasPointer);
+        window.removeEventListener("pointerup", stopUvCanvasPointer);
 
         queueMicrotask(() => {
             pauseAutoSync.value = false;
@@ -6064,6 +7053,9 @@ export function materialEditorModel(props, emit) {
     };
 
     const setActiveMaterialTab = key => {
+        if (key !== "uv") {
+            setUvBoxSelectState(false);
+        }
         const previousTab = ui.value.activeTab;
         ui.value.activeTab = key;
 
@@ -6539,16 +7531,16 @@ export function materialEditorModel(props, emit) {
             clearTimeout(previewTimer.value);
         }
 
-        window.removeEventListener("mousemove", moveNode);
-        window.removeEventListener("mouseup", stopMoveNode);
-        window.removeEventListener("mousemove", moveConnection);
-        window.removeEventListener("mouseup", cancelConnection);
-        window.removeEventListener("mousemove", moveCanvasPan);
-        window.removeEventListener("mouseup", stopCanvasPan);
-        window.removeEventListener("mousemove", moveUvPan);
-        window.removeEventListener("mouseup", stopUvPan);
-        window.removeEventListener("mousemove", moveUvCanvasPointer);
-        window.removeEventListener("mouseup", stopUvCanvasPointer);
+        window.removeEventListener("pointermove", moveNode);
+        window.removeEventListener("pointerup", stopMoveNode);
+        window.removeEventListener("pointermove", moveConnection);
+        window.removeEventListener("pointerup", cancelConnection);
+        window.removeEventListener("pointermove", moveCanvasPan);
+        window.removeEventListener("pointerup", stopCanvasPan);
+        window.removeEventListener("pointermove", moveUvPan);
+        window.removeEventListener("pointerup", stopUvPan);
+        window.removeEventListener("pointermove", moveUvCanvasPointer);
+        window.removeEventListener("pointerup", stopUvCanvasPointer);
     });
 
     return {
@@ -6571,6 +7563,10 @@ export function materialEditorModel(props, emit) {
         imageSizeLabel,
         isEditingMaterialLayer,
 
+        uvMoveAxis,
+        setUvMoveAxis,
+        clearUvMoveAxis,
+        unwrapAllUvIslands,
         uvTextureLayerId,
         uvGridMetrics,
         uvFaceLayout,
@@ -6667,6 +7663,17 @@ export function materialEditorModel(props, emit) {
         startUvCanvasPointer,
         resetUvViewport,
         uvCanvasRef,
+        uvViewportId,
+        uvCanvasId,
+        uvBoxSelectState,
+        uvSelectedVertexCount,
+        selectedUvVertices,
+
+        toggleUvBoxSelect,
+        selectUvVerticesByBox,
+        alignSelectedUvVertices,
+        mergeSelectedUvVertices,
+        unwrapActiveUvIsland,
         drawUvCanvas,
 
         assignTextureSlotFromSurface,
@@ -6681,6 +7688,10 @@ export function materialEditorModel(props, emit) {
         closeNodeContextMenu,
 
         emitEvent,
+        uvHoverState,
+        uvCursorClass,
+        setUvHoverStateFromEvent,
+        clearUvHoverState,
         materialSettings,
         requestPreviewNow,
         submit,

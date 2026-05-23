@@ -389,6 +389,35 @@
                     </template>
 
                     <button
+                        v-if="values.uv.view_mode === 'unwrap'"
+                        type="button"
+                        class="mem-ghost-btn"
+                        :class="{ active: uvBoxSelectState }"
+                        @click="toggleUvBoxSelect"
+                    >
+                      Box Select
+                    </button>
+
+                    <button
+                        v-if="values.uv.view_mode === 'unwrap'"
+                        type="button"
+                        class="mem-ghost-btn"
+                        :disabled="!activeUvIsland"
+                        @click="unwrapActiveUvIsland"
+                    >
+                      Unwrap Island
+                    </button>
+
+                    <button
+                        v-if="values.uv.view_mode === 'unwrap'"
+                        type="button"
+                        class="mem-ghost-btn"
+                        @click="unwrapAllUvIslands"
+                    >
+                      Unwrap All
+                    </button>
+
+                    <button
                         v-if="hasUvCubemapNode && values.uv.view_mode !== 'unwrap'"
                         type="button"
                         class="mem-ghost-btn"
@@ -436,21 +465,88 @@
                 </header>
 
                 <!-- MAIN -->
-                <div class="mem-uv-main-grid">
+                <div class="mem-uv-main-grid relative overflow-hidden" :id="ui.uv.main.id">
                   <!-- LEFT: CANVAS -->
-                  <section class="mem-uv-card mem-uv-canvas-card">
+                  <section class="mem-uv-card mem-uv-canvas-card relative">
                     <div
                         ref="uvViewportRef"
-                        class="mem-uv-canvas-stage"
-                        @mousedown="startUvPan"
+                        :id="uvViewportId"
+                        class="mem-uv-canvas-stage relative"
+                        :class="uvCursorClass"
+                        @pointerdown="uvBoxSelectState ? null : startUvPan($event)"
                         @wheel.prevent="handleUvWheel"
                     >
+                      <Selection
+                          v-if="values.uv.view_mode === 'unwrap'"
+                          :state="uvBoxSelectState"
+                          :select="uvBoxSelectState"
+                          shape="rectangle"
+                          :main-id="ui.uv.main.id"
+                          :container-id="uvViewportId"
+                          @update:select-event="selectUvVerticesByBox"
+                          @update:component-event="emitEvent"
+                      />
+
                       <canvas
                           ref="uvCanvasRef"
-                          class="mem-uv-live-canvas"
+                          :id="uvCanvasId"
+                          class="mem-uv-live-canvas relative"
+                          :class="{ 'box-select-disabled': uvBoxSelectState }"
                           :style="uvCanvasStyle"
-                          @mousedown.stop="startUvCanvasPointer"
+                          @pointermove="setUvHoverStateFromEvent"
+                          @pointerleave="clearUvHoverState"
+                          @pointerdown.stop="uvBoxSelectState ? null : startUvCanvasPointer($event)"
                       />
+
+                      <div
+                          v-if="uvSelectedVertexCount > 0"
+                          class="mem-uv-selection-actions"
+                      >
+                        <button
+                            type="button"
+                            class="mem-ghost-btn"
+                            :class="{ active: uvMoveAxis === 'x' }"
+                            @click="setUvMoveAxis('x')"
+                        >
+                          Align X
+                        </button>
+
+                        <button
+                            type="button"
+                            class="mem-ghost-btn"
+                            :class="{ active: uvMoveAxis === 'y' }"
+                            @click="setUvMoveAxis('y')"
+                        >
+                          Align Y
+                        </button>
+
+                        <button
+                            type="button"
+                            class="mem-ghost-btn"
+                            :disabled="uvSelectedVertexCount < 2"
+                            @click="mergeSelectedUvVertices('first')"
+                        >
+                          Merge First
+                        </button>
+
+                        <button
+                            type="button"
+                            class="mem-ghost-btn"
+                            :disabled="uvSelectedVertexCount < 2"
+                            @click="mergeSelectedUvVertices('last')"
+                        >
+                          Merge Last
+                        </button>
+
+                        <button
+                            type="button"
+                            class="mem-ghost-btn"
+                            :disabled="uvSelectedVertexCount < 2"
+                            @click="mergeSelectedUvVertices('center')"
+                        >
+                          Merge Center
+                        </button>
+                      </div>
 
                       <div class="mem-uv-canvas-hud">
                         {{ Math.round(uvViewport.zoom * 100) }}%
@@ -882,7 +978,7 @@
                 <section
                     ref="nodeCanvasRef"
                     class="mem-node-canvas"
-                    @mousedown="startCanvasPan"
+                    @pointerdown="startCanvasPan"
                     @click="closeNodeContextMenu"
                     @contextmenu.prevent="openNodeContextMenu"
                     @wheel.prevent="handleCanvasWheel"
@@ -929,7 +1025,7 @@
           left: `${node.position?.x || 0}px`,
           top: `${node.position?.y || 0}px`
         }"
-                        @mousedown.stop="startMoveNode($event, node)"
+                        @pointerdown.stop="startMoveNode($event, node)"
                         @click="activeShaderNodeId = node.id"
                     >
                       <header>
@@ -949,7 +1045,7 @@
                             type="button"
                             class="mem-node-collapse"
                             :title="isMiniShaderNode(node) ? 'Node ausklappen' : 'Node einklappen'"
-                            @mousedown.stop
+                            @pointerdown.stop
                             @click.stop="toggleShaderNodeCollapsed(node)"
                         >
                           <v-icon size="13">
@@ -962,7 +1058,7 @@
                             type="button"
                             class="mem-node-close"
                             title="Node entfernen"
-                            @mousedown.stop
+                            @pointerdown.stop
                             @click.stop="removeShaderNode(node.id)"
                         >
                           ×
@@ -981,8 +1077,8 @@
               :data-node-id="node.id"
               :data-socket-name="socketName"
               data-socket-direction="input"
-              @mousedown.stop="startConnection($event, node, socketName, 'input')"
-              @mouseup.stop="completeConnection($event, node, socketName, 'input')"
+              @pointerdown.stop="startConnection($event, node, socketName, 'input')"
+              @pointerup.stop="completeConnection($event, node, socketName, 'input')"
           >
             <i />
             {{ getNodeSocketLabel(node.id, socketName, 'input') }}
@@ -999,8 +1095,8 @@
               :data-node-id="node.id"
               :data-socket-name="socketName"
               data-socket-direction="output"
-              @mousedown.stop="startConnection($event, node, socketName, 'output')"
-              @mouseup.stop="completeConnection($event, node, socketName, 'output')"
+              @pointerdown.stop="startConnection($event, node, socketName, 'output')"
+              @pointerup.stop="completeConnection($event, node, socketName, 'output')"
           >
             {{ getNodeSocketLabel(node.id, socketName, 'output') }}
             <i />
@@ -1015,7 +1111,7 @@
                       <div
                           v-if="getNodeInlineFieldItems(node).length"
                           class="mem-node-inline-fields"
-                          @mousedown.stop
+                          @pointerdown.stop
                       >
                         <template
                             v-for="field in getNodeInlineFieldItems(node)"
@@ -1075,7 +1171,7 @@
                           left: `${ui.nodeContextMenu.x}px`,
                           top: `${ui.nodeContextMenu.y}px`
                         }"
-                        @mousedown.stop
+                        @pointerdown.stop
                         @click.stop
                         @wheel.stop
                     >
@@ -1414,6 +1510,7 @@ import Light from "@/view/page/Material/Light/Light";
 import Export from "@/view/page/Material/Export/Export";
 import Settings from "@/view/page/Material/Settings/Settings";
 import Physics from "@/view/page/Material/Physics/Physics";
+import Selection from "@/components/Selection/Selection";
 
 export default defineComponent({
   name: "MaterialEditor",
@@ -1428,12 +1525,14 @@ export default defineComponent({
     Physics,
     Light,
     Export,
-    Settings
+    Settings,
+    Selection
   },
   props: materialEditorProps,
   setup(props, { emit }) {
+    const model = materialEditorModel(props, emit);
     return {
-      ...materialEditorModel(props, emit),
+      ...model
     };
   },
 });
