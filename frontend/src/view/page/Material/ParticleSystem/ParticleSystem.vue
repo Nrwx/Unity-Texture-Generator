@@ -10,6 +10,56 @@
     <div class="mem-particle-settings">
     <section class="mem-geometry-card">
       <header>
+        <strong>Material</strong>
+        <small>Blend und Lifetime ColorRamp.</small>
+      </header>
+
+      <v-select :model-value="state.particleSystem.blend" :items="particleBlendOptions" label="Blend" density="compact" hide-details @update:model-value="setParticleValue('blend', $event)" />
+
+      <div class="mem-particle-gradient-editor">
+        <button
+            type="button"
+            class="mem-particle-gradient-bar"
+            :style="colorRampStyle"
+            @click="addColorRampStopAt"
+        >
+          <span
+              v-for="stop in colorRampStops"
+              :key="stop.id"
+              class="mem-particle-gradient-marker"
+              :class="{ active: activeColorRampStop?.id === stop.id }"
+              :style="colorRampMarkerStyle(stop)"
+              @click.stop="selectColorRampStop(stop.id)"
+              @contextmenu.stop.prevent="removeColorRampStop(stop.id)"
+          />
+        </button>
+
+        <div v-if="activeColorRampStop" class="mem-particle-gradient-controls">
+          <v-text-field
+              :model-value="activeColorRampStop.t"
+              label="Life"
+              type="number"
+              :min="0"
+              :max="1"
+              :step="0.01"
+              density="compact"
+              hide-details
+              @update:model-value="updateColorRampStop({ t: $event })"
+          />
+
+          <v-color-picker
+              :model-value="activeColorRampColor"
+              mode="rgb"
+              hide-inputs
+              canvas-height="90"
+              @update:model-value="updateColorRampStop({ color: $event })"
+          />
+        </div>
+      </div>
+    </section>
+
+    <section class="mem-geometry-card">
+      <header>
         <strong>System</strong>
         <small>Render-Modus und Quelle.</small>
       </header>
@@ -88,14 +138,8 @@
     <section class="mem-geometry-card">
       <header>
         <strong>Motion</strong>
-        <small>Lebenszeit, World Direction und Orbit.</small>
+        <small>Lebenszeit, Orbit und Dot-Rotation.</small>
       </header>
-
-      <div class="mem-geometry-vector">
-        <v-text-field :model-value="state.particleSystem.direction_x" label="Direction X" type="number" density="compact" hide-details @update:model-value="setParticleNumber('direction_x', $event)" />
-        <v-text-field :model-value="state.particleSystem.direction_y" label="Direction Y" type="number" density="compact" hide-details @update:model-value="setParticleNumber('direction_y', $event)" />
-        <v-text-field :model-value="state.particleSystem.direction_z" label="Direction Z" type="number" density="compact" hide-details @update:model-value="setParticleNumber('direction_z', $event)" />
-      </div>
 
       <div class="mem-control-card">
         <header>
@@ -146,14 +190,6 @@
         <v-text-field :model-value="state.particleSystem.size_x" label="Size X" type="number" density="compact" hide-details @update:model-value="setParticleNumber('size_x', $event)" />
         <v-text-field :model-value="state.particleSystem.size_y" label="Size Y" type="number" density="compact" hide-details @update:model-value="setParticleNumber('size_y', $event)" />
         <v-text-field :model-value="state.particleSystem.radius" label="Radius" type="number" density="compact" hide-details @update:model-value="setParticleNumber('radius', $event)" />
-      </div>
-
-      <div class="mem-control-card">
-        <header>
-          <strong>Size Randomness</strong>
-          <small>{{ state.particleSystem.size_randomness }}</small>
-        </header>
-        <v-slider :model-value="state.particleSystem.size_randomness" :min="0" :max="1" :step="0.01" hide-details thumb-label @update:model-value="setParticleNumber('size_randomness', $event)" />
       </div>
 
     </section>
@@ -329,55 +365,6 @@
       </div>
     </section>
 
-    <section class="mem-geometry-card">
-      <header>
-        <strong>Material</strong>
-        <small>Blend und Lifetime ColorRamp.</small>
-      </header>
-
-      <v-select :model-value="state.particleSystem.blend" :items="particleBlendOptions" label="Blend" density="compact" hide-details @update:model-value="setParticleValue('blend', $event)" />
-
-      <div class="mem-particle-gradient-editor">
-        <button
-            type="button"
-            class="mem-particle-gradient-bar"
-            :style="colorRampStyle"
-            @click="addColorRampStopAt"
-        >
-          <span
-              v-for="stop in colorRampStops"
-              :key="stop.id"
-              class="mem-particle-gradient-marker"
-              :class="{ active: activeColorRampStop?.id === stop.id }"
-              :style="colorRampMarkerStyle(stop)"
-              @click.stop="selectColorRampStop(stop.id)"
-              @contextmenu.stop.prevent="removeColorRampStop(stop.id)"
-          />
-        </button>
-
-        <div v-if="activeColorRampStop" class="mem-particle-gradient-controls">
-          <v-text-field
-              :model-value="activeColorRampStop.t"
-              label="Life"
-              type="number"
-              :min="0"
-              :max="1"
-              :step="0.01"
-              density="compact"
-              hide-details
-              @update:model-value="updateColorRampStop({ t: $event })"
-          />
-
-          <v-color-picker
-              :model-value="activeColorRampColor"
-              mode="rgb"
-              hide-inputs
-              canvas-height="90"
-              @update:model-value="updateColorRampStop({ color: $event })"
-          />
-        </div>
-      </div>
-    </section>
     </div>
 
     <aside class="mem-particle-layer-column">

@@ -5913,10 +5913,13 @@ export function materialEditorModel(props, emit) {
     };
 
     const setActiveMaterialTab = key => {
+        const previousTab = ui.value.activeTab;
         ui.value.activeTab = key;
 
         if (key === "particleSystem" && values.particle_system?.enabled !== true) {
             setParticleSystemBoolean("enabled", true);
+        } else if (previousTab === "particleSystem" && key !== "particleSystem" && values.particle_system?.enabled === true) {
+            setParticleSystemBoolean("enabled", false);
         }
     };
 

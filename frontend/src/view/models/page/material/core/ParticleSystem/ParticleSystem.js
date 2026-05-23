@@ -181,6 +181,9 @@ export class ParticleSystem {
         { key: "alpha", label: "Alpha", defaultValue: 1 },
         { key: "gravity", label: "Gravity", defaultValue: 0 },
         { key: "velocity", label: "Velocity", defaultValue: 0 },
+        { key: "direction_x", label: "Direction X", defaultValue: 0 },
+        { key: "direction_y", label: "Direction Y", defaultValue: 1 },
+        { key: "direction_z", label: "Direction Z", defaultValue: 0 },
     ]);
 
     static DEFAULT_INTERPOLATIONS = Object.freeze(
@@ -232,7 +235,7 @@ export class ParticleSystem {
         velocity_randomness: 0,
         gravity: 0,
         turbulence: 0.22,
-        orbit: 0.18,
+        orbit: 0,
         mesh_influence: 0.65,
         color: [1, 1, 1, 1],
         color_ramp: normalizeColorRamp(),
@@ -495,13 +498,15 @@ export class ParticleSystem {
             const lifetimeValue = Math.max(0.1, ParticleSystem.evaluateInterpolation(config.interpolations, "lifetime", phase * config.lifetime, config.lifetime, config.lifetime));
             const life = ((config.age * config.time_scale) / lifetimeValue + phase) % 1;
             const lifeTime = life * Math.max(0.001, config.lifetime);
-            const randomSizeValue = config.random_size ? config.size_randomness : 0;
             const sizeXValue = Math.max(0.001, ParticleSystem.evaluateInterpolation(config.interpolations, "size_x", lifeTime, config.size_x, config.lifetime));
             const sizeYValue = Math.max(0.001, ParticleSystem.evaluateInterpolation(config.interpolations, "size_y", lifeTime, config.size_y, config.lifetime));
             const alphaValue = Math.max(0, ParticleSystem.evaluateInterpolation(config.interpolations, "alpha", lifeTime, config.alpha, config.lifetime));
             const gravityValue = ParticleSystem.evaluateInterpolation(config.interpolations, "gravity", lifeTime, config.gravity, config.lifetime);
             const velocityValue = ParticleSystem.evaluateInterpolation(config.interpolations, "velocity", lifeTime, config.velocity, config.lifetime);
-            const direction = normalizeDirection(0, 1, 0);
+            const directionX = ParticleSystem.evaluateInterpolation(config.interpolations, "direction_x", lifeTime, config.direction_x, config.lifetime);
+            const directionY = ParticleSystem.evaluateInterpolation(config.interpolations, "direction_y", lifeTime, config.direction_y || 1, config.lifetime);
+            const directionZ = ParticleSystem.evaluateInterpolation(config.interpolations, "direction_z", lifeTime, config.direction_z, config.lifetime);
+            const direction = normalizeDirection(directionX, directionY, directionZ);
             const pathPoint = ParticleSystem.evaluatePathFollow(config.path_follow, lifeTime);
             const meshPosition = useMesh ? sampleMeshPosition(mesh, rand) : null;
             const theta = rand() * Math.PI * 2;
@@ -527,7 +532,9 @@ export class ParticleSystem {
             const vx = config.velocity_x + direction.x * velocityValue + (rand() - 0.5) * config.velocity_randomness;
             const vy = config.velocity_y + direction.y * velocityValue + (rand() - 0.5) * config.velocity_randomness + gravityValue * life;
             const vz = config.velocity_z + direction.z * velocityValue + (rand() - 0.5) * config.velocity_randomness;
-            const flow = rootAnimationFactor(config.root_animation, life);
+            const flow = config.root_animation === "point"
+                ? 1
+                : rootAnimationFactor(config.root_animation, life);
             const root = [
                 base[0] * flow,
                 base[1] * flow,
@@ -544,11 +551,11 @@ export class ParticleSystem {
                 root[1] + vy * life + noise[1],
                 root[0] * s + root[2] * c + vz * life + noise[2],
             ];
-            const x = (pathEnabled ? localPosition[0] + pathTranslate.x : localPosition[0]) + config.direction_x;
-            const y = (pathEnabled ? localPosition[1] + pathTranslate.y : localPosition[1]) + config.direction_y;
-            const z = (pathEnabled ? localPosition[2] + pathTranslate.z : localPosition[2]) + config.direction_z;
+            const x = pathEnabled ? localPosition[0] + pathTranslate.x : localPosition[0];
+            const y = pathEnabled ? localPosition[1] + pathTranslate.y : localPosition[1];
+            const z = pathEnabled ? localPosition[2] + pathTranslate.z : localPosition[2];
             const fade = Math.sin(Math.PI * life);
-            const randomScale = 1 - randomSizeValue * rand();
+            const randomScale = config.random_size ? 0.35 + rand() * 0.65 : 1;
             const fadeScale = 0.55 + fade * 0.45;
             const sizeX = Math.max(0.1, config.size * sizeXValue * randomScale * fadeScale);
             const sizeY = Math.max(0.1, config.size * sizeYValue * randomScale * fadeScale);

@@ -2511,6 +2511,9 @@ class MaterialModel(BaseModel):
             "alpha": [{"x": 0, "y": 1}, {"x": 0.5, "y": 1}, {"x": 1, "y": 1}],
             "gravity": [{"x": 0, "y": 0}, {"x": 0.5, "y": 0}, {"x": 1, "y": 0}],
             "velocity": [{"x": 0, "y": 0}, {"x": 0.5, "y": 0}, {"x": 1, "y": 0}],
+            "direction_x": [{"x": 0, "y": 0}, {"x": 0.5, "y": 0}, {"x": 1, "y": 0}],
+            "direction_y": [{"x": 0, "y": 1}, {"x": 0.5, "y": 1}, {"x": 1, "y": 1}],
+            "direction_z": [{"x": 0, "y": 0}, {"x": 0.5, "y": 0}, {"x": 1, "y": 0}],
         }
         interpolation_attributes = set(interpolation_defaults.keys())
         incoming_interpolations = data.get("interpolations", {})
@@ -2666,7 +2669,7 @@ class MaterialModel(BaseModel):
             "velocity_randomness": clamp_value(data.get("velocity_randomness", 0), 0, 10, 0),
             "gravity": clamp_value(data.get("gravity", 0), -10, 10, 0),
             "turbulence": clamp_value(data.get("turbulence", 0.22), 0, 10, 0.22),
-            "orbit": clamp_value(data.get("orbit", 0.18), -10, 10, 0.18),
+            "orbit": clamp_value(data.get("orbit", 0), -10, 10, 0),
             "mesh_influence": clamp_value(data.get("mesh_influence", 0.65), 0, 1, 0.65),
             "color": data.get("color", [1, 1, 1, 1]) if isinstance(data.get("color", []), list) else [1, 1, 1, 1],
             "color_ramp": data.get("color_ramp", []) if isinstance(data.get("color_ramp", []), list) else [],
