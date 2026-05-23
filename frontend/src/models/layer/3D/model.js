@@ -955,6 +955,19 @@ export function layer3DModel(props, emit) {
         return mapped || Object.values(textureImages).find(item => item.image && canonicalSlotKey(item.slot) === canonical) || null;
     };
 
+    const getParticleTextureForLayer = layer => {
+        if (!layer?.url) {
+            return null;
+        }
+
+        return Object.values(textureImages).find(item => (
+            item.image &&
+            item.kind === "particle" &&
+            item.particleLayerId === layer.id &&
+            item.url === layer.url
+        )) || null;
+    };
+
     const resolveSurfaceForFace = (surface, materialLayer, faceName) => {
         const uv = materialLayer.uv || {};
         const next = {
@@ -1298,6 +1311,7 @@ export function layer3DModel(props, emit) {
                 resolveSurfaceForFace,
                 getTextureForFace,
                 getTextureForSlotFace,
+                getParticleTextureForLayer,
             });
         } catch (error) {
             console.warn("Layer3D WebGL renderer failed.", error);
@@ -1408,6 +1422,22 @@ export function layer3DModel(props, emit) {
                     ...normalizeTextureSettings(slot),
                 });
             }
+        });
+
+        (layer?.particle_system?.layers || []).forEach(particleLayer => {
+            if (!particleLayer?.url) {
+                return;
+            }
+
+            entries.push({
+                key: `particle:${particleLayer.id}:${particleLayer.url}`,
+                kind: "particle",
+                particleLayerId: particleLayer.id,
+                url: particleLayer.url,
+                slot: "baseColor",
+                faces: ["front"],
+                ...normalizeTextureSettings(particleLayer),
+            });
         });
 
         return entries;

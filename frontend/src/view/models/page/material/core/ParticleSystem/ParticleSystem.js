@@ -58,6 +58,57 @@ const normalizeColor = value => {
     return [1, 1, 1, 1];
 };
 
+const normalizeColorRampStop = (stop = {}, index = 0) => ({
+    id: stop.id || uuid("particle-color-stop"),
+    t: clamp(stop.t ?? index, 0, 1),
+    color: normalizeColor(stop.color || [1, 1, 1, 1]),
+});
+
+const normalizeColorRamp = stops => {
+    const incoming = Array.isArray(stops) && stops.length
+        ? stops
+        : [
+            { id: "particle-color-start", t: 0, color: [1, 1, 1, 1] },
+            { id: "particle-color-end", t: 1, color: [1, 1, 1, 1] },
+        ];
+
+    return incoming
+        .map(normalizeColorRampStop)
+        .sort((a, b) => a.t - b.t);
+};
+
+const sampleColorRamp = (stops = [], life = 0, fallback = [1, 1, 1, 1]) => {
+    const ramp = normalizeColorRamp(stops);
+    const t = clamp(life, 0, 1);
+
+    if (!ramp.length) {
+        return fallback;
+    }
+
+    if (t <= ramp[0].t || ramp.length === 1) {
+        return ramp[0].color;
+    }
+
+    for (let index = 1; index < ramp.length; index += 1) {
+        const previous = ramp[index - 1];
+        const next = ramp[index];
+
+        if (t > next.t) {
+            continue;
+        }
+
+        const amount = (t - previous.t) / Math.max(0.00001, next.t - previous.t);
+        return [
+            mix(previous.color[0], next.color[0], amount),
+            mix(previous.color[1], next.color[1], amount),
+            mix(previous.color[2], next.color[2], amount),
+            mix(previous.color[3], next.color[3], amount),
+        ];
+    }
+
+    return ramp[ramp.length - 1].color;
+};
+
 const normalizeInterpolationPoint = (point, maxX = 1) => ({
     x: clamp(point?.x ?? 0, 0, Math.max(0.001, maxX)),
     y: Number.isFinite(Number(point?.y)) ? Number(point.y) : 0,
@@ -125,15 +176,11 @@ const rootAnimationFactor = (mode = "inner", life = 0) => {
 export class ParticleSystem {
     static INTERPOLATION_ATTRIBUTES = Object.freeze([
         { key: "lifetime", label: "Lifetime", defaultValue: 1 },
-        { key: "randomSize", label: "Random Size", defaultValue: 0 },
         { key: "size_x", label: "Size X", defaultValue: 1 },
         { key: "size_y", label: "Size Y", defaultValue: 1 },
         { key: "alpha", label: "Alpha", defaultValue: 1 },
         { key: "gravity", label: "Gravity", defaultValue: 0 },
         { key: "velocity", label: "Velocity", defaultValue: 0 },
-        { key: "direction_x", label: "Direction X", defaultValue: 0 },
-        { key: "direction_y", label: "Direction Y", defaultValue: 1 },
-        { key: "direction_z", label: "Direction Z", defaultValue: 0 },
     ]);
 
     static DEFAULT_INTERPOLATIONS = Object.freeze(
@@ -165,6 +212,7 @@ export class ParticleSystem {
         age: 1.2,
         time_scale: 1,
         size: 18,
+        radius: 1,
         random_size: false,
         size_randomness: 0,
         size_x: 1,
@@ -178,7 +226,7 @@ export class ParticleSystem {
         velocity_y: 0,
         velocity_z: 0,
         direction_x: 0,
-        direction_y: 1,
+        direction_y: 0,
         direction_z: 0,
         rotation: 0,
         velocity_randomness: 0,
@@ -187,6 +235,7 @@ export class ParticleSystem {
         orbit: 0.18,
         mesh_influence: 0.65,
         color: [1, 1, 1, 1],
+        color_ramp: normalizeColorRamp(),
         blend: "alpha",
         depth_write: false,
         sort: true,
@@ -247,6 +296,7 @@ export class ParticleSystem {
             age: clamp(source.age, 0, 60),
             time_scale: clamp(source.time_scale, 0, 8),
             size: clamp(source.size, 1, 120),
+            radius: clamp(source.radius, 0.001, 50),
             random_size: source.random_size === true || source.randomSize === true,
             size_randomness: clamp(source.size_randomness, 0, 1),
             size_x: clamp(source.size_x, 0.001, 20),
@@ -259,9 +309,9 @@ export class ParticleSystem {
             velocity_x: clamp(source.velocity_x, -10, 10),
             velocity_y: clamp(source.velocity_y, -10, 10),
             velocity_z: clamp(source.velocity_z, -10, 10),
-            direction_x: clamp(source.direction_x, -1, 1),
-            direction_y: clamp(source.direction_y, -1, 1),
-            direction_z: clamp(source.direction_z, -1, 1),
+            direction_x: clamp(source.direction_x, -50, 50),
+            direction_y: clamp(source.direction_y, -50, 50),
+            direction_z: clamp(source.direction_z, -50, 50),
             rotation: clamp(source.rotation, -360, 360),
             velocity_randomness: clamp(source.velocity_randomness, 0, 10),
             gravity: clamp(source.gravity, -10, 10),
@@ -269,6 +319,7 @@ export class ParticleSystem {
             orbit: clamp(source.orbit, -10, 10),
             mesh_influence: clamp(source.mesh_influence, 0, 1),
             color: normalizeColor(source.color),
+            color_ramp: normalizeColorRamp(source.color_ramp),
             blend: ["alpha", "additive", "screen"].includes(source.blend) ? source.blend : "alpha",
             depth_write: source.depth_write === true,
             sort: source.sort !== false,
@@ -426,7 +477,9 @@ export class ParticleSystem {
         const rand = random(config.seed);
         const positions = [];
         const sizes = [];
+        const scales = [];
         const alphas = [];
+        const colors = [];
         const phases = [];
         const rotations = [];
         const mesh = context.mesh || null;
@@ -442,18 +495,13 @@ export class ParticleSystem {
             const lifetimeValue = Math.max(0.1, ParticleSystem.evaluateInterpolation(config.interpolations, "lifetime", phase * config.lifetime, config.lifetime, config.lifetime));
             const life = ((config.age * config.time_scale) / lifetimeValue + phase) % 1;
             const lifeTime = life * Math.max(0.001, config.lifetime);
-            const randomSizeValue = config.random_size
-                ? Math.max(0, ParticleSystem.evaluateInterpolation(config.interpolations, "randomSize", lifeTime, config.size_randomness, config.lifetime))
-                : 0;
+            const randomSizeValue = config.random_size ? config.size_randomness : 0;
             const sizeXValue = Math.max(0.001, ParticleSystem.evaluateInterpolation(config.interpolations, "size_x", lifeTime, config.size_x, config.lifetime));
             const sizeYValue = Math.max(0.001, ParticleSystem.evaluateInterpolation(config.interpolations, "size_y", lifeTime, config.size_y, config.lifetime));
             const alphaValue = Math.max(0, ParticleSystem.evaluateInterpolation(config.interpolations, "alpha", lifeTime, config.alpha, config.lifetime));
             const gravityValue = ParticleSystem.evaluateInterpolation(config.interpolations, "gravity", lifeTime, config.gravity, config.lifetime);
             const velocityValue = ParticleSystem.evaluateInterpolation(config.interpolations, "velocity", lifeTime, config.velocity, config.lifetime);
-            const directionXValue = ParticleSystem.evaluateInterpolation(config.interpolations, "direction_x", lifeTime, config.direction_x, config.lifetime);
-            const directionYValue = ParticleSystem.evaluateInterpolation(config.interpolations, "direction_y", lifeTime, config.direction_y, config.lifetime);
-            const directionZValue = ParticleSystem.evaluateInterpolation(config.interpolations, "direction_z", lifeTime, config.direction_z, config.lifetime);
-            const direction = normalizeDirection(directionXValue, directionYValue, directionZValue);
+            const direction = normalizeDirection(0, 1, 0);
             const pathPoint = ParticleSystem.evaluatePathFollow(config.path_follow, lifeTime);
             const meshPosition = useMesh ? sampleMeshPosition(mesh, rand) : null;
             const theta = rand() * Math.PI * 2;
@@ -463,14 +511,14 @@ export class ParticleSystem {
             const base = meshPosition || (
                 config.emitter === "sphere"
                     ? [
-                        Math.cos(theta) * sphereRadius * radius,
-                        sphereZ * radius,
-                        Math.sin(theta) * sphereRadius * radius,
+                        Math.cos(theta) * sphereRadius * radius * config.radius,
+                        sphereZ * radius * config.radius,
+                        Math.sin(theta) * sphereRadius * radius * config.radius,
                     ]
                     : [
-                        (rand() - 0.5) * config.spread_x,
-                        config.emitter === "plane" ? 0 : (rand() - 0.5) * config.spread_y,
-                        (rand() - 0.5) * config.spread_z,
+                        (rand() - 0.5) * config.spread_x * config.radius,
+                        config.emitter === "plane" ? 0 : (rand() - 0.5) * config.spread_y * config.radius,
+                        (rand() - 0.5) * config.spread_z * config.radius,
                     ]
             );
             const swirl = config.orbit * life * Math.PI * 2;
@@ -496,28 +544,33 @@ export class ParticleSystem {
                 root[1] + vy * life + noise[1],
                 root[0] * s + root[2] * c + vz * life + noise[2],
             ];
-            const x = pathEnabled ? localPosition[0] + pathTranslate.x : localPosition[0];
-            const y = pathEnabled ? localPosition[1] + pathTranslate.y : localPosition[1];
-            const z = pathEnabled ? localPosition[2] + pathTranslate.z : localPosition[2];
+            const x = (pathEnabled ? localPosition[0] + pathTranslate.x : localPosition[0]) + config.direction_x;
+            const y = (pathEnabled ? localPosition[1] + pathTranslate.y : localPosition[1]) + config.direction_y;
+            const z = (pathEnabled ? localPosition[2] + pathTranslate.z : localPosition[2]) + config.direction_z;
             const fade = Math.sin(Math.PI * life);
-            const size = config.size
-                * ((sizeXValue + sizeYValue) * 0.5)
-                * (1 - randomSizeValue * rand())
-                * (0.55 + fade * 0.45);
+            const randomScale = 1 - randomSizeValue * rand();
+            const fadeScale = 0.55 + fade * 0.45;
+            const sizeX = Math.max(0.1, config.size * sizeXValue * randomScale * fadeScale);
+            const sizeY = Math.max(0.1, config.size * sizeYValue * randomScale * fadeScale);
+            const pointSize = Math.max(sizeX, sizeY, 1);
 
             positions.push(x, y, z);
-            sizes.push(size);
-            alphas.push(alphaValue * Math.max(0.05, fade));
+            sizes.push(pointSize);
+            scales.push(sizeX / pointSize, sizeY / pointSize);
+            alphas.push(clamp(alphaValue, 0, 1) * Math.max(0.05, fade));
+            colors.push(...sampleColorRamp(config.color_ramp, life, config.color));
             phases.push(phase);
             rotations.push(config.rotation * Math.PI / 180);
         }
 
         return {
-            stride: 6,
+            stride: 12,
             count: config.count,
             positions,
             sizes,
+            scales,
             alphas,
+            colors,
             phases,
             rotations,
         };
@@ -539,7 +592,7 @@ export class ParticleSystem {
             version: Number(system?.version || 1),
             ...normalized,
             particles: compact ? {
-                stride: 6,
+                stride: 12,
                 count: normalized.count,
                 compact: true,
             } : ParticleSystem.generate(normalized, context),

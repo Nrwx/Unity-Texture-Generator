@@ -202,5 +202,5 @@ export default defineComponent({
 </script>
 
 <style scoped lang="scss">
-@import "./Form";
+@use "./Form";
 </style>

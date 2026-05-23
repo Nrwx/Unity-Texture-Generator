@@ -23,14 +23,15 @@
           <div class="mem-canvas-controls">
             <header>
               <div>
-                <strong>Canvas Controls</strong>
+                <strong>{{ ui.activeTab === 'particleSystem' ? 'Particle Controls' : 'Canvas Controls' }}</strong>
                 <span>Preview-Hilfen für Orbit, Mesh und Topologie.</span>
               </div>
 
-              <v-icon size="18">mdi-cube-scan</v-icon>
+              <v-icon size="18">{{ ui.activeTab === 'particleSystem' ? 'mdi-particle' : 'mdi-cube-scan' }}</v-icon>
             </header>
 
             <div class="mem-canvas-control-grid">
+              <template v-if="ui.activeTab !== 'particleSystem'">
               <button
                   type="button"
                   class="mem-canvas-control"
@@ -94,6 +95,73 @@
                   <small>{{ values.vertices_preview ? 'Punkte sichtbar' : 'Ausgeblendet' }}</small>
                 </span>
               </button>
+              </template>
+
+              <template v-else>
+                <button
+                    type="button"
+                    class="mem-canvas-control"
+                    :class="{ active: values.particle_system.enabled }"
+                    @click="setParticleSystemBoolean('enabled', !values.particle_system.enabled)"
+                >
+                  <span class="mem-canvas-control-icon">
+                    <v-icon size="18">mdi-particle</v-icon>
+                  </span>
+
+                  <span class="mem-canvas-control-text">
+                    <strong>Particle Render</strong>
+                    <small>{{ values.particle_system.enabled ? 'Aktiv' : 'Mesh aktiv' }}</small>
+                  </span>
+                </button>
+
+                <button
+                    type="button"
+                    class="mem-canvas-control"
+                    :class="{ active: values.particle_system.random_size }"
+                    @click="setParticleSystemBoolean('random_size', !values.particle_system.random_size)"
+                >
+                  <span class="mem-canvas-control-icon">
+                    <v-icon size="18">mdi-dice-5-outline</v-icon>
+                  </span>
+
+                  <span class="mem-canvas-control-text">
+                    <strong>Random Size</strong>
+                    <small>{{ values.particle_system.random_size ? 'Aktiv' : 'Aus' }}</small>
+                  </span>
+                </button>
+
+                <button
+                    type="button"
+                    class="mem-canvas-control"
+                    :class="{ active: values.particle_system.use_mesh_reference }"
+                    @click="setParticleSystemBoolean('use_mesh_reference', !values.particle_system.use_mesh_reference)"
+                >
+                  <span class="mem-canvas-control-icon">
+                    <v-icon size="18">mdi-vector-triangle</v-icon>
+                  </span>
+
+                  <span class="mem-canvas-control-text">
+                    <strong>Mesh Ref</strong>
+                    <small>{{ values.particle_system.use_mesh_reference ? 'Surface' : 'Emitter' }}</small>
+                  </span>
+                </button>
+
+                <button
+                    type="button"
+                    class="mem-canvas-control"
+                    :class="{ active: values.particle_system.path_follow?.enabled }"
+                    @click="setParticleSystemBoolean('path_follow', !values.particle_system.path_follow?.enabled)"
+                >
+                  <span class="mem-canvas-control-icon">
+                    <v-icon size="18">mdi-vector-curve</v-icon>
+                  </span>
+
+                  <span class="mem-canvas-control-text">
+                    <strong>Path Follow</strong>
+                    <small>{{ values.particle_system.path_follow?.enabled ? 'Aktiv' : 'Aus' }}</small>
+                  </span>
+                </button>
+              </template>
             </div>
           </div>
 
@@ -123,7 +191,7 @@
                 type="button"
                 class="mem-tab"
                 :class="{ active: ui.activeTab === tab.key }"
-                @click="ui.activeTab = tab.key"
+                @click="setActiveMaterialTab(tab.key)"
             >
               <v-icon size="18">{{ tab.icon }}</v-icon>
               <span>{{ tab.title }}</span>

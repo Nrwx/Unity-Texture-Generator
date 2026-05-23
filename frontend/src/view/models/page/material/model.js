@@ -5894,6 +5894,32 @@ export function materialEditorModel(props, emit) {
         requestPreviewDebounced();
     };
 
+    const setParticleSystemBoolean = (key, value) => {
+        const next = {
+            ...(values.particle_system || createParticles()),
+        };
+
+        if (key === "path_follow") {
+            next.path_follow = {
+                ...(next.path_follow || {}),
+                enabled: value === true,
+            };
+        } else {
+            next[key] = value === true;
+        }
+
+        values.particle_system = ParticleSystem.update(next, { age: 0 }, { mesh: values.mesh });
+        requestPreviewDebounced();
+    };
+
+    const setActiveMaterialTab = key => {
+        ui.value.activeTab = key;
+
+        if (key === "particleSystem" && values.particle_system?.enabled !== true) {
+            setParticleSystemBoolean("enabled", true);
+        }
+    };
+
     const handleGeometryChange = () => {
         rebuildMaterialMesh({ preserveLayout: false });
         values.particle_system = ParticleSystem.update(values.particle_system, {}, { mesh: values.mesh });
@@ -6191,6 +6217,8 @@ export function materialEditorModel(props, emit) {
         syncUvAndPreview,
         syncUnwrapReferenceMap,
         setPreviewSetting,
+        setParticleSystemBoolean,
+        setActiveMaterialTab,
         handleGeometryChange,
         handleParticleSystemChange,
 

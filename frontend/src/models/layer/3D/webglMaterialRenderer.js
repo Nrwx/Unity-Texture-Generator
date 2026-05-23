@@ -530,6 +530,8 @@ layout(location = 0) in vec3 aPosition;
 layout(location = 1) in float aSize;
 layout(location = 2) in float aAlpha;
 layout(location = 3) in float aRotation;
+layout(location = 4) in vec2 aScale;
+layout(location = 5) in vec4 aColor;
 
 uniform mat4 uModel;
 uniform mat4 uViewProj;
@@ -537,6 +539,8 @@ uniform float uDpr;
 
 out float vAlpha;
 out float vRotation;
+out vec2 vScale;
+out vec4 vColor;
 
 void main() {
     vec4 world = uModel * vec4(aPosition, 1.0);
@@ -545,6 +549,8 @@ void main() {
     gl_PointSize = max(1.0, aSize * uDpr / max(0.35, clip.w));
     vAlpha = aAlpha;
     vRotation = aRotation;
+    vScale = max(aScale, vec2(0.001));
+    vColor = aColor;
 }`;
 
 const PARTICLE_FRAGMENT_SHADER = `#version 300 es
@@ -558,26 +564,35 @@ uniform int uSoft;
 
 in float vAlpha;
 in float vRotation;
+in vec2 vScale;
+in vec4 vColor;
 out vec4 fragColor;
 
 void main() {
     vec2 centeredCoord = gl_PointCoord - 0.5;
+    vec2 scaledCoord = centeredCoord / vScale;
+
+    if (abs(scaledCoord.x) > 0.5 || abs(scaledCoord.y) > 0.5) {
+        discard;
+    }
+
     float c = cos(vRotation);
     float s = sin(vRotation);
     vec2 uv = vec2(
-        centeredCoord.x * c - centeredCoord.y * s,
-        centeredCoord.x * s + centeredCoord.y * c
+        scaledCoord.x * c - scaledCoord.y * s,
+        scaledCoord.x * s + scaledCoord.y * c
     ) + 0.5;
     vec2 centered = uv * 2.0 - 1.0;
     float radial = 1.0 - smoothstep(0.72, 1.0, length(centered));
     vec4 texel = uUseParticleMap == 1 ? texture(uParticleMap, uv) : vec4(1.0);
-    float alpha = texel.a * uColor.a * uAlpha * vAlpha * (uSoft == 1 ? radial : 1.0);
+    vec4 particleColor = uColor * vColor;
+    float alpha = texel.a * particleColor.a * uAlpha * vAlpha * (uSoft == 1 ? radial : 1.0);
 
     if (alpha <= 0.01) {
         discard;
     }
 
-    fragColor = vec4(texel.rgb * uColor.rgb, alpha);
+    fragColor = vec4(texel.rgb * particleColor.rgb, alpha);
 }`;
 
 const OVERLAY_VERTEX_SHADER = `#version 300 es
@@ -996,8 +1011,10 @@ const normalizeParticleSystem = system => {
     const particles = system.particles || {};
     const positions = getArrayValues(particles.positions);
     const sizes = getArrayValues(particles.sizes);
+    const scales = getArrayValues(particles.scales);
     const alphas = getArrayValues(particles.alphas);
     const rotations = getArrayValues(particles.rotations);
+    const colors = getArrayValues(particles.colors);
     const count = Math.min(
         Math.max(0, Math.trunc(Number(particles.count || system.count || 0))),
         Math.floor(positions.length / 3)
@@ -1007,7 +1024,7 @@ const normalizeParticleSystem = system => {
         return null;
     }
 
-    const stride = 6;
+    const stride = 12;
     const data = new Float32Array(count * stride);
 
     for (let index = 0; index < count; index += 1) {
@@ -1020,6 +1037,12 @@ const normalizeParticleSystem = system => {
         data[target + 3] = Math.max(1, Number(sizes[index] || system.size || 12));
         data[target + 4] = Math.min(Math.max(Number(alphas[index] ?? system.alpha ?? 1), 0), 1);
         data[target + 5] = Number(rotations[index] ?? ((Number(system.rotation) || 0) * Math.PI / 180)) || 0;
+        data[target + 6] = Math.min(Math.max(Number(scales[index * 2] ?? 1), 0.001), 1);
+        data[target + 7] = Math.min(Math.max(Number(scales[index * 2 + 1] ?? 1), 0.001), 1);
+        data[target + 8] = Math.min(Math.max(Number(colors[index * 4] ?? 1), 0), 1);
+        data[target + 9] = Math.min(Math.max(Number(colors[index * 4 + 1] ?? 1), 0), 1);
+        data[target + 10] = Math.min(Math.max(Number(colors[index * 4 + 2] ?? 1), 0), 1);
+        data[target + 11] = Math.min(Math.max(Number(colors[index * 4 + 3] ?? 1), 0), 1);
     }
 
     return {
@@ -1039,11 +1062,14 @@ const normalizeParticleSystem = system => {
             age: system.age,
             timeScale: system.time_scale,
             rootAnimation: system.root_animation,
+            radius: system.radius,
             size: system.size,
             sizeX: system.size_x,
             sizeY: system.size_y,
             randomSize: system.random_size,
+            sizeRandomness: system.size_randomness,
             alpha: system.alpha,
+            colorRamp: system.color_ramp,
             gravity: system.gravity,
             velocity: system.velocity,
             directionX: system.direction_x,
@@ -1312,6 +1338,10 @@ export class WebGLMaterialRenderer {
             gl.vertexAttribPointer(2, 1, gl.FLOAT, false, stride, 4 * 4);
             gl.enableVertexAttribArray(3);
             gl.vertexAttribPointer(3, 1, gl.FLOAT, false, stride, 5 * 4);
+            gl.enableVertexAttribArray(4);
+            gl.vertexAttribPointer(4, 2, gl.FLOAT, false, stride, 6 * 4);
+            gl.enableVertexAttribArray(5);
+            gl.vertexAttribPointer(5, 4, gl.FLOAT, false, stride, 8 * 4);
             gl.bindVertexArray(null);
 
             this.particleBuffers.set(key, buffer);
@@ -1507,7 +1537,7 @@ export class WebGLMaterialRenderer {
         };
     }
 
-    drawParticlePass({ materialLayer, matrices, dpr, getTextureForSlotFace }) {
+    drawParticlePass({ materialLayer, matrices, dpr, getTextureForSlotFace, getParticleTextureForLayer }) {
         const particles = this.getParticleBuffer(materialLayer.particle_system);
 
         if (!particles) {
@@ -1516,10 +1546,13 @@ export class WebGLMaterialRenderer {
 
         const gl = this.gl;
         const slotKey = particles.textureSlot || "baseColor";
-        const particleTexture =
+        const fallbackTexture =
             getTextureForSlotFace?.(slotKey, "front") ||
             getTextureForSlotFace?.("baseColor", "front") ||
             null;
+        const renderLayers = Array.isArray(materialLayer.particle_system?.layers) && materialLayer.particle_system.layers.length
+            ? materialLayer.particle_system.layers
+            : [null];
 
         gl.useProgram(this.particleProgram);
         gl.disable(gl.CULL_FACE);
@@ -1531,19 +1564,25 @@ export class WebGLMaterialRenderer {
             gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         }
 
-        this.setTexture(this.particleProgram, "uParticleMap", 0, particleTexture, "white");
         this.setUniforms(this.particleProgram, {
             uModel: matrices.model,
             uViewProj: matrices.viewProj,
             uDpr: dpr,
-            uUseParticleMap: mapEnabled(true, particleTexture),
             uColor: particles.color,
             uAlpha: particles.alpha,
             uSoft: 1,
         });
 
         gl.bindVertexArray(particles.vao);
-        gl.drawArrays(gl.POINTS, 0, particles.count);
+        renderLayers.forEach(layer => {
+            const particleTexture = getParticleTextureForLayer?.(layer) || fallbackTexture;
+
+            this.setTexture(this.particleProgram, "uParticleMap", 0, particleTexture, "white");
+            this.setUniforms(this.particleProgram, {
+                uUseParticleMap: mapEnabled(true, particleTexture),
+            });
+            gl.drawArrays(gl.POINTS, 0, particles.count);
+        });
         gl.bindVertexArray(null);
         gl.depthMask(true);
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -1666,6 +1705,7 @@ export class WebGLMaterialRenderer {
             resolveSurfaceForFace,
             getTextureForFace,
             getTextureForSlotFace,
+            getParticleTextureForLayer,
         } = options;
         const gl = this.gl;
         const useObjectTextures = shouldUseObjectTextures(previewOverlay);
@@ -1706,6 +1746,7 @@ export class WebGLMaterialRenderer {
                 matrices,
                 dpr,
                 getTextureForSlotFace,
+                getParticleTextureForLayer,
             });
         }
 

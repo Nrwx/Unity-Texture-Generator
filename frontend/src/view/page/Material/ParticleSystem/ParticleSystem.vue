@@ -6,32 +6,13 @@
     </div>
   </div>
 
-  <div class="mem-geometry-layout">
+  <div class="mem-geometry-layout mem-particle-workbench">
+    <div class="mem-particle-settings">
     <section class="mem-geometry-card">
       <header>
         <strong>System</strong>
         <small>Render-Modus und Quelle.</small>
       </header>
-
-      <label
-          class="mem-toggle-card"
-          :class="{ active: state.particleSystem.enabled }"
-      >
-        <span class="mem-toggle-icon">
-          <v-icon>mdi-particle</v-icon>
-        </span>
-
-        <span class="mem-toggle-text">
-          <strong>Particle Render</strong>
-          <small>{{ state.particleSystem.enabled ? 'Ersetzt Mesh' : 'Mesh aktiv' }}</small>
-        </span>
-
-        <v-switch
-            :model-value="state.particleSystem.enabled"
-            hide-details
-            @update:model-value="setParticleBoolean('enabled', $event)"
-        />
-      </label>
 
       <v-select
           :model-value="state.particleSystem.mode"
@@ -51,49 +32,6 @@
           @update:model-value="setParticleValue('source', $event)"
       />
 
-      <v-select
-          :model-value="state.particleSystem.texture_slot"
-          :items="particleTextureSlotOptions"
-          label="Texture Slot"
-          density="compact"
-          hide-details
-          @update:model-value="setParticleValue('texture_slot', $event)"
-      />
-
-      <div class="mem-particle-layer-tools">
-        <v-select
-            :model-value="state.particleSystem.active_layer_id"
-            :items="particleLayers"
-            item-title="name"
-            item-value="id"
-            label="Particle Layer"
-            density="compact"
-            hide-details
-            @update:model-value="setActiveParticleLayer"
-        />
-        <v-btn variant="text" size="small" @click="addParticleLayer">
-          Add
-        </v-btn>
-      </div>
-
-      <div v-if="activeParticleLayer" class="mem-geometry-vector">
-        <v-select
-            :model-value="activeParticleLayer.texture_slot"
-            :items="particleTextureSlotOptions"
-            label="Layer Slot"
-            density="compact"
-            hide-details
-            @update:model-value="updateActiveParticleLayerSlot"
-        />
-        <v-select
-            :model-value="activeParticleLayer.layer_id"
-            :items="textureLayerOptions"
-            label="Texture Layer"
-            density="compact"
-            hide-details
-            @update:model-value="updateActiveParticleTextureLayer"
-        />
-      </div>
     </section>
 
     <section class="mem-geometry-card">
@@ -150,37 +88,8 @@
     <section class="mem-geometry-card">
       <header>
         <strong>Motion</strong>
-        <small>Lebenszeit, Velocity, Gravity und Orbit.</small>
+        <small>Lebenszeit, World Direction und Orbit.</small>
       </header>
-
-      <div class="mem-geometry-vector">
-        <v-text-field
-            :model-value="state.particleSystem.velocity_x"
-            label="Velocity X"
-            type="number"
-            density="compact"
-            hide-details
-            @update:model-value="setParticleNumber('velocity_x', $event)"
-        />
-
-        <v-text-field
-            :model-value="state.particleSystem.velocity_y"
-            label="Velocity Y"
-            type="number"
-            density="compact"
-            hide-details
-            @update:model-value="setParticleNumber('velocity_y', $event)"
-        />
-
-        <v-text-field
-            :model-value="state.particleSystem.velocity_z"
-            label="Velocity Z"
-            type="number"
-            density="compact"
-            hide-details
-            @update:model-value="setParticleNumber('velocity_z', $event)"
-        />
-      </div>
 
       <div class="mem-geometry-vector">
         <v-text-field :model-value="state.particleSystem.direction_x" label="Direction X" type="number" density="compact" hide-details @update:model-value="setParticleNumber('direction_x', $event)" />
@@ -190,34 +99,10 @@
 
       <div class="mem-control-card">
         <header>
-          <strong>Velocity</strong>
-          <small>{{ state.particleSystem.velocity }}</small>
-        </header>
-        <v-slider :model-value="state.particleSystem.velocity" :min="-2" :max="2" :step="0.01" hide-details thumb-label @update:model-value="setParticleNumber('velocity', $event)" />
-      </div>
-
-      <div class="mem-control-card">
-        <header>
           <strong>Lifetime</strong>
           <small>{{ state.particleSystem.lifetime }}</small>
         </header>
         <v-slider :model-value="state.particleSystem.lifetime" :min="0.1" :max="20" :step="0.1" hide-details thumb-label @update:model-value="setParticleNumber('lifetime', $event)" />
-      </div>
-
-      <div class="mem-control-card">
-        <header>
-          <strong>Age</strong>
-          <small>{{ state.particleSystem.age }}</small>
-        </header>
-        <v-slider :model-value="state.particleSystem.age" :min="0" :max="20" :step="0.05" hide-details thumb-label @update:model-value="setParticleNumber('age', $event)" />
-      </div>
-
-      <div class="mem-control-card">
-        <header>
-          <strong>Gravity</strong>
-          <small>{{ state.particleSystem.gravity }}</small>
-        </header>
-        <v-slider :model-value="state.particleSystem.gravity" :min="-2" :max="2" :step="0.01" hide-details thumb-label @update:model-value="setParticleNumber('gravity', $event)" />
       </div>
 
       <div class="mem-control-card">
@@ -237,10 +122,10 @@
       </div>
     </section>
 
-    <section class="mem-geometry-card wide">
+    <section class="mem-geometry-card wide mem-particle-shape-card">
       <header>
         <strong>Shape</strong>
-        <small>Bounds, Sprite-Größe und Mesh-Referenz.</small>
+        <small>Bounds, Sprite-Größe und Radius.</small>
       </header>
 
       <div class="mem-geometry-vector">
@@ -260,16 +145,8 @@
       <div class="mem-geometry-vector">
         <v-text-field :model-value="state.particleSystem.size_x" label="Size X" type="number" density="compact" hide-details @update:model-value="setParticleNumber('size_x', $event)" />
         <v-text-field :model-value="state.particleSystem.size_y" label="Size Y" type="number" density="compact" hide-details @update:model-value="setParticleNumber('size_y', $event)" />
+        <v-text-field :model-value="state.particleSystem.radius" label="Radius" type="number" density="compact" hide-details @update:model-value="setParticleNumber('radius', $event)" />
       </div>
-
-      <label class="mem-toggle-card" :class="{ active: state.particleSystem.random_size }">
-        <span class="mem-toggle-icon"><v-icon>mdi-dice-5-outline</v-icon></span>
-        <span class="mem-toggle-text">
-          <strong>Random Size</strong>
-          <small>{{ state.particleSystem.random_size ? 'Kurve aktiv' : 'Aus' }}</small>
-        </span>
-        <v-switch :model-value="state.particleSystem.random_size" hide-details @update:model-value="setParticleBoolean('random_size', $event)" />
-      </label>
 
       <div class="mem-control-card">
         <header>
@@ -279,14 +156,6 @@
         <v-slider :model-value="state.particleSystem.size_randomness" :min="0" :max="1" :step="0.01" hide-details thumb-label @update:model-value="setParticleNumber('size_randomness', $event)" />
       </div>
 
-      <label class="mem-toggle-card" :class="{ active: state.particleSystem.use_mesh_reference }">
-        <span class="mem-toggle-icon"><v-icon>mdi-vector-triangle</v-icon></span>
-        <span class="mem-toggle-text">
-          <strong>Use Mesh Reference</strong>
-          <small>Partikel auf der aktuellen Mesh-OberflÃ¤che sampeln.</small>
-        </span>
-        <v-switch :model-value="state.particleSystem.use_mesh_reference" hide-details @update:model-value="setParticleBoolean('use_mesh_reference', $event)" />
-      </label>
     </section>
 
     <section class="mem-geometry-card wide">
@@ -329,7 +198,7 @@
               v-for="(point, index) in activeInterpolationPoints"
               :key="`${state.interpolationAttribute}-${index}`"
               :cx="(point.x / lifetimeWidth) * 100"
-              :cy="50 - point.y"
+              :cy="interpolationPointY(point)"
               r="2.8"
               class="mem-particle-curve-point"
               @pointerdown.stop="startInterpolationPoint($event, index)"
@@ -347,8 +216,11 @@
             <strong>{{ index + 1 }}</strong>
             <v-text-field
                 :model-value="point.y"
-                label="Y Offset"
+                :label="state.interpolationAttribute === 'alpha' ? 'Alpha 0-1' : 'Y Offset'"
                 type="number"
+                :min="state.interpolationAttribute === 'alpha' ? 0 : undefined"
+                :max="state.interpolationAttribute === 'alpha' ? 1 : undefined"
+                :step="state.interpolationAttribute === 'alpha' ? 0.01 : 1"
                 density="compact"
                 hide-details
                 @click.stop
@@ -360,7 +232,7 @@
       </div>
     </section>
 
-    <section class="mem-geometry-card wide">
+    <section v-if="state.particleSystem.path_follow?.enabled" class="mem-geometry-card wide">
       <header>
         <span>
           <strong>Path Follow</strong>
@@ -370,15 +242,6 @@
           Reset
         </v-btn>
       </header>
-
-      <label class="mem-toggle-card" :class="{ active: state.particleSystem.path_follow?.enabled }">
-        <span class="mem-toggle-icon"><v-icon>mdi-vector-curve</v-icon></span>
-        <span class="mem-toggle-text">
-          <strong>Path Follow</strong>
-          <small>{{ state.particleSystem.path_follow?.enabled ? 'Aktiv' : 'Aus' }}</small>
-        </span>
-        <v-switch :model-value="state.particleSystem.path_follow?.enabled" hide-details @update:model-value="setPathFollowEnabled" />
-      </label>
 
       <div class="mem-particle-path-layout">
         <div class="mem-particle-path-views">
@@ -469,25 +332,112 @@
     <section class="mem-geometry-card">
       <header>
         <strong>Material</strong>
-        <small>Blend, Alpha und Tint.</small>
+        <small>Blend und Lifetime ColorRamp.</small>
       </header>
 
       <v-select :model-value="state.particleSystem.blend" :items="particleBlendOptions" label="Blend" density="compact" hide-details @update:model-value="setParticleValue('blend', $event)" />
 
-      <div class="mem-control-card">
-        <header>
-          <strong>Alpha</strong>
-          <small>{{ state.particleSystem.alpha }}</small>
-        </header>
-        <v-slider :model-value="state.particleSystem.alpha" :min="0" :max="1" :step="0.01" hide-details thumb-label @update:model-value="setParticleNumber('alpha', $event)" />
-      </div>
+      <div class="mem-particle-gradient-editor">
+        <button
+            type="button"
+            class="mem-particle-gradient-bar"
+            :style="colorRampStyle"
+            @click="addColorRampStopAt"
+        >
+          <span
+              v-for="stop in colorRampStops"
+              :key="stop.id"
+              class="mem-particle-gradient-marker"
+              :class="{ active: activeColorRampStop?.id === stop.id }"
+              :style="colorRampMarkerStyle(stop)"
+              @click.stop="selectColorRampStop(stop.id)"
+              @contextmenu.stop.prevent="removeColorRampStop(stop.id)"
+          />
+        </button>
 
-      <div class="mem-geometry-vector">
-        <v-text-field :model-value="state.particleSystem.color?.[0]" label="R" type="number" density="compact" hide-details @update:model-value="setParticleColor(0, $event)" />
-        <v-text-field :model-value="state.particleSystem.color?.[1]" label="G" type="number" density="compact" hide-details @update:model-value="setParticleColor(1, $event)" />
-        <v-text-field :model-value="state.particleSystem.color?.[2]" label="B" type="number" density="compact" hide-details @update:model-value="setParticleColor(2, $event)" />
+        <div v-if="activeColorRampStop" class="mem-particle-gradient-controls">
+          <v-text-field
+              :model-value="activeColorRampStop.t"
+              label="Life"
+              type="number"
+              :min="0"
+              :max="1"
+              :step="0.01"
+              density="compact"
+              hide-details
+              @update:model-value="updateColorRampStop({ t: $event })"
+          />
+
+          <v-color-picker
+              :model-value="activeColorRampColor"
+              mode="rgb"
+              hide-inputs
+              canvas-height="90"
+              @update:model-value="updateColorRampStop({ color: $event })"
+          />
+        </div>
       </div>
     </section>
+    </div>
+
+    <aside class="mem-particle-layer-column">
+      <header>
+        <div>
+          <strong>Particle Layers</strong>
+          <span>Aktiver Layer und Texture-Referenz.</span>
+        </div>
+
+        <v-btn icon="mdi-plus" variant="text" size="small" @click="addParticleLayer" />
+      </header>
+
+      <div class="mem-particle-layer-list">
+        <button
+            v-for="(layer, index) in particleLayers"
+            :key="layer.id"
+            type="button"
+            class="mem-particle-layer-item"
+            :class="{ active: activeParticleLayer?.id === layer.id }"
+            draggable="true"
+            @click="setActiveParticleLayer(layer.id)"
+            @dragstart="startParticleLayerDrag($event, layer.id)"
+            @dragover.prevent
+            @drop="dropParticleLayer($event, layer.id)"
+        >
+          <span class="mem-particle-layer-icon">
+            {{ index + 1 }}
+          </span>
+
+          <span class="mem-particle-layer-text">
+            <strong>{{ layer.name }}</strong>
+            <small>{{ layer.layer_id ? 'Texture gesetzt' : 'Keine Texture' }}</small>
+          </span>
+
+          <v-btn
+              icon="mdi-close"
+              variant="text"
+              size="x-small"
+              :disabled="particleLayers.length <= 1"
+              @click.stop="removeParticleLayer(layer.id)"
+          />
+        </button>
+      </div>
+
+      <section v-if="activeParticleLayer" class="mem-particle-layer-inspector">
+        <header>
+          <strong>{{ activeParticleLayer.name }}</strong>
+          <small>Diffuse Particle Texture</small>
+        </header>
+
+        <v-select
+            :model-value="activeParticleLayer.layer_id"
+            :items="textureLayerOptions"
+            label="Texture Layer"
+            density="compact"
+            hide-details
+            @update:model-value="updateActiveParticleTextureLayer"
+        />
+      </section>
+    </aside>
   </div>
 </template>
 

@@ -2616,10 +2616,172 @@ button {
 .mem-particle-curve-layout,
 .mem-particle-path-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 190px;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) 170px;
+  gap: 8px;
   align-items: stretch;
   min-width: 0;
+}
+
+.mem-particle-workbench {
+  grid-template-columns: minmax(0, 1fr) 160px;
+  align-items: start;
+}
+
+.mem-particle-settings {
+  display: grid;
+  grid-template-columns: minmax(350px, auto) minmax(180px, auto);
+  gap: 12px;
+  min-width: 0;
+
+  .mem-geometry-card.wide {
+    grid-column: 1 / -1;
+  }
+}
+
+.mem-particle-layer-column {
+  position: sticky;
+  top: 0;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+  max-height: 100%;
+  padding: 12px;
+  border: 1px solid var(--mem-border);
+  border-radius: 18px;
+  background: var(--mem-surface);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+
+  > header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+
+    div {
+      min-width: 0;
+    }
+
+    strong {
+      display: block;
+      overflow: hidden;
+      color: var(--mem-text);
+      font-size: 0.82rem;
+      font-weight: 820;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    span {
+      display: block;
+      overflow: hidden;
+      margin-top: 3px;
+      color: var(--mem-muted);
+      font-size: 0.64rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+}
+
+.mem-particle-layer-list {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-width: 0;
+  max-height: 240px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.mem-particle-layer-item {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background:
+          linear-gradient(135deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015));
+  color: var(--mem-muted);
+  text-align: left;
+
+  &.active,
+  &:hover {
+    border-color: rgba(97, 230, 255, 0.34);
+    background:
+            radial-gradient(circle at top left, rgba(97, 230, 255, 0.11), transparent 48%),
+            rgba(255, 255, 255, 0.05);
+    color: var(--mem-text);
+  }
+}
+
+.mem-particle-layer-icon {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(97, 230, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(97, 230, 255, 0.07);
+  color: var(--mem-cyan);
+  font-size: 0.62rem;
+  font-weight: 840;
+}
+
+.mem-particle-layer-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+
+  strong,
+  small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  strong {
+    color: currentColor;
+    font-size: 0.72rem;
+    font-weight: 800;
+  }
+
+  small {
+    color: var(--mem-soft);
+    font-size: 0.58rem;
+    font-weight: 700;
+  }
+}
+
+.mem-particle-layer-inspector {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.16);
+
+  header {
+    display: grid;
+    gap: 3px;
+  }
+
+  strong {
+    color: var(--mem-text);
+    font-size: 0.76rem;
+    font-weight: 820;
+  }
+
+  small {
+    color: var(--mem-muted);
+    font-size: 0.64rem;
+  }
 }
 
 .mem-particle-layer-tools {
@@ -2628,6 +2790,61 @@ button {
   gap: 8px;
   align-items: center;
   min-width: 0;
+}
+
+.mem-particle-gradient-editor {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.mem-particle-gradient-bar {
+  position: relative;
+  width: 100%;
+  height: 34px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.12),
+          0 0 18px rgba(97, 230, 255, 0.06);
+  cursor: crosshair;
+}
+
+.mem-particle-gradient-marker {
+  position: absolute;
+  top: 50%;
+  width: 13px;
+  height: 26px;
+  border: 2px solid rgba(255, 255, 255, 0.72);
+  border-radius: 6px;
+  transform: translate(-50%, -50%);
+  box-shadow:
+          0 4px 12px rgba(0, 0, 0, 0.35),
+          0 0 0 1px rgba(0, 0, 0, 0.28);
+  cursor: pointer;
+
+  &.active {
+    border-color: var(--mem-cyan);
+    box-shadow:
+            0 0 0 2px rgba(97, 230, 255, 0.18),
+            0 6px 16px rgba(0, 0, 0, 0.38);
+  }
+}
+
+.mem-particle-gradient-controls {
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+
+  :deep(.v-color-picker) {
+    width: 100%;
+    max-width: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.18);
+    box-shadow: none;
+  }
 }
 
 .mem-particle-curve-box {
@@ -2872,6 +3089,8 @@ button {
 }
 
 @media (max-width: 960px) {
+  .mem-particle-workbench,
+  .mem-particle-settings,
   .mem-particle-curve-layout,
   .mem-particle-path-layout,
   .mem-particle-path-views {

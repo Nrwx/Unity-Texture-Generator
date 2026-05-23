@@ -6,14 +6,6 @@ export const PARTICLE_SOURCE_OPTIONS = Object.freeze(["texture", "mesh", "volume
 export const PARTICLE_EMITTER_OPTIONS = Object.freeze(["volume", "surface", "vertices", "sphere", "plane"]);
 export const PARTICLE_ROOT_ANIMATION_OPTIONS = Object.freeze(["point", "inner", "outer"]);
 export const PARTICLE_BLEND_OPTIONS = Object.freeze(["alpha", "additive", "screen"]);
-export const PARTICLE_TEXTURE_SLOT_OPTIONS = Object.freeze([
-    "baseColor",
-    "alpha",
-    "emission",
-    "roughness",
-    "metallic",
-    "normal",
-]);
 export const PARTICLE_INTERPOLATION_ATTRIBUTES = ParticleSystem.INTERPOLATION_ATTRIBUTES;
 
 export const createParticleSystem = () => ParticleSystem.create();
@@ -32,6 +24,45 @@ const toNumber = value => {
     return Number.isFinite(number) ? number : 0;
 };
 const clampValue = (value, minimum, maximum) => Math.min(Math.max(toNumber(value), minimum), maximum);
+const clamp01 = value => clampValue(value, 0, 1);
+const colorToHex = color => {
+    const channels = Array.isArray(color) ? color : [1, 1, 1];
+
+    return `#${channels.slice(0, 3).map(value => (
+        Math.round(clamp01(value) * 255).toString(16).padStart(2, "0")
+    )).join("")}`;
+};
+const hexToColor = value => {
+    const hex = String(value || "").replace("#", "").trim();
+
+    if (!/^[0-9a-fA-F]{6}$/.test(hex)) {
+        return [1, 1, 1, 1];
+    }
+
+    return [
+        parseInt(hex.slice(0, 2), 16) / 255,
+        parseInt(hex.slice(2, 4), 16) / 255,
+        parseInt(hex.slice(4, 6), 16) / 255,
+        1,
+    ];
+};
+const parsePickerColor = value => {
+    if (value && typeof value === "object" && Number.isFinite(Number(value.r))) {
+        return [
+            clamp01(Number(value.r) / 255),
+            clamp01(Number(value.g) / 255),
+            clamp01(Number(value.b) / 255),
+            1,
+        ];
+    }
+
+    return hexToColor(typeof value === "string" ? value : value?.hex || value?.hexa || value);
+};
+const normalizeColorRampStop = (stop = {}, index = 0) => ({
+    id: stop.id || `particle-color-stop-${index}`,
+    t: clamp01(stop.t ?? index),
+    color: Array.isArray(stop.color) ? stop.color : [1, 1, 1, 1],
+});
 
 export const particleSystemModelProps = {
     particleSystem: {
@@ -55,6 +86,8 @@ export function particleSystemModel(props, emit) {
         particleSystem: normalizeParticleSystem(props.particleSystem),
         interpolationAttribute: props.particleSystem?.interpolation_attribute || "alpha",
         interpolationDrag: null,
+        layerDragId: "",
+        activeColorRampStopId: "",
     });
 
     watch(
@@ -161,7 +194,7 @@ export function particleSystemModel(props, emit) {
     const lifetimeWidth = computed(() => Math.max(0.001, Number(state.particleSystem.lifetime) || 1));
 
     const interpolationPolyline = computed(() => activeInterpolationPoints.value
-        .map(point => `${(point.x / lifetimeWidth.value) * 100},${50 - (Number(point.y) || 0)}`)
+        .map(point => `${(point.x / lifetimeWidth.value) * 100},${interpolationPointY(point)}`)
         .join(" "));
 
     const pathFollowPoints = computed(() => state.particleSystem.path_follow?.points || []);
@@ -227,9 +260,20 @@ export function particleSystemModel(props, emit) {
     const pointerToInterpolationPoint = (event, target = event.currentTarget) => {
         const rect = target.getBoundingClientRect();
         const x = Math.min(Math.max((event.clientX - rect.left) / Math.max(rect.width, 1), 0), 1) * lifetimeWidth.value;
-        const y = clampValue((rect.top + rect.height / 2 - event.clientY) / Math.max(rect.height / 2, 1) * 50, -50, 50);
+        const rawRatio = Math.min(Math.max((event.clientY - rect.top) / Math.max(rect.height, 1), 0), 1);
+        const y = state.interpolationAttribute === "alpha"
+            ? Math.round((1 - rawRatio) * 1000) / 1000
+            : clampValue((0.5 - rawRatio) * 100, -50, 50);
 
         return { x, y };
+    };
+
+    const interpolationPointY = point => {
+        if (state.interpolationAttribute === "alpha") {
+            return 100 - clampValue(point?.y, 0, 1) * 100;
+        }
+
+        return 50 - (Number(point?.y) || 0);
     };
 
     const updateInterpolationPoint = (attribute, index, point) => {
@@ -241,7 +285,7 @@ export function particleSystemModel(props, emit) {
             .sort((a, b) => a.x - b.x)
             .map(item => ({
                 x: Math.round(item.x * 1000) / 1000,
-                y: Math.round(item.y * 1000) / 1000,
+                y: Math.round((attribute === "alpha" ? clampValue(item.y, 0, 1) : item.y) * 1000) / 1000,
             }));
     };
 
@@ -256,7 +300,9 @@ export function particleSystemModel(props, emit) {
 
         updateInterpolationPoint(attribute, index, {
             ...current,
-            y: clampValue(value, -1000, 1000),
+            y: attribute === "alpha"
+                ? clampValue(value, 0, 1)
+                : clampValue(value, -1000, 1000),
         });
         emitParticleSystem({ restart: true });
     };
@@ -399,8 +445,95 @@ export function particleSystemModel(props, emit) {
         }
 
         state.particleSystem.active_layer_id = layer.id;
-        state.particleSystem.texture_slot = layer.texture_slot || "baseColor";
+        state.particleSystem.texture_slot = "baseColor";
         emitParticleSystem({ restart: true });
+    };
+
+    const colorRampStops = computed(() => {
+        const stops = Array.isArray(state.particleSystem.color_ramp) && state.particleSystem.color_ramp.length
+            ? state.particleSystem.color_ramp
+            : [
+                { id: "particle-color-start", t: 0, color: state.particleSystem.color || [1, 1, 1, 1] },
+                { id: "particle-color-end", t: 1, color: state.particleSystem.color || [1, 1, 1, 1] },
+            ];
+
+        return stops.map(normalizeColorRampStop).sort((a, b) => a.t - b.t);
+    });
+
+    const colorRampStyle = computed(() => ({
+        background: `linear-gradient(90deg, ${colorRampStops.value
+            .map(stop => `${colorToHex(stop.color)} ${Math.round(stop.t * 100)}%`)
+            .join(", ")})`,
+    }));
+
+    const activeColorRampStop = computed(() => (
+        colorRampStops.value.find(stop => stop.id === state.activeColorRampStopId) ||
+        colorRampStops.value[0] ||
+        null
+    ));
+
+    const activeColorRampColor = computed(() => colorToHex(activeColorRampStop.value?.color || [1, 1, 1, 1]));
+
+    const colorRampMarkerStyle = stop => ({
+        left: `${clamp01(stop?.t) * 100}%`,
+        background: colorToHex(stop?.color || [1, 1, 1, 1]),
+    });
+
+    const setColorRampStops = stops => {
+        state.particleSystem.color_ramp = stops
+            .map(normalizeColorRampStop)
+            .sort((a, b) => a.t - b.t);
+        emitParticleSystem({ restart: true });
+    };
+
+    const addColorRampStopAt = event => {
+        if (event.button !== 0) {
+            return;
+        }
+
+        const rect = event.currentTarget.getBoundingClientRect();
+        const t = clamp01((event.clientX - rect.left) / Math.max(rect.width, 1));
+        const stop = {
+            id: `particle-color-stop-${Date.now()}`,
+            t: Math.round(t * 1000) / 1000,
+            color: activeColorRampStop.value?.color || state.particleSystem.color || [1, 1, 1, 1],
+        };
+
+        state.activeColorRampStopId = stop.id;
+        setColorRampStops([...colorRampStops.value, stop]);
+    };
+
+    const selectColorRampStop = stopId => {
+        state.activeColorRampStopId = stopId;
+    };
+
+    const updateColorRampStop = patch => {
+        const stopId = activeColorRampStop.value?.id;
+
+        if (!stopId) {
+            return;
+        }
+
+        setColorRampStops(colorRampStops.value.map(stop => (
+            stop.id === stopId
+                ? {
+                    ...stop,
+                    ...patch,
+                    t: patch.t !== undefined ? clamp01(patch.t) : stop.t,
+                    color: patch.color !== undefined ? parsePickerColor(patch.color) : stop.color,
+                }
+                : stop
+        )));
+    };
+
+    const removeColorRampStop = stopId => {
+        if (colorRampStops.value.length <= 2) {
+            return;
+        }
+
+        const nextStops = colorRampStops.value.filter(stop => stop.id !== stopId);
+        state.activeColorRampStopId = nextStops[0]?.id || "";
+        setColorRampStops(nextStops);
     };
 
     const addParticleLayer = () => {
@@ -408,33 +541,44 @@ export function particleSystemModel(props, emit) {
         const nextLayer = {
             id: `particle-layer-${Date.now()}`,
             name: `Layer ${layers.length + 1}`,
-            texture_slot: state.particleSystem.texture_slot || "baseColor",
+            texture_slot: "baseColor",
             layer_id: "",
             url: "",
         };
 
         state.particleSystem.layers = [...layers, nextLayer];
         state.particleSystem.active_layer_id = nextLayer.id;
-        state.particleSystem.texture_slot = nextLayer.texture_slot;
+        state.particleSystem.texture_slot = "baseColor";
         emitParticleSystem({ restart: true });
     };
 
-    const updateActiveParticleLayerSlot = slotKey => {
-        const layers = ensureParticleLayers();
-        const activeId = activeParticleLayer.value?.id;
+    const startParticleLayerDrag = (event, layerId) => {
+        state.layerDragId = layerId;
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", layerId);
+    };
 
-        state.particleSystem.layers = layers.map(layer => (
-            layer.id === activeId
-                ? { ...layer, texture_slot: slotKey }
-                : layer
-        ));
-        state.particleSystem.texture_slot = slotKey;
+    const dropParticleLayer = (event, targetLayerId) => {
+        event.preventDefault();
+        const sourceId = state.layerDragId || event.dataTransfer.getData("text/plain");
+        state.layerDragId = "";
 
-        const layerId = activeParticleLayer.value?.layer_id;
-        if (layerId) {
-            emit("assign-texture-slot", { slotKey, layerId });
+        if (!sourceId || sourceId === targetLayerId) {
+            return;
         }
 
+        const layers = ensureParticleLayers();
+        const sourceIndex = layers.findIndex(layer => layer.id === sourceId);
+        const targetIndex = layers.findIndex(layer => layer.id === targetLayerId);
+
+        if (sourceIndex < 0 || targetIndex < 0) {
+            return;
+        }
+
+        const nextLayers = layers.slice();
+        const [sourceLayer] = nextLayers.splice(sourceIndex, 1);
+        nextLayers.splice(targetIndex, 0, sourceLayer);
+        state.particleSystem.layers = nextLayers;
         emitParticleSystem({ restart: true });
     };
 
@@ -442,7 +586,7 @@ export function particleSystemModel(props, emit) {
         const layers = ensureParticleLayers();
         const activeId = activeParticleLayer.value?.id;
         const textureLayer = (props.textureLayers || []).find(layer => layer.id === layerId);
-        const slotKey = activeParticleLayer.value?.texture_slot || state.particleSystem.texture_slot || "baseColor";
+        const slotKey = "baseColor";
 
         state.particleSystem.layers = layers.map(layer => (
             layer.id === activeId
@@ -456,10 +600,22 @@ export function particleSystemModel(props, emit) {
                 : layer
         ));
 
-        if (textureLayer) {
-            emit("assign-texture-slot", { slotKey, layerId: textureLayer.id });
+        emitParticleSystem({ restart: true });
+    };
+
+    const removeParticleLayer = layerId => {
+        const layers = ensureParticleLayers();
+
+        if (layers.length <= 1) {
+            return;
         }
 
+        const nextLayers = layers.filter(layer => layer.id !== layerId);
+        const nextActive = nextLayers[0];
+
+        state.particleSystem.layers = nextLayers;
+        state.particleSystem.active_layer_id = nextActive?.id || "";
+        state.particleSystem.texture_slot = "baseColor";
         emitParticleSystem({ restart: true });
     };
 
@@ -659,8 +815,12 @@ export function particleSystemModel(props, emit) {
         particleEmitterOptions: PARTICLE_EMITTER_OPTIONS,
         particleRootAnimationOptions: PARTICLE_ROOT_ANIMATION_OPTIONS,
         particleBlendOptions: PARTICLE_BLEND_OPTIONS,
-        particleTextureSlotOptions: PARTICLE_TEXTURE_SLOT_OPTIONS,
         particleInterpolationAttributes: PARTICLE_INTERPOLATION_ATTRIBUTES,
+        colorRampStops,
+        colorRampStyle,
+        activeColorRampStop,
+        activeColorRampColor,
+        colorRampMarkerStyle,
         activeInterpolationPoints,
         interpolationPolyline,
         lifetimeWidth,
@@ -676,6 +836,10 @@ export function particleSystemModel(props, emit) {
         setParticleNumber,
         setParticleBoolean,
         setParticleColor,
+        addColorRampStopAt,
+        selectColorRampStop,
+        updateColorRampStop,
+        removeColorRampStop,
         setInterpolationAttribute,
         startInterpolationPoint,
         addInterpolationPoint,
@@ -687,8 +851,11 @@ export function particleSystemModel(props, emit) {
         setActivePathPoint,
         setActiveParticleLayer,
         addParticleLayer,
-        updateActiveParticleLayerSlot,
+        removeParticleLayer,
+        startParticleLayerDrag,
+        dropParticleLayer,
         updateActiveParticleTextureLayer,
+        interpolationPointY,
         resetPathFollow,
         updatePathPoint,
         addPathPoint,
