@@ -18,7 +18,7 @@
     "project_name": "unity-texture-generator"
   },
   "dependencies": {
-    "last_build": "2026-05-23T12:34:12.475269Z",
+    "last_build": "2026-05-23T13:20:53.403358Z",
     "config": {
       "library_policy": {
         "auto_update": true,
@@ -964,6 +964,27 @@
             "falloff_random_seed"
           ],
           "function": "effects"
+        },
+        "distort": {
+          "keys": [
+            "id",
+            "distort_effect",
+            "distortion_factor",
+            "wave_strength",
+            "wave_frequency",
+            "wave_axis",
+            "max_shift_ratio",
+            "falloff_preset",
+            "falloff_radius",
+            "falloff_strength",
+            "falloff_center_x",
+            "falloff_center_y",
+            "falloff_inverted",
+            "falloff_random_seed",
+            "falloff_custom_enabled",
+            "falloff_custom_points"
+          ],
+          "function": "distort"
         }
       },
       "api": {
@@ -1289,6 +1310,27 @@
             "falloff_random_seed"
           ],
           "function": "effects_preview"
+        },
+        "distort-preview": {
+          "keys": [
+            "id",
+            "distort_effect",
+            "distortion_factor",
+            "wave_strength",
+            "wave_frequency",
+            "wave_axis",
+            "max_shift_ratio",
+            "falloff_preset",
+            "falloff_radius",
+            "falloff_strength",
+            "falloff_center_x",
+            "falloff_center_y",
+            "falloff_inverted",
+            "falloff_random_seed",
+            "falloff_custom_enabled",
+            "falloff_custom_points"
+          ],
+          "function": "distort_preview"
         },
         "thumbnail": {
           "keys": [

@@ -45,6 +45,13 @@ export const contextMenuEvent = (route) => ({
                 await route.emit('modifier-effects:state', true);
             }
         }
+        else if(action === 'distort') {
+            const l = route.localData.layers.value.find(x => x.id === contextId);
+            if (l) {
+                route.tempData.activeLayer.value = l;
+                await route.emit('modifier-distort:state', true);
+            }
+        }
         else if(action === 'copy') {
             route.emit('context-menu-copy', {state: true, id: contextId})
             console.log('Element kopiert', contextId)

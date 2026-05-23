@@ -206,3 +206,43 @@ export const effectsModifier = async (payload = {}) => {
 
     return response?.data || response;
 };
+
+export const distortModifier = async (payload = {}) => {
+    const { layer, values } = payload;
+
+    if (!layer?.id || !values) {
+        return null;
+    }
+
+    const formData = new FormData();
+
+    formData.append("method", "distort");
+    formData.append("id", layer.id);
+
+    formData.append("distort_effect", values.distort_effect);
+
+    formData.append("distortion_factor", values.distortion_factor);
+
+    formData.append("wave_strength", values.wave_strength);
+    formData.append("wave_frequency", values.wave_frequency);
+    formData.append("wave_axis", values.wave_axis);
+
+    formData.append("max_shift_ratio", values.max_shift_ratio);
+
+    formData.append("falloff_preset", values.falloff_preset);
+    formData.append("falloff_radius", values.falloff_radius);
+    formData.append("falloff_strength", values.falloff_strength);
+    formData.append("falloff_center_x", values.falloff_center_x);
+    formData.append("falloff_center_y", values.falloff_center_y);
+    formData.append("falloff_inverted", values.falloff_inverted ? "true" : "false");
+    formData.append("falloff_random_seed", values.falloff_random_seed);
+
+    formData.append("falloff_custom_enabled", values.falloff_custom_enabled ? "true" : "false");
+    formData.append("falloff_custom_points", JSON.stringify(values.falloff_custom_points || []));
+
+    const response = await api.post("/modifier", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    return response?.data || response;
+};

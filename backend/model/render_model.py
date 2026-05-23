@@ -423,6 +423,83 @@ class RenderModel(BaseModel):
             return cls.handle_error(e)
 
     @classmethod
+    def distort_preview(
+        cls,
+        id,
+
+        distort_effect="distort",
+
+        distortion_factor=0.2,
+
+        wave_strength=5,
+        wave_frequency=5,
+        wave_axis="vertical",
+
+        max_shift_ratio=0.1,
+
+        falloff_preset="smooth",
+        falloff_radius=100,
+        falloff_strength=1.0,
+        falloff_center_x=0.5,
+        falloff_center_y=0.5,
+        falloff_inverted=False,
+        falloff_random_seed=1,
+
+        falloff_custom_enabled=False,
+        falloff_custom_points="[]",
+    ):
+        try:
+            if not LAYERS:
+                return {"error": "No layers to preview"}, 404
+
+            target_layer = next(
+                (layer for layer in LAYERS if layer.get("id") == id),
+                None,
+            )
+
+            if not target_layer:
+                return {"error": f"Layer with id '{id}' not found."}, 404
+
+            layer_img = cls.load_layer_image(target_layer)
+
+            if not layer_img:
+                return {"error": f"Layer image for id '{id}' not found."}, 404
+
+            layer_img = ModifierModel.apply_distort_stack(
+                image=layer_img,
+
+                distort_effect=distort_effect,
+
+                distortion_factor=distortion_factor,
+
+                wave_strength=wave_strength,
+                wave_frequency=wave_frequency,
+                wave_axis=wave_axis,
+
+                max_shift_ratio=max_shift_ratio,
+
+                falloff_preset=falloff_preset,
+                falloff_radius=falloff_radius,
+                falloff_strength=falloff_strength,
+                falloff_center_x=falloff_center_x,
+                falloff_center_y=falloff_center_y,
+                falloff_inverted=falloff_inverted,
+                falloff_random_seed=falloff_random_seed,
+
+                falloff_custom_enabled=falloff_custom_enabled,
+                falloff_custom_points=falloff_custom_points,
+            )
+
+            return cls.render_single_layer_preview(
+                layer=target_layer,
+                layer_img=layer_img,
+                title="distort-preview",
+            )
+
+        except Exception as e:
+            return cls.handle_error(e)
+
+    @classmethod
     def text_to_path(cls, id):
         try:
             layer = next((layer for layer in LAYERS if layer.get("id") == id), None)

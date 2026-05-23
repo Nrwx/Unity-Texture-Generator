@@ -361,4 +361,13 @@ export const windowStateEvent = (route) => ({
             route.loadingStates.modifierEffects.value = false;
         }
     },
+    "modifier-distort:state": async (payload) => {
+        route.modifierStates.distort.value = payload;
+        if(!payload){
+            route.tempData.activeLayer.value = null;
+            route.tempData.preview.value.src = "";
+            route.tempData.preview.value.counter = 0;
+            route.loadingStates.modifierDistort.value = false;
+        }
+    },
 });

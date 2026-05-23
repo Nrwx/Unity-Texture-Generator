@@ -52,9 +52,11 @@ export const loadingStates = {
     modifierColor: ref(false),
     modifierDetails: ref(false),
     modifierEffects: ref(false),
+    modifierDistort: ref(false),
     modifierColorPreview: ref(false),
     modifierDetailsPreview: ref(false),
     modifierEffectsPreview: ref(false),
+    modifierDistortPreview: ref(false)
 };
 
 export const modifierStates = {
@@ -62,7 +64,8 @@ export const modifierStates = {
     resize: ref(false),
     color: ref(false),
     details: ref(false),
-    effects: ref(false)
+    effects: ref(false),
+    distort: ref(false)
 };
 
 export const timelineStates = {

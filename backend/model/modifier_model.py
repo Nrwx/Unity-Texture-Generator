@@ -41,7 +41,11 @@ from components import (
     apply_noise,
     apply_pixelate,
     apply_glass,
-    apply_deepness_highness
+    apply_deepness_highness,
+
+    apply_distort,
+    apply_wave,
+    apply_random_shift
 )
 
 from utils import (
@@ -1379,6 +1383,214 @@ class ModifierModel(BaseModel):
 
             return {
                 "message": "Bild erfolgreich bearbeitet.",
+                "id": new_id,
+                "url": layer["url"],
+                "width": layer["width"],
+                "height": layer["height"],
+                "thumbnail": layer["thumbnail"],
+            }, 200
+
+        except Exception as e:
+            return cls.handle_error(e)
+
+    @classmethod
+    def apply_distort_stack(
+        cls,
+        image,
+
+        distort_effect="distort",
+
+        distortion_factor=0.2,
+
+        wave_strength=5,
+        wave_frequency=5,
+        wave_axis="vertical",
+
+        max_shift_ratio=0.1,
+
+        falloff_preset="smooth",
+        falloff_radius=100,
+        falloff_strength=1.0,
+        falloff_center_x=0.5,
+        falloff_center_y=0.5,
+        falloff_inverted=False,
+        falloff_random_seed=1,
+
+        falloff_custom_enabled=False,
+        falloff_custom_points="[]",
+    ):
+        image = image.convert("RGBA")
+        original = image.copy()
+        alpha = image.getchannel("A")
+
+        rgb = image.convert("RGB")
+        img = np.array(rgb).copy()
+
+        effect = str(distort_effect or "distort").lower()
+
+        np.random.seed(int(falloff_random_seed or 1))
+
+        if effect == "distort":
+            modified = apply_distort(
+                img.copy(),
+                distortion_factor=float(distortion_factor or 0.0),
+            )
+
+        elif effect == "wave":
+            base_modified = apply_wave(
+                img.copy(),
+                wave_strength=float(wave_strength or 0),
+                wave_frequency=max(float(wave_frequency or 1), 1.0),
+            )
+
+            if str(wave_axis or "vertical") == "horizontal":
+                # apply_wave verschiebt aktuell vertikal über Y.
+                # Für horizontal drehen wir den Effekt über Transpose.
+                rotated = np.transpose(img.copy(), (1, 0, 2))
+                rotated_wave = apply_wave(
+                    rotated,
+                    wave_strength=float(wave_strength or 0),
+                    wave_frequency=max(float(wave_frequency or 1), 1.0),
+                )
+                modified = np.transpose(rotated_wave, (1, 0, 2))
+            else:
+                modified = base_modified
+
+        elif effect in ["random_shift", "random-shift"]:
+            width, height = image.size
+
+            modified = apply_random_shift(
+                img.copy(),
+                width=width,
+                height=height,
+                max_shift_ratio=max(0.0, min(float(max_shift_ratio or 0.0), 1.0)),
+            )
+
+        else:
+            modified = img.copy()
+
+        modified_image = cls.normalize_effect_image(
+            modified=modified,
+            original_size=image.size,
+            alpha=alpha,
+        )
+
+        influence = cls.build_falloff_map(
+            image_size=image.size,
+            falloff_preset=falloff_preset,
+            falloff_radius=falloff_radius,
+            falloff_strength=falloff_strength,
+            falloff_center_x=falloff_center_x,
+            falloff_center_y=falloff_center_y,
+            falloff_inverted=falloff_inverted,
+            falloff_random_seed=falloff_random_seed,
+            falloff_custom_enabled=falloff_custom_enabled,
+            falloff_custom_points=falloff_custom_points,
+        )
+
+        original_np = np.array(original).astype(np.float32)
+        modified_np = np.array(modified_image).astype(np.float32)
+
+        influence_np = influence[..., np.newaxis]
+
+        result_np = original_np * (1.0 - influence_np) + modified_np * influence_np
+        result_np = np.clip(result_np, 0, 255).astype(np.uint8)
+
+        return Image.fromarray(result_np).convert("RGBA")
+
+    @classmethod
+    def distort(
+        cls,
+        id,
+
+        distort_effect="distort",
+
+        distortion_factor=0.2,
+
+        wave_strength=5,
+        wave_frequency=5,
+        wave_axis="vertical",
+
+        max_shift_ratio=0.1,
+
+        falloff_preset="smooth",
+        falloff_radius=100,
+        falloff_strength=1.0,
+        falloff_center_x=0.5,
+        falloff_center_y=0.5,
+        falloff_inverted=False,
+        falloff_random_seed=1,
+
+        falloff_custom_enabled=False,
+        falloff_custom_points="[]",
+    ):
+        try:
+            layer = next((l for l in LAYERS if l["id"] == id), None)
+
+            if not layer:
+                return {"error": f"Layer with id '{id}' not found."}, 404
+
+            image_path = os.path.join(PUBLIC_LAYER_FOLDER, f"{id}.png")
+
+            if not os.path.exists(image_path):
+                return {"error": "Image file not found."}, 404
+
+            if not os.path.exists(PUBLIC_BACKUP_FOLDER):
+                os.makedirs(PUBLIC_BACKUP_FOLDER)
+
+            backup_path = os.path.join(PUBLIC_BACKUP_FOLDER, f"{id}.png")
+            shutil.copy2(image_path, backup_path)
+
+            image = Image.open(image_path).convert("RGBA")
+
+            result = cls.apply_distort_stack(
+                image=image,
+
+                distort_effect=distort_effect,
+
+                distortion_factor=distortion_factor,
+
+                wave_strength=wave_strength,
+                wave_frequency=wave_frequency,
+                wave_axis=wave_axis,
+
+                max_shift_ratio=max_shift_ratio,
+
+                falloff_preset=falloff_preset,
+                falloff_radius=falloff_radius,
+                falloff_strength=falloff_strength,
+                falloff_center_x=falloff_center_x,
+                falloff_center_y=falloff_center_y,
+                falloff_inverted=falloff_inverted,
+                falloff_random_seed=falloff_random_seed,
+
+                falloff_custom_enabled=falloff_custom_enabled,
+                falloff_custom_points=falloff_custom_points,
+            )
+
+            new_id = str(uuid.uuid4())
+            new_filename = f"{new_id}.png"
+            new_save_path = os.path.join(PUBLIC_LAYER_FOLDER, new_filename)
+
+            result.save(new_save_path)
+
+            os.remove(image_path)
+
+            layer["url"] = f"/download/{new_filename}?ts={time('unix_ms')}"
+            layer["id"] = new_id
+            layer["source"] = id
+            layer["width"] = result.size[0]
+            layer["height"] = result.size[1]
+            layer["thumbnail"] = generate_thumbnail_map(
+                new_id,
+                path=new_save_path,
+                size=64,
+                image=None,
+            )
+            layer["time"] = time("unix_ms")
+
+            return {
+                "message": "Verzerrung erfolgreich angewendet.",
                 "id": new_id,
                 "url": layer["url"],
                 "width": layer["width"],

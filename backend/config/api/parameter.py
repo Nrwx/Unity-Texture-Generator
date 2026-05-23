@@ -341,6 +341,13 @@ PARAMETERS = {
         "falloff_center_y": {"type": float, "default": 0.5},
         "falloff_inverted": {"type": bool, "default": False},
         "falloff_random_seed": {"type": int, "default": 1},
+        # DISTORT MODIFIER
+        "distort_effect": {"type": str, "default": "distort"},
+        "distortion_factor": {"type": float, "default": 0.2},
+        "wave_strength": {"type": float, "default": 5},
+        "wave_frequency": {"type": float, "default": 5},
+        "wave_axis": {"type": str, "default": "vertical"},
+        "max_shift_ratio": {"type": float, "default": 0.1}
     },
     "export": {
         "method": {"type": str, "required": True},
@@ -440,7 +447,21 @@ PARAMETERS = {
         "falloff_center_x": {"type": float, "default": 0.5},
         "falloff_center_y": {"type": float, "default": 0.5},
         "falloff_inverted": {"type": bool, "default": False},
-        "falloff_random_seed": {"type": int, "default": 1}
+        "falloff_random_seed": {"type": int, "default": 1},
+
+        # DISTORT MODIFIER PREVIEW
+        "distort_effect": {"type": str, "default": "distort"},
+
+        # apply_distort.py
+        "distortion_factor": {"type": float, "default": 0.2},
+
+        # apply_wave.py
+        "wave_strength": {"type": float, "default": 5},
+        "wave_frequency": {"type": float, "default": 5},
+        "wave_axis": {"type": str, "default": "vertical"},
+
+        # apply_random_shift.py
+        "max_shift_ratio": {"type": float, "default": 0.1},
     },
     "path": {
         "method": {"type": str, "required": True},

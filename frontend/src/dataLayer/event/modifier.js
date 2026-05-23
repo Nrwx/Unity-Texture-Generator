@@ -78,6 +78,28 @@ export const modifierEvent = (route) => ({
         }
     },
 
+    "modifier:distort-preview": async (payload) => {
+        if (!payload?.layer?.id || !payload?.values) {
+            return;
+        }
+
+        route.loadingStates.modifierDistortPreview.value = true;
+        route.tempData.preview.value.counter = payload.requestId;
+        const response = await route.api.distortPreview(payload);
+
+        if (
+            response?.src &&
+            route.tempData.preview.value.counter === payload.requestId
+        ) {
+            await route.emit("modifier:distort-preview-src", {
+                requestId: payload.requestId,
+                id: response.id,
+                title: response.title,
+                src: response.src,
+            });
+        }
+    },
+
     "modifier:color-applied": async (payload) => {
         route.loadingStates.modifierColor.value = true;
         const response = await route.api.colorModifier(payload);
@@ -125,6 +147,21 @@ export const modifierEvent = (route) => ({
         }
     },
 
+    "modifier:distort-applied": async (payload) => {
+        route.loadingStates.modifierDistort.value = true;
+        const response = await route.api.distortModifier(payload);
+
+        if (response) {
+            route.tempData.activeLayer.value = null;
+            route.tempData.preview.value.src = "";
+            route.tempData.preview.value.counter = 0;
+            route.loadingStates.modifierDistort.value = false;
+
+            await route.emit("modifier-distort:state", false);
+            await route.emit("fetch-layer");
+        }
+    },
+
     "modifier:details-preview-src": async (payload) => {
         route.tempData.preview.value = payload;
         route.loadingStates.modifierDetailsPreview.value = false;
@@ -138,6 +175,11 @@ export const modifierEvent = (route) => ({
     "modifier:effects-preview-src": async (payload) => {
         route.tempData.preview.value.src = payload.src;
         route.loadingStates.modifierEffectsPreview.value = false;
+    },
+
+    "modifier:distort-preview-src": async (payload) => {
+        route.tempData.preview.value.src = payload.src;
+        route.loadingStates.modifierDistortPreview.value = false;
     },
 
     "select:mask-shape": async (payload) => {

@@ -143,7 +143,7 @@ const imageFilterChildren = [
                 active: true,
                 label: 'Verzerren',
                 icon: 'mdi-vector-curve',
-                action: 'apply:distort',
+                action: 'distort',
                 modifier: 'apply_distort.py',
                 disabled: false
             },
