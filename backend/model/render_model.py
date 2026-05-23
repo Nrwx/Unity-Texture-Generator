@@ -529,12 +529,20 @@ class RenderModel(BaseModel):
             if not source_layer:
                 return {"error": f"Source layer '{source_layer_id}' not found."}, 404
 
-            material_id = f"preview-{uuid.uuid4()}"
+            material_id = MaterialModel.resolve_preview_material_id(
+                source_layer,
+                source_layer_id,
+            )
+            package_source_layer_id = (
+                source_layer.get("source_layer_id")
+                or source_layer.get("source")
+                or source_layer_id
+            )
 
             package = MaterialModel.build_material_package(
                 material_id=material_id,
-                layer_id=material_id,
-                source_layer_id=source_layer_id,
+                layer_id=source_layer.get("id") or material_id,
+                source_layer_id=package_source_layer_id,
                 name=name,
                 surface=surface,
                 geometry=geometry,
@@ -551,46 +559,13 @@ class RenderModel(BaseModel):
                 **extra
             )
 
-            preview_layer = {
-                "id": f"preview-{package['id']}",
-                "source": source_layer_id,
-                "name": name,
-                "type": 5,
-                "renderer": "canvas-cube",
-                "engine": "material",
-
-                "width": int(source_layer.get("width") or cube_size or 256),
-                "height": int(source_layer.get("height") or cube_size or 256),
-
-                "url": package["texture"].get("url"),
-                "thumbnail": package["texture"].get("url"),
-
-                "surface": package["surface"],
-                "geometry": package["geometry"],
-                "bitmap_maps": package["bitmap_maps"],
-                "uv": package["uv"],
-                "shader_graph": package["shader_graph"],
-                "particle_system": package.get("particle_system", {}),
-
-                "material": package["material"],
-                "mesh": package["mesh"],
-                "shader": package["shader"],
-                "texture": package["texture"],
-                "package": package["package"],
-                "preview": package["preview"],
-                "settings": package["settings"],
-
-                "texture_size": package["settings"].get("texture_size", texture_size),
-                "texture_lod_key": package["settings"].get("texture_lod_key", ""),
-
-                "hidden": 0,
-                "opacity": 1,
-                "blend_mode": 0,
-                "color": "#ffffff",
-                "mask": "",
-
-                "time": time("unix_ms"),
-            }
+            preview_layer = MaterialModel.build_preview_layer(source_layer, package)
+            preview_layer["id"] = f"preview-{package['id']}"
+            preview_layer["source"] = source_layer_id
+            preview_layer["source_layer_id"] = package_source_layer_id
+            preview_layer["blend_mode"] = source_layer.get("blend_mode", 0)
+            preview_layer["color"] = source_layer.get("color", "#ffffff")
+            preview_layer["mask"] = source_layer.get("mask", "")
 
             return {
                 "id": material_id,

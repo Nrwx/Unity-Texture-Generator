@@ -258,6 +258,59 @@ class MaterialModel(BaseModel):
         return folder
 
     @staticmethod
+    def normalize_material_id(value, fallback=None):
+        raw = str(value or "").strip()
+        normalized = "".join(
+            char if char.isalnum() or char in ("-", "_") else "-"
+            for char in raw
+        ).strip("-_")
+
+        if normalized:
+            return normalized
+
+        return str(fallback or uuid.uuid4())
+
+    @classmethod
+    def resolve_preview_material_id(cls, source_layer=None, source_layer_id=""):
+        source_layer = source_layer if isinstance(source_layer, dict) else {}
+
+        if int(source_layer.get("type", -1)) == cls.MATERIAL_LAYER_TYPE:
+            material_id = (
+                source_layer.get("material_id")
+                or source_layer.get("material", {}).get("id")
+                or source_layer.get("id")
+            )
+
+            return cls.normalize_material_id(
+                material_id,
+                f"preview-{source_layer.get('id') or source_layer_id or uuid.uuid4()}",
+            )
+
+        stable_source_id = source_layer.get("id") or source_layer_id or uuid.uuid4()
+        return cls.normalize_material_id(f"preview-{stable_source_id}")
+
+    @classmethod
+    def read_material_package(cls, material_id):
+        if not material_id:
+            return {}
+
+        package_path = os.path.join(
+            cls.material_folder(material_id),
+            "package.material.json",
+        )
+
+        if not os.path.exists(package_path):
+            return {}
+
+        try:
+            with open(package_path, "r", encoding="utf-8") as handle:
+                data = json.load(handle)
+
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+
+    @staticmethod
     def clamp(value, min_value, max_value):
         try:
             value = float(value)
@@ -3143,7 +3196,9 @@ class MaterialModel(BaseModel):
             **extra
         )
 
-        material_id = material_id or str(uuid.uuid4())
+        material_id = cls.normalize_material_id(material_id or str(uuid.uuid4()))
+        existing_package = cls.read_material_package(material_id)
+        created_at = existing_package.get("created_at") or time("unix_ms")
 
         normalized_surface = cls.normalize_surface(payload["surface"])
         normalized_geometry = cls.normalize_geometry(payload["geometry"])
@@ -3241,7 +3296,7 @@ class MaterialModel(BaseModel):
             "renderer": cls.RENDERER,
             "engine": cls.ENGINE,
 
-            "created_at": time("unix_ms"),
+            "created_at": created_at,
             "updated_at": time("unix_ms"),
             "source_layer_id": source_layer_id,
 
