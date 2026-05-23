@@ -1,40 +1,45 @@
 export class Accumulator {
-    /**
-     * @param {number} initialTime - optionaler Startwert (z.B. 0)
-     * @param {number} speed - optionaler Multiplikator für dieses Child
-     */
-    constructor(initialTime = 0, speed = 1.0) {
-        this.time = initialTime;     // akkumulierte Zeit
-        this.lastTime = initialTime; // Zeit des letzten Frames
-        this.deltaTime = 0;          // delta vom letzten Update
-        this.speed = speed;          // Multiplikator für schnelle/langsame Systeme
+    constructor(initialTime = 0, speed = 1) {
+        this.time = Accumulator.toNumber(initialTime);
+        this.lastTime = this.time;
+        this.deltaTime = 0;
+        this.speed = Accumulator.toNumber(speed, 1);
     }
 
-    /**
-     * Update des Accumulators mit globalem deltaTime
-     * @param {number} dt - globale deltaTime vom Renderer
-     */
-    update(dt) {
-        this.deltaTime = dt * this.speed;
+    static toNumber(value, fallback = 0) {
+        const number = Number(value);
+
+        return Number.isFinite(number) ? number : fallback;
+    }
+
+    update(deltaTime = 0) {
+        this.deltaTime = Math.max(0, Accumulator.toNumber(deltaTime)) * this.speed;
         this.lastTime = this.time;
         this.time += this.deltaTime;
+
+        return this;
     }
 
-    /**
-     * Speed ändern (z.B. TREE langsamer, EFFECT schneller)
-     * @param {number} speed
-     */
-    setSpeed(speed) {
-        this.speed = speed;
+    setSpeed(speed = 1) {
+        this.speed = Accumulator.toNumber(speed, 1);
+
+        return this;
     }
 
-    /**
-     * Reset auf bestimmten Startwert
-     * @param {number} startTime
-     */
     reset(startTime = 0) {
-        this.time = startTime;
-        this.lastTime = startTime;
+        this.time = Accumulator.toNumber(startTime);
+        this.lastTime = this.time;
         this.deltaTime = 0;
+
+        return this;
+    }
+
+    toPayload() {
+        return {
+            time: this.time,
+            lastTime: this.lastTime,
+            deltaTime: this.deltaTime,
+            speed: this.speed,
+        };
     }
 }

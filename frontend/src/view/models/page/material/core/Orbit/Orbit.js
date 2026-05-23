@@ -52,6 +52,22 @@ export class Orbit {
         this.updateVectors();
     }
 
+    setOptions(options = {}) {
+        if (options.rotateSpeed !== undefined) this.rotateSpeed = Vector.number(options.rotateSpeed, this.rotateSpeed);
+        if (options.panSpeed !== undefined) this.panSpeed = Vector.number(options.panSpeed, this.panSpeed);
+        if (options.dollySpeed !== undefined) this.dollySpeed = Vector.number(options.dollySpeed, this.dollySpeed);
+        if (options.damping !== undefined) this.damping = Vector.number(options.damping, this.damping);
+        if (options.minRadius !== undefined) this.minRadius = Vector.number(options.minRadius, this.minRadius);
+        if (options.maxRadius !== undefined) this.maxRadius = Vector.number(options.maxRadius, this.maxRadius);
+        if (options.minPhi !== undefined) this.minPhi = Vector.number(options.minPhi, this.minPhi);
+        if (options.maxPhi !== undefined) this.maxPhi = Vector.number(options.maxPhi, this.maxPhi);
+
+        this.radius = Math.min(Math.max(this.radius, this.minRadius), this.maxRadius);
+        this.phi = this.clampPhi(this.phi);
+
+        return this;
+    }
+
     update(dt = 1 / 60) {
         const alpha = this.damping <= 0
             ? 1
@@ -146,6 +162,28 @@ export class Orbit {
         return this;
     }
 
+    setState({
+                 radius = this.radius,
+                 theta = this.theta,
+                 phi = this.phi,
+                 target = this.target,
+                 sync = false,
+             } = {}) {
+        this.radius = Math.min(Math.max(Vector.number(radius, this.radius), this.minRadius), this.maxRadius);
+        this.theta = Vector.number(theta, this.theta);
+        this.phi = this.clampPhi(Vector.number(phi, this.phi));
+        this.target.copy(target);
+
+        if (sync) {
+            this.smoothRadius = this.radius;
+            this.smoothTheta = this.theta;
+            this.smoothPhi = this.phi;
+            this.smoothTarget.copy(this.target);
+        }
+
+        return this;
+    }
+
     setTarget(value) {
         this.target.copy(value);
         return this;
@@ -219,10 +257,20 @@ export class Orbit {
             aspect: camera?.aspect ?? 1,
 
             radius: this.smoothRadius,
+            min_radius: this.minRadius,
+            max_radius: this.maxRadius,
             orthographic_scale: camera?.orthographicScale ?? 5,
+            min_orthographic_scale: camera?.minOrthographicScale ?? 0.05,
+            max_orthographic_scale: camera?.maxOrthographicScale ?? 250,
 
             theta: this.smoothTheta,
             phi: this.smoothPhi,
+            min_phi: this.minPhi,
+            max_phi: this.maxPhi,
+            rotate_speed: this.rotateSpeed,
+            pan_speed: this.panSpeed,
+            dolly_speed: this.dollySpeed,
+            damping: this.damping,
 
             target: this.smoothTarget.toObject(),
             position: this.position.toObject(),

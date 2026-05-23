@@ -11,6 +11,8 @@ export class Camera {
                     far = 1000,
                     aspect = 1,
                     orthographicScale = 5,
+                    minOrthographicScale = 0.05,
+                    maxOrthographicScale = 250,
                     position = [0, 0.18, 3.25],
                     target = [0, 0, 0],
                     up = [0, 1, 0],
@@ -26,6 +28,9 @@ export class Camera {
         this.far = far;
         this.aspect = aspect;
         this.orthographicScale = orthographicScale;
+        this.minOrthographicScale = minOrthographicScale;
+        this.maxOrthographicScale = maxOrthographicScale;
+        this.backgroundGrid = true;
 
         this.position = Vector.from(position);
         this.target = Vector.from(target);
@@ -37,13 +42,22 @@ export class Camera {
         this.viewProjectionMatrix = Matrix.identity();
         this.inverseViewProjectionMatrix = Matrix.identity();
 
+        const hasOrbitState = (
+            orbit.radius !== undefined ||
+            orbit.theta !== undefined ||
+            orbit.phi !== undefined
+        );
+
         this.orbit = new Orbit(this, {
             damping,
             target: this.target,
             ...orbit,
         });
 
-        this.orbit.syncFromCamera();
+        if (!hasOrbitState) {
+            this.orbit.syncFromCamera();
+        }
+
         this.update(1 / 60);
     }
 
@@ -55,13 +69,22 @@ export class Camera {
             far: payload.far,
             aspect: payload.aspect,
             orthographicScale: payload.orthographic_scale ?? payload.orthographicScale,
+            minOrthographicScale: payload.min_orthographic_scale ?? payload.minOrthographicScale,
+            maxOrthographicScale: payload.max_orthographic_scale ?? payload.maxOrthographicScale,
             position: payload.position,
             target: payload.target,
             up: payload.up,
             orbit: {
                 radius: payload.radius,
+                minRadius: payload.min_radius ?? payload.minRadius,
+                maxRadius: payload.max_radius ?? payload.maxRadius,
                 theta: payload.theta,
                 phi: payload.phi,
+                minPhi: payload.min_phi ?? payload.minPhi,
+                maxPhi: payload.max_phi ?? payload.maxPhi,
+                rotateSpeed: payload.rotate_speed ?? payload.rotateSpeed,
+                panSpeed: payload.pan_speed ?? payload.panSpeed,
+                dollySpeed: payload.dolly_speed ?? payload.dollySpeed,
                 target: payload.target,
             },
         });
@@ -76,6 +99,15 @@ export class Camera {
         this.projection = value === "orthographic" || value === "ortho"
             ? "orthographic"
             : "perspective";
+
+        return this;
+    }
+
+    setOrthographicScale(value = this.orthographicScale) {
+        this.orthographicScale = Math.min(
+            Math.max(Vector.number(value, this.orthographicScale), this.minOrthographicScale),
+            this.maxOrthographicScale,
+        );
 
         return this;
     }

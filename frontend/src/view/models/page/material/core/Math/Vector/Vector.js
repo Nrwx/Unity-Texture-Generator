@@ -3,7 +3,7 @@ export class Vector {
         this.data = new Float32Array(3);
 
         if (x instanceof Vector) {
-            return this.copy(x);
+            return this.set(x.x, x.y, x.z);
         }
 
         if (Array.isArray(x) || ArrayBuffer.isView(x)) {
@@ -55,6 +55,10 @@ export class Vector {
             return new Vector(fallback);
         }
 
+        if (value instanceof Vector) {
+            return value.clone();
+        }
+
         return new Vector(value);
     }
 
@@ -99,10 +103,14 @@ export class Vector {
     }
 
     clone() {
-        return new Vector(this);
+        return new Vector(this.x, this.y, this.z);
     }
 
     copy(value) {
+        if (value instanceof Vector) {
+            return this.set(value.x, value.y, value.z);
+        }
+
         const vector = Vector.from(value);
 
         this.x = vector.x;

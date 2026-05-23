@@ -1,106 +1,129 @@
-import {Layer} from '@/view/models/page/material/core/Event/Layer/Layer';
+import {Layer} from "@/view/models/page/material/core/Event/Layer/Layer";
 
 export class Event {
-    constructor({ canvas, session, mode = "all" }) {
+    constructor({ canvas = null, session = {}, mode = "all" } = {}) {
         this.canvas = canvas;
         this.session = session;
         this.mode = mode;
+        this.disposers = [];
 
         this.pointer = {
             x: 0,
             y: 0,
             worldX: 0,
             worldY: 0,
-            ray: null
+            ray: null,
         };
 
         this.root = new Layer({ id: "root", target: session, mode });
-        this.session.rootEvent = this.root;
 
-        this._bind();
+        if (this.session && typeof this.session === "object") {
+            this.session.rootEvent = this.root;
+        }
+
+        this.bind();
     }
 
-    /* ============================= */
-    /* EVENT BINDINGS                */
-    /* ============================= */
+    bind() {
+        if (this.canvas) {
+            ["pointerdown", "pointermove", "pointerup", "wheel"].forEach(type => {
+                const handler = event => this.emit(type, event);
 
-    _bind() {
-        ["pointerdown", "pointermove", "pointerup", "wheel"].forEach(type =>
-            this.canvas.addEventListener(type, e => this._emit(type, e))
-        );
-        ["keydown", "keyup", "resize"].forEach(type =>
-            window.addEventListener(type, e => this._emit(type, e))
-        );
+                this.canvas.addEventListener(type, handler);
+                this.disposers.push(() => this.canvas?.removeEventListener(type, handler));
+            });
+        }
+
+        ["keydown", "keyup", "resize"].forEach(type => {
+            const handler = event => this.emit(type, event);
+
+            window.addEventListener(type, handler);
+            this.disposers.push(() => window.removeEventListener(type, handler));
+        });
+
+        return this;
     }
 
-    /* ============================= */
-    /* EMIT                          */
-    /* ============================= */
+    destroy() {
+        this.disposers.splice(0).forEach(dispose => dispose());
+        this.root.destroy();
 
-    _emit(type, e) {
-        this._updatePointer(e);
+        return this;
+    }
+
+    emit(type, originalEvent = null) {
+        this.updatePointer(originalEvent);
 
         const event = {
             type,
-            originalEvent: e,
+            originalEvent,
             pointer: { ...this.pointer },
             session: this.session,
             mode: this.mode,
+            path: [],
+            consumed: false,
             resize: type === "resize"
                 ? { width: window.innerWidth, height: window.innerHeight }
                 : null,
             hits: type.startsWith("pointer") && this.session?.ray
                 ? this.session.ray(this.pointer.x, this.pointer.y)
-                : []
+                : [],
         };
 
         this.root.dispatch(event);
+
+        return event;
     }
 
-    /* ============================= */
-    /* POINTER UPDATE                */
-    /* ============================= */
+    updatePointer(event = null) {
+        if (!event || event.clientX === undefined) {
+            return this;
+        }
 
-    _updatePointer(e) {
-        if (!e.clientX && !e.touches) return;
-
-        const rect = this.canvas.getBoundingClientRect();
-        const cx = e.touches ? e.touches[0].clientX : e.clientX;
-        const cy = e.touches ? e.touches[0].clientY : e.clientY;
-
-        const x = (cx - rect.left) * (this.canvas.width / rect.width);
-        const y = (cy - rect.top)  * (this.canvas.height / rect.height);
+        const rect = this.canvas?.getBoundingClientRect?.();
+        const cx = event.touches?.[0]?.clientX ?? event.clientX;
+        const cy = event.touches?.[0]?.clientY ?? event.clientY;
+        const x = rect
+            ? (cx - rect.left) * ((this.canvas.width || rect.width || 1) / Math.max(rect.width, 1))
+            : cx;
+        const y = rect
+            ? (cy - rect.top) * ((this.canvas.height || rect.height || 1) / Math.max(rect.height, 1))
+            : cy;
 
         this.pointer.x = x;
         this.pointer.y = y;
 
-        console.log(x,y)
+        const camera = this.session?.camera;
 
-        if (!this.session.camera) {
+        if (!camera) {
             this.pointer.worldX = x;
             this.pointer.worldY = y;
             this.pointer.ray = null;
-            return;
+            return this;
         }
 
-        /* ---------- 2D ---------- */
-        if (this.session.camera.world === "2d") {
-            const w = this.session.camera.screenToWorld(x, y);
-            this.pointer.worldX = w.x;
-            this.pointer.worldY = w.y;
+        if (camera.world === "2d" && typeof camera.screenToWorld === "function") {
+            const world = camera.screenToWorld(x, y);
+
+            this.pointer.worldX = world.x;
+            this.pointer.worldY = world.y;
             this.pointer.ray = null;
-            return;
+            return this;
         }
 
-        /* ---------- 3D ---------- */
-        const viewport = this.session?._config?.viewport;
-        if (!viewport) return;
+        const viewport = this.session?._config?.viewport || {
+            width: this.canvas?.width || rect?.width || 1,
+            height: this.canvas?.height || rect?.height || 1,
+        };
 
-        const ray = this.session.camera.rayFromScreen(x, y, viewport);
+        if (typeof camera.rayFromScreen !== "function") {
+            return this;
+        }
+
+        const ray = camera.rayFromScreen(x, y, viewport);
         this.pointer.ray = ray;
 
-        // optional: project ray to ground plane (y = 0)
-        const t = ray.dir.y !== 0
+        const t = ray?.dir?.y !== 0
             ? (-ray.origin.y / ray.dir.y)
             : null;
 
@@ -111,34 +134,37 @@ export class Event {
             this.pointer.worldX = NaN;
             this.pointer.worldY = NaN;
         }
-    }
 
-    /* ============================= */
-    /* MODE MANAGEMENT               */
-    /* ============================= */
+        return this;
+    }
 
     setMode(mode) {
         this.mode = mode;
-        this._updateMode(this.root);
+        this.updateMode(this.root);
+
+        return this;
     }
 
-    _updateMode(node) {
+    updateMode(node) {
         node.enabled = !node.mode || node.mode === this.mode;
-        for (const c of node.children) this._updateMode(c);
-    }
 
-    /* ============================= */
-    /* REGISTRATION                  */
-    /* ============================= */
+        for (const child of node.children) {
+            this.updateMode(child);
+        }
+    }
 
     register(target, type, handler, mode = null, priority = 0) {
-        const layer = new EventLayer({ target, mode, priority });
+        const layer = new Layer({ target, mode, priority });
+
         layer.on(type, handler);
         this.root.attach(layer);
+
         return layer;
     }
 
     unregister(layer) {
-        if (layer.parent) layer.parent.detach(layer);
+        layer?.destroy?.();
+
+        return this;
     }
 }

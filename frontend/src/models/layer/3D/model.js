@@ -9,6 +9,8 @@ import {
 
 import { WebGLMaterialRenderer } from "@/models/layer/3D/webglMaterialRenderer";
 import { ParticleSystem } from "@/view/models/page/material/core/ParticleSystem/ParticleSystem";
+import { Accumulator } from "@/view/models/page/material/core/Accumulator/Accumulator";
+import { Vector } from "@/view/models/page/material/core/Math/Vector/Vector";
 import {
     createCubeVertices, createImage,
     CUBE_FACES,
@@ -224,16 +226,6 @@ const resolveObjectTextureSettings = materialLayer => {
     };
 };
 
-const normalizeVector3 = vector => {
-    const length = Math.hypot(vector[0], vector[1], vector[2]) || 1;
-
-    return [
-        vector[0] / length,
-        vector[1] / length,
-        vector[2] / length,
-    ];
-};
-
 const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 
 const canonicalSlotKey = slot => SLOT_CANONICAL_KEYS[slot] || slot;
@@ -281,6 +273,7 @@ export function layer3DModel(props, emit) {
     let rotation = 0;
     let particleAge = 0;
     let lastFrameTime = 0;
+    const frameClock = new Accumulator();
     let initToken = 0;
     let running = false;
     const instanceId = `${props.webglScope}:${props.layer?.id}`;
@@ -298,6 +291,7 @@ export function layer3DModel(props, emit) {
         running = false;
         lastFrameTime = 0;
         particleAge = 0;
+        frameClock.reset(0);
 
         if (webglRenderer) {
             try {
@@ -413,7 +407,17 @@ export function layer3DModel(props, emit) {
         Object.keys(value).length > 0
     );
 
+    const shouldUseViewportCamera = layer => (
+        layer?.settings?.animator_viewport === true ||
+        layer?.preview?.animator_viewport === true ||
+        layer?.animator_viewport === true
+    );
+
     const pickViewportCamera = layer => {
+        if (!shouldUseViewportCamera(layer)) {
+            return {};
+        }
+
         const candidates = [
             layer?.viewport_camera,
             layer?.settings?.viewport_camera,
@@ -510,17 +514,35 @@ export function layer3DModel(props, emit) {
 
     const particleSystemEnabled = layer => layer?.particle_system?.enabled === true;
 
-    const isAnimatorViewport = materialLayer => (
-        materialLayer?.settings?.animator_viewport === true ||
-        materialLayer?.viewport_camera?.mode === "world_orbit" ||
-        materialLayer?.preview?.viewport_camera?.mode === "world_orbit"
-    );
+    const isAnimatorViewport = materialLayer => shouldUseViewportCamera(materialLayer);
 
     const hasViewportCamera = materialLayer => (
         hasObjectKeys(materialLayer?.viewport_camera) ||
         hasObjectKeys(materialLayer?.settings?.viewport_camera) ||
         hasObjectKeys(materialLayer?.preview?.viewport_camera)
     );
+
+    const viewportCameraSignature = camera => {
+        if (!hasObjectKeys(camera)) {
+            return "";
+        }
+
+        return JSON.stringify({
+            mode: camera.mode,
+            projection: camera.projection,
+            fov: camera.fov,
+            near: camera.near,
+            far: camera.far,
+            aspect: camera.aspect,
+            radius: camera.radius,
+            orthographicScale: camera.orthographic_scale ?? camera.orthographicScale,
+            theta: camera.theta,
+            phi: camera.phi,
+            target: camera.target,
+            position: camera.position,
+            up: camera.up,
+        });
+    };
 
     const shouldRotatePreview = materialLayer => (
         props.exportState !== true &&
@@ -741,11 +763,11 @@ export function layer3DModel(props, emit) {
             Number(light.position_y || 0),
             Number(light.position_z || 0),
         ];
-        const direction = normalizeVector3([
+        const direction = Vector.normalize([
             Number(light.direction_x || 0),
             Number(light.direction_y || -1),
             Number(light.direction_z || 0),
-        ]);
+        ], [0, 0, 0]).toArray();
         const distance = Math.hypot(position[0], position[1], position[2]);
         const range = Math.max(Number(light.range || 4), 0.001);
         const radius = Math.max(Number(light.radius || 0), 0);
@@ -1037,11 +1059,11 @@ export function layer3DModel(props, emit) {
         }
 
         const normal = FACE_NORMALS[face.name] || [0, 0, 1];
-        const direction = normalizeVector3([
+        const direction = Vector.normalize([
             light.direction_x,
             light.direction_y,
             light.direction_z,
-        ]);
+        ], [0, 0, 0]).toArray();
 
         const diffuse = Math.max(0, dot3(normal, direction));
         const backFill = Math.max(0, dot3(normal, [-direction[0] * 0.45, -direction[1] * 0.45, Math.abs(direction[2]) * 0.35]));
@@ -1296,12 +1318,15 @@ export function layer3DModel(props, emit) {
             return false;
         }
 
-        const viewportCamera =
-            materialLayer?.viewport_camera ||
-            materialLayer?.settings?.viewport_camera ||
-            materialLayer?.preview?.viewport_camera ||
-            materialLayer?.shader?.viewport_camera ||
-            null;
+        const viewportCamera = isAnimatorViewport(materialLayer)
+            ? (
+                materialLayer?.viewport_camera ||
+                materialLayer?.settings?.viewport_camera ||
+                materialLayer?.preview?.viewport_camera ||
+                materialLayer?.shader?.viewport_camera ||
+                null
+            )
+            : null;
 
         const surface = normalizeSurface(materialLayer);
         const light = resolveLight(materialLayer);
@@ -1568,6 +1593,7 @@ export function layer3DModel(props, emit) {
             : 0;
 
         lastFrameTime = frameTime;
+        frameClock.update(delta);
 
         const didApplyExportTime = applyDeterministicExportTime(materialLayer);
 
@@ -1576,7 +1602,7 @@ export function layer3DModel(props, emit) {
             const lifetime = Math.max(0.1, Number(system.lifetime) || 1);
             const speed = Math.max(0, Number(system.time_scale) || 1);
 
-            particleAge = (particleAge + delta * speed) % lifetime;
+            particleAge = (particleAge + frameClock.deltaTime * speed) % lifetime;
         }
 
         if (shouldRotate && !shouldPauseLayerAnimation(materialLayer)) {
@@ -1628,6 +1654,7 @@ export function layer3DModel(props, emit) {
         }
 
         lastFrameTime = performance.now();
+        frameClock.reset(0);
 
         draw();
 
@@ -1716,6 +1743,26 @@ export function layer3DModel(props, emit) {
             props.layer?.preview?.vertices].join("|"),
         () => {
             requestInit();
+        }
+    );
+
+    watch(
+        () => viewportCameraSignature(props.layer?.viewport_camera || props.layer?.settings?.viewport_camera || props.layer?.preview?.viewport_camera),
+        () => {
+            const materialLayer = resolveMaterialLayer(props.layer);
+
+            if (!isAnimatorViewport(materialLayer) || !hasViewportCamera(materialLayer)) {
+                return;
+            }
+
+            draw();
+
+            if (!running) {
+                running = true;
+                lastFrameTime = performance.now();
+                frameClock.reset(0);
+                frameId = requestAnimationFrame(loop);
+            }
         }
     );
 

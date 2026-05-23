@@ -76,7 +76,7 @@ export class Layer {
 
     on(type, fn) {
         if (typeof fn !== "function") {
-            throw new Error("[EventLayer.on] handler must be a function");
+            throw new Error("[Layer.on] handler must be a function");
         }
 
         this.handlers.set(type, fn);
@@ -107,6 +107,10 @@ export class Layer {
     dispatch(event) {
         if (!this.accepts(event)) {
             return false;
+        }
+
+        if (!Array.isArray(event.path)) {
+            event.path = [];
         }
 
         event.path.push(this);

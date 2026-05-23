@@ -1,46 +1,28 @@
 export class Collision {
-    /**
-     * options:
-     *  - type: "aabb" | "box" | "mesh" | "capsule" | "sphere" | "plane"
-     *  - isTrigger: boolean
-     *  - layer, mask: bitmasks
-     *  - radius, height: capsule/sphere params
-     */
      constructor(entity, options = {}) {
         this.entity = entity;
 
         this.type = options.type ?? "aabb";
         this.isTrigger = options.isTrigger ?? false;
 
-        // Layer / Mask (Bitmask)
         this.layer = options.layer ?? 0b0001;
         this.mask  = options.mask  ?? 0b1111;
 
-        // shape params (capsule/sphere)
         this.radius = options.radius ?? 0.5;
         this.height = options.height ?? 1.8;
-
-        // plane thickness fallback for 'plane' type
         this.thickness = options.thickness ?? 0.06;
     }
 
-    // -------------------------
-    // Public helper: collision layer compatibility
-    // -------------------------
     canCollideWith(other) {
         if (!other) return false;
         return ((this.mask & other.layer) !== 0) && ((other.mask & this.layer) !== 0);
     }
 
-    // ============================================================
-    // Unified AABB (2D oder 3D, je nach TYPE)
-    // ============================================================
     getAABB() {
         const e = this.entity;
+        const world = e?._state?.world || e?.world || "3d";
 
-        // 3D world
-        if (e._state.world === '3d') {
-            // Delegiere je nach Shape-Type
+        if (world === "3d") {
             switch (this.type) {
                 case "capsule":
                     return this._aabbFromCapsule();
@@ -58,7 +40,6 @@ export class Collision {
             }
         }
 
-        // 2D fallback (UI / Editor)
         const { x = 0, y = 0, width = 0, height = 0 } = e.props ?? {};
         return {
             min: { x, y, z: 0 },
@@ -66,17 +47,12 @@ export class Collision {
         };
     }
 
-    // -------------------------
-    // Capsule AABB
-    // -------------------------
     _aabbFromCapsule() {
         const e = this.entity;
-        // assume position center is at feet-mid? use position vector
         const p = e.position?.data ?? [e.props.x ?? 0, e.props.y ?? 0, e.props.z ?? 0];
         const s = e.scale?.data ?? [1,1,1];
 
-        // capsule axis along Y (height)
-        const r = this.radius * (s[0] + s[2]) * 0.5; // scale radius by X/Z
+        const r = this.radius * (s[0] + s[2]) * 0.5;
         const halfH = (this.height * s[1]) * 0.5;
 
         return {
@@ -85,9 +61,6 @@ export class Collision {
         };
     }
 
-    // -------------------------
-    // Sphere AABB
-    // -------------------------
     _aabbFromSphere() {
         const e = this.entity;
         const p = e.position?.data ?? [e.props.x ?? 0, e.props.y ?? 0, e.props.z ?? 0];
@@ -99,14 +72,10 @@ export class Collision {
         };
     }
 
-    // -------------------------
-    // Geometry-based AABB (box, mesh, aabb)
-    // uses geometry.bounds or entity.bounds (World.update sets bounds)
-    // -------------------------
     _aabbFromGeometry() {
         const e = this.entity;
         const geom = e.geometry;
-        // prefer geometry.bounds (local), then entity.bounds (already world space), else null
+
         if (geom?.bounds) {
             const { min, max } = geom.bounds;
             const p = e.position?.data ?? [e.props.x ?? 0, e.props.y ?? 0, e.props.z ?? 0];
@@ -117,7 +86,6 @@ export class Collision {
             };
         }
 
-        // fallback to entity.bounds (already updated by updateBounds())
         if (e.bounds) {
             return {
                 min: { x: e.bounds.min[0], y: e.bounds.min[1], z: e.bounds.min[2] },
@@ -128,12 +96,8 @@ export class Collision {
         return null;
     }
 
-    // -------------------------
-    // Plane AABB (thin box centered at plane y)
-    // -------------------------
     _aabbFromPlane() {
         const e = this.entity;
-        // planes in your terrain are likely centered on Y=plane.y and use width/height props
         const px = e.props.x ?? (e.position?.data?.[0] ?? 0);
         const py = e.props.y ?? (e.position?.data?.[1] ?? 0);
         const pz = e.props.z ?? (e.position?.data?.[2] ?? 0);
@@ -149,9 +113,6 @@ export class Collision {
         };
     }
 
-    // ============================================================
-    // Ray Intersection -> default to AABB ray test; override if mesh has own fast method
-    // ============================================================
     intersectsRay(ray) {
         const aabb = this.getAABB();
         if (!aabb) return null;
@@ -176,9 +137,6 @@ export class Collision {
         return null;
     }
 
-    // ============================================================
-    // Depth for pick ordering
-    // ============================================================
     getDepth() {
         const e = this.entity;
         if (e.type === "mesh") return e.props.z ?? 0;

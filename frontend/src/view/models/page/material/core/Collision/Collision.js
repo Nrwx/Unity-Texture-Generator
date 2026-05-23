@@ -1,91 +1,95 @@
-// CollisionSystem (replace your old file with this)
 export class CollisionSystem {
-
-    constructor() {
-        this.enabled = true;
+    constructor({ enabled = true } = {}) {
+        this.enabled = enabled;
     }
 
-    // ============================================================
-    // STEP (Physics-Kollision)  -- Broadphase kept
-    // ============================================================
-    step(entities) {
-        if (!this.enabled) return;
+    setEnabled(state) {
+        this.enabled = state === true;
 
-        const list = entities.filter(e => e.collision);
+        return this;
+    }
 
-        // optional: store prevY for one-sided checks (if not set elsewhere)
-        for (const e of list) {
-            e._prevY = Number(e._prevY ?? e.props?.y ?? e.position?.data?.[1] ?? 0);
+    step(entities = []) {
+        if (!this.enabled || !Array.isArray(entities)) {
+            return [];
         }
 
-        for (let i = 0; i < list.length; i++) {
-            for (let j = i + 1; j < list.length; j++) {
+        const collisions = [];
+        const list = entities.filter(entity => entity?.collision);
 
-                const a = list[i];
-                const b = list[j];
+        list.forEach(entity => {
+            entity._prevY = Number(entity._prevY ?? entity.props?.y ?? entity.position?.data?.[1] ?? 0);
+        });
 
-                if (!this._layerMatch(a, b)) continue;
+        for (let aIndex = 0; aIndex < list.length; aIndex += 1) {
+            for (let bIndex = aIndex + 1; bIndex < list.length; bIndex += 1) {
+                const a = list[aIndex];
+                const b = list[bIndex];
 
-                const ca = a.collision;
-                const cb = b.collision;
-
-                const aabbA = ca.getAABB();
-                const aabbB = cb.getAABB();
-                if (!aabbA || !aabbB) continue;
-                if (!this._overlap(aabbA, aabbB)) continue;
-
-                // Trigger only → event, no resolution
-                if (ca.isTrigger || cb.isTrigger) {
-                    this._trigger(a, b);
+                if (!this.layerMatch(a, b)) {
                     continue;
                 }
 
-                // === Narrowphase dispatch ===
-                this._resolve(a, b, aabbA, aabbB);
+                const aabbA = a.collision.getAABB();
+                const aabbB = b.collision.getAABB();
+
+                if (!aabbA || !aabbB || !this.overlaps(aabbA, aabbB)) {
+                    continue;
+                }
+
+                collisions.push({ a, b, aabbA, aabbB });
+
+                if (a.collision.isTrigger || b.collision.isTrigger) {
+                    this.trigger(a, b);
+                    continue;
+                }
+
+                this.resolve(a, b, aabbA, aabbB);
             }
         }
+
+        return collisions;
     }
 
-    // ============================================================
-    // RAYCAST (zentral) - unchanged except small robustness
-    // ============================================================
-    raycast(ray, entities) {
-        const hits = [];
-
-        for (const entity of entities) {
-            const col = entity.collision;
-            if (!col) continue;
-
-            const dist = col.intersectsRay(ray);
-            if (dist === null) continue;
-
-            hits.push({
-                entity,
-                distance: dist,
-                depth: col.getDepth()
-            });
+    raycast(ray, entities = []) {
+        if (!ray || !Array.isArray(entities)) {
+            return [];
         }
 
-        return hits.sort((a, b) => {
-            if (a.distance !== b.distance) return a.distance - b.distance;
-            return b.depth - a.depth;
-        });
+        return entities
+            .map(entity => {
+                const distance = entity?.collision?.intersectsRay?.(ray);
+
+                if (distance === null || distance === undefined) {
+                    return null;
+                }
+
+                return {
+                    entity,
+                    distance,
+                    depth: entity.collision.getDepth?.() ?? 0,
+                };
+            })
+            .filter(Boolean)
+            .sort((a, b) => (
+                a.distance !== b.distance
+                    ? a.distance - b.distance
+                    : b.depth - a.depth
+            ));
     }
 
-    // ============================================================
-    // Helpers (unchanged)
-    // ============================================================
-    _layerMatch(a, b) {
-        const ca = a.collision;
-        const cb = b.collision;
+    layerMatch(a, b) {
+        const ca = a?.collision;
+        const cb = b?.collision;
 
-        return (
-            (ca.mask & cb.layer) !== 0 &&
-            (cb.mask & ca.layer) !== 0
-        );
+        if (!ca || !cb) {
+            return false;
+        }
+
+        return (ca.mask & cb.layer) !== 0 && (cb.mask & ca.layer) !== 0;
     }
 
-    _overlap(a, b) {
+    overlaps(a, b) {
         return (
             a.min.x <= b.max.x && a.max.x >= b.min.x &&
             a.min.y <= b.max.y && a.max.y >= b.min.y &&
@@ -93,312 +97,248 @@ export class CollisionSystem {
         );
     }
 
-    // ============================================================
-    // Trigger
-    // ============================================================
-    _trigger(a, b) {
-        try { a.onTriggerEnter?.(b); } catch (e) { console.error(e); }
-        try { b.onTriggerEnter?.(a); } catch (e) { console.error(e); }
+    trigger(a, b) {
+        a?.onTriggerEnter?.(b);
+        b?.onTriggerEnter?.(a);
     }
 
-    // ============================================================
-    // Resolution — dispatcher + narrowphase resolvers
-    // ============================================================
-    _resolve(a, b, aabbA, aabbB) {
-        const ta = a.collision.type ?? "aabb";
-        const tb = b.collision.type ?? "aabb";
+    resolve(a, b, aabbA, aabbB) {
+        const typeA = a.collision.type ?? "aabb";
+        const typeB = b.collision.type ?? "aabb";
 
-        if ((ta === "capsule" && tb === "plane") || (ta === "plane" && tb === "capsule")) {
-            if (ta === "capsule") this._resolveCapsulePlane(a, b, aabbA, aabbB);
-            else this._resolveCapsulePlane(b, a, aabbB, aabbA);
+        if (typeA === "sphere" && ["box", "aabb"].includes(typeB)) {
+            this.resolveSphereBox(a, b, aabbA, aabbB);
             return;
         }
 
-        if ((ta === "capsule" && (tb === "box" || tb === "aabb" || tb === "mesh")) ||
-            (tb === "capsule" && (ta === "box" || ta === "aabb" || ta === "mesh"))) {
-            if (ta === "capsule") this._resolveCapsuleBox(a, b, aabbA, aabbB);
-            else this._resolveCapsuleBox(b, a, aabbB, aabbA);
+        if (typeB === "sphere" && ["box", "aabb"].includes(typeA)) {
+            this.resolveSphereBox(b, a, aabbB, aabbA);
             return;
         }
 
-        if ((ta === "sphere" && (tb === "box" || tb === "aabb")) ||
-            (tb === "sphere" && (ta === "box" || ta === "aabb"))) {
-            if (ta === "sphere") this._resolveSphereBox(a, b, aabbA, aabbB);
-            else this._resolveSphereBox(b, a, aabbB, aabbA);
+        if (typeA === "capsule" && typeB === "plane") {
+            this.resolveCapsulePlane(a, b, aabbA, aabbB);
             return;
         }
 
-        if (ta === "capsule" && tb === "capsule") {
-            this._resolveCapsuleBox(a, b, aabbA, aabbB);
+        if (typeB === "capsule" && typeA === "plane") {
+            this.resolveCapsulePlane(b, a, aabbB, aabbA);
             return;
         }
 
-        this._resolveAABB(a, b, aabbA, aabbB);
+        this.resolveAABB(a, b, aabbA, aabbB);
     }
 
-    // ------------------------------------------------------------
-    // Generic AABB resolver (fallback)
-    // ------------------------------------------------------------
-    _resolveAABB(a, b, aabbA, aabbB) {
-        const pa = a.props.physics;
-        const pb = b.props.physics;
+    resolveAABB(a, b, aabbA, aabbB) {
+        const physicsA = a.props?.physics;
+        const physicsB = b.props?.physics;
 
-        if (!pa && !pb) return;
-        if (pa?.mode === "static" && pb?.mode === "static") return;
-
-        const ox = Math.min(aabbA.max.x - aabbB.min.x, aabbB.max.x - aabbA.min.x);
-        const oy = Math.min(aabbA.max.y - aabbB.min.y, aabbB.max.y - aabbA.min.y);
-        const oz = Math.min(aabbA.max.z - aabbB.min.z, aabbB.max.z - aabbA.min.z);
-
-        let axis = "x";
-        let pen = ox;
-        if (oy < pen) { axis = "y"; pen = oy; }
-        if (oz < pen) { axis = "z"; pen = oz; }
-
-        const dir = (this._center(a)[axis] < this._center(b)[axis]) ? -1 : 1;
-
-        this._pushback(a, b, axis, pen, dir);
-        this._velocityResponse(a, b, axis);
-    }
-
-    // ------------------------------------------------------------
-    // Capsule vs Plane (one-sided ground collision) - accurate
-    // a = capsule (dynamic usually), b = plane (static)
-    // ------------------------------------------------------------
-    _resolveCapsulePlane(capsuleEnt, planeEnt, aabbCaps, aabbPlane) {
-        const pa = capsuleEnt.props.physics;
-
-        if (!pa) return;
-        if (pa.mode === "static") return;
-
-        const planeTop = aabbPlane.max.y;
-
-        const prevY = Number(capsuleEnt._prevY ?? capsuleEnt.props.y ?? capsuleEnt.position?.data?.[1] ?? 0);
-        const curY = Number(capsuleEnt.props.y ?? capsuleEnt.position?.data?.[1] ?? 0);
-        const movingDown = (pa?.velocity?.y ?? 0) <= 0 || curY < prevY;
-
-        const EPS = 0.05;
-
-        const previouslyAbove = (prevY >= (planeTop - EPS));
-        const currentlyIntersectingY = (aabbCaps.min.y <= aabbPlane.max.y && aabbCaps.max.y >= aabbPlane.min.y);
-
-        if (!currentlyIntersectingY) return;
-
-        if (previouslyAbove || movingDown) {
-            const targetTop = aabbPlane.max.y + EPS;
-            const shift = targetTop - aabbCaps.max.y;
-            capsuleEnt.props.y += shift;
-            if (typeof capsuleEnt.updateMatrix === "function") capsuleEnt.updateMatrix();
-
-            if (capsuleEnt.props.physics) {
-                capsuleEnt.props.physics.grounded = true;
-                if (capsuleEnt.props.physics.mode === "dynamic") {
-                    if ((capsuleEnt.props.physics.velocity?.y ?? 0) <= 0) capsuleEnt.props.physics.velocity.y = 0;
-                }
-            }
+        if (!this.canResolve(physicsA, physicsB)) {
+            return;
         }
-    }
 
-    // ------------------------------------------------------------
-    // Capsule vs Box (approximate) - treat capsule as vertical box with radius for X/Z
-    // capsule = a, box = b (a is capsule)
-    // ------------------------------------------------------------
-    _resolveCapsuleBox(a, b, aabbA, aabbB) {
-        const pa = a.props.physics;
-        const pb = b.props.physics;
-
-        if (!pa && !pb) return;
-        if (pa?.mode === "static" && pb?.mode === "static") return;
-
-        // approximate capsule as box with extents: x/z radius*2, y = capsule height
-        const radius = a.collision.radius ?? 0.35;
-        const height = a.collision.height ?? (aabbA.max.y - aabbA.min.y);
-        const centerX = (aabbA.min.x + aabbA.max.x) * 0.5;
-        const centerY = (aabbA.min.y + aabbA.max.y) * 0.5;
-        const centerZ = (aabbA.min.z + aabbA.max.z) * 0.5;
-
-        const capBox = {
-            min: { x: centerX - radius, y: centerY - height*0.5, z: centerZ - radius },
-            max: { x: centerX + radius, y: centerY + height*0.5, z: centerZ + radius }
+        const overlap = {
+            x: Math.min(aabbA.max.x - aabbB.min.x, aabbB.max.x - aabbA.min.x),
+            y: Math.min(aabbA.max.y - aabbB.min.y, aabbB.max.y - aabbA.min.y),
+            z: Math.min(aabbA.max.z - aabbB.min.z, aabbB.max.z - aabbA.min.z),
         };
+        const axis = Object.entries(overlap)
+            .sort((left, right) => left[1] - right[1])[0][0];
+        const direction = this.center(a)[axis] < this.center(b)[axis] ? -1 : 1;
 
-        // compute overlap along axes between capBox and b's AABB
-        const ox = Math.min(capBox.max.x - aabbB.min.x, aabbB.max.x - capBox.min.x);
-        const oy = Math.min(capBox.max.y - aabbB.min.y, aabbB.max.y - capBox.min.y);
-        const oz = Math.min(capBox.max.z - aabbB.min.z, aabbB.max.z - capBox.min.z);
-
-        let axis = "x", pen = ox;
-        if (oy < pen) { axis = "y"; pen = oy; }
-        if (oz < pen) { axis = "z"; pen = oz; }
-
-        // direction: use centers
-        const dir = (centerX < (aabbB.min.x + aabbB.max.x) * 0.5 && axis === "x") ? -1 :
-            (centerZ < (aabbB.min.z + aabbB.max.z) * 0.5 && axis === "z") ? -1 :
-                (centerY < (aabbB.min.y + aabbB.max.y) * 0.5 && axis === "y") ? -1 : 1;
-
-        // push back respecting static/dynamic
-        this._pushback(a, b, axis, pen, dir);
-        this._velocityResponse(a, b, axis);
+        this.pushback(a, b, axis, overlap[axis], direction);
+        this.velocityResponse(a, b, axis);
     }
 
-    // ------------------------------------------------------------
-    // Sphere vs Box (accurate)
-    // sphere = a, box = b (a is sphere)
-    // ------------------------------------------------------------
-    _resolveSphereBox(sphereEnt, boxEnt, aabbSphere, aabbBox) {
-        const pa = sphereEnt.props.physics;
-        const pb = boxEnt.props.physics;
+    resolveCapsulePlane(capsule, plane, capsuleAABB, planeAABB) {
+        const physics = capsule.props?.physics;
 
-        if (!pa && !pb) return;
-        if (pa?.mode === "static" && pb?.mode === "static") return;
+        if (!physics || physics.mode === "static") {
+            return;
+        }
 
-        // sphere center
-        const cx = (aabbSphere.min.x + aabbSphere.max.x) * 0.5;
-        const cy = (aabbSphere.min.y + aabbSphere.max.y) * 0.5;
-        const cz = (aabbSphere.min.z + aabbSphere.max.z) * 0.5;
-        const r = sphereEnt.collision.radius ?? Math.max(
-            (aabbSphere.max.x - aabbSphere.min.x),
-            (aabbSphere.max.y - aabbSphere.min.y),
-            (aabbSphere.max.z - aabbSphere.min.z)
+        const prevY = Number(capsule._prevY ?? capsule.props?.y ?? capsule.position?.data?.[1] ?? 0);
+        const curY = Number(capsule.props?.y ?? capsule.position?.data?.[1] ?? 0);
+        const movingDown = (physics.velocity?.y ?? 0) <= 0 || curY < prevY;
+        const intersectingY = capsuleAABB.min.y <= planeAABB.max.y && capsuleAABB.max.y >= planeAABB.min.y;
+
+        if (!intersectingY || !movingDown) {
+            return;
+        }
+
+        const targetTop = planeAABB.max.y + 0.05;
+        const shift = targetTop - capsuleAABB.max.y;
+
+        capsule.props.y += shift;
+        capsule.updateMatrix?.();
+
+        physics.grounded = true;
+
+        if (physics.mode === "dynamic" && (physics.velocity?.y ?? 0) <= 0) {
+            physics.velocity.y = 0;
+        }
+    }
+
+    resolveSphereBox(sphere, box, sphereAABB, boxAABB) {
+        const physicsA = sphere.props?.physics;
+        const physicsB = box.props?.physics;
+
+        if (!this.canResolve(physicsA, physicsB)) {
+            return;
+        }
+
+        const center = {
+            x: (sphereAABB.min.x + sphereAABB.max.x) * 0.5,
+            y: (sphereAABB.min.y + sphereAABB.max.y) * 0.5,
+            z: (sphereAABB.min.z + sphereAABB.max.z) * 0.5,
+        };
+        const radius = sphere.collision.radius ?? Math.max(
+            sphereAABB.max.x - sphereAABB.min.x,
+            sphereAABB.max.y - sphereAABB.min.y,
+            sphereAABB.max.z - sphereAABB.min.z,
         ) * 0.5;
-
-        // closest point on box to sphere center
         const closest = {
-            x: Math.max(aabbBox.min.x, Math.min(cx, aabbBox.max.x)),
-            y: Math.max(aabbBox.min.y, Math.min(cy, aabbBox.max.y)),
-            z: Math.max(aabbBox.min.z, Math.min(cz, aabbBox.max.z))
+            x: Math.max(boxAABB.min.x, Math.min(center.x, boxAABB.max.x)),
+            y: Math.max(boxAABB.min.y, Math.min(center.y, boxAABB.max.y)),
+            z: Math.max(boxAABB.min.z, Math.min(center.z, boxAABB.max.z)),
         };
+        const normal = {
+            x: center.x - closest.x,
+            y: center.y - closest.y,
+            z: center.z - closest.z,
+        };
+        const distanceSq = normal.x * normal.x + normal.y * normal.y + normal.z * normal.z;
 
-        const dx = cx - closest.x;
-        const dy = cy - closest.y;
-        const dz = cz - closest.z;
-        const dist2 = dx*dx + dy*dy + dz*dz;
-        const r2 = r*r;
-
-        if (dist2 === 0) {
-            // center is exactly inside box (rare) -> fallback to AABB push
-            this._resolveAABB(sphereEnt, boxEnt, aabbSphere, aabbBox);
+        if (distanceSq <= 0 || distanceSq >= radius * radius) {
             return;
         }
 
-        if (dist2 < r2 + 1e-6) {
-            const dist = Math.sqrt(dist2);
-            const penetration = r - dist;
-            // normal from box to sphere center
-            const nx = dx / dist, ny = dy / dist, nz = dz / dist;
+        const distance = Math.sqrt(distanceSq);
+        const penetration = radius - distance;
 
-            // push sphere out along normal by penetration
-            if (pa?.mode === "dynamic" && !(pb?.mode === "dynamic")) {
-                sphereEnt.props.x += nx * penetration;
-                sphereEnt.props.y += ny * penetration;
-                sphereEnt.props.z += nz * penetration;
-                sphereEnt.updateMatrix?.();
-            } else if (pb?.mode === "dynamic" && !(pa?.mode === "dynamic")) {
-                boxEnt.props.x -= nx * penetration;
-                boxEnt.props.y -= ny * penetration;
-                boxEnt.props.z -= nz * penetration;
-                boxEnt.updateMatrix?.();
-            } else if (pa?.mode === "dynamic" && pb?.mode === "dynamic") {
-                const half = penetration * 0.5;
-                sphereEnt.props.x += nx * half; sphereEnt.props.y += ny * half; sphereEnt.props.z += nz * half;
-                boxEnt.props.x -= nx * half;   boxEnt.props.y -= ny * half;   boxEnt.props.z -= nz * half;
-                sphereEnt.updateMatrix?.(); boxEnt.updateMatrix?.();
-            }
+        normal.x /= distance;
+        normal.y /= distance;
+        normal.z /= distance;
 
-            // velocity response - zero component along normal if moving into contact
-            this._velocityResponseVec(sphereEnt, boxEnt, { x: nx, y: ny, z: nz });
-        }
+        this.pushAlongNormal(sphere, box, normal, penetration);
+        this.velocityResponseVector(sphere, box, normal);
     }
 
-    // ------------------------------------------------------------
-    // Pushback (re-uses your existing policy)
-    // axis = 'x'|'y'|'z', pen = penetration amount, dir = -1|1
-    // ------------------------------------------------------------
-    _pushback(a, b, axis, pen, dir) {
-        const pa = a.props.physics;
-        const pb = b.props.physics;
+    canResolve(physicsA, physicsB) {
+        if (!physicsA && !physicsB) {
+            return false;
+        }
 
-        if (pa?.mode === "dynamic" && pb?.mode !== "dynamic") {
-            a.props[axis] += pen * dir;
+        return !(physicsA?.mode === "static" && physicsB?.mode === "static");
+    }
+
+    pushback(a, b, axis, penetration, direction) {
+        const physicsA = a.props?.physics;
+        const physicsB = b.props?.physics;
+
+        if (physicsA?.mode === "dynamic" && physicsB?.mode !== "dynamic") {
+            a.props[axis] += penetration * direction;
             a.updateMatrix?.();
             return;
         }
 
-        if (pb?.mode === "dynamic" && pa?.mode !== "dynamic") {
-            b.props[axis] -= pen * dir;
+        if (physicsB?.mode === "dynamic" && physicsA?.mode !== "dynamic") {
+            b.props[axis] -= penetration * direction;
             b.updateMatrix?.();
             return;
         }
 
-        if (pa && pb && pa.mode === "dynamic" && pb.mode === "dynamic") {
-            const h = pen * 0.5;
-            a.props[axis] += h * dir;
-            b.props[axis] -= h * dir;
+        if (physicsA?.mode === "dynamic" && physicsB?.mode === "dynamic") {
+            const half = penetration * 0.5;
+
+            a.props[axis] += half * direction;
+            b.props[axis] -= half * direction;
             a.updateMatrix?.();
             b.updateMatrix?.();
         }
     }
 
-    // ------------------------------------------------------------
-    // Velocity response (axis-aligned) - only zero component if it was moving into contact
-    // ------------------------------------------------------------
-    _velocityResponse(a, b, axis) {
-        const pa = a.props.physics;
-        const pb = b.props.physics;
+    pushAlongNormal(a, b, normal, penetration) {
+        const physicsA = a.props?.physics;
+        const physicsB = b.props?.physics;
 
-        if (pa?.mode === "dynamic") {
-            const vel = (pa.velocity?.[axis] ?? 0);
-            // approximate contact normal direction using relative positions
-            const rel = (a.props[axis] ?? 0) - (b.props?.[axis] ?? 0);
-            if (Math.sign(vel) === Math.sign(rel)) {
-                pa.velocity[axis] = 0;
-            }
+        if (physicsA?.mode === "dynamic" && physicsB?.mode !== "dynamic") {
+            this.translate(a, normal, penetration);
+            return;
         }
 
-        if (pb?.mode === "dynamic") {
-            const vel = (pb.velocity?.[axis] ?? 0);
-            const rel = (b.props[axis] ?? 0) - (a.props?.[axis] ?? 0);
-            if (Math.sign(vel) === Math.sign(rel)) {
-                pb.velocity[axis] = 0;
-            }
+        if (physicsB?.mode === "dynamic" && physicsA?.mode !== "dynamic") {
+            this.translate(b, normal, -penetration);
+            return;
+        }
+
+        if (physicsA?.mode === "dynamic" && physicsB?.mode === "dynamic") {
+            this.translate(a, normal, penetration * 0.5);
+            this.translate(b, normal, -penetration * 0.5);
         }
     }
 
-    // ------------------------------------------------------------
-    // Velocity response for a normal vector (for sphere-box)
-    // zero component along normal for dynamic bodies moving into contact
-    // ------------------------------------------------------------
-    _velocityResponseVec(a, b, normal) {
-        const pa = a.props.physics;
-        const pb = b.props.physics;
+    translate(entity, normal, amount) {
+        entity.props.x += normal.x * amount;
+        entity.props.y += normal.y * amount;
+        entity.props.z += normal.z * amount;
+        entity.updateMatrix?.();
+    }
 
-        if (pa?.mode === "dynamic") {
-            const v = pa.velocity ?? { x:0,y:0,z:0 };
-            const dot = v.x*normal.x + v.y*normal.y + v.z*normal.z;
-            if (dot < 0) {
-                // remove normal component (v = v - (v·n) * n)
-                pa.velocity.x = v.x - dot * normal.x;
-                pa.velocity.y = v.y - dot * normal.y;
-                pa.velocity.z = v.z - dot * normal.z;
-            }
+    velocityResponse(a, b, axis) {
+        this.zeroVelocityAxis(a, b, axis);
+        this.zeroVelocityAxis(b, a, axis);
+    }
+
+    zeroVelocityAxis(entity, other, axis) {
+        const physics = entity.props?.physics;
+
+        if (physics?.mode !== "dynamic" || !physics.velocity) {
+            return;
         }
 
-        if (pb?.mode === "dynamic") {
-            const v = pb.velocity ?? { x:0,y:0,z:0 };
-            const dot = v.x*normal.x + v.y*normal.y + v.z*normal.z;
-            if (dot > 0) {
-                pb.velocity.x = v.x - dot * normal.x;
-                pb.velocity.y = v.y - dot * normal.y;
-                pb.velocity.z = v.z - dot * normal.z;
-            }
+        const relative = (entity.props?.[axis] ?? 0) - (other.props?.[axis] ?? 0);
+
+        if (Math.sign(physics.velocity[axis] ?? 0) === Math.sign(relative)) {
+            physics.velocity[axis] = 0;
         }
     }
 
-    // ------------------------------------------------------------
-    // utility: center of entity (from props or position)
-    // ------------------------------------------------------------
-    _center(entity) {
-        const p = entity.position?.data ?? [entity.props.x ?? 0, entity.props.y ?? 0, entity.props.z ?? 0];
-        return { x: p[0], y: p[1], z: p[2] };
+    velocityResponseVector(a, b, normal) {
+        this.removeNormalVelocity(a, normal, dot => dot < 0);
+        this.removeNormalVelocity(b, normal, dot => dot > 0);
+    }
+
+    removeNormalVelocity(entity, normal, shouldRemove) {
+        const physics = entity.props?.physics;
+        const velocity = physics?.velocity;
+
+        if (physics?.mode !== "dynamic" || !velocity) {
+            return;
+        }
+
+        const dot = velocity.x * normal.x + velocity.y * normal.y + velocity.z * normal.z;
+
+        if (!shouldRemove(dot)) {
+            return;
+        }
+
+        velocity.x -= dot * normal.x;
+        velocity.y -= dot * normal.y;
+        velocity.z -= dot * normal.z;
+    }
+
+    center(entity) {
+        const position = entity.position?.data ?? [
+            entity.props?.x ?? 0,
+            entity.props?.y ?? 0,
+            entity.props?.z ?? 0,
+        ];
+
+        return {
+            x: position[0],
+            y: position[1],
+            z: position[2],
+        };
     }
 }

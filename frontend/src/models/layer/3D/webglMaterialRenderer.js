@@ -1,5 +1,7 @@
 import {Buffer} from "@/models/layer/3D/core/buffer/model";
 import {clamp} from "@/utils/tools";
+import {Matrix} from "@/view/models/page/material/core/Math/Matrix/Matrix";
+import {Quaternion} from "@/view/models/page/material/core/Math/Quaternion/Quaternion";
 
 const FACE_DEFS = Object.freeze({
     front: {
@@ -711,100 +713,6 @@ const normalize3 = vector => {
     return [vector[0] / length, vector[1] / length, vector[2] / length];
 };
 
-const mat4Identity = () => new Float32Array([
-    1, 0, 0, 0,
-    0, 1, 0, 0,
-    0, 0, 1, 0,
-    0, 0, 0, 1,
-]);
-
-const mat4Multiply = (a, b) => {
-    const out = new Float32Array(16);
-
-    for (let row = 0; row < 4; row += 1) {
-        for (let col = 0; col < 4; col += 1) {
-            out[col * 4 + row] =
-                a[0 * 4 + row] * b[col * 4 + 0] +
-                a[1 * 4 + row] * b[col * 4 + 1] +
-                a[2 * 4 + row] * b[col * 4 + 2] +
-                a[3 * 4 + row] * b[col * 4 + 3];
-        }
-    }
-
-    return out;
-};
-
-const mat4Perspective = (fov, aspect, near, far) => {
-    const f = 1 / Math.tan(fov / 2);
-    const nf = 1 / (near - far);
-    const out = new Float32Array(16);
-
-    out[0] = f / aspect;
-    out[5] = f;
-    out[10] = (far + near) * nf;
-    out[11] = -1;
-    out[14] = 2 * far * near * nf;
-
-    return out;
-};
-
-const mat4Orthographic = (left, right, bottom, top, near, far) => {
-    const lr = 1 / (left - right);
-    const bt = 1 / (bottom - top);
-    const nf = 1 / (near - far);
-    const out = new Float32Array(16);
-
-    out[0] = -2 * lr;
-    out[5] = -2 * bt;
-    out[10] = 2 * nf;
-    out[12] = (left + right) * lr;
-    out[13] = (top + bottom) * bt;
-    out[14] = (far + near) * nf;
-    out[15] = 1;
-
-    return out;
-};
-
-const mat4LookAt = (eye, center, up) => {
-    const z = normalize3([
-        eye[0] - center[0],
-        eye[1] - center[1],
-        eye[2] - center[2],
-    ]);
-
-    const x = normalize3([
-        up[1] * z[2] - up[2] * z[1],
-        up[2] * z[0] - up[0] * z[2],
-        up[0] * z[1] - up[1] * z[0],
-    ]);
-
-    const y = [
-        z[1] * x[2] - z[2] * x[1],
-        z[2] * x[0] - z[0] * x[2],
-        z[0] * x[1] - z[1] * x[0],
-    ];
-
-    const out = mat4Identity();
-
-    out[0] = x[0];
-    out[1] = y[0];
-    out[2] = z[0];
-
-    out[4] = x[1];
-    out[5] = y[1];
-    out[6] = z[1];
-
-    out[8] = x[2];
-    out[9] = y[2];
-    out[10] = z[2];
-
-    out[12] = -(x[0] * eye[0] + x[1] * eye[1] + x[2] * eye[2]);
-    out[13] = -(y[0] * eye[0] + y[1] * eye[1] + y[2] * eye[2]);
-    out[14] = -(z[0] * eye[0] + z[1] * eye[1] + z[2] * eye[2]);
-
-    return out;
-};
-
 const asVec3Array = (value, fallback = [0, 0, 0]) => {
     if (Array.isArray(value)) {
         return [
@@ -837,13 +745,24 @@ const resolveViewportCamera = ({
                                    width,
                                    height,
                                }) => {
+    const allowMaterialLayerCamera =
+        materialLayer?.settings?.animator_viewport === true ||
+        materialLayer?.preview?.animator_viewport === true ||
+        materialLayer?.animator_viewport === true;
+
     const source =
         viewportCamera ||
-        materialLayer?.viewport_camera ||
-        materialLayer?.settings?.viewport_camera ||
-        materialLayer?.preview?.viewport_camera ||
-        materialLayer?.shader?.viewport_camera ||
-        materialLayer?.material?.viewport_camera ||
+        (
+            allowMaterialLayerCamera
+                ? (
+                    materialLayer?.viewport_camera ||
+                    materialLayer?.settings?.viewport_camera ||
+                    materialLayer?.preview?.viewport_camera ||
+                    materialLayer?.shader?.viewport_camera ||
+                    materialLayer?.material?.viewport_camera
+                )
+                : null
+        ) ||
         null;
 
     const aspect = Math.max(
@@ -908,101 +827,52 @@ const buildCameraMatrices = ({
                                  materialLayer,
                                  viewportCamera,
                              }) => {
-    const camera = resolveViewportCamera({
+    const cameraPayload = resolveViewportCamera({
         materialLayer,
         viewportCamera,
         width,
         height,
     });
-
     const aspect = Math.max(
         0.0001,
-        camera.aspect || width / Math.max(1, height)
+        cameraPayload.aspect || width / Math.max(1, height)
     );
-
-    const view = mat4LookAt(
-        camera.position,
-        camera.target,
-        camera.up
+    const view = Matrix.lookAt(
+        cameraPayload.position,
+        cameraPayload.target,
+        cameraPayload.up
     );
-
-    const projection = camera.projection === "orthographic"
+    const projection = cameraPayload.projection === "orthographic"
         ? (() => {
-            const halfHeight = camera.orthographicScale * 0.5;
+            const halfHeight = cameraPayload.orthographicScale * 0.5;
             const halfWidth = halfHeight * aspect;
 
-            return mat4Orthographic(
+            return Matrix.orthographic(
                 -halfWidth,
                 halfWidth,
                 -halfHeight,
                 halfHeight,
-                camera.near,
-                camera.far
+                cameraPayload.near,
+                cameraPayload.far
             );
         })()
-        : mat4Perspective(
-            camera.fov * Math.PI / 180,
+        : Matrix.perspective(
+            cameraPayload.fov * Math.PI / 180,
             aspect,
-            camera.near,
-            camera.far
+            cameraPayload.near,
+            cameraPayload.far
         );
+    const viewProj = projection
+        .clone()
+        .multiply(view);
 
     return {
-        camera,
-        view,
-        projection,
-        viewProj: mat4Multiply(projection, view),
-        cameraPos: camera.position,
+        camera: cameraPayload,
+        view: view.data,
+        projection: projection.data,
+        viewProj: viewProj.data,
+        cameraPos: cameraPayload.position,
     };
-};
-
-const mat4RotateY = angle => {
-    const out = mat4Identity();
-    const c = Math.cos(angle);
-    const s = Math.sin(angle);
-
-    out[0] = c;
-    out[2] = -s;
-    out[8] = s;
-    out[10] = c;
-
-    return out;
-};
-
-const mat4RotateX = angle => {
-    const out = mat4Identity();
-    const c = Math.cos(angle);
-    const s = Math.sin(angle);
-
-    out[5] = c;
-    out[6] = s;
-    out[9] = -s;
-    out[10] = c;
-
-    return out;
-};
-
-const mat4RotateZ = angle => {
-    const out = mat4Identity();
-    const c = Math.cos(angle);
-    const s = Math.sin(angle);
-
-    out[0] = c;
-    out[1] = s;
-    out[4] = -s;
-    out[5] = c;
-
-    return out;
-};
-
-const mat4Scale = (x, y, z) => {
-    const out = mat4Identity();
-
-    out[0] = x;
-    out[5] = y;
-    out[10] = z;
-
-    return out;
 };
 
 const mat3FromMat4 = matrix => new Float32Array([
@@ -1683,33 +1553,31 @@ export class WebGLMaterialRenderer {
     }
 
     buildMatrices(width, height, geometry, rotation = 0, materialLayer = null, viewportCamera = null) {
-        const scale = mat4Scale(
+        const scale = Matrix.scale(
             toNumber(geometry?.width, 1) * toNumber(geometry?.scale_x, 1),
             toNumber(geometry?.height, 1) * toNumber(geometry?.scale_y, 1),
             toNumber(geometry?.depth, 1) * toNumber(geometry?.scale_z, 1)
         );
 
-        const rx = mat4RotateX(
+        const rx = Matrix.fromQuaternion(Quaternion.fromAxisAngle([1, 0, 0],
             -0.34 +
             toNumber(geometry?.rotation_x, 0) * Math.PI / 180
-        );
+        ));
 
-        const ry = mat4RotateY(
+        const ry = Matrix.fromQuaternion(Quaternion.fromAxisAngle([0, 1, 0],
             toNumber(rotation, 0) +
             toNumber(geometry?.rotation_y, 0) * Math.PI / 180
-        );
+        ));
 
-        const rz = mat4RotateZ(
-            toNumber(geometry?.rotation_z, 0) * Math.PI / 180
-        );
+        const rz = Matrix.fromQuaternion(Quaternion.fromAxisAngle([0, 0, 1],
+            -toNumber(geometry?.rotation_z, 0) * Math.PI / 180
+        ));
 
-        const model = mat4Multiply(
-            rz,
-            mat4Multiply(
-                ry,
-                mat4Multiply(rx, scale)
-            )
-        );
+        const model = rz
+            .multiply(ry)
+            .multiply(rx)
+            .multiply(scale)
+            .toArray();
 
         const cameraMatrices = buildCameraMatrices({
             width,

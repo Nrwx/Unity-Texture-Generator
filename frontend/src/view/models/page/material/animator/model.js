@@ -11,56 +11,22 @@ import {
 import { uuid } from "@/utils/uuid";
 import { eventRegister } from "@/dataLayer/event";
 import { useMouse } from "@/composables/mouse/model";
-import {clamp, clone, lerp} from "@/utils/tools";
+import { clamp, clone } from "@/utils/tools";
+import { Accumulator } from "@/view/models/page/material/core/Accumulator/Accumulator";
+import { Camera } from "@/view/models/page/material/core/Camera/Camera";
+import { Vector } from "@/view/models/page/material/core/Math/Vector/Vector";
 
 const DEG = Math.PI / 180;
 
 const toNumber = (value, fallback = 0) => {
     const number = Number(value);
+
     return Number.isFinite(number) ? number : fallback;
 };
 
-const normalizeVector3 = value => ({
-    x: toNumber(value?.x ?? value?.[0], 0),
-    y: toNumber(value?.y ?? value?.[1], 0),
-    z: toNumber(value?.z ?? value?.[2], 0),
-});
-
-const add3 = (a, b) => ({
-    x: a.x + b.x,
-    y: a.y + b.y,
-    z: a.z + b.z,
-});
-
-const sub3 = (a, b) => ({
-    x: a.x - b.x,
-    y: a.y - b.y,
-    z: a.z - b.z,
-});
-
-const mul3 = (a, scalar) => ({
-    x: a.x * scalar,
-    y: a.y * scalar,
-    z: a.z * scalar,
-});
-
-const length3 = vector => Math.hypot(vector.x, vector.y, vector.z) || 1;
-
-const normalize3 = vector => {
-    const length = length3(vector);
-
-    return {
-        x: vector.x / length,
-        y: vector.y / length,
-        z: vector.z / length,
-    };
-};
-
-const cross3 = (a, b) => ({
-    x: a.y * b.z - a.z * b.y,
-    y: a.z * b.x - a.x * b.z,
-    z: a.x * b.y - a.y * b.x,
-});
+const toVectorObject = (value, fallback = [0, 0, 0]) => Vector
+    .from(value, fallback)
+    .toObject();
 
 const createDefaultOrbitSettings = settings => ({
     projection: settings?.projection || "perspective",
@@ -70,25 +36,25 @@ const createDefaultOrbitSettings = settings => ({
     far: toNumber(settings?.far, 1000),
 
     radius: toNumber(settings?.radius, 4.6),
-    minRadius: toNumber(settings?.minRadius, 0.18),
-    maxRadius: toNumber(settings?.maxRadius, 250),
+    minRadius: toNumber(settings?.minRadius ?? settings?.min_radius, 0.18),
+    maxRadius: toNumber(settings?.maxRadius ?? settings?.max_radius, 250),
 
-    orthographicScale: toNumber(settings?.orthographicScale, 5),
-    minOrthographicScale: toNumber(settings?.minOrthographicScale, 0.05),
-    maxOrthographicScale: toNumber(settings?.maxOrthographicScale, 250),
+    orthographicScale: toNumber(settings?.orthographicScale ?? settings?.orthographic_scale, 5),
+    minOrthographicScale: toNumber(settings?.minOrthographicScale ?? settings?.min_orthographic_scale, 0.05),
+    maxOrthographicScale: toNumber(settings?.maxOrthographicScale ?? settings?.max_orthographic_scale, 250),
 
     theta: toNumber(settings?.theta, -45 * DEG),
     phi: toNumber(settings?.phi, 58 * DEG),
 
-    minPhi: toNumber(settings?.minPhi, -89.5 * DEG),
-    maxPhi: toNumber(settings?.maxPhi, 89.5 * DEG),
+    minPhi: toNumber(settings?.minPhi ?? settings?.min_phi, -89.5 * DEG),
+    maxPhi: toNumber(settings?.maxPhi ?? settings?.max_phi, 89.5 * DEG),
 
-    target: normalizeVector3(settings?.target || { x: 0, y: 0, z: 0 }),
+    target: toVectorObject(settings?.target, [0, 0, 0]),
 
-    rotateSpeed: toNumber(settings?.rotateSpeed, 0.0065),
-    panSpeed: toNumber(settings?.panSpeed, 0.0028),
-    dollySpeed: toNumber(settings?.dollySpeed, 0.0018),
-    wheelSpeed: toNumber(settings?.wheelSpeed, 0.0012),
+    rotateSpeed: toNumber(settings?.rotateSpeed ?? settings?.rotate_speed, 0.0065),
+    panSpeed: toNumber(settings?.panSpeed ?? settings?.pan_speed, 0.0028),
+    dollySpeed: toNumber(settings?.dollySpeed ?? settings?.dolly_speed, 0.0018),
+    wheelSpeed: toNumber(settings?.wheelSpeed ?? settings?.wheel_speed, 0.0012),
 
     damping: toNumber(settings?.damping, 18),
 
@@ -102,35 +68,64 @@ const createDefaultOrbitSettings = settings => ({
     showAxisGizmo: settings?.showAxisGizmo !== false,
 });
 
-const cameraVectorsFromSpherical = camera => {
-    const cosPhi = Math.cos(camera.phi);
-    const sinPhi = Math.sin(camera.phi);
-    const cosTheta = Math.cos(camera.theta);
-    const sinTheta = Math.sin(camera.theta);
+const createOrbitSettingsSignature = settings => JSON.stringify({
+    projection: settings?.projection,
+    fov: settings?.fov,
+    near: settings?.near,
+    far: settings?.far,
+    radius: settings?.radius,
+    minRadius: settings?.minRadius ?? settings?.min_radius,
+    maxRadius: settings?.maxRadius ?? settings?.max_radius,
+    orthographicScale: settings?.orthographicScale ?? settings?.orthographic_scale,
+    minOrthographicScale: settings?.minOrthographicScale ?? settings?.min_orthographic_scale,
+    maxOrthographicScale: settings?.maxOrthographicScale ?? settings?.max_orthographic_scale,
+    theta: settings?.theta,
+    phi: settings?.phi,
+    minPhi: settings?.minPhi ?? settings?.min_phi,
+    maxPhi: settings?.maxPhi ?? settings?.max_phi,
+    target: settings?.target,
+    rotateSpeed: settings?.rotateSpeed ?? settings?.rotate_speed,
+    panSpeed: settings?.panSpeed ?? settings?.pan_speed,
+    dollySpeed: settings?.dollySpeed ?? settings?.dolly_speed,
+    wheelSpeed: settings?.wheelSpeed ?? settings?.wheel_speed,
+    damping: settings?.damping,
+    invertOrbitX: settings?.invertOrbitX,
+    invertOrbitY: settings?.invertOrbitY,
+    blenderMouse: settings?.blenderMouse,
+    rightMouseOrbit: settings?.rightMouseOrbit,
+    backgroundGrid: settings?.backgroundGrid,
+    showAxisGizmo: settings?.showAxisGizmo,
+});
 
-    const direction = normalize3({
-        x: cosPhi * sinTheta,
-        y: sinPhi,
-        z: cosPhi * cosTheta,
+const createCameraCore = settings => {
+    const camera = new Camera({
+        projection: settings.projection,
+        fov: settings.fov,
+        near: settings.near,
+        far: settings.far,
+        orthographicScale: settings.orthographicScale,
+        minOrthographicScale: settings.minOrthographicScale,
+        maxOrthographicScale: settings.maxOrthographicScale,
+        target: settings.target,
+        orbit: {
+            radius: settings.radius,
+            theta: settings.theta,
+            phi: settings.phi,
+            target: settings.target,
+            minRadius: settings.minRadius,
+            maxRadius: settings.maxRadius,
+            minPhi: settings.minPhi,
+            maxPhi: settings.maxPhi,
+            rotateSpeed: settings.rotateSpeed,
+            panSpeed: settings.panSpeed,
+            dollySpeed: settings.dollySpeed,
+            damping: settings.damping,
+        },
     });
 
-    const position = add3(
-        camera.target,
-        mul3(direction, camera.radius)
-    );
+    camera.backgroundGrid = settings.backgroundGrid;
 
-    const forward = normalize3(sub3(camera.target, position));
-    const worldUp = { x: 0, y: 1, z: 0 };
-    const right = normalize3(cross3(forward, worldUp));
-    const up = normalize3(cross3(right, forward));
-
-    return {
-        position,
-        target: camera.target,
-        forward,
-        right,
-        up,
-    };
+    return camera;
 };
 
 const normalizeMeshSettings = settings => ({
@@ -155,6 +150,9 @@ export function animatorModel(props, emit) {
     const rafId = ref(null);
     const activeLayerId = ref("");
     const resizeObserver = ref(null);
+    const clock = new Accumulator();
+
+    let lastFrameTime = 0;
 
     const animator = reactive({
         id: uuid(),
@@ -194,45 +192,29 @@ export function animatorModel(props, emit) {
     });
 
     const settings = computed(() => createDefaultOrbitSettings(props.orbitSettings || props.settings || {}));
+    let cameraCore = createCameraCore(settings.value);
 
     const camera = reactive({
-        projection: settings.value.projection,
-
-        fov: settings.value.fov,
-        near: settings.value.near,
-        far: settings.value.far,
-
-        theta: settings.value.theta,
-        phi: settings.value.phi,
-        radius: settings.value.radius,
-
-        orthographicScale: settings.value.orthographicScale,
-        target: { ...settings.value.target },
-
-        smoothTheta: settings.value.theta,
-        smoothPhi: settings.value.phi,
-        smoothRadius: settings.value.radius,
-        smoothOrthographicScale: settings.value.orthographicScale,
-        smoothTarget: { ...settings.value.target },
-
-        position: { x: 0, y: 0, z: 0 },
-        forward: { x: 0, y: 0, z: -1 },
-        right: { x: 1, y: 0, z: 0 },
-        up: { x: 0, y: 1, z: 0 },
-
-        backgroundGrid: settings.value.backgroundGrid,
+        projection: cameraCore.projection,
+        fov: cameraCore.fov,
+        near: cameraCore.near,
+        far: cameraCore.far,
+        theta: cameraCore.orbit.theta,
+        phi: cameraCore.orbit.phi,
+        radius: cameraCore.orbit.radius,
+        orthographicScale: cameraCore.orthographicScale,
+        smoothTheta: cameraCore.orbit.smoothTheta,
+        smoothPhi: cameraCore.orbit.smoothPhi,
+        smoothRadius: cameraCore.orbit.smoothRadius,
+        smoothOrthographicScale: cameraCore.orthographicScale,
+        target: cameraCore.orbit.target.toObject(),
+        smoothTarget: cameraCore.orbit.smoothTarget.toObject(),
+        position: cameraCore.position.toObject(),
+        forward: cameraCore.orbit.forward.toObject(),
+        right: cameraCore.orbit.right.toObject(),
+        up: cameraCore.orbit.up.toObject(),
+        backgroundGrid: cameraCore.backgroundGrid,
     });
-
-    const selectedMaterialLayers = computed(() => (
-        (props.selectedLayers || [])
-            .filter(layer => Number(layer?.type) === 5)
-    ));
-
-    const activeLayer = computed(() => (
-        selectedMaterialLayers.value.find(layer => layer.id === activeLayerId.value) ||
-        selectedMaterialLayers.value[0] ||
-        null
-    ));
 
     const viewportSize = reactive({
         width: 1,
@@ -245,40 +227,50 @@ export function animatorModel(props, emit) {
             : 1
     ));
 
+    const syncCameraState = () => {
+        cameraCore.setViewport(viewportSize.width, viewportSize.height);
+
+        camera.projection = cameraCore.projection;
+        camera.fov = cameraCore.fov;
+        camera.near = cameraCore.near;
+        camera.far = cameraCore.far;
+        camera.theta = cameraCore.orbit.theta;
+        camera.phi = cameraCore.orbit.phi;
+        camera.radius = cameraCore.orbit.radius;
+        camera.orthographicScale = cameraCore.orthographicScale;
+        camera.smoothTheta = cameraCore.orbit.smoothTheta;
+        camera.smoothPhi = cameraCore.orbit.smoothPhi;
+        camera.smoothRadius = cameraCore.orbit.smoothRadius;
+        camera.smoothOrthographicScale = cameraCore.orthographicScale;
+        camera.target = cameraCore.orbit.target.toObject();
+        camera.smoothTarget = cameraCore.orbit.smoothTarget.toObject();
+        camera.position = cameraCore.position.toObject();
+        camera.forward = cameraCore.orbit.forward.toObject();
+        camera.right = cameraCore.orbit.right.toObject();
+        camera.up = cameraCore.orbit.up.toObject();
+        camera.backgroundGrid = cameraCore.backgroundGrid;
+    };
+
+    const selectedMaterialLayers = computed(() => (
+        (props.selectedLayers || [])
+            .filter(layer => Number(layer?.type) === 5)
+    ));
+
+    const activeLayer = computed(() => (
+        selectedMaterialLayers.value.find(layer => layer.id === activeLayerId.value) ||
+        selectedMaterialLayers.value[0] ||
+        null
+    ));
+
     const viewportCamera = computed(() => ({
-        mode: "world_orbit",
-        projection: camera.projection,
-
-        fov: camera.fov,
-        near: camera.near,
-        far: camera.far,
+        ...cameraCore.toViewportCamera(),
         aspect: viewportAspect.value,
-
-        radius: camera.smoothRadius,
         orthographic_scale: camera.smoothOrthographicScale,
-
-        theta: camera.smoothTheta,
-        phi: camera.smoothPhi,
-
-        target: {
-            ...camera.smoothTarget,
-        },
-
-        position: {
-            ...camera.position,
-        },
-
-        forward: {
-            ...camera.forward,
-        },
-
-        right: {
-            ...camera.right,
-        },
-
-        up: {
-            ...camera.up,
-        },
+        target: { ...camera.smoothTarget },
+        position: { ...camera.position },
+        forward: { ...camera.forward },
+        right: { ...camera.right },
+        up: { ...camera.up },
     }));
 
     const gridLines = computed(() => {
@@ -318,8 +310,7 @@ export function animatorModel(props, emit) {
         const cameraPayload = viewportCamera.value;
 
         return selectedMaterialLayers.value.map(layer => {
-            const cloned = clone(layer, 'json');
-
+            const cloned = clone(layer, "json");
             const mesh = {
                 ...(cloned.mesh || {}),
                 settings: normalizeMeshSettings(cloned.mesh?.settings),
@@ -381,49 +372,26 @@ export function animatorModel(props, emit) {
 
         viewportSize.width = Math.max(1, Math.round(rect.width));
         viewportSize.height = Math.max(1, Math.round(rect.height));
+        syncCameraState();
     };
 
-    const syncCameraVectors = () => {
-        const vectors = cameraVectorsFromSpherical({
-            theta: camera.smoothTheta,
-            phi: camera.smoothPhi,
-            radius: camera.smoothRadius,
-            target: camera.smoothTarget,
-        });
+    const tick = (frameTime = performance.now()) => {
+        const delta = lastFrameTime
+            ? Math.min(Math.max((frameTime - lastFrameTime) / 1000, 0), 0.08)
+            : 1 / 60;
 
-        camera.position = vectors.position;
-        camera.forward = vectors.forward;
-        camera.right = vectors.right;
-        camera.up = vectors.up;
-    };
-
-    const tick = () => {
-        const damping = Math.max(1, settings.value.damping);
-        const t = 1 - Math.exp(-damping / 60);
-
-        camera.smoothTheta = lerp(camera.smoothTheta, camera.theta, t);
-        camera.smoothPhi = lerp(camera.smoothPhi, camera.phi, t);
-        camera.smoothRadius = lerp(camera.smoothRadius, camera.radius, t);
-
-        camera.smoothOrthographicScale = lerp(
-            camera.smoothOrthographicScale,
-            camera.orthographicScale,
-            t
-        );
-
-        camera.smoothTarget = {
-            x: lerp(camera.smoothTarget.x, camera.target.x, t),
-            y: lerp(camera.smoothTarget.y, camera.target.y, t),
-            z: lerp(camera.smoothTarget.z, camera.target.z, t),
-        };
-
-        syncCameraVectors();
+        lastFrameTime = frameTime;
+        clock.update(delta);
+        cameraCore.update(clock.deltaTime);
+        syncCameraState();
 
         rafId.value = requestAnimationFrame(tick);
     };
 
     const startTick = () => {
         stopTick();
+        lastFrameTime = performance.now();
+        clock.reset(0);
         rafId.value = requestAnimationFrame(tick);
     };
 
@@ -471,42 +439,35 @@ export function animatorModel(props, emit) {
         const sx = settings.value.invertOrbitX ? -1 : 1;
         const sy = settings.value.invertOrbitY ? -1 : 1;
 
-        camera.theta -= dx * settings.value.rotateSpeed * sx;
-        camera.phi += dy * settings.value.rotateSpeed * sy;
-        camera.phi = clamp(camera.phi, settings.value.minPhi, settings.value.maxPhi);
+        cameraCore.orbit.theta -= dx * cameraCore.orbit.rotateSpeed * sx;
+        cameraCore.orbit.phi = cameraCore.orbit.clampPhi(
+            cameraCore.orbit.phi + dy * cameraCore.orbit.rotateSpeed * sy
+        );
     };
 
     const panByDelta = (dx, dy) => {
-        const distanceFactor = camera.projection === "orthographic"
-            ? camera.orthographicScale
-            : camera.radius;
+        const distanceFactor = cameraCore.projection === "orthographic"
+            ? cameraCore.orthographicScale
+            : cameraCore.orbit.radius;
 
-        const scale = distanceFactor * settings.value.panSpeed;
-        const rightMove = mul3(camera.right, -dx * scale);
-        const upMove = mul3(camera.up, dy * scale);
+        const scale = distanceFactor * cameraCore.orbit.panSpeed;
 
-        camera.target = add3(camera.target, add3(rightMove, upMove));
+        cameraCore.orbit.target
+            .addScaled(cameraCore.orbit.right, -dx * scale)
+            .addScaled(cameraCore.orbit.up, dy * scale);
     };
 
     const dollyByDelta = dy => {
-        if (camera.projection === "orthographic") {
-            const nextScale = camera.orthographicScale * Math.exp(dy * settings.value.dollySpeed);
-
-            camera.orthographicScale = clamp(
-                nextScale,
-                settings.value.minOrthographicScale,
-                settings.value.maxOrthographicScale
+        if (cameraCore.projection === "orthographic") {
+            cameraCore.setOrthographicScale(
+                cameraCore.orthographicScale * Math.exp(dy * cameraCore.orbit.dollySpeed)
             );
 
             return;
         }
 
-        const nextRadius = camera.radius * Math.exp(dy * settings.value.dollySpeed);
-
-        camera.radius = clamp(
-            nextRadius,
-            settings.value.minRadius,
-            settings.value.maxRadius
+        cameraCore.orbit.setRadius(
+            cameraCore.orbit.radius * Math.exp(dy * cameraCore.orbit.dollySpeed)
         );
     };
 
@@ -518,7 +479,6 @@ export function animatorModel(props, emit) {
         }
 
         stopNativeEvent(event);
-
         rootRef.value?.focus?.();
 
         await mouse.down(event);
@@ -550,11 +510,7 @@ export function animatorModel(props, emit) {
             pointer.x = client.x;
             pointer.y = client.y;
 
-            if (
-                Math.abs(client.x - pointer.startX) +
-                Math.abs(client.y - pointer.startY) >
-                3
-            ) {
+            if (Math.abs(client.x - pointer.startX) + Math.abs(client.y - pointer.startY) > 3) {
                 pointer.moved = true;
             }
 
@@ -600,10 +556,10 @@ export function animatorModel(props, emit) {
     const onWheel = event => {
         stopNativeEvent(event);
 
-        const delta = event.deltaY;
         const multiplier = event.shiftKey ? 0.35 : 1;
+        const ctrlMultiplier = event.ctrlKey || event.metaKey ? 2 : 1;
 
-        dollyByDelta(event.ctrlKey || event.metaKey ? delta * multiplier * 2 : delta * multiplier);
+        dollyByDelta(event.deltaY * multiplier * ctrlMultiplier);
     };
 
     const preventContextMenu = event => {
@@ -611,55 +567,36 @@ export function animatorModel(props, emit) {
     };
 
     const setProjection = projection => {
-        camera.projection = projection === "orthographic"
-            ? "orthographic"
-            : "perspective";
+        cameraCore.setProjection(projection);
+        syncCameraState();
     };
 
     const resetView = () => {
-        const next = createDefaultOrbitSettings(props.orbitSettings || props.settings || {});
-
-        camera.projection = next.projection;
-        camera.fov = next.fov;
-        camera.near = next.near;
-        camera.far = next.far;
-
-        camera.theta = next.theta;
-        camera.phi = next.phi;
-        camera.radius = next.radius;
-        camera.orthographicScale = next.orthographicScale;
-
-        camera.target = { ...next.target };
-        camera.backgroundGrid = next.backgroundGrid;
+        cameraCore = createCameraCore(settings.value);
+        cameraCore.setViewport(viewportSize.width, viewportSize.height);
+        syncCameraState();
     };
 
     const setView = view => {
         if (view === "front") {
-            camera.theta = 0;
-            camera.phi = 0;
+            cameraCore.orbit.setAngles(0, 0);
         }
 
         if (view === "right") {
-            camera.theta = 90 * DEG;
-            camera.phi = 0;
+            cameraCore.orbit.setAngles(90 * DEG, 0);
         }
 
         if (view === "top") {
-            camera.theta = 0;
-            camera.phi = 89.4 * DEG;
+            cameraCore.orbit.setAngles(0, 89.4 * DEG);
         }
 
         if (view === "back") {
-            camera.theta = 180 * DEG;
-            camera.phi = 0;
+            cameraCore.orbit.setAngles(180 * DEG, 0);
         }
 
         if (view === "left") {
-            camera.theta = -90 * DEG;
-            camera.phi = 0;
+            cameraCore.orbit.setAngles(-90 * DEG, 0);
         }
-
-        camera.phi = clamp(camera.phi, settings.value.minPhi, settings.value.maxPhi);
     };
 
     const frameSelected = () => {
@@ -670,8 +607,8 @@ export function animatorModel(props, emit) {
         const bounds = selectedMaterialLayers.value.reduce(
             (acc, layer) => {
                 const meshBounds = layer?.mesh?.bounds || layer?.bounds || {};
-                const min = normalizeVector3(meshBounds.min || [-0.5, -0.5, -0.5]);
-                const max = normalizeVector3(meshBounds.max || [0.5, 0.5, 0.5]);
+                const min = Vector.from(meshBounds.min || [-0.5, -0.5, -0.5]);
+                const max = Vector.from(meshBounds.max || [0.5, 0.5, 0.5]);
 
                 acc.min.x = Math.min(acc.min.x, min.x);
                 acc.min.y = Math.min(acc.min.y, min.y);
@@ -684,38 +621,33 @@ export function animatorModel(props, emit) {
                 return acc;
             },
             {
-                min: { x: Infinity, y: Infinity, z: Infinity },
-                max: { x: -Infinity, y: -Infinity, z: -Infinity },
+                min: new Vector(Infinity, Infinity, Infinity),
+                max: new Vector(-Infinity, -Infinity, -Infinity),
             }
         );
 
         if (!Number.isFinite(bounds.min.x) || !Number.isFinite(bounds.max.x)) {
-            camera.target = { x: 0, y: 0, z: 0 };
-            camera.radius = settings.value.radius;
-            camera.orthographicScale = settings.value.orthographicScale;
+            cameraCore.orbit.setTarget([0, 0, 0]);
+            cameraCore.orbit.setRadius(settings.value.radius);
+            cameraCore.setOrthographicScale(settings.value.orthographicScale);
             return;
         }
 
-        const center = mul3(add3(bounds.min, bounds.max), 0.5);
-        const diagonal = length3(sub3(bounds.max, bounds.min));
+        const center = Vector.add(bounds.min, bounds.max).scale(0.5);
+        const diagonal = Vector.sub(bounds.max, bounds.min).length();
 
-        camera.target = center;
-
-        camera.radius = clamp(
-            diagonal * 1.8 || settings.value.radius,
-            settings.value.minRadius,
-            settings.value.maxRadius
+        cameraCore.orbit.setTarget(center);
+        cameraCore.orbit.setRadius(
+            clamp(diagonal * 1.8 || settings.value.radius, settings.value.minRadius, settings.value.maxRadius)
         );
-
-        camera.orthographicScale = clamp(
-            diagonal * 1.35 || settings.value.orthographicScale,
-            settings.value.minOrthographicScale,
-            settings.value.maxOrthographicScale
+        cameraCore.setOrthographicScale(
+            clamp(diagonal * 1.35 || settings.value.orthographicScale, settings.value.minOrthographicScale, settings.value.maxOrthographicScale)
         );
     };
 
     const toggleGrid = () => {
-        camera.backgroundGrid = camera.backgroundGrid === false;
+        cameraCore.backgroundGrid = cameraCore.backgroundGrid === false;
+        syncCameraState();
     };
 
     const normalizeKey = key => {
@@ -778,7 +710,7 @@ export function animatorModel(props, emit) {
         }
 
         if (event.code === "Numpad5" || event.code === "Digit5") {
-            setProjection(camera.projection === "perspective" ? "orthographic" : "perspective");
+            setProjection(cameraCore.projection === "perspective" ? "orthographic" : "perspective");
             stopNativeEvent(event);
             emitEvent("apply-key-down", event);
             return;
@@ -812,7 +744,6 @@ export function animatorModel(props, emit) {
         viewportRef.value = document.getElementById(animator.viewportId);
 
         mouse.init();
-
         updateViewportSize();
 
         if (typeof ResizeObserver !== "undefined" && viewportRef.value) {
@@ -853,6 +784,13 @@ export function animatorModel(props, emit) {
             nextTick(frameSelected);
         },
         { immediate: true }
+    );
+
+    watch(
+        () => createOrbitSettingsSignature(props.orbitSettings || props.settings || {}),
+        () => {
+            resetView();
+        }
     );
 
     onMounted(init);
