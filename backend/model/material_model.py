@@ -2514,6 +2514,7 @@ class MaterialModel(BaseModel):
             "direction_x": [{"x": 0, "y": 0}, {"x": 0.5, "y": 0}, {"x": 1, "y": 0}],
             "direction_y": [{"x": 0, "y": 1}, {"x": 0.5, "y": 1}, {"x": 1, "y": 1}],
             "direction_z": [{"x": 0, "y": 0}, {"x": 0.5, "y": 0}, {"x": 1, "y": 0}],
+            "rotation": [{"x": 0, "y": 0}, {"x": 0.5, "y": 0}, {"x": 1, "y": 0}],
         }
         interpolation_attributes = set(interpolation_defaults.keys())
         incoming_interpolations = data.get("interpolations", {})
@@ -2529,6 +2530,12 @@ class MaterialModel(BaseModel):
 
         def clamp_int(value, minimum, maximum, fallback=0):
             return int(clamp_value(value, minimum, maximum, fallback))
+
+        def positive_float(value, fallback=1):
+            try:
+                return max(0.001, float(value))
+            except (TypeError, ValueError):
+                return fallback
 
         lifetime_value = clamp_value(data.get("lifetime", 1), 0.1, 60, 1)
         path_follow_data = data.get("path_follow", {})
@@ -2553,7 +2560,15 @@ class MaterialModel(BaseModel):
                 if key == "alpha":
                     return clamp_value(value, 0, 1, 1)
                 if key in {"size_x", "size_y"}:
-                    return clamp_value(value, 0, 20, 1)
+                    try:
+                        return max(0, float(value))
+                    except (TypeError, ValueError):
+                        return 1
+                if key in {"direction_x", "direction_y", "direction_z", "rotation"}:
+                    try:
+                        return float(value)
+                    except (TypeError, ValueError):
+                        return 0
                 return clamp_value(value, -1000, 1000, 0)
 
             normalized = [
@@ -2651,17 +2666,17 @@ class MaterialModel(BaseModel):
             "root_animation": str(data.get("root_animation", "inner") or "inner")
             if str(data.get("root_animation", "inner") or "inner") in {"point", "inner", "outer"} else "inner",
             "texture_slot": str(active_layer.get("texture_slot", data.get("texture_slot", "baseColor")) or "baseColor"),
-            "count": clamp_int(data.get("count", 320), 1, 5000, 320),
+            "count": clamp_int(data.get("count", 30), 1, 5000, 30),
             "seed": clamp_int(data.get("seed", 1337), 1, 9999999, 1337),
             "lifetime": lifetime_value,
             "age": clamp_value(data.get("age", 1.2), 0, 60, 1.2),
             "time_scale": clamp_value(data.get("time_scale", 1), 0, 8, 1),
-            "size": clamp_value(data.get("size", 18), 1, 120, 18),
-            "radius": clamp_value(data.get("radius", 1), 0.001, 50, 1),
+            "size": clamp_value(data.get("size", 50), 1, 120, 50),
+            "radius": clamp_value(data.get("radius", 1), 0, 50, 1),
             "random_size": cls.safe_bool(data.get("random_size", data.get("randomSize", False))),
             "size_randomness": clamp_value(data.get("size_randomness", 0), 0, 1, 0),
-            "size_x": clamp_value(data.get("size_x", 1), 0.001, 20, 1),
-            "size_y": clamp_value(data.get("size_y", 1), 0.001, 20, 1),
+            "size_x": positive_float(data.get("size_x", 1), 1),
+            "size_y": positive_float(data.get("size_y", 1), 1),
             "alpha": clamp_value(data.get("alpha", 1), 0, 1, 1),
             "spread_x": clamp_value(data.get("spread_x", 1), 0.001, 20, 1),
             "spread_y": clamp_value(data.get("spread_y", 1), 0.001, 20, 1),

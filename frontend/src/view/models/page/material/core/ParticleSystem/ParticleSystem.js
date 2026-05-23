@@ -184,6 +184,7 @@ export class ParticleSystem {
         { key: "direction_x", label: "Direction X", defaultValue: 0 },
         { key: "direction_y", label: "Direction Y", defaultValue: 1 },
         { key: "direction_z", label: "Direction Z", defaultValue: 0 },
+        { key: "rotation", label: "Rotation", defaultValue: 0 },
     ]);
 
     static DEFAULT_INTERPOLATIONS = Object.freeze(
@@ -209,12 +210,12 @@ export class ParticleSystem {
         emitter: "volume",
         root_animation: "inner",
         texture_slot: "baseColor",
-        count: 320,
+        count: 30,
         seed: 1337,
         lifetime: 1,
         age: 1.2,
         time_scale: 1,
-        size: 18,
+        size: 50,
         radius: 1,
         random_size: false,
         size_randomness: 0,
@@ -299,11 +300,11 @@ export class ParticleSystem {
             age: clamp(source.age, 0, 60),
             time_scale: clamp(source.time_scale, 0, 8),
             size: clamp(source.size, 1, 120),
-            radius: clamp(source.radius, 0.001, 50),
+            radius: clamp(source.radius, 0, 50),
             random_size: source.random_size === true || source.randomSize === true,
             size_randomness: clamp(source.size_randomness, 0, 1),
-            size_x: clamp(source.size_x, 0.001, 20),
-            size_y: clamp(source.size_y, 0.001, 20),
+            size_x: Math.max(Number(source.size_x) || 1, 0.001),
+            size_y: Math.max(Number(source.size_y) || 1, 0.001),
             alpha: clamp(source.alpha, 0, 1),
             spread_x: clamp(source.spread_x, 0.001, 20),
             spread_y: clamp(source.spread_y, 0.001, 20),
@@ -506,7 +507,16 @@ export class ParticleSystem {
             const directionX = ParticleSystem.evaluateInterpolation(config.interpolations, "direction_x", lifeTime, config.direction_x, config.lifetime);
             const directionY = ParticleSystem.evaluateInterpolation(config.interpolations, "direction_y", lifeTime, config.direction_y || 1, config.lifetime);
             const directionZ = ParticleSystem.evaluateInterpolation(config.interpolations, "direction_z", lifeTime, config.direction_z, config.lifetime);
-            const direction = normalizeDirection(directionX, directionY, directionZ);
+            const rotationValue = ParticleSystem.evaluateInterpolation(config.interpolations, "rotation", lifeTime, config.rotation, config.lifetime);
+            const baseDirection = normalizeDirection(directionX, directionY, directionZ);
+            const rotationRadians = rotationValue * Math.PI / 180;
+            const directionCos = Math.cos(rotationRadians);
+            const directionSin = Math.sin(rotationRadians);
+            const direction = normalizeDirection(
+                baseDirection.x * directionCos - baseDirection.y * directionSin,
+                baseDirection.x * directionSin + baseDirection.y * directionCos,
+                baseDirection.z
+            );
             const pathPoint = ParticleSystem.evaluatePathFollow(config.path_follow, lifeTime);
             const meshPosition = useMesh ? sampleMeshPosition(mesh, rand) : null;
             const theta = rand() * Math.PI * 2;

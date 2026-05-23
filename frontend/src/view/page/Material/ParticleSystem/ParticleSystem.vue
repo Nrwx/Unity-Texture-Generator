@@ -30,6 +30,7 @@
               :class="{ active: activeColorRampStop?.id === stop.id }"
               :style="colorRampMarkerStyle(stop)"
               @click.stop="selectColorRampStop(stop.id)"
+              @pointerdown.stop="startColorRampStopDrag($event, stop.id)"
               @contextmenu.stop.prevent="removeColorRampStop(stop.id)"
           />
         </button>
@@ -169,9 +170,7 @@
       </div>
 
       <div class="mem-geometry-vector">
-        <v-text-field :model-value="state.particleSystem.size_x" label="Size X" type="number" density="compact" hide-details @update:model-value="setParticleNumber('size_x', $event)" />
-        <v-text-field :model-value="state.particleSystem.size_y" label="Size Y" type="number" density="compact" hide-details @update:model-value="setParticleNumber('size_y', $event)" />
-        <v-text-field :model-value="state.particleSystem.radius" label="Radius" type="number" density="compact" hide-details @update:model-value="setParticleNumber('radius', $event)" />
+        <v-text-field :model-value="state.particleSystem.radius" label="Radius" type="number" :min="0" density="compact" hide-details @update:model-value="setParticleNumber('radius', $event)" />
       </div>
 
     </section>
@@ -261,11 +260,27 @@
         </v-btn>
       </header>
 
-      <div class="mem-particle-path-layout">
+      <v-btn-toggle
+          :model-value="state.pathGridMode"
+          density="compact"
+          class="mem-particle-path-toggle"
+          mandatory
+          @update:model-value="setPathGridMode"
+      >
+        <v-btn
+            v-for="item in pathGridModes"
+            :key="item.value"
+            :value="item.value"
+        >
+          {{ item.title }}
+        </v-btn>
+      </v-btn-toggle>
+
+      <div class="mem-particle-path-layout" :class="{ 'all-views': state.pathGridMode === 'all' }">
         <div class="mem-particle-path-views">
           <div class="mem-particle-path-view timebar">
             <strong>Time</strong>
-            <svg viewBox="0 0 100 24" preserveAspectRatio="xMidYMid meet" @pointerdown="addPathPoint($event, 'time')">
+            <svg viewBox="0 0 100 24" preserveAspectRatio="none" @pointerdown="addPathPoint($event, 'time')">
               <rect x="0" y="0" width="100" height="24" />
               <line x1="0" y1="12" x2="100" y2="12" />
               <polyline :points="pathTimePolyline" />
@@ -283,50 +298,44 @@
             </svg>
           </div>
 
-          <div class="mem-particle-path-view">
-            <strong>Side</strong>
-            <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" @pointerdown="addPathPoint($event, 'side')">
-              <rect x="0" y="0" width="100" height="100" />
-              <line x1="50" y1="0" x2="50" y2="100" />
-              <line x1="0" y1="50" x2="100" y2="50" />
-              <polyline :points="pathSidePolyline" />
-              <circle
-                  v-for="point in pathFollowPoints"
-                  :key="`side-${point.id}`"
-                  :cx="50 + (point.translate?.x || 0) * 24"
-                  :cy="50 - (point.translate?.y || 0) * 24"
-                  r="3"
-                  :class="{ active: activePathPoint?.id === point.id }"
-                  @click.stop="setActivePathPoint(point.id)"
-                  @pointerdown.stop="startPathPointDrag($event, point.id, 'side')"
-                  @contextmenu.stop.prevent="handlePathPointContext($event, point.id)"
+          <div
+              v-for="(view, index) in pathViewItems"
+              :key="`path-view-${index}-${view.key}`"
+              class="mem-particle-path-view"
+          >
+            <header class="mem-particle-path-view-header">
+              <strong>{{ view.label }}</strong>
+              <v-select
+                  v-if="state.pathGridMode === 'normal'"
+                  :model-value="view.key"
+                  :items="pathViewOptions"
+                  density="compact"
+                  hide-details
+                  variant="outlined"
+                  @update:model-value="setPathViewSlot(index, $event)"
               />
-            </svg>
-          </div>
-
-          <div class="mem-particle-path-view">
-            <strong>Top</strong>
-            <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" @pointerdown="addPathPoint($event, 'top')">
+            </header>
+            <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
               <rect x="0" y="0" width="100" height="100" />
               <line x1="50" y1="0" x2="50" y2="100" />
               <line x1="0" y1="50" x2="100" y2="50" />
-              <polyline :points="pathTopPolyline" />
+              <polyline :points="pathViewPolyline(view.key)" />
               <circle
                   v-for="point in pathFollowPoints"
-                  :key="`top-${point.id}`"
-                  :cx="50 + (point.translate?.x || 0) * 24"
-                  :cy="50 - (point.translate?.z || 0) * 24"
+                  :key="`${view.key}-${point.id}`"
+                  :cx="pathViewPoint(point, view.key).x"
+                  :cy="pathViewPoint(point, view.key).y"
                   r="3"
                   :class="{ active: activePathPoint?.id === point.id }"
                   @click.stop="setActivePathPoint(point.id)"
-                  @pointerdown.stop="startPathPointDrag($event, point.id, 'top')"
+                  @pointerdown.stop="startPathPointDrag($event, point.id, view.key)"
                   @contextmenu.stop.prevent="handlePathPointContext($event, point.id)"
               />
             </svg>
           </div>
         </div>
 
-        <div class="mem-particle-path-list">
+        <div v-if="state.pathGridMode !== 'all'" class="mem-particle-path-list">
           <button
               v-for="point in pathFollowPoints"
               :key="point.id"
@@ -342,7 +351,7 @@
         </div>
       </div>
 
-      <div v-if="activePathPoint" class="mem-particle-path-editor">
+      <div v-if="activePathPoint && state.pathGridMode !== 'all'" class="mem-particle-path-editor">
         <v-text-field v-for="axis in ['x','y','z']" :key="`tr-${axis}`" :model-value="activePathPoint.translate?.[axis]" :label="axis.toUpperCase()" type="number" density="compact" hide-details @update:model-value="updatePathPoint(activePathPoint.id, 'translate', axis, $event)" />
       </div>
     </section>

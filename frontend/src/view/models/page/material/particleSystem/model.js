@@ -64,10 +64,30 @@ const normalizeColorRampStop = (stop = {}, index = 0) => ({
     color: Array.isArray(stop.color) ? stop.color : [1, 1, 1, 1],
 });
 const INTERPOLATION_RANGES = Object.freeze({
-    alpha: { min: 0, max: 1, step: 0.01, label: "Alpha 0-1" },
-    size_x: { min: 0, max: 20, step: 0.01, label: "Size X" },
-    size_y: { min: 0, max: 20, step: 0.01, label: "Size Y" },
+    alpha: { min: 0, max: 1, visualMax: 1, step: 0.01, label: "Alpha 0-1" },
+    size_x: { min: 0, max: null, visualMin: 0, visualMax: 100, step: 0.01, label: "Size X" },
+    size_y: { min: 0, max: null, visualMin: 0, visualMax: 100, step: 0.01, label: "Size Y" },
+    direction_x: { min: null, max: null, visualMin: -100, visualMax: 100, step: 1, label: "Direction X" },
+    direction_y: { min: null, max: null, visualMin: -100, visualMax: 100, step: 1, label: "Direction Y" },
+    direction_z: { min: null, max: null, visualMin: -100, visualMax: 100, step: 1, label: "Direction Z" },
+    rotation: { min: null, max: null, visualMin: -360, visualMax: 360, step: 1, label: "Rotation" },
 });
+const PATH_GRID_MODES = Object.freeze([
+    { title: "Normal", value: "normal" },
+    { title: "Alle", value: "all" },
+]);
+const PATH_VIEW_DEFINITIONS = Object.freeze({
+    top: { key: "top", label: "Top", horizontal: "x", vertical: "z", hSign: 1, vSign: -1 },
+    bottom: { key: "bottom", label: "Bottom", horizontal: "x", vertical: "z", hSign: 1, vSign: 1 },
+    left: { key: "left", label: "Left", horizontal: "z", vertical: "y", hSign: -1, vSign: -1 },
+    right: { key: "right", label: "Right", horizontal: "z", vertical: "y", hSign: 1, vSign: -1 },
+    front: { key: "front", label: "Front", horizontal: "x", vertical: "y", hSign: 1, vSign: -1 },
+    back: { key: "back", label: "Back", horizontal: "x", vertical: "y", hSign: -1, vSign: -1 },
+});
+const PATH_VIEW_OPTIONS = Object.freeze(Object.values(PATH_VIEW_DEFINITIONS).map(view => ({
+    title: view.label,
+    value: view.key,
+})));
 
 export const particleSystemModelProps = {
     particleSystem: {
@@ -93,6 +113,9 @@ export function particleSystemModel(props, emit) {
         interpolationDrag: null,
         layerDragId: "",
         activeColorRampStopId: "",
+        colorRampDrag: null,
+        pathGridMode: "normal",
+        pathViewSlots: ["left", "top"],
     });
 
     watch(
@@ -209,12 +232,18 @@ export function particleSystemModel(props, emit) {
     const pathTimePolyline = computed(() => pathFollowPoints.value
         .map(point => `${(point.t / lifetimeWidth.value) * 100},12`)
         .join(" "));
-    const pathSidePolyline = computed(() => pathFollowPoints.value
-        .map(point => `${50 + (point.translate?.x || 0) * 24},${50 - (point.translate?.y || 0) * 24}`)
-        .join(" "));
-    const pathTopPolyline = computed(() => pathFollowPoints.value
-        .map(point => `${50 + (point.translate?.x || 0) * 24},${50 - (point.translate?.z || 0) * 24}`)
-        .join(" "));
+    const pathViewItems = computed(() => (
+        state.pathGridMode === "all"
+            ? [
+                PATH_VIEW_DEFINITIONS.top,
+                PATH_VIEW_DEFINITIONS.bottom,
+                PATH_VIEW_DEFINITIONS.left,
+                PATH_VIEW_DEFINITIONS.right,
+                PATH_VIEW_DEFINITIONS.front,
+                PATH_VIEW_DEFINITIONS.back,
+            ]
+            : state.pathViewSlots.map(key => PATH_VIEW_DEFINITIONS[key] || PATH_VIEW_DEFINITIONS.top)
+    ));
     const particleLayers = computed(() => state.particleSystem.layers || []);
     const activeParticleLayer = computed(() => (
         particleLayers.value.find(layer => layer.id === state.particleSystem.active_layer_id) ||
@@ -263,7 +292,7 @@ export function particleSystemModel(props, emit) {
             state.particleSystem.interpolations[attribute] = state.particleSystem.interpolations[attribute]
                 .map(point => ({
                     ...point,
-                    y: clampValue(point.y, range.min, range.max),
+                    y: clampInterpolationValue(attribute, point.y),
                 }));
         }
 
@@ -275,9 +304,16 @@ export function particleSystemModel(props, emit) {
         const x = Math.min(Math.max((event.clientX - rect.left) / Math.max(rect.width, 1), 0), 1) * lifetimeWidth.value;
         const rawRatio = Math.min(Math.max((event.clientY - rect.top) / Math.max(rect.height, 1), 0), 1);
         const range = INTERPOLATION_RANGES[state.interpolationAttribute];
-        const y = range
-            ? Math.round((range.min + (1 - rawRatio) * (range.max - range.min)) * 1000) / 1000
-            : clampValue((0.5 - rawRatio) * 100, -50, 50);
+
+        if (range) {
+            const visualMin = range.visualMin ?? range.min ?? 0;
+            const visualMax = range.visualMax ?? range.max ?? 1;
+            const y = visualMin + (1 - rawRatio) * (visualMax - visualMin);
+
+            return { x, y: Math.round(y * 1000) / 1000 };
+        }
+
+        const y = clampValue((0.5 - rawRatio) * 100, -50, 50);
 
         return { x, y };
     };
@@ -286,7 +322,9 @@ export function particleSystemModel(props, emit) {
         const range = INTERPOLATION_RANGES[state.interpolationAttribute];
 
         if (range) {
-            const amount = (clampValue(point?.y, range.min, range.max) - range.min) / Math.max(range.max - range.min, 0.00001);
+            const visualMin = range.visualMin ?? range.min ?? 0;
+            const visualMax = range.visualMax ?? range.max ?? 1;
+            const amount = (clampValue(point?.y, visualMin, visualMax) - visualMin) / Math.max(visualMax - visualMin, 0.00001);
             return 100 - amount * 100;
         }
 
@@ -296,9 +334,23 @@ export function particleSystemModel(props, emit) {
     const clampInterpolationValue = (attribute, value) => {
         const range = INTERPOLATION_RANGES[attribute];
 
-        return range
-            ? clampValue(value, range.min, range.max)
-            : value;
+        if (!range) {
+            return value;
+        }
+
+        const number = toNumber(value);
+
+        if (range.min !== null && range.min !== undefined && (range.max === null || range.max === undefined)) {
+            return Math.max(range.min, number);
+        }
+
+        if (range.min === null || range.min === undefined) {
+            return range.max === null || range.max === undefined
+                ? number
+                : Math.min(range.max, number);
+        }
+
+        return clampValue(number, range.min, range.max);
     };
 
     const updateInterpolationPoint = (attribute, index, point) => {
@@ -325,13 +377,21 @@ export function particleSystemModel(props, emit) {
 
         updateInterpolationPoint(attribute, index, {
             ...current,
-            y: clampInterpolationValue(attribute, clampValue(value, -1000, 1000)),
+            y: clampInterpolationValue(
+                attribute,
+                INTERPOLATION_RANGES[attribute] ? value : clampValue(value, -1000, 1000)
+            ),
         });
         emitParticleSystem({ restart: true });
     };
 
     const interpolationInputRange = computed(() => (
-        INTERPOLATION_RANGES[state.interpolationAttribute] || {
+        INTERPOLATION_RANGES[state.interpolationAttribute]
+            ? {
+                ...INTERPOLATION_RANGES[state.interpolationAttribute],
+                max: INTERPOLATION_RANGES[state.interpolationAttribute].max ?? undefined,
+            }
+            : {
             min: undefined,
             max: undefined,
             step: 1,
@@ -518,6 +578,11 @@ export function particleSystemModel(props, emit) {
         emitParticleSystem({ restart: true });
     };
 
+    const pointerToColorRampT = (event, target) => {
+        const rect = target.getBoundingClientRect();
+        return Math.round(clamp01((event.clientX - rect.left) / Math.max(rect.width, 1)) * 1000) / 1000;
+    };
+
     const addColorRampStopAt = event => {
         if (event.button !== 0) {
             return;
@@ -537,6 +602,46 @@ export function particleSystemModel(props, emit) {
 
     const selectColorRampStop = stopId => {
         state.activeColorRampStopId = stopId;
+    };
+
+    const moveColorRampStop = event => {
+        if (!state.colorRampDrag) {
+            return;
+        }
+
+        const { stopId, target } = state.colorRampDrag;
+        const t = pointerToColorRampT(event, target);
+        state.particleSystem.color_ramp = colorRampStops.value
+            .map(stop => stop.id === stopId ? { ...stop, t } : stop)
+            .sort((a, b) => a.t - b.t);
+    };
+
+    const stopColorRampDrag = () => {
+        if (!state.colorRampDrag) {
+            return;
+        }
+
+        state.colorRampDrag = null;
+        window.removeEventListener("pointermove", moveColorRampStop);
+        window.removeEventListener("pointerup", stopColorRampDrag);
+        emitParticleSystem({ restart: true });
+    };
+
+    const startColorRampStopDrag = (event, stopId) => {
+        if (event.button !== 0) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        state.activeColorRampStopId = stopId;
+        state.colorRampDrag = {
+            stopId,
+            target: event.currentTarget.closest(".mem-particle-gradient-bar"),
+        };
+        moveColorRampStop(event);
+        window.addEventListener("pointermove", moveColorRampStop);
+        window.addEventListener("pointerup", stopColorRampDrag);
     };
 
     const updateColorRampStop = patch => {
@@ -676,6 +781,79 @@ export function particleSystemModel(props, emit) {
         emitParticleSystem({ restart: true });
     };
 
+    const getPathViewDefinition = view => PATH_VIEW_DEFINITIONS[view] || PATH_VIEW_DEFINITIONS.top;
+
+    const pathViewPoint = (point, view) => {
+        const definition = getPathViewDefinition(view);
+        const translate = point?.translate || {};
+        const x = 50 + (Number(translate[definition.horizontal]) || 0) * definition.hSign * 24;
+        const y = 50 + (Number(translate[definition.vertical]) || 0) * definition.vSign * 24;
+
+        return { x, y };
+    };
+
+    const pathViewPolyline = view => pathFollowPoints.value
+        .map(point => {
+            const projected = pathViewPoint(point, view);
+            return `${projected.x},${projected.y}`;
+        })
+        .join(" ");
+
+    const interpolatePathTranslateAt = (points, time) => {
+        const sorted = (Array.isArray(points) ? points : [])
+            .map(point => ({
+                ...point,
+                t: clampValue(point?.t, 0, lifetimeWidth.value),
+                translate: {
+                    x: toNumber(point?.translate?.x),
+                    y: toNumber(point?.translate?.y),
+                    z: toNumber(point?.translate?.z),
+                },
+            }))
+            .sort((a, b) => a.t - b.t);
+
+        if (!sorted.length) {
+            return { x: 0, y: 0, z: 0 };
+        }
+
+        if (time <= sorted[0].t || sorted.length === 1) {
+            return { ...sorted[0].translate };
+        }
+
+        for (let index = 1; index < sorted.length; index += 1) {
+            const previous = sorted[index - 1];
+            const next = sorted[index];
+
+            if (time > next.t) {
+                continue;
+            }
+
+            const amount = (time - previous.t) / Math.max(next.t - previous.t, 0.00001);
+
+            return {
+                x: previous.translate.x + (next.translate.x - previous.translate.x) * amount,
+                y: previous.translate.y + (next.translate.y - previous.translate.y) * amount,
+                z: previous.translate.z + (next.translate.z - previous.translate.z) * amount,
+            };
+        }
+
+        return { ...sorted[sorted.length - 1].translate };
+    };
+
+    const setPathGridMode = value => {
+        state.pathGridMode = ["normal", "all"].includes(value) ? value : "normal";
+    };
+
+    const setPathViewSlot = (index, value) => {
+        const nextView = PATH_VIEW_DEFINITIONS[value] ? value : "top";
+        const nextSlots = Array.isArray(state.pathViewSlots) && state.pathViewSlots.length === 2
+            ? [...state.pathViewSlots]
+            : ["left", "top"];
+
+        nextSlots[index === 1 ? 1 : 0] = nextView;
+        state.pathViewSlots = nextSlots;
+    };
+
     const pointerToPathPoint = (event, target, view = "side") => {
         const rect = target.getBoundingClientRect();
         const t = Math.min(Math.max((event.clientX - rect.left) / Math.max(rect.width, 1), 0), 1) * lifetimeWidth.value;
@@ -693,25 +871,17 @@ export function particleSystemModel(props, emit) {
             };
         }
 
-        if (view === "top") {
-            return {
-                t,
-                translate: {
-                    x: horizontal * 2,
-                    y: activePathPoint.value?.translate?.y || 0,
-                    z: vertical * 2,
-                },
-            };
-        }
-
-        return {
-            t,
-            translate: {
-                x: horizontal * 2,
-                y: vertical * 2,
-                z: activePathPoint.value?.translate?.z || 0,
-            },
+        const definition = getPathViewDefinition(view);
+        const translate = {
+            x: activePathPoint.value?.translate?.x || 0,
+            y: activePathPoint.value?.translate?.y || 0,
+            z: activePathPoint.value?.translate?.z || 0,
         };
+
+        translate[definition.horizontal] = horizontal * 2 / definition.hSign;
+        translate[definition.vertical] = vertical * 2 / -definition.vSign;
+
+        return { t, translate };
     };
 
     const pointerToPathTime = (event, target) => {
@@ -736,23 +906,14 @@ export function particleSystemModel(props, emit) {
                     };
                 }
 
-                if (view === "top") {
-                    return {
-                        ...point,
-                        translate: {
-                            ...(point.translate || {}),
-                            x: pointData.translate.x,
-                            z: pointData.translate.z,
-                        },
-                    };
-                }
+                const definition = getPathViewDefinition(view);
 
                 return {
                     ...point,
                     translate: {
                         ...(point.translate || {}),
-                        x: pointData.translate.x,
-                        y: pointData.translate.y,
+                        [definition.horizontal]: pointData.translate[definition.horizontal],
+                        [definition.vertical]: pointData.translate[definition.vertical],
                     },
                 };
             })
@@ -803,15 +964,16 @@ export function particleSystemModel(props, emit) {
         }
 
         const path = ensurePathFollow();
+        if (view !== "time") {
+            return;
+        }
+
         const point = pointerToPathPoint(event, event.currentTarget, view);
-        const lastTime = path.points.reduce((value, item) => Math.max(value, Number(item.t) || 0), 0);
-        const nextTime = view === "time"
-            ? point.t
-            : clampValue(lastTime + lifetimeWidth.value / Math.max(path.points.length + 1, 1), 0, lifetimeWidth.value);
+        const nextTime = point.t;
         const nextPoint = {
             id: `path-point-${Date.now()}`,
             t: nextTime,
-            translate: point.translate,
+            translate: interpolatePathTranslateAt(path.points, nextTime),
         };
 
         path.points = [...path.points, nextPoint].sort((a, b) => a.t - b.t);
@@ -848,6 +1010,8 @@ export function particleSystemModel(props, emit) {
         particleRootAnimationOptions: PARTICLE_ROOT_ANIMATION_OPTIONS,
         particleBlendOptions: PARTICLE_BLEND_OPTIONS,
         particleInterpolationAttributes: PARTICLE_INTERPOLATION_ATTRIBUTES,
+        pathGridModes: PATH_GRID_MODES,
+        pathViewOptions: PATH_VIEW_OPTIONS,
         colorRampStops,
         colorRampStyle,
         activeColorRampStop,
@@ -860,8 +1024,9 @@ export function particleSystemModel(props, emit) {
         pathFollowPoints,
         activePathPoint,
         pathTimePolyline,
-        pathSidePolyline,
-        pathTopPolyline,
+        pathViewItems,
+        pathViewPoint,
+        pathViewPolyline,
         particleLayers,
         activeParticleLayer,
         textureLayerOptions,
@@ -871,6 +1036,7 @@ export function particleSystemModel(props, emit) {
         setParticleColor,
         addColorRampStopAt,
         selectColorRampStop,
+        startColorRampStopDrag,
         updateColorRampStop,
         removeColorRampStop,
         setInterpolationAttribute,
@@ -881,6 +1047,8 @@ export function particleSystemModel(props, emit) {
         handleInterpolationContext,
         resetInterpolation,
         setPathFollowEnabled,
+        setPathGridMode,
+        setPathViewSlot,
         setActivePathPoint,
         setActiveParticleLayer,
         addParticleLayer,
