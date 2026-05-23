@@ -44,5 +44,11 @@
       border-color: rgba(97, 230, 255, 0.34);
       box-shadow: 0 0 18px rgba(97, 230, 255, 0.10);
     }
+    &.default {
+      color: rgba(165, 232, 255, 0.82) !important;
+      border-color: rgba(97, 230, 255, 0.18) !important;
+      background: rgba(97, 230, 255, 0.045) !important;
+      box-shadow: 0 0 18px rgba(97, 230, 255, 0.06) !important;
+    }
   }
 }

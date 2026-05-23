@@ -1,19 +1,33 @@
 <template>
-  <div ref="tr" :id="trId" class="scrollbar-track" :data-active="active">
-    <div ref="th" :id="thId" class="scrollbar-thumb" :class="{ wave: 'wave' }"></div>
+  <div
+      ref="tr"
+      :id="trId"
+      class="scrollbar-track"
+      :class="mode"
+      :data-active="active"
+  >
+    <div
+        ref="th"
+        :id="thId"
+        class="scrollbar-thumb"
+        :class="[mode, { wave: wave, waveActive: wvActive }]"
+    ></div>
   </div>
 </template>
 
 <script>
 import { defineComponent } from "vue";
-import {scrollbarModel, scrollbarProps} from "@/models/scrollbar/model";
+import { scrollbarModel, scrollbarProps } from "@/models/scrollbar/model";
 
 export default defineComponent({
   name: "ScrollbarComponent",
   props: scrollbarProps,
   setup(props, { emit }) {
     const model = scrollbarModel(props, emit);
-    return { ...model };
+
+    return {
+      ...model,
+    };
   },
 });
 </script>

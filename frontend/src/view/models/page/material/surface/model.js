@@ -1,6 +1,8 @@
-import {computed, reactive, ref, watch} from "vue";
+import { computed, ref } from "vue";
 import { colorArrayToHex, hexToRgbaArray } from "@/utils/color";
 import { Node } from "@/view/models/page/material/core/Node/Node";
+import { clone, hasChanged } from "@/utils/tools";
+import { uuid } from "@/utils/uuid";
 
 export const SURFACE_FIELDS = Object.freeze([
     { key: "baseColor", label: "Base Color", type: "color" },
@@ -230,24 +232,6 @@ export const createBitmapMaps = () => {
     }, /** @type {Record<string, any>} */ ({}));
 };
 
-const cloneData = value => {
-    try {
-        return JSON.parse(JSON.stringify(value));
-    } catch (_error) {
-        return value;
-    }
-};
-
-const normalizeSurface = surface => ({
-    ...createSurface(),
-    ...(surface || {}),
-});
-
-const normalizeBitmapMaps = bitmapMaps => ({
-    ...createBitmapMaps(),
-    ...(bitmapMaps || {}),
-});
-
 const isBitmapSlotConnected = slot => {
     return Boolean(
         slot?.enabled ||
@@ -257,10 +241,6 @@ const isBitmapSlotConnected = slot => {
         slot?.source_type === "shader" ||
         slot?.source_type === "multitexture"
     );
-};
-
-const isSameSurfaceValue = (a, b) => {
-    return JSON.stringify(a) === JSON.stringify(b);
 };
 
 export const surfaceEditorProps = {
@@ -285,93 +265,67 @@ export const surfaceEditorProps = {
     },
 };
 
-export const surfaceEditorEmits = [
-    "update:name",
-    "update:surface",
-    "update:bitmapMaps",
-    "assign-texture-slot",
-    "clear-texture-slot",
-    "change",
-];
-
 export function surfaceEditorModel(props, emit) {
-
-    const state = reactive({
-        name: props.name || "",
-        surface: normalizeSurface(props.surface),
-        bitmapMaps: normalizeBitmapMaps(props.bitmapMaps),
-    });
-
+    const selectedLayer = ref(null);
     const surfaceGroups = computed(() => PRINCIPLED_SURFACE_GROUPS);
     const textureChannelOptions = computed(() => TEXTURE_CHANNEL_OPTIONS);
     const textureColorModeOptions = computed(() => TEXTURE_COLOR_MODE_OPTIONS);
+    const visibleSurfaceSlotKeys = computed(() => {return surfaceGroups.value.map(group => group.key);});
+    const totalSurfaceSlots = computed(() => {return visibleSurfaceSlotKeys.value.length;});
+    const connectedSurfaceSlotKeys = computed(() => {return visibleSurfaceSlotKeys.value.filter(key => {return isBitmapSlotConnected(props.bitmapMaps[key]);});});
+    const connectedSurfaceSlots = computed(() => {return connectedSurfaceSlotKeys.value.length;});
+    const availableTextureLayers = computed(() => {return props.textureLayers?.length || 0;});
+    const colorSlotKeys = computed(() => {return surfaceGroups.value.filter(group => group.field?.type === "color").map(group => group.key);});
+    const connectedColorSlots = computed(() => {return colorSlotKeys.value.filter(key => {return isBitmapSlotConnected(props.bitmapMaps[key]);}).length;});
+    const factorSlotKeys = computed(() => {return surfaceGroups.value.filter(group => group.field?.type === "number").map(group => group.key);});
+    const connectedFactorSlots = computed(() => {return factorSlotKeys.value.filter(key => {return isBitmapSlotConnected(props.bitmapMaps[key]);}).length;});
+    const nodeTextureSlots = computed(() => {return visibleSurfaceSlotKeys.value.filter(key => {const slot = props.bitmapMaps[key];return (slot?.source_type === "shader" || slot?.source_type === "multitexture");}).length;});
+    const changedSurfaceValues = computed(() => {const defaults = createSurface();return visibleSurfaceSlotKeys.value.filter(key => {return !hasChanged(props.surface[key], defaults[key]);}).length;});
 
-    const visibleSurfaceSlotKeys = computed(() => {
-        return surfaceGroups.value.map(group => group.key);
-    });
-
-    const totalSurfaceSlots = computed(() => {
-        return visibleSurfaceSlotKeys.value.length;
-    });
-
-    const connectedSurfaceSlotKeys = computed(() => {
-        return visibleSurfaceSlotKeys.value.filter(key => {
-            return isBitmapSlotConnected(state.bitmapMaps[key]);
-        });
-    });
-
-    const connectedSurfaceSlots = computed(() => {
-        return connectedSurfaceSlotKeys.value.length;
-    });
-
-    const availableTextureLayers = computed(() => {
+    const textureImageCount = computed(() => {
         return props.textureLayers?.length || 0;
     });
 
-    const colorSlotKeys = computed(() => {
-        return surfaceGroups.value
-            .filter(group => group.field?.type === "color")
-            .map(group => group.key);
+    const selectedTextureImage = computed(() => {
+        return selectedLayer.value;
     });
 
-    const connectedColorSlots = computed(() => {
-        return colorSlotKeys.value.filter(key => {
-            return isBitmapSlotConnected(state.bitmapMaps[key]);
-        }).length;
+    const hasSelectedTextureImage = computed(() => {
+        return Boolean(selectedTextureImage.value);
     });
 
-    const factorSlotKeys = computed(() => {
-        return surfaceGroups.value
-            .filter(group => group.field?.type === "number")
-            .map(group => group.key);
+    const textureImageHeaderMessage = computed(() => {
+        if (!textureImageCount.value) {
+            return "Keine Texturen";
+        }
+
+        if (!selectedTextureImage.value) {
+            return `${textureImageCount.value} Texturen`;
+        }
+
+        const width =
+            selectedTextureImage.value.width ||
+            selectedTextureImage.value.size?.width ||
+            selectedTextureImage.value.image?.width;
+
+        const height =
+            selectedTextureImage.value.height ||
+            selectedTextureImage.value.size?.height ||
+            selectedTextureImage.value.image?.height;
+
+        if (!width || !height) {
+            return `${textureImageCount.value} Texturen`;
+        }
+
+        return `${width} × ${height}`;
     });
 
-    const connectedFactorSlots = computed(() => {
-        return factorSlotKeys.value.filter(key => {
-            return isBitmapSlotConnected(state.bitmapMaps[key]);
-        }).length;
-    });
-
-    const nodeTextureSlots = computed(() => {
-        return visibleSurfaceSlotKeys.value.filter(key => {
-            const slot = state.bitmapMaps[key];
-
-            return (
-                slot?.source_type === "shader" ||
-                slot?.source_type === "multitexture"
-            );
-        }).length;
-    });
-
-    const changedSurfaceValues = computed(() => {
-        const defaults = createSurface();
-
-        return visibleSurfaceSlotKeys.value.filter(key => {
-            return !isSameSurfaceValue(state.surface[key], defaults[key]);
-        }).length;
-    });
+    const emitEvent = (event, payload) => {
+        emit("update:component-event", event, payload);
+    };
 
     const ui = ref({
+        scrollbar: uuid('surface-scroll'),
         header: computed(() => [
             {
                 title: "Surface",
@@ -468,97 +422,96 @@ export function surfaceEditorModel(props, emit) {
                 duration: 7,
             },
         ]),
+        layers: {
+            scrollbar: uuid('surface-scroll'),
+            header: {
+                title: 'Texturen',
+                icon: 'mdi-image-move',
+                subtitle: computed(() => {return textureImageCount.value ? 'Textur per Drag & Drop einem Slot zuweisen' : 'Legen Sie zuerst eine Textur an';}),
+                chip: {
+                    state: hasSelectedTextureImage,
+                    message: {
+                        true: textureImageHeaderMessage,
+                        default: computed(() => {
+                            return textureImageCount.value
+                                ? `Verfügbar (${textureImageCount.value})`
+                                : '';
+                        }),
+                        false: 'Keine Texturen'
+                    }
+                }
+            },
+        }
     });
 
-    watch(
-        () => props.name,
-        value => {
-            if (value !== state.name) {
-                state.name = value || "";
-            }
-        }
-    );
-
-    watch(
-        () => props.surface,
-        value => {
-            state.surface = normalizeSurface(value);
-        },
-        { deep: true }
-    );
-
-    watch(
-        () => props.bitmapMaps,
-        value => {
-            state.bitmapMaps = normalizeBitmapMaps(value);
-        },
-        { deep: true }
-    );
-
     const emitName = () => {
-        emit("update:name", state.name);
+        emit("update:name", props.name);
         emit("change", {
-            name: state.name,
-            surface: cloneData(state.surface),
-            bitmapMaps: cloneData(state.bitmapMaps),
+            name: props.name,
+            surface: clone(props.surface, 'json'),
+            bitmapMaps: clone(props.bitmapMaps, 'json'),
         });
     };
 
     const emitSurface = () => {
-        emit("update:surface", cloneData(state.surface));
+        emit("update:surface", clone(props.surface, 'json'));
         emit("change", {
-            name: state.name,
-            surface: cloneData(state.surface),
-            bitmapMaps: cloneData(state.bitmapMaps),
+            name: props.name,
+            surface: clone(props.surface, 'json'),
+            bitmapMaps: clone(props.bitmapMaps, 'json'),
         });
     };
 
     const emitBitmapMaps = () => {
-        emit("update:bitmapMaps", cloneData(state.bitmapMaps));
+        emit("update:bitmapMaps", clone(props.bitmapMaps, 'json'));
         emit("change", {
-            name: state.name,
-            surface: cloneData(state.surface),
-            bitmapMaps: cloneData(state.bitmapMaps),
+            name: props.name,
+            surface: clone(props.surface, 'json'),
+            bitmapMaps: clone(props.bitmapMaps, 'json'),
         });
     };
 
     const setName = value => {
-        state.name = value || "";
+        props.name = value || "";
         emitName();
     };
 
+    const setLayer = item => {
+        selectedLayer.value = item || null;
+    };
+
     const setSurfaceValue = (slotKey, value) => {
-        state.surface[slotKey] = value;
+        props.surface[slotKey] = value;
         emitSurface();
     };
 
     const setVectorValue = (slotKey, index, value) => {
-        const current = Array.isArray(state.surface[slotKey])
-            ? [...state.surface[slotKey]]
+        const current = Array.isArray(props.surface[slotKey])
+            ? [...props.surface[slotKey]]
             : [0, 0, 0];
 
         current[index] = Number(value);
-        state.surface[slotKey] = current;
+        props.surface[slotKey] = current;
 
         emitSurface();
     };
 
     const getSurfaceColor = slotKey => {
-        return colorArrayToHex(state.surface[slotKey] || [1, 1, 1, 1]);
+        return colorArrayToHex(props.surface[slotKey] || [1, 1, 1, 1]);
     };
 
     const setSurfaceColor = (slotKey, value) => {
-        state.surface[slotKey] = hexToRgbaArray(value);
+        props.surface[slotKey] = hexToRgbaArray(value);
         emitSurface();
     };
 
     const getMapSlot = slotKey => {
-        return state.bitmapMaps[slotKey] || {};
+        return props.bitmapMaps[slotKey] || {};
     };
 
     const setMapSlotValue = (slotKey, key, value) => {
-        state.bitmapMaps[slotKey] = {
-            ...(state.bitmapMaps[slotKey] || {}),
+        props.bitmapMaps[slotKey] = {
+            ...(props.bitmapMaps[slotKey] || {}),
             [key]: value,
         };
 
@@ -571,19 +524,6 @@ export function surfaceEditorModel(props, emit) {
 
     const setSurfaceTextureSetting = (slotKey, key, value) => {
         setMapSlotValue(slotKey, key, value);
-    };
-
-    const isSurfaceSlotConnected = slotKey => {
-        const slot = getMapSlot(slotKey);
-
-        return Boolean(
-            slot.enabled ||
-            slot.url ||
-            slot.layer_id ||
-            slot.node_id ||
-            slot.source_type === "shader" ||
-            slot.source_type === "multitexture"
-        );
     };
 
     const getSurfaceSlotIcon = slotKey => {
@@ -645,7 +585,8 @@ export function surfaceEditorModel(props, emit) {
     };
 
     const clearMapSlot = slotKey => {
-        state.bitmapMaps[slotKey] = {
+        selectedLayer.value = null;
+        props.bitmapMaps[slotKey] = {
             ...createBitmapMaps()[slotKey],
         };
 
@@ -686,12 +627,12 @@ export function surfaceEditorModel(props, emit) {
 
     return {
         ui,
-        state,
-
+        selectedLayer,
         surfaceGroups,
         textureChannelOptions,
         textureColorModeOptions,
 
+        setLayer,
         setName,
         setSurfaceValue,
         setVectorValue,
@@ -705,12 +646,12 @@ export function surfaceEditorModel(props, emit) {
         handleLayerDragStart,
         handleMapDrop,
 
-        isSurfaceSlotConnected,
         getSurfaceSlotIcon,
         getSurfaceSlotLabel,
         getSurfaceSlotDetail,
 
         setSurfaceSlotChannel,
         setSurfaceTextureSetting,
+        emitEvent
     };
 }

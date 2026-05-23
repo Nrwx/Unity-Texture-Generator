@@ -19,6 +19,10 @@
   position: relative;
 }
 
+.d-grid {
+  display: grid !important;
+}
+
 .grid-center{
   display: grid !important;
   place-items: center !important;

@@ -232,7 +232,7 @@ export function materialEditorModel(props, emit) {
             return false;
         }
 
-        return [0, 2, 5].includes(Number(layer.type));
+        return [0, 2].includes(Number(layer.type));
     };
 
     const uvSelectedVertexCount = computed(() => (

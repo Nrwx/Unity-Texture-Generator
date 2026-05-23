@@ -20,13 +20,30 @@ export const store = (ref, property, storeKey) => {
     return ref;
 };
 
+export const CLONE_MODE = Object.freeze({
+    DEFAULT: "default",
+    JSON: "json",
+});
+
 /**
- * Creates a deep clone of a structured-clone-compatible value.
+ * Creates a deep clone of a value.
+ *
+ * By default, this utility keeps the previous behavior and uses
+ * `structuredClone` for structured-clone-compatible values.
+ *
+ * Use `CLONE_MODE.JSON` only for plain JSON-compatible data.
  *
  * @param {*} value - The value to clone.
+ * @param {"default"|"json"} [mode=CLONE_MODE.DEFAULT] - The clone strategy.
  * @returns {*} A deep-cloned value.
  */
-export const clone = (value) => structuredClone(value);
+export const clone = (value, mode = CLONE_MODE.DEFAULT) => {
+    if (mode === CLONE_MODE.JSON) {
+        return JSON.parse(JSON.stringify(value));
+    }
+
+    return structuredClone(value);
+};
 
 /**
  * Clamps a numeric value between a minimum and maximum boundary.

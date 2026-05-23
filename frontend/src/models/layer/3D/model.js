@@ -680,7 +680,6 @@ export function layer3DModel(props, emit) {
             ...clonePlain(material),
 
             surface: {
-                ...parsePlainObject(material.principled_bsdf),
                 ...parsePlainObject(material.surface),
                 ...parsePlainObject(layer?.surface),
             },

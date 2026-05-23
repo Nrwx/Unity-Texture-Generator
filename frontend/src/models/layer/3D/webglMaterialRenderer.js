@@ -1855,13 +1855,12 @@ export class WebGLMaterialRenderer {
             : Object.keys(FACE_DEFS).map(faceName => this.getOverlayMesh(faceName));
 
         overlays.forEach((overlay, index) => {
-
             if (showFaces) {
                 this.setUniforms(this.overlayProgram, {
                     uPointMode: 0,
                     uColor: index % 2 === 0
-                        ? [0.38, 0.90, 1.0, 0.22]
-                        : [0.72, 0.54, 1.0, 0.18],
+                        ? [0.38, 0.90, 1.0, 0.34]
+                        : [0.72, 0.54, 1.0, 0.30],
                 });
 
                 overlay.faceBuffer?.drawElements(
@@ -1877,26 +1876,29 @@ export class WebGLMaterialRenderer {
                     uColor: [0.38, 0.90, 1.0, 0.86],
                 });
 
-                overlay.faceBuffer?.drawElements(
-                    gl.TRIANGLES,
-                    overlay.faceMesh.count || overlay.faceBuffer.indexCount,
-                    0
+                // Fix: Wireframe muss über den Line-Buffer laufen,
+                // nicht über den Triangle/Face-Buffer.
+                overlay.lineBuffer?.drawArrays(
+                    gl.LINES,
+                    overlay.lineCount
                 );
             }
 
             if (showVertices) {
+                // Glow / Außenpunkt zuerst, größer und sichtbarer.
                 this.setUniforms(this.overlayProgram, {
                     uPointMode: 1,
-                    uPointSize: 5.5,
-                    uColor: [1.0, 1.0, 1.0, 0.96],
+                    uPointSize: 10.5,
+                    uColor: [0.38, 0.90, 1.0, 0.42],
                 });
 
                 overlay.pointBuffer?.drawArrays(gl.POINTS, overlay.pointCount);
 
+                // Heller Kern darüber.
                 this.setUniforms(this.overlayProgram, {
                     uPointMode: 1,
-                    uPointSize: 8.5,
-                    uColor: [0.38, 0.90, 1.0, 0.28],
+                    uPointSize: 6.25,
+                    uColor: [1.0, 1.0, 1.0, 1.0],
                 });
 
                 overlay.pointBuffer?.drawArrays(gl.POINTS, overlay.pointCount);

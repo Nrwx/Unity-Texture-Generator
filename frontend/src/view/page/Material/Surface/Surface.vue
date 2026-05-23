@@ -1,12 +1,12 @@
 <template>
   <HeaderStatusMetric :config="ui.header"/>
-
-  <div class="mem-section">
-    <div class="mem-name-card">
+  <div :id="ui.scrollbar" class="mem-section page-scrollbar d-grid ga-3 overflow-hidden overflow-y-auto">
+    <Scrollbar :target="ui.scrollbar" :pulse="true" @component-event="emitEvent"/>
+    <div class="mem-name-card w-100 d-grid ga-2 pa-3">
       <strong>Material Name</strong>
 
       <v-text-field
-          :model-value="state.name"
+          :model-value="name"
           label="Name"
           density="compact"
           hide-details
@@ -14,25 +14,15 @@
       />
     </div>
 
-    <div class="mem-layer-bank">
-      <header>
-        <strong>Bitmap Layers</strong>
-        <small>In einen Surface-Slot ziehen.</small>
-      </header>
-
-      <div class="mem-layer-bank-list">
-        <button
-            v-for="item in textureLayers"
-            :key="item.id"
-            type="button"
-            class="mem-layer-source-item"
-            draggable="true"
-            @dragstart="handleLayerDragStart($event, item)"
-        >
+    <div class="mem-layer-bank relative" @mouseleave="setLayer(null)">
+      <Header :config="ui.layers.header"/>
+      <div :id="ui.layers.scrollbar" class="overflow-x-auto mem-layer-bank-list menu-scrollbar">
+        <Scrollbar :target="ui.layers.scrollbar" :mode="'horizontal'" :pulse="true" @component-event="emitEvent"/>
+        <button v-for="item in textureLayers" :class="{ active: selectedLayer?.id === item.id }" :key="item.id" type="button" class="mem-layer-source-item" draggable="true" @click="setLayer(item)" @dragstart="handleLayerDragStart($event, item)">
           <span class="mem-layer-thumb">
             <v-img
-                v-if="item.masked || item.thumbnail || item.url || item.svg"
-                :src="item.masked || item.thumbnail || item.url || item.svg"
+                v-if="item?.thumbnail || item?.url"
+                :src="item?.thumbnail || item?.url"
                 :alt="item.name"
                 cover
             />
@@ -78,7 +68,7 @@
       <template v-else-if="group.field.type === 'vector3'">
         <div class="mem-vector-row">
           <v-text-field
-              :model-value="state.surface[group.key]?.[0]"
+              :model-value="surface[group.key]?.[0]"
               label="X"
               density="compact"
               hide-details
@@ -86,7 +76,7 @@
           />
 
           <v-text-field
-              :model-value="state.surface[group.key]?.[1]"
+              :model-value="surface[group.key]?.[1]"
               label="Y"
               density="compact"
               hide-details
@@ -94,7 +84,7 @@
           />
 
           <v-text-field
-              :model-value="state.surface[group.key]?.[2]"
+              :model-value="surface[group.key]?.[2]"
               label="Z"
               density="compact"
               hide-details
@@ -105,7 +95,7 @@
 
       <template v-else>
         <v-slider
-            :model-value="state.surface[group.key]"
+            :model-value="surface[group.key]"
             :min="group.field.min"
             :max="group.field.max"
             :step="group.field.step"
@@ -115,16 +105,12 @@
         />
       </template>
 
-      <div class="mem-surface-map-slot d-flex ga-2 align-center">
+      <div class="d-flex ga-2 align-center">
         <div class="w-70 d-flex ga-2 flex-wrap align-center">
           <button
               type="button"
               class="mem-map-pill w-100"
-              :class="{
-              active: isSurfaceSlotConnected(group.key),
-              multitexture: getMapSlot(group.key)?.source_type === 'multitexture',
-              shader: getMapSlot(group.key)?.source_type === 'shader'
-            }"
+              :class="{active: getMapSlot(group.key)?.enabled, multitexture: getMapSlot(group.key)?.source_type === 'multitexture',shader: getMapSlot(group.key)?.source_type === 'shader'}"
               @click="clearMapSlot(group.key)"
           >
             <v-icon size="15">
@@ -138,7 +124,7 @@
           </button>
         </div>
 
-        <div class="w-30 mem-surface-offset-sync d-flex ga-2 align-center flex-wrap">
+        <div class="w-30 d-flex ga-2 align-center flex-wrap">
           <v-select
               :model-value="getMapSlot(group.key)?.channel || 'rgba'"
               :items="textureChannelOptions"
@@ -164,17 +150,19 @@
 
 <script>
 import { defineComponent } from "vue";
-import {surfaceEditorEmits, surfaceEditorModel, surfaceEditorProps} from "@/view/models/page/material/surface/model";
+import {surfaceEditorModel, surfaceEditorProps} from "@/view/models/page/material/surface/model";
 import HeaderStatusMetric from "@/view/components/Header/Metric/Metric";
+import Scrollbar from "@/components/Scrollbar/Scrollbar.vue";
+import Header from "@/view/components/Header/Header";
 
 export default defineComponent({
   name: "SurfaceEditor",
-  components: {HeaderStatusMetric},
+  components: {HeaderStatusMetric, Scrollbar, Header},
   props: surfaceEditorProps,
-  emits: surfaceEditorEmits,
   setup(props, { emit }) {
+    const model = surfaceEditorModel(props, emit);
     return {
-      ...surfaceEditorModel(props, emit),
+      ...model
     };
   },
 });

@@ -316,7 +316,7 @@
             </button>
           </nav>
 
-          <div class="mem-view">
+          <div class="mem-view relative">
             <!-- SURFACE -->
             <Surface
                 v-if="ui.activeTab === 'surface'"
@@ -324,6 +324,7 @@
                 v-model:surface="values.surface"
                 v-model:bitmap-maps="values.bitmap_maps"
                 :texture-layers="textureLayers"
+                @update:component-event="emitEvent"
                 @assign-texture-slot="assignTextureSlotFromSurface"
                 @clear-texture-slot="clearTextureSlotFromSurface"
             />

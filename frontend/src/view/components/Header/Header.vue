@@ -12,10 +12,14 @@
     <section
         v-if="config.chip"
         class="d-inline-flex align-center ga-2 ml-auto mr-0"
-        :class="{ active: config.chip.state }"
+        :class="{
+          active: config.chip.state,
+          default: !config.chip.state && config.chip.message?.default && config.chip.message?.default !== ''
+        }"
     >
       <span class="overflow-hidden text-truncate" />
-      {{ config.chip.state ? config.chip.message?.true : config.chip.message?.false }}
+
+      {{config.chip.state ? config.chip.message?.true : !config.chip.state && config.chip.message?.default && config.chip.message?.default  !== '' ? config.chip.message.default : config.chip.message?.false }}
     </section>
   </div>
 </template>

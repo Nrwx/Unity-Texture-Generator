@@ -21,6 +21,8 @@ export function scrollbarModel(props, emit) {
     const hideDelay = 450;
     const isLoopRunning = ref(false);
 
+    const isHorizontal = () => props.mode === "horizontal";
+
     const emitEvent = (event, payload) =>
         emit("component-event", event, payload);
 
@@ -29,18 +31,52 @@ export function scrollbarModel(props, emit) {
         emitEvent
     );
 
+    const getClientSize = target => {
+        return isHorizontal()
+            ? target.clientWidth
+            : target.clientHeight;
+    };
+
+    const getScrollSize = target => {
+        return isHorizontal()
+            ? target.scrollWidth
+            : target.scrollHeight;
+    };
+
+    const getScrollPosition = target => {
+        return isHorizontal()
+            ? target.scrollLeft
+            : target.scrollTop;
+    };
+
+    const setScrollPosition = (target, value) => {
+        if (isHorizontal()) {
+            target.scrollLeft = value;
+            return;
+        }
+
+        target.scrollTop = value;
+    };
+
+    const getPointerDelta = event => {
+        return isHorizontal()
+            ? event.movementX
+            : event.movementY;
+    };
+
     /* -------------------------------------------------------
      * RAF LOOP
      * ----------------------------------------------------- */
     const startLoop = () => {
         if (isLoopRunning.value) return;
+
         isLoopRunning.value = true;
 
         const loop = () => {
             const now = performance.now();
 
             if (now - lastActivity.value > hideDelay) {
-                stopLoop(); // stop RAF first
+                stopLoop();
 
                 // Pulse end
                 if (props.pulse && th.value) {
@@ -65,31 +101,51 @@ export function scrollbarModel(props, emit) {
 
     const stopLoop = () => {
         if (rafId.value) cancelAnimationFrame(rafId.value);
+
         rafId.value = null;
         isLoopRunning.value = false;
     };
 
     const markActivity = () => {
         lastActivity.value = performance.now();
-        if (!isLoopRunning.value) startLoop();
+
+        if (!isLoopRunning.value) {
+            startLoop();
+        }
     };
 
     /* -------------------------------------------------------
      * THUMB UPDATE
      * ----------------------------------------------------- */
-    const updateThumb = (el) => {
-        if (!th.value || !el) return;
+    const updateThumb = target => {
+        if (!th.value || !target) return;
 
-        const ratio = el.clientHeight / el.scrollHeight;
-        const h = Math.max(ratio * 100, 8);
-        const maxScroll = el.scrollHeight - el.clientHeight;
+        const clientSize = getClientSize(target);
+        const scrollSize = getScrollSize(target);
+        const scrollPosition = getScrollPosition(target);
+        const maxScroll = scrollSize - clientSize;
 
-        const top = maxScroll > 0
-            ? (el.scrollTop / maxScroll) * (100 - h)
-            : 0;
+        if (maxScroll <= 0) {
+            active.value = false;
+            return;
+        }
 
-        th.value.style.height = h + "%";
-        th.value.style.top = top + "%";
+        const ratio = clientSize / scrollSize;
+        const size = Math.max(ratio * 100, 8);
+        const offset = (scrollPosition / maxScroll) * (100 - size);
+
+        if (isHorizontal()) {
+            th.value.style.width = `${size}%`;
+            th.value.style.left = `${offset}%`;
+            th.value.style.height = "";
+            th.value.style.top = "";
+            return;
+        }
+
+        th.value.style.height = `${size}%`;
+        th.value.style.top = `${offset}%`;
+        th.value.style.width = "";
+        th.value.style.left = "";
     };
 
     /* -------------------------------------------------------
@@ -108,8 +164,9 @@ export function scrollbarModel(props, emit) {
         markActivity();
     };
 
-    const onPointerDown = (e) => {
+    const onPointerDown = e => {
         isDrag.value = true;
+        document.body.classList.add("scrollbar-grabbing");
         e.preventDefault();
 
         active.value = true;
@@ -118,20 +175,26 @@ export function scrollbarModel(props, emit) {
 
     const onPointerUp = () => {
         if (!isDrag.value) return;
+        document.body.classList.remove("scrollbar-grabbing");
         isDrag.value = false;
-
         markActivity();
     };
 
-    const onPointerMove = (e) => {
+    const onPointerMove = e => {
         if (!isDrag.value || !el.value) return;
 
-        const delta = e.movementY;
+        const delta = getPointerDelta(e);
+
         if (delta !== 0) {
-            el.value.scrollTop +=
-                delta *
-                (el.value.scrollHeight / el.value.clientHeight) *
-                0.55;
+            const clientSize = getClientSize(el.value);
+            const scrollSize = getScrollSize(el.value);
+            const currentPosition = getScrollPosition(el.value);
+
+            setScrollPosition(
+                el.value,
+                currentPosition + delta * (scrollSize / clientSize) * 0.55
+            );
+
             markActivity();
         }
     };
@@ -143,6 +206,7 @@ export function scrollbarModel(props, emit) {
      * ----------------------------------------------------- */
     const attach = () => {
         el.value = document.getElementById(props.target);
+
         if (!el.value) {
             console.warn("[scrollbar] target not found:", props.target);
             return;
@@ -152,6 +216,7 @@ export function scrollbarModel(props, emit) {
         th.value = document.getElementById(thId.value);
 
         const prev = getComputedStyle(el.value).position;
+
         if (!prev || prev === "static") {
             el.value.style.position = "relative";
         }
@@ -171,6 +236,7 @@ export function scrollbarModel(props, emit) {
 
     onBeforeUnmount(() => {
         stopLoop();
+        document.body.classList.remove("scrollbar-grabbing");
         register("removeAll");
     });
 
@@ -185,7 +251,23 @@ export function scrollbarModel(props, emit) {
 }
 
 export const scrollbarProps = {
-    target: { type: String, required: true },
-    wave: { type: Boolean, default: true },
-    pulse: { type: Boolean, default: true },
+    target: {
+        type: String,
+        required: true,
+    },
+
+    mode: {
+        type: String,
+        default: "vertical",
+    },
+
+    wave: {
+        type: Boolean,
+        default: true,
+    },
+
+    pulse: {
+        type: Boolean,
+        default: true,
+    },
 };
