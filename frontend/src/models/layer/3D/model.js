@@ -584,6 +584,12 @@ export function layer3DModel(props, emit) {
 
     const particleSystemEnabled = layer => layer?.particle_system?.enabled === true;
 
+    const shouldRotatePreview = materialLayer => (
+        materialLayer?.preview?.idle_rotation?.enabled === true ||
+        materialLayer?.preview?.rotate === true ||
+        materialLayer?.settings?.rotate_preview === true
+    );
+
     const resolveAnimatedMaterialLayer = materialLayer => {
         if (!particleSystemEnabled(materialLayer)) {
             return materialLayer;
@@ -593,7 +599,12 @@ export function layer3DModel(props, emit) {
         const particleSystem = ParticleSystem.update(
             sourceParticleSystem,
             { age: particleAge },
-            { mesh: materialLayer.mesh }
+            {
+                mesh: materialLayer.mesh,
+                volume: materialLayer.mesh?.volume || materialLayer.geometry?.volume,
+                fluid: materialLayer.mesh?.fluid || materialLayer.geometry?.fluid,
+                physics: materialLayer.mesh?.physics || materialLayer.physics,
+            }
         );
         const particleLayers = Array.isArray(particleSystem.layers)
             ? particleSystem.layers.map(layer => {
@@ -610,7 +621,12 @@ export function layer3DModel(props, emit) {
                         layers: [layer],
                     },
                     { age: particleAge },
-                    { mesh: materialLayer.mesh }
+                    {
+                        mesh: materialLayer.mesh,
+                        volume: materialLayer.mesh?.volume || materialLayer.geometry?.volume,
+                        fluid: materialLayer.mesh?.fluid || materialLayer.geometry?.fluid,
+                        physics: materialLayer.mesh?.physics || materialLayer.physics,
+                    }
                 );
 
                 return {
@@ -1584,10 +1600,10 @@ export function layer3DModel(props, emit) {
 
         const materialLayer = resolveMaterialLayer(props.layer);
         const hasParticles = particleSystemEnabled(materialLayer);
+        const shouldRotate = shouldRotatePreview(materialLayer);
         const shouldAnimate =
             hasParticles ||
-            materialLayer?.preview?.idle_rotation?.enabled ||
-            materialLayer?.preview?.rotate;
+            shouldRotate;
 
         if (!shouldAnimate) {
             frameId = null;
@@ -1604,7 +1620,9 @@ export function layer3DModel(props, emit) {
             const lifetime = Math.max(0.1, Number(system.lifetime) || 1);
             const speed = Math.max(0, Number(system.time_scale) || 1);
             particleAge = (particleAge + delta * speed) % lifetime;
-        } else {
+        }
+
+        if (shouldRotate) {
             rotation += materialLayer?.preview?.idle_rotation?.speed || 0.006;
         }
 
@@ -1642,10 +1660,10 @@ export function layer3DModel(props, emit) {
         draw();
 
         const materialLayer = resolveMaterialLayer(props.layer);
+        const shouldRotate = shouldRotatePreview(materialLayer);
         const shouldAnimate =
             particleSystemEnabled(materialLayer) ||
-            materialLayer?.preview?.idle_rotation?.enabled ||
-            materialLayer?.preview?.rotate;
+            shouldRotate;
 
         if (shouldAnimate) {
             frameId = requestAnimationFrame(loop);

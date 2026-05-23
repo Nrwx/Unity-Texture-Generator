@@ -46,6 +46,8 @@ export const createSettings = () => ({
     wireframe_preview: false,
     faces_preview: false,
     vertices_preview: false,
+    fluid_mesh_preview: true,
+    fluid_particle_preview: true,
 
     blend_mode: "BLEND",
     alpha_clip: 0.5,

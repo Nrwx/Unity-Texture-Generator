@@ -181,6 +181,8 @@ export function materialEditorModel(props, emit) {
         wireframe_preview: false,
         faces_preview: false,
         vertices_preview: false,
+        fluid_mesh_preview: true,
+        fluid_particle_preview: true,
         render_backend: "WEBGL2",
         texture_size: "Original",
         texture_preload: TEXTURE_SIZE_OPTIONS,
@@ -305,6 +307,21 @@ export function materialEditorModel(props, emit) {
                     particle_system: getPlainParticleSystem(),
                     light: previewLight,
                 },
+                preview: {
+                    ...(backendLayer.preview || {}),
+                    rotate: normalized.rotate_preview,
+                    wireframe: normalized.wireframe_preview,
+                    faces: normalized.faces_preview,
+                    vertices: normalized.vertices_preview,
+                    fluid_mesh: normalized.fluid_mesh_preview,
+                    fluid_particles: normalized.fluid_particle_preview,
+                    idle_rotation: {
+                        ...(backendLayer.preview?.idle_rotation || {}),
+                        enabled: normalized.rotate_preview,
+                        speed: backendLayer.preview?.idle_rotation?.speed || 0.006,
+                        tilt: backendLayer.preview?.idle_rotation?.tilt || 0.42,
+                    },
+                },
                 settings: {
                     ...(backendLayer.settings || {}),
                     blend_mode: normalized.blend_mode,
@@ -321,6 +338,8 @@ export function materialEditorModel(props, emit) {
                     wireframe_preview: normalized.wireframe_preview,
                     faces_preview: normalized.faces_preview,
                     vertices_preview: normalized.vertices_preview,
+                    fluid_mesh_preview: normalized.fluid_mesh_preview,
+                    fluid_particle_preview: normalized.fluid_particle_preview,
                     light: previewLight,
                     light_editing: ui.value.activeTab === "light",
                 },
@@ -409,6 +428,8 @@ export function materialEditorModel(props, emit) {
                 wireframe: normalized.wireframe_preview,
                 faces: normalized.faces_preview,
                 vertices: normalized.vertices_preview,
+                fluid_mesh: normalized.fluid_mesh_preview,
+                fluid_particles: normalized.fluid_particle_preview,
                 idle_rotation: {
                     enabled: normalized.rotate_preview,
                     speed: 0.006,
@@ -428,6 +449,8 @@ export function materialEditorModel(props, emit) {
                 use_nodes: normalized.use_nodes,
                 render_backend: normalized.render_backend,
                 cube_size: normalized.cube_size,
+                fluid_mesh_preview: normalized.fluid_mesh_preview,
+                fluid_particle_preview: normalized.fluid_particle_preview,
                 light: {
                     ...previewLight,
                 },
@@ -520,7 +543,7 @@ export function materialEditorModel(props, emit) {
                     state: materialConnected,
                     layer: {
                         ref: previewLayer,
-                        idle: values.particle_system?.enabled === true ? false : values.rotate_preview
+                        idle: values.rotate_preview
                     },
                     loading: {
                         state: loading3DState,
@@ -560,6 +583,8 @@ export function materialEditorModel(props, emit) {
             wireframe_preview: values.wireframe_preview,
             faces_preview: values.faces_preview,
             vertices_preview: values.vertices_preview,
+            fluid_mesh_preview: values.fluid_mesh_preview,
+            fluid_particle_preview: values.fluid_particle_preview,
 
             blend_mode: values.blend_mode,
             alpha_clip: values.alpha_clip,
@@ -590,6 +615,8 @@ export function materialEditorModel(props, emit) {
             values.wireframe_preview = normalized.wireframe_preview;
             values.faces_preview = normalized.faces_preview;
             values.vertices_preview = normalized.vertices_preview;
+            values.fluid_mesh_preview = normalized.fluid_mesh_preview;
+            values.fluid_particle_preview = normalized.fluid_particle_preview;
 
 
             values.blend_mode = normalized.blend_mode;
@@ -1743,6 +1770,7 @@ export function materialEditorModel(props, emit) {
             context: {
                 mesh: values.mesh,
                 volume: values.mesh?.volume || values.geometry?.volume,
+                fluid: values.mesh?.fluid || values.geometry?.fluid,
                 physics: values.physics || values.mesh?.physics,
             },
         }
@@ -1765,10 +1793,12 @@ export function materialEditorModel(props, emit) {
         },
 
         cube_size: clamp(Number(values.cube_size || 256), 64, 4096),
-        rotate_preview: values.particle_system?.enabled === true ? false : values.rotate_preview,
+        rotate_preview: values.rotate_preview,
         wireframe_preview: values.wireframe_preview,
         faces_preview: values.faces_preview,
         vertices_preview: values.vertices_preview,
+        fluid_mesh_preview: values.fluid_mesh_preview !== false,
+        fluid_particle_preview: values.fluid_particle_preview !== false,
         render_backend: ["CANVAS2D", "WEBGL2"].includes(String(values.render_backend || "").toUpperCase())
             ? String(values.render_backend).toUpperCase()
             : "WEBGL2",
@@ -3921,7 +3951,12 @@ export function materialEditorModel(props, emit) {
         );
         values.particle_system = ParticleSystem.fromPlain(
             cloneData(source.particle_system || source.material?.particle_system || source.shader?.particle_system || {}),
-            { mesh: values.mesh },
+            {
+                mesh: values.mesh,
+                volume: values.mesh?.volume || values.geometry?.volume,
+                fluid: values.mesh?.fluid || values.geometry?.fluid,
+                physics: values.physics,
+            },
         );
         values.light = {
             ...createLight(),
@@ -3949,6 +3984,8 @@ export function materialEditorModel(props, emit) {
         values.wireframe_preview = source.preview?.wireframe ?? values.wireframe_preview;
         values.faces_preview = source.preview?.faces ?? values.faces_preview;
         values.vertices_preview = source.preview?.vertices ?? values.vertices_preview;
+        values.fluid_mesh_preview = source.preview?.fluid_mesh ?? source.settings?.fluid_mesh_preview ?? values.fluid_mesh_preview;
+        values.fluid_particle_preview = source.preview?.fluid_particles ?? source.settings?.fluid_particle_preview ?? values.fluid_particle_preview;
         values.render_backend = String(
             source.settings?.render_backend ??
             source.render_backend ??
@@ -5945,6 +5982,25 @@ export function materialEditorModel(props, emit) {
         return "Aus";
     });
 
+    const hasFluidParticleReference = computed(() => (
+        values.particle_system?.enabled === true ||
+        values.geometry?.volume?.particle_bind !== false ||
+        values.geometry?.fluid?.particle_collision !== false
+    ));
+
+    const isVolumeOrFluidPreview = computed(() => (
+        values.geometry?.volume?.enabled === true ||
+        values.geometry?.fluid?.enabled === true ||
+        values.mesh?.volume?.enabled === true ||
+        values.mesh?.fluid?.enabled === true
+    ));
+
+    const isFluidVolumePreview = computed(() => (
+        values.geometry?.volume?.enabled === true &&
+        values.geometry?.fluid?.enabled === true &&
+        hasFluidParticleReference.value
+    ));
+
     const cycleParticleEmitterMode = () => {
         const current = particleEmitterMode.value;
         const nextMode = current === "off"
@@ -5976,6 +6032,7 @@ export function materialEditorModel(props, emit) {
         values.particle_system = ParticleSystem.update(next, { age: 0 }, {
             mesh: values.mesh,
             volume: values.mesh?.volume || values.geometry?.volume,
+            fluid: values.mesh?.fluid || values.geometry?.fluid,
             physics: values.physics,
         });
         requestPreviewDebounced();
@@ -5998,6 +6055,7 @@ export function materialEditorModel(props, emit) {
         values.particle_system = ParticleSystem.update(next, { age: 0 }, {
             mesh: values.mesh,
             volume: values.mesh?.volume || values.geometry?.volume,
+            fluid: values.mesh?.fluid || values.geometry?.fluid,
             physics: values.physics,
         });
         requestPreviewDebounced();
@@ -6009,7 +6067,12 @@ export function materialEditorModel(props, emit) {
 
         if (key === "particleSystem" && values.particle_system?.enabled !== true) {
             setParticleSystemBoolean("enabled", true);
-        } else if (previousTab === "particleSystem" && key !== "particleSystem" && values.particle_system?.enabled === true) {
+        } else if (
+            previousTab === "particleSystem" &&
+            key !== "particleSystem" &&
+            values.particle_system?.enabled === true &&
+            !isFluidVolumePreview.value
+        ) {
             setParticleSystemBoolean("enabled", false);
         }
     };
@@ -6135,11 +6198,13 @@ export function materialEditorModel(props, emit) {
     const syncParticleSystemGeometryVolumeBinding = () => {
         const volume = Volume.create(values.geometry.volume || {});
         const fluid = Fluid.create(values.geometry.fluid || {});
+        const particleBindingActive = volume.particle_bind !== false || (fluid.enabled && fluid.particle_collision !== false);
 
-        if (volume.enabled && volume.particle_bind !== false) {
+        if (volume.enabled && particleBindingActive) {
             values.particle_system = ParticleSystem.update(
                 {
                     ...(values.particle_system || createParticles()),
+                    enabled: true,
                     mode: "mesh",
                     source: "volume",
                     emitter: fluid.enabled ? "volume" : volume.sample === "surface" ? "surface" : "volume",
@@ -6157,6 +6222,7 @@ export function materialEditorModel(props, emit) {
                 {
                     mesh: values.mesh,
                     volume: values.mesh?.volume || volume,
+                    fluid: values.mesh?.fluid || fluid,
                     physics: values.physics,
                 },
             );
@@ -6177,6 +6243,7 @@ export function materialEditorModel(props, emit) {
                 {
                     mesh: values.mesh,
                     volume: values.mesh?.volume || volume,
+                    fluid: values.mesh?.fluid || fluid,
                     physics: values.physics,
                 },
             );
@@ -6190,6 +6257,7 @@ export function materialEditorModel(props, emit) {
         values.particle_system = ParticleSystem.update(values.particle_system, {}, {
             mesh: values.mesh,
             volume: values.mesh?.volume || values.geometry?.volume,
+            fluid: values.mesh?.fluid || values.geometry?.fluid,
             physics: values.physics,
         });
         requestPreviewDebounced();
@@ -6203,6 +6271,7 @@ export function materialEditorModel(props, emit) {
         values.particle_system = ParticleSystem.fromPlain(particleSystem, {
             mesh: values.mesh,
             volume: values.mesh?.volume || values.geometry?.volume,
+            fluid: values.mesh?.fluid || values.geometry?.fluid,
             physics: values.physics,
         });
         requestPreviewDebounced();
@@ -6217,6 +6286,7 @@ export function materialEditorModel(props, emit) {
             values.particle_system = ParticleSystem.update(values.particle_system, { age: 0 }, {
                 mesh: values.mesh,
                 volume: values.mesh?.volume || values.geometry?.volume,
+                fluid: values.mesh?.fluid || values.geometry?.fluid,
                 physics: values.physics,
             });
         }
@@ -6508,6 +6578,8 @@ export function materialEditorModel(props, emit) {
         setPreviewSetting,
         particleEmitterMode,
         particleEmitterModeLabel,
+        isVolumeOrFluidPreview,
+        isFluidVolumePreview,
         cycleParticleEmitterMode,
         setParticleSystemBoolean,
         setActiveMaterialTab,

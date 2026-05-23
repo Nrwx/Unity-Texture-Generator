@@ -98,7 +98,7 @@ export class Node {
             type: "Shader",
             label: "Fluid Dynamics",
             icon: "mdi-waves",
-            fields: ["type", "solver", "viscosity", "buoyancy", "vorticity", "turbulence", "diffusion", "particle_coupling"],
+            fields: ["type", "solver", "viscosity", "buoyancy", "vorticity", "turbulence", "diffusion", "particle_coupling", "surface_flow", "mesh_collision", "particle_collision"],
             inputs: {
                 volume: Node.socket("shader", "Volume"),
                 velocity: Node.socket("vector", "Velocity"),
@@ -117,6 +117,9 @@ export class Node {
                 turbulence: 0.22,
                 diffusion: 0.08,
                 particle_coupling: 0.65,
+                surface_flow: 0.45,
+                mesh_collision: true,
+                particle_collision: true,
             },
         }),
 

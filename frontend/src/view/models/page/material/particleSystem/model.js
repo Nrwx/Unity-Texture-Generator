@@ -8,6 +8,10 @@ export const PARTICLE_MODE_OPTIONS = Object.freeze([
 export const PARTICLE_SOURCE_OPTIONS = Object.freeze(["texture", "mesh", "volume"]);
 export const PARTICLE_EMITTER_OPTIONS = Object.freeze(["volume", "surface", "vertices", "sphere", "plane"]);
 export const PARTICLE_ROOT_ANIMATION_OPTIONS = Object.freeze(["point", "inner", "outer"]);
+export const PARTICLE_VOLUME_FLOW_OPTIONS = Object.freeze([
+    { title: "Inside Volume", value: "inside" },
+    { title: "Outside Surface", value: "outside" },
+]);
 export const PARTICLE_BLEND_OPTIONS = Object.freeze(["alpha", "additive", "screen"]);
 export const PARTICLE_INTERPOLATION_ATTRIBUTES = ParticleSystem.INTERPOLATION_ATTRIBUTES;
 export const PARTICLE_SEQUENCE_MODE_OPTIONS = Object.freeze([
@@ -75,6 +79,7 @@ const PARTICLE_LAYER_SETTING_KEYS = Object.freeze([
     "source",
     "emitter",
     "root_animation",
+    "volume_flow",
     "count",
     "seed",
     "lifetime",
@@ -1252,6 +1257,7 @@ export function particleSystemModel(props, emit) {
         particleSourceOptions: PARTICLE_SOURCE_OPTIONS,
         particleEmitterOptions: PARTICLE_EMITTER_OPTIONS,
         particleRootAnimationOptions: PARTICLE_ROOT_ANIMATION_OPTIONS,
+        particleVolumeFlowOptions: PARTICLE_VOLUME_FLOW_OPTIONS,
         particleBlendOptions: PARTICLE_BLEND_OPTIONS,
         particleInterpolationAttributes: PARTICLE_INTERPOLATION_ATTRIBUTES,
         pathGridModes: PATH_GRID_MODES,

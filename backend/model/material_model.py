@@ -139,6 +139,9 @@ FLUID_DEFAULTS = {
     "temperature": 0.5,
     "particle_coupling": 0.65,
     "advection": 0.72,
+    "mesh_collision": True,
+    "particle_collision": True,
+    "surface_flow": 0.45,
 }
 
 GEOMETRY_DEFAULTS = {
@@ -1138,6 +1141,9 @@ class MaterialModel(BaseModel):
             "temperature": cls.clamp(data.get("temperature", FLUID_DEFAULTS["temperature"]), 0.0, 2.0),
             "particle_coupling": cls.clamp(data.get("particle_coupling", FLUID_DEFAULTS["particle_coupling"]), 0.0, 1.0),
             "advection": cls.clamp(data.get("advection", FLUID_DEFAULTS["advection"]), 0.0, 1.0),
+            "mesh_collision": cls.safe_bool(data.get("mesh_collision", FLUID_DEFAULTS["mesh_collision"])),
+            "particle_collision": cls.safe_bool(data.get("particle_collision", FLUID_DEFAULTS["particle_collision"])),
+            "surface_flow": cls.clamp(data.get("surface_flow", FLUID_DEFAULTS["surface_flow"]), 0.0, 4.0),
         }
 
     @classmethod
@@ -2794,6 +2800,8 @@ class MaterialModel(BaseModel):
             if str(data.get("emitter", "volume") or "volume") in {"volume", "surface", "vertices", "sphere", "plane"} else "volume",
             "root_animation": str(data.get("root_animation", "inner") or "inner")
             if str(data.get("root_animation", "inner") or "inner") in {"point", "inner", "outer"} else "inner",
+            "volume_flow": str(data.get("volume_flow", "inside") or "inside")
+            if str(data.get("volume_flow", "inside") or "inside") in {"inside", "outside"} else "inside",
             "texture_slot": str(active_layer.get("texture_slot", data.get("texture_slot", "baseColor")) or "baseColor"),
             "count": clamp_int(data.get("count", 30), 1, 5000, 30),
             "seed": clamp_int(data.get("seed", 1337), 1, 9999999, 1337),

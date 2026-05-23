@@ -92,6 +92,15 @@
           @update:model-value="setParticleValue('root_animation', $event)"
       />
 
+      <v-select
+          :model-value="state.particleSystem.volume_flow"
+          :items="particleVolumeFlowOptions"
+          label="Volume Flow"
+          density="compact"
+          hide-details
+          @update:model-value="setParticleValue('volume_flow', $event)"
+      />
+
       <div class="mem-control-card">
         <header>
           <strong>Count</strong>

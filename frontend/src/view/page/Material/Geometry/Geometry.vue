@@ -265,6 +265,16 @@
         <v-text-field :model-value="state.geometry.fluid?.diffusion" label="Diffusion" type="number" :min="0" :step="0.01" density="compact" hide-details @update:model-value="setFluidNumber('diffusion', $event)" />
         <v-text-field :model-value="state.geometry.fluid?.particle_coupling" label="Particle Coupling" type="number" :min="0" :max="1" :step="0.01" density="compact" hide-details @update:model-value="setFluidNumber('particle_coupling', $event)" />
       </div>
+
+      <div class="mem-geometry-vector compact">
+        <v-text-field :model-value="state.geometry.fluid?.surface_flow" label="Surface Flow" type="number" :min="0" :step="0.01" density="compact" hide-details @update:model-value="setFluidNumber('surface_flow', $event)" />
+        <v-text-field :model-value="state.geometry.fluid?.advection" label="Advection" type="number" :min="0" :step="0.01" density="compact" hide-details @update:model-value="setFluidNumber('advection', $event)" />
+      </div>
+
+      <div class="mem-geometry-switch-row">
+        <v-switch :model-value="state.geometry.fluid?.mesh_collision" label="Mesh Collision" hide-details @update:model-value="setFluidBoolean('mesh_collision', $event)" />
+        <v-switch :model-value="state.geometry.fluid?.particle_collision" label="Particle Collision" hide-details @update:model-value="setFluidBoolean('particle_collision', $event)" />
+      </div>
     </section>
 
     <section class="mem-geometry-card wide">

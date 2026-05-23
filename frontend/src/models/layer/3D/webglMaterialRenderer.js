@@ -666,6 +666,17 @@ const createProgram = (gl, vertexSource, fragmentSource) => {
 
 const clamp01 = value => Math.min(Math.max(Number(value) || 0, 0), 1);
 const toNumber = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
+const shouldRevealParticlesThroughSurface = ({ surface, alphaMode, baseTexture, alphaTexture }) => {
+    if (alphaMode === 0) {
+        return false;
+    }
+
+    return (
+        clamp01(surface?.alpha ?? 1) < 0.999 ||
+        Boolean(alphaTexture) ||
+        Boolean(baseTexture)
+    );
+};
 const toColor3 = color => Array.isArray(color) ? [toNumber(color[0], 1), toNumber(color[1], 1), toNumber(color[2], 1)] : [1, 1, 1];
 const toHexColor3 = (color, fallback = [1, 0.96, 0.9]) => {
     if (Array.isArray(color)) {
@@ -1537,7 +1548,7 @@ export class WebGLMaterialRenderer {
         };
     }
 
-    drawParticlePass({ materialLayer, matrices, dpr, getTextureForSlotFace, getParticleTextureForLayer }) {
+    drawParticlePass({ materialLayer, matrices, dpr, getTextureForSlotFace, getParticleTextureForLayer, ignoreDepth = false }) {
         const particles = this.getParticleBuffer(materialLayer.particle_system);
 
         if (!particles) {
@@ -1556,6 +1567,9 @@ export class WebGLMaterialRenderer {
 
         gl.useProgram(this.particleProgram);
         gl.disable(gl.CULL_FACE);
+        if (ignoreDepth) {
+            gl.disable(gl.DEPTH_TEST);
+        }
         gl.depthMask(particles.depthWrite);
 
         if (particles.blend === "additive" || particles.blend === "screen") {
@@ -1603,6 +1617,9 @@ export class WebGLMaterialRenderer {
         });
         gl.bindVertexArray(null);
         gl.depthMask(true);
+        if (ignoreDepth) {
+            gl.enable(gl.DEPTH_TEST);
+        }
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
         return true;
@@ -1758,7 +1775,17 @@ export class WebGLMaterialRenderer {
                     ? 3
                     : 1;
 
-        if (materialLayer.particle_system?.enabled === true) {
+        const volumeLayeredPreview = materialLayer.particle_system?.enabled === true && (
+            materialLayer.geometry?.volume?.enabled === true ||
+            materialLayer.mesh?.volume?.enabled === true ||
+            materialLayer.geometry?.fluid?.enabled === true ||
+            materialLayer.mesh?.fluid?.enabled === true
+        );
+        const showFluidMesh = materialLayer.preview?.fluid_mesh !== false && materialLayer.settings?.fluid_mesh_preview !== false;
+        const showFluidParticles = materialLayer.preview?.fluid_particles !== false && materialLayer.settings?.fluid_particle_preview !== false;
+        let revealParticlesThroughVolumeAlpha = false;
+
+        if (materialLayer.particle_system?.enabled === true && !volumeLayeredPreview) {
             return this.drawParticlePass({
                 materialLayer,
                 matrices,
@@ -1766,6 +1793,21 @@ export class WebGLMaterialRenderer {
                 getTextureForSlotFace,
                 getParticleTextureForLayer,
             });
+        }
+
+        if (volumeLayeredPreview && !showFluidMesh) {
+            if (showFluidParticles) {
+                return this.drawParticlePass({
+                    materialLayer,
+                    matrices,
+                    dpr,
+                    getTextureForSlotFace,
+                    getParticleTextureForLayer,
+                    ignoreDepth: true,
+                });
+            }
+
+            return true;
         }
 
         gl.useProgram(this.program);
@@ -1799,6 +1841,15 @@ export class WebGLMaterialRenderer {
             );
 
             const alphaTexture = slotTexture("alpha");
+
+            if (volumeLayeredPreview && shouldRevealParticlesThroughSurface({
+                surface: faceSurface,
+                alphaMode,
+                baseTexture,
+                alphaTexture,
+            })) {
+                revealParticlesThroughVolumeAlpha = true;
+            }
 
             const normalTexture =
                 slotTexture("normal") ||
@@ -2044,6 +2095,17 @@ export class WebGLMaterialRenderer {
         });
 
         gl.bindVertexArray(null);
+
+        if (volumeLayeredPreview && showFluidParticles) {
+            this.drawParticlePass({
+                materialLayer,
+                matrices,
+                dpr,
+                getTextureForSlotFace,
+                getParticleTextureForLayer,
+                ignoreDepth: revealParticlesThroughVolumeAlpha,
+            });
+        }
 
         return true;
     }

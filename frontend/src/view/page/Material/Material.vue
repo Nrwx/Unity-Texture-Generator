@@ -95,9 +95,42 @@
                   <small>{{ values.vertices_preview ? 'Punkte sichtbar' : 'Ausgeblendet' }}</small>
                 </span>
               </button>
+
+              <button
+                  v-if="isVolumeOrFluidPreview"
+                  type="button"
+                  class="mem-canvas-control"
+                  :class="{ active: values.fluid_particle_preview }"
+                  @click="setPreviewSetting('fluid_particle_preview', !values.fluid_particle_preview)"
+              >
+                <span class="mem-canvas-control-icon">
+                  <v-icon size="18">mdi-blur-radial</v-icon>
+                </span>
+
+                <span class="mem-canvas-control-text">
+                  <strong>Particles</strong>
+                  <small>{{ values.fluid_particle_preview ? 'Partikel sichtbar' : 'Partikel ausgeblendet' }}</small>
+                </span>
+              </button>
               </template>
 
               <template v-else>
+                <button
+                    type="button"
+                    class="mem-canvas-control"
+                    :class="{ active: values.rotate_preview }"
+                    @click="setPreviewSetting('rotate_preview', !values.rotate_preview)"
+                >
+                  <span class="mem-canvas-control-icon">
+                    <v-icon size="18">mdi-orbit</v-icon>
+                  </span>
+
+                  <span class="mem-canvas-control-text">
+                    <strong>World Orbit</strong>
+                    <small>{{ values.rotate_preview ? 'Aktiv' : 'Aus' }}</small>
+                  </span>
+                </button>
+
                 <button
                     type="button"
                     class="mem-canvas-control"
@@ -159,6 +192,91 @@
                   <span class="mem-canvas-control-text">
                     <strong>Path Follow</strong>
                     <small>{{ values.particle_system.path_follow?.enabled ? 'Aktiv' : 'Aus' }}</small>
+                  </span>
+                </button>
+
+                <button
+                    v-if="isVolumeOrFluidPreview"
+                    type="button"
+                    class="mem-canvas-control"
+                    :class="{ active: values.fluid_mesh_preview }"
+                    @click="setPreviewSetting('fluid_mesh_preview', !values.fluid_mesh_preview)"
+                >
+                  <span class="mem-canvas-control-icon">
+                    <v-icon size="18">mdi-cube-outline</v-icon>
+                  </span>
+
+                  <span class="mem-canvas-control-text">
+                    <strong>Fluid Mesh</strong>
+                    <small>{{ values.fluid_mesh_preview ? 'Mesh sichtbar' : 'Mesh ausgeblendet' }}</small>
+                  </span>
+                </button>
+
+                <button
+                    v-if="isVolumeOrFluidPreview"
+                    type="button"
+                    class="mem-canvas-control"
+                    :class="{ active: values.fluid_particle_preview }"
+                    @click="setPreviewSetting('fluid_particle_preview', !values.fluid_particle_preview)"
+                >
+                  <span class="mem-canvas-control-icon">
+                    <v-icon size="18">mdi-blur-radial</v-icon>
+                  </span>
+
+                  <span class="mem-canvas-control-text">
+                    <strong>Fluid Particles</strong>
+                    <small>{{ values.fluid_particle_preview ? 'Partikel sichtbar' : 'Partikel ausgeblendet' }}</small>
+                  </span>
+                </button>
+
+                <button
+                    v-if="isVolumeOrFluidPreview"
+                    type="button"
+                    class="mem-canvas-control"
+                    :class="{ active: values.wireframe_preview }"
+                    @click="setPreviewSetting('wireframe_preview', !values.wireframe_preview)"
+                >
+                  <span class="mem-canvas-control-icon">
+                    <v-icon size="18">mdi-vector-polyline</v-icon>
+                  </span>
+
+                  <span class="mem-canvas-control-text">
+                    <strong>Wireframe</strong>
+                    <small>{{ values.wireframe_preview ? 'Mesh Linien sichtbar' : 'Solid Render' }}</small>
+                  </span>
+                </button>
+
+                <button
+                    v-if="isVolumeOrFluidPreview"
+                    type="button"
+                    class="mem-canvas-control"
+                    :class="{ active: values.faces_preview }"
+                    @click="setPreviewSetting('faces_preview', !values.faces_preview)"
+                >
+                  <span class="mem-canvas-control-icon">
+                    <v-icon size="18">mdi-grid-large</v-icon>
+                  </span>
+
+                  <span class="mem-canvas-control-text">
+                    <strong>Faces</strong>
+                    <small>{{ values.faces_preview ? 'Flächen markiert' : 'Nicht markiert' }}</small>
+                  </span>
+                </button>
+
+                <button
+                    v-if="isVolumeOrFluidPreview"
+                    type="button"
+                    class="mem-canvas-control"
+                    :class="{ active: values.vertices_preview }"
+                    @click="setPreviewSetting('vertices_preview', !values.vertices_preview)"
+                >
+                  <span class="mem-canvas-control-icon">
+                    <v-icon size="18">mdi-vector-point</v-icon>
+                  </span>
+
+                  <span class="mem-canvas-control-text">
+                    <strong>Vertices</strong>
+                    <small>{{ values.vertices_preview ? 'Punkte sichtbar' : 'Ausgeblendet' }}</small>
                   </span>
                 </button>
               </template>
@@ -1137,7 +1255,7 @@
                         />
 
                         <v-switch
-                            v-else-if="['clamp', 'normalize'].includes(field.key)"
+                            v-else-if="['clamp', 'normalize', 'mesh_collision', 'particle_collision'].includes(field.key)"
                             :model-value="normalizeNodeSettings(activeShaderNode)[field.key] === true"
                             :label="field.label"
                             hide-details

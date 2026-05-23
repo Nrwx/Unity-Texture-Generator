@@ -25,6 +25,9 @@ export class Fluid {
         temperature: 0.5,
         particle_coupling: 0.65,
         advection: 0.72,
+        mesh_collision: true,
+        particle_collision: true,
+        surface_flow: 0.45,
     });
 
     static normalize(fluid = {}) {
@@ -46,6 +49,9 @@ export class Fluid {
             temperature: clamp(source.temperature, 0, 2),
             particle_coupling: clamp(source.particle_coupling, 0, 1),
             advection: clamp(source.advection, 0, 1),
+            mesh_collision: source.mesh_collision !== false,
+            particle_collision: source.particle_collision !== false,
+            surface_flow: clamp(source.surface_flow, 0, 4),
         };
     }
 

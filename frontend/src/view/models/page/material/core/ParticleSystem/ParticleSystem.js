@@ -79,7 +79,11 @@ const getMeshBounds = mesh => {
         : null;
 };
 
-const sampleMeshVolumePosition = (mesh, rand, volume = {}) => {
+const sampleMeshVolumePosition = (mesh, rand, volume = {}, flowMode = "inside") => {
+    if (flowMode === "outside") {
+        return sampleMeshPosition(mesh, rand);
+    }
+
     if (volume?.sample === "surface") {
         return sampleMeshPosition(mesh, rand);
     }
@@ -348,6 +352,7 @@ export class ParticleSystem {
         time_scale: 1,
         size: 50,
         radius: 1,
+        volume_flow: "inside",
         random_size: false,
         size_randomness: 0,
         size_x: 1,
@@ -424,6 +429,7 @@ export class ParticleSystem {
             source: ["texture", "mesh", "volume"].includes(source.source) ? source.source : "texture",
             emitter: ["volume", "surface", "vertices", "sphere", "plane"].includes(source.emitter) ? source.emitter : "volume",
             root_animation: ["point", "inner", "outer"].includes(source.root_animation) ? source.root_animation : "inner",
+            volume_flow: ["inside", "outside"].includes(source.volume_flow) ? source.volume_flow : "inside",
             texture_slot: textureSlot,
             count: clampInt(source.count, 1, 5000),
             seed: clampInt(source.seed, 1, 9999999),
@@ -619,6 +625,7 @@ export class ParticleSystem {
         const rotations = [];
         const mesh = context.mesh || null;
         const volume = context.volume || config.volume || mesh?.volume || null;
+        const fluid = context.fluid || config.fluid || mesh?.fluid || null;
         const physics = context.physics || config.physics || mesh?.physics || null;
         const physicsGravityScale = physics?.enabled
             ? physics?.gravity_enabled !== false ? Number(physics.gravity_scale ?? 1) || 0 : 0
@@ -659,7 +666,7 @@ export class ParticleSystem {
             );
             const pathPoint = ParticleSystem.evaluatePathFollow(config.path_follow, lifeTime);
             const meshPosition = useVolume
-                ? sampleMeshVolumePosition(mesh, rand, volume)
+                ? sampleMeshVolumePosition(mesh, rand, volume, config.volume_flow)
                 : useMesh ? sampleMeshPosition(mesh, rand) : null;
             const theta = rand() * Math.PI * 2;
             const radius = Math.sqrt(rand());
@@ -682,9 +689,14 @@ export class ParticleSystem {
             const c = Math.cos(swirl);
             const s = Math.sin(swirl);
             const vx = config.velocity_x + direction.x * velocityValue + (rand() - 0.5) * config.velocity_randomness;
-            const vy = config.velocity_y + direction.y * velocityValue + (rand() - 0.5) * config.velocity_randomness + gravityValue * life;
+            const fluidDownFlow = useVolume && fluid?.enabled === true && config.volume_flow === "outside"
+                ? -Math.abs(Number(fluid.surface_flow ?? fluid.advection ?? 0.45) || 0) * life
+                : 0;
+            const vy = config.velocity_y + direction.y * velocityValue + (rand() - 0.5) * config.velocity_randomness + gravityValue * life + fluidDownFlow;
             const vz = config.velocity_z + direction.z * velocityValue + (rand() - 0.5) * config.velocity_randomness;
-            const flow = config.root_animation === "point"
+            const flow = config.volume_flow === "outside"
+                ? 1
+                : config.root_animation === "point"
                 ? 1
                 : rootAnimationFactor(config.root_animation, life);
             const root = [
@@ -702,7 +714,7 @@ export class ParticleSystem {
                 root[0] * c - root[2] * s + vx * life + noise[0],
                 root[1] + vy * life + noise[1],
                 root[0] * s + root[2] * c + vz * life + noise[2],
-            ], mesh, useVolume ? physics : null);
+            ], mesh, useVolume && fluid?.particle_collision !== false && config.volume_flow === "inside" ? physics : null);
             const x = pathEnabled ? localPosition[0] + pathTranslate.x : localPosition[0];
             const y = pathEnabled ? localPosition[1] + pathTranslate.y : localPosition[1];
             const z = pathEnabled ? localPosition[2] + pathTranslate.z : localPosition[2];
