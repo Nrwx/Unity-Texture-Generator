@@ -1,4 +1,5 @@
 import {Buffer} from "@/models/layer/3D/core/buffer/model";
+import {clamp} from "@/utils/tools";
 
 const FACE_DEFS = Object.freeze({
     front: {
@@ -674,11 +675,10 @@ const createProgram = (gl, vertexSource, fragmentSource) => {
     return program;
 };
 
-const clamp01 = value => Math.min(Math.max(Number(value) || 0, 0), 1);
 const toNumber = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const shouldRevealParticlesThroughSurface = ({ surface, baseTexture, alphaTexture }) => {
     return (
-        clamp01(surface?.alpha ?? 1) < 0.999 ||
+        clamp(surface?.alpha ?? 1) < 0.999 ||
         hasTexture(alphaTexture) ||
         hasTexture(baseTexture)
     );
@@ -2189,7 +2189,7 @@ export class WebGLMaterialRenderer {
                             ? 4
                             : 0;
 
-            if (alphaMode === 2 && clamp01(faceSurface.alpha) < objectTextureSettings.alpha_clip) {
+            if (alphaMode === 2 && clamp(faceSurface.alpha) < objectTextureSettings.alpha_clip) {
                 return;
             }
 
@@ -2240,7 +2240,7 @@ export class WebGLMaterialRenderer {
                 uAlpha: (
                     objectTextureSettings.alpha_mode === "OPAQUE" && !revealFaceAlpha
                         ? 1
-                        : clamp01(faceSurface.alpha)
+                        : clamp(faceSurface.alpha)
                 ) * wireframeMaterialAlpha,
 
                 uAlphaClip: toNumber(objectTextureSettings.alpha_clip, 0.5),
@@ -2254,55 +2254,55 @@ export class WebGLMaterialRenderer {
                 uAlphaInvert: alphaParams.invert,
                 uAlphaMapSource: resolveAlphaMapSource(alphaTexture),
 
-                uRoughness: clamp01(faceSurface.roughness),
+                uRoughness: clamp(faceSurface.roughness),
                 uRoughnessStrength: roughnessParams.strength,
                 uRoughnessOffset: roughnessParams.offset,
                 uRoughnessInvert: roughnessParams.invert,
 
-                uMetallic: clamp01(faceSurface.metallic),
+                uMetallic: clamp(faceSurface.metallic),
                 uMetallicStrength: metallicParams.strength,
                 uMetallicOffset: metallicParams.offset,
                 uMetallicInvert: metallicParams.invert,
 
-                uSpecular: clamp01(faceSurface.specular),
+                uSpecular: clamp(faceSurface.specular),
                 uSpecularStrength: specularParams.strength,
                 uSpecularOffset: specularParams.offset,
                 uSpecularInvert: specularParams.invert,
-                uSpecularTint: clamp01(faceSurface.specularTint),
+                uSpecularTint: clamp(faceSurface.specularTint),
 
                 uIor: Math.min(Math.max(toNumber(faceSurface.ior, 1.45), 1), 4),
 
-                uSubsurface: clamp01(faceSurface.subsurface),
+                uSubsurface: clamp(faceSurface.subsurface),
                 uSubsurfaceStrength: subsurfaceParams.strength,
                 uSubsurfaceOffset: subsurfaceParams.offset,
                 uSubsurfaceInvert: subsurfaceParams.invert,
                 uSubsurfaceRadius: toColor3(faceSurface.subsurfaceRadius),
 
-                uTransmission: clamp01(faceSurface.transmission),
+                uTransmission: clamp(faceSurface.transmission),
                 uTransmissionStrength: transmissionParams.strength,
                 uTransmissionOffset: transmissionParams.offset,
                 uTransmissionInvert: transmissionParams.invert,
 
-                uTransmissionRoughness: clamp01(faceSurface.transmissionRoughness),
+                uTransmissionRoughness: clamp(faceSurface.transmissionRoughness),
                 uTransmissionRoughnessStrength: transmissionRoughnessParams.strength,
                 uTransmissionRoughnessOffset: transmissionRoughnessParams.offset,
                 uTransmissionRoughnessInvert: transmissionRoughnessParams.invert,
 
-                uAnisotropic: clamp01(faceSurface.anisotropic),
-                uAnisotropicRotation: clamp01(faceSurface.anisotropicRotation),
+                uAnisotropic: clamp(faceSurface.anisotropic),
+                uAnisotropicRotation: clamp(faceSurface.anisotropicRotation),
 
-                uSheen: clamp01(faceSurface.sheen),
+                uSheen: clamp(faceSurface.sheen),
                 uSheenStrength: sheenParams.strength,
                 uSheenOffset: sheenParams.offset,
                 uSheenInvert: sheenParams.invert,
-                uSheenTint: clamp01(faceSurface.sheenTint),
+                uSheenTint: clamp(faceSurface.sheenTint),
 
-                uClearcoat: clamp01(faceSurface.clearcoat),
+                uClearcoat: clamp(faceSurface.clearcoat),
                 uClearcoatStrength: clearcoatParams.strength,
                 uClearcoatOffset: clearcoatParams.offset,
                 uClearcoatInvert: clearcoatParams.invert,
 
-                uClearcoatRoughness: clamp01(faceSurface.clearcoatRoughness),
+                uClearcoatRoughness: clamp(faceSurface.clearcoatRoughness),
                 uClearcoatRoughnessStrength: clearcoatRoughnessParams.strength,
                 uClearcoatRoughnessOffset: clearcoatRoughnessParams.offset,
                 uClearcoatRoughnessInvert: clearcoatRoughnessParams.invert,
@@ -2311,20 +2311,20 @@ export class WebGLMaterialRenderer {
 
                 uNormalStrength: mapEnabled(useObjectTextures, normalTexture)
                     ? Math.min(Math.max(Math.abs(normalParams.strength), 0), 2)
-                    : Math.max(clamp01(faceSurface.normal), clamp01(faceSurface.clearcoatNormal)),
+                    : Math.max(clamp(faceSurface.normal), clamp(faceSurface.clearcoatNormal)),
 
                 uNormalStrengthInput: normalParams.strength,
                 uNormalInvert: normalParams.invert,
 
                 uBumpStrength: mapEnabled(useObjectTextures, bumpTexture)
                     ? Math.min(Math.max(Math.abs(heightParams.strength), 0), 2) * 0.28
-                    : clamp01(faceSurface.bumpStrength) * 0.2,
+                    : clamp(faceSurface.bumpStrength) * 0.2,
 
                 uBumpStrengthInput: heightParams.strength,
                 uBumpOffset: heightParams.offset,
                 uBumpInvert: heightParams.invert,
 
-                uDiffuseRoughness: clamp01(faceSurface.diffuseRoughness ?? faceSurface.diffuse_roughness),
+                uDiffuseRoughness: clamp(faceSurface.diffuseRoughness ?? faceSurface.diffuse_roughness),
 
                 uSubsurfaceScale: Math.min(
                     Math.max(toNumber(faceSurface.subsurfaceScale ?? faceSurface.subsurface_scale, 1), 0),
@@ -2336,7 +2336,7 @@ export class WebGLMaterialRenderer {
                     4
                 ),
 
-                uSubsurfaceAnisotropy: clamp01(faceSurface.subsurfaceAnisotropy ?? faceSurface.subsurface_anisotropy),
+                uSubsurfaceAnisotropy: clamp(faceSurface.subsurfaceAnisotropy ?? faceSurface.subsurface_anisotropy),
 
                 uCoatIor: Math.min(
                     Math.max(toNumber(faceSurface.coatIor ?? faceSurface.clearcoatIor ?? faceSurface.coat_ior, 1.5), 1),
@@ -2350,7 +2350,7 @@ export class WebGLMaterialRenderer {
                     [1, 1, 1]
                 ),
 
-                uSheenRoughness: clamp01(faceSurface.sheenRoughness ?? faceSurface.sheen_roughness ?? 0.5),
+                uSheenRoughness: clamp(faceSurface.sheenRoughness ?? faceSurface.sheen_roughness ?? 0.5),
 
                 uThinFilmThickness: Math.min(
                     Math.max(toNumber(faceSurface.thinFilmThickness ?? faceSurface.thin_film_thickness, 0), 0),
@@ -2362,7 +2362,7 @@ export class WebGLMaterialRenderer {
                     2
                 ),
 
-                uTangentStrength: clamp01(faceSurface.tangent),
+                uTangentStrength: clamp(faceSurface.tangent),
 
                 uIorStrength: iorParams.strength,
                 uIorOffset: iorParams.offset,

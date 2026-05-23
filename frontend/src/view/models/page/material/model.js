@@ -921,17 +921,10 @@ export function materialEditorModel(props, emit) {
 
     const getPreviewTextureUrl = normalized => {
         const backendLayer = getBackendPreviewLayer(normalized);
-
-        return (
-            backendLayer?.texture?.url ||
-            backendLayer?.url ||
-            sourceLayerTextureUrl.value
-        );
+        return (backendLayer?.texture?.url || backendLayer?.url || sourceLayerTextureUrl.value);
     };
 
-    const loading3DState = computed(() => {
-        return props.loadingPreview;
-    });
+    const loading3DState = computed(() => {return props.loadingPreview;});
 
     const ui = ref({
         activeTab: "surface",
