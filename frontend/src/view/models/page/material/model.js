@@ -11,6 +11,7 @@ import {
 } from "@/view/models/page/material/surface/model";
 import {createGeometry} from "@/view/models/page/material/geometry/model";
 import {createLight} from "@/view/models/page/material/light/model";
+import {createSettings, normalizeTextureSize, TEXTURE_SIZE_OPTIONS} from "@/view/models/page/material/settings/model";
 
 const PREVIEW_DEBOUNCE_MS = 220;
 
@@ -146,18 +147,6 @@ const hasTextureSlot = slot => {
 
 };
 
-const TEXTURE_SIZE_OPTIONS = [32, 64, 128, 256, 512, 1024, "Original"];
-
-const normalizeTextureSize = value => {
-    if (value === "Original" || value === "original" || value === null || value === undefined || value === "") {
-        return "Original";
-    }
-
-    const number = Number(value);
-
-    return TEXTURE_SIZE_OPTIONS.includes(number) ? number : "Original";
-};
-
 export function materialEditorModel(props, emit) {
     const previewTimer = ref(null);
     const previewRequestId = ref(0);
@@ -253,6 +242,57 @@ export function materialEditorModel(props, emit) {
         emit: "material-editor:state",
         hideClose: true,
     }));
+
+    const materialSettings = computed({
+        get: () => ({
+            render_backend: values.render_backend,
+            texture_size: values.texture_size,
+            texture_preload: values.texture_preload,
+
+            cube_size: values.cube_size,
+            rotate_preview: values.rotate_preview,
+
+            blend_mode: values.blend_mode,
+            alpha_clip: values.alpha_clip,
+
+            shadow_method: values.shadow_method,
+            backface_culling: values.backface_culling,
+            show_backface: values.show_backface,
+
+            screen_space_refraction: values.screen_space_refraction,
+            refraction_depth: values.refraction_depth,
+            subsurface_translucency: values.subsurface_translucency,
+
+            use_nodes: values.use_nodes,
+        }),
+
+        set: nextSettings => {
+            const normalized = {
+                ...createSettings(),
+                ...(nextSettings || {}),
+            };
+
+            values.render_backend = normalized.render_backend;
+            values.texture_size = normalizeTextureSize(normalized.texture_size);
+            values.texture_preload = TEXTURE_SIZE_OPTIONS;
+
+            values.cube_size = normalized.cube_size;
+            values.rotate_preview = normalized.rotate_preview;
+
+            values.blend_mode = normalized.blend_mode;
+            values.alpha_clip = normalized.alpha_clip;
+
+            values.shadow_method = normalized.shadow_method;
+            values.backface_culling = normalized.backface_culling;
+            values.show_backface = normalized.show_backface;
+
+            values.screen_space_refraction = normalized.screen_space_refraction;
+            values.refraction_depth = normalized.refraction_depth;
+            values.subsurface_translucency = normalized.subsurface_translucency;
+
+            values.use_nodes = normalized.use_nodes;
+        },
+    });
 
     const assignTextureSlotFromSurface = ({ slotKey, layerId }) => {
         const layer = textureLayers.value.find(item => item.id === layerId);
@@ -5350,6 +5390,7 @@ export function materialEditorModel(props, emit) {
         closeNodeContextMenu,
 
         emitEvent,
+        materialSettings,
         requestPreviewNow,
         submit,
         requestExport,

@@ -1066,244 +1066,11 @@
             </template>
 
             <!-- SETTINGS -->
-            <template v-else-if="ui.activeTab === 'settings'">
-              <div class="mem-view-head">
-                <div>
-                  <strong>Settings</strong>
-                  <span>Renderer, Blender Export und Preview-Einstellungen.</span>
-                </div>
-              </div>
-
-              <div class="mem-section">
-                <div class="mem-select-card">
-                  <strong>Preview Renderer</strong>
-
-                  <v-select
-                      v-model="values.render_backend"
-                      :items="[
-                        { title: 'Canvas2D', value: 'CANVAS2D' },
-                        { title: 'WEBGL2', value: 'WEBGL2' },
-                      ]"
-                      item-title="title"
-                      item-value="value"
-                      label="Renderer"
-                      density="compact"
-                      hide-details
-                      @update:model-value="requestPreviewDebounced"
-                  />
-                </div>
-
-                <div class="mem-select-card">
-                  <strong>Texture Sampling</strong>
-                  <v-select
-                      v-model="values.texture_size"
-                      :items="textureSizeOptions"
-                      label="Texture Size"
-                      density="compact"
-                      hide-details
-                      @update:model-value="requestPreviewDebounced"
-                  >
-                    <template #selection="{ item }">
-                      {{ item.raw === 'Original' ? 'Original' : `${item.raw}px` }}
-                    </template>
-
-                    <template #item="{ props, item }">
-                      <v-list-item
-                          v-bind="props"
-                          :title="item.raw === 'Original' ? 'Original' : `${item.raw}px`"
-                      />
-                    </template>
-                  </v-select>
-                </div>
-
-                <div class="mem-control-card">
-                  <header>
-                    <strong>Cube Size</strong>
-                    <small>{{ values.cube_size }}</small>
-                  </header>
-
-                  <v-slider
-                      v-model="values.cube_size"
-                      :min="64"
-                      :max="1024"
-                      :step="1"
-                      thumb-label
-                      hide-details
-                  />
-                </div>
-
-                <label
-                    class="mem-toggle-card"
-                    :class="{ active: values.rotate_preview }"
-                >
-                  <span class="mem-toggle-icon">
-                    <v-icon>mdi-axis-z-rotate-clockwise</v-icon>
-                  </span>
-
-                  <span class="mem-toggle-text">
-                    <strong>Idle Rotation</strong>
-                    <small>Der Cube rotiert sanft in der Preview.</small>
-                  </span>
-
-                  <v-switch
-                      v-model="values.rotate_preview"
-                      hide-details
-                  />
-                </label>
-
-                <div class="mem-select-card">
-                  <strong>Blend Mode</strong>
-
-                  <v-select
-                      v-model="values.blend_mode"
-                      :items="['OPAQUE', 'BLEND', 'HASHED', 'CLIP']"
-                      density="compact"
-                      hide-details
-                  />
-                </div>
-
-                <label
-                    class="mem-toggle-card"
-                    :class="{ active: values.backface_culling }"
-                >
-                  <span class="mem-toggle-icon">
-                    <v-icon>mdi-cube-off-outline</v-icon>
-                  </span>
-
-                  <span class="mem-toggle-text">
-                    <strong>Backface Culling</strong>
-                    <small>Rendert Rueckseiten nur, wenn Show Backface aktiv ist.</small>
-                  </span>
-
-                  <v-switch
-                      v-model="values.backface_culling"
-                      hide-details
-                  />
-                </label>
-
-                <div
-                    v-if="values.blend_mode === 'CLIP'"
-                    class="mem-control-card"
-                >
-                  <header>
-                    <strong>Clip Threshold</strong>
-                    <small>{{ values.alpha_clip }}</small>
-                  </header>
-
-                  <v-slider
-                      v-model="values.alpha_clip"
-                      :min="0"
-                      :max="1"
-                      :step="0.01"
-                      thumb-label
-                      hide-details
-                  />
-                </div>
-
-                <div class="mem-select-card">
-                  <strong>Shadow Method</strong>
-
-                  <v-select
-                      v-model="values.shadow_method"
-                      :items="['NONE', 'OPAQUE', 'HASHED', 'CLIP']"
-                      density="compact"
-                      hide-details
-                  />
-                </div>
-
-                <label
-                    class="mem-toggle-card"
-                    :class="{ active: values.show_backface }"
-                >
-                  <span class="mem-toggle-icon">
-                    <v-icon>mdi-flip-to-back</v-icon>
-                  </span>
-
-                  <span class="mem-toggle-text">
-                    <strong>Show Backface</strong>
-                    <small>Transparente Rueckseiten bleiben sichtbar.</small>
-                  </span>
-
-                  <v-switch
-                      v-model="values.show_backface"
-                      hide-details
-                  />
-                </label>
-
-                <label
-                    class="mem-toggle-card"
-                    :class="{ active: values.screen_space_refraction }"
-                >
-                  <span class="mem-toggle-icon">
-                    <v-icon>mdi-glass-fragile</v-icon>
-                  </span>
-
-                  <span class="mem-toggle-text">
-                    <strong>Screen Space Refraction</strong>
-                    <small>Erlaubt Transmission/IOR als Glas-Refraction in WebGL2.</small>
-                  </span>
-
-                  <v-switch
-                      v-model="values.screen_space_refraction"
-                      hide-details
-                  />
-                </label>
-
-                <div class="mem-control-card">
-                  <header>
-                    <strong>Refraction Depth</strong>
-                    <small>{{ values.refraction_depth }} m</small>
-                  </header>
-
-                  <v-slider
-                      v-model="values.refraction_depth"
-                      :min="0"
-                      :max="10"
-                      :step="0.001"
-                      thumb-label
-                      hide-details
-                  />
-                </div>
-
-                <label
-                    class="mem-toggle-card"
-                    :class="{ active: values.subsurface_translucency }"
-                >
-                  <span class="mem-toggle-icon">
-                    <v-icon>mdi-circle-opacity</v-icon>
-                  </span>
-
-                  <span class="mem-toggle-text">
-                    <strong>Subsurface Translucency</strong>
-                    <small>Laesst Subsurface staerker durch Gegenlicht reagieren.</small>
-                  </span>
-
-                  <v-switch
-                      v-model="values.subsurface_translucency"
-                      hide-details
-                  />
-                </label>
-
-                <label
-                    class="mem-toggle-card"
-                    :class="{ active: values.use_nodes }"
-                >
-                  <span class="mem-toggle-icon">
-                    <v-icon>mdi-nodejs</v-icon>
-                  </span>
-
-                  <span class="mem-toggle-text">
-                    <strong>Use Blender Nodes</strong>
-                    <small>Exportiert das Material als Node-Material.</small>
-                  </span>
-
-                  <v-switch
-                      v-model="values.use_nodes"
-                      hide-details
-                  />
-                </label>
-              </div>
-            </template>
+            <Settings
+                v-else-if="ui.activeTab === 'settings'"
+                v-model:settings="materialSettings"
+                @change="requestPreviewDebounced"
+            />
           </div>
         </section>
       </div>
@@ -1350,6 +1117,7 @@ import {materialEditorModel, materialEditorProps} from "@/view/models/page/mater
 import Surface from "@/view/page/Material/Surface/Surface";
 import Geometry from "@/view/page/Material/Geometry/Geometry";
 import Light from "@/view/page/Material/Light/Light";
+import Settings from "@/view/page/Material/Settings/Settings";
 
 export default defineComponent({
   name: "MaterialEditor",
@@ -1358,7 +1126,8 @@ export default defineComponent({
     Layer3D,
     Surface,
     Geometry,
-    Light
+    Light,
+    Settings
   },
   props: materialEditorProps,
   setup(props, { emit }) {

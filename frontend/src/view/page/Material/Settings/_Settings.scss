@@ -1,0 +1,140 @@
+.mem-view-head {
+  position: relative;
+  z-index: 30;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  overflow: visible;
+
+  div {
+    min-width: 0;
+  }
+
+  span {
+    color: var(--mem-soft);
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+  }
+
+  strong {
+    display: block;
+    font-size: 0.92rem;
+    font-weight: 790;
+  }
+
+  small {
+    color: var(--mem-muted);
+  }
+}
+
+.mem-section {
+  display: grid;
+  gap: 12px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: rgba(112, 223, 180, 0.28);
+  }
+}
+
+.mem-select-card,
+.mem-control-card,
+.mem-toggle-card {
+  width: 100%;
+  border: 1px solid var(--mem-border);
+  border-radius: 16px;
+  background:
+          radial-gradient(circle at top left, rgba(112, 223, 180, 0.10), transparent 46%),
+          var(--mem-surface);
+  color: var(--mem-text);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+}
+
+.mem-select-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+
+  strong {
+    font-size: 0.84rem;
+    font-weight: 790;
+  }
+}
+
+.mem-control-card {
+  display: grid;
+  gap: 12px;
+  padding: 13px;
+
+  > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+
+    strong {
+      font-size: 0.82rem;
+      font-weight: 790;
+    }
+
+    small {
+      color: var(--mem-muted);
+      font-size: 0.68rem;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+}
+
+.mem-toggle-card {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  align-items: center;
+  gap: 11px;
+  padding: 12px;
+
+  &.active {
+    border-color: rgba(112, 223, 180, 0.44);
+    background:
+            radial-gradient(circle at top left, rgba(112, 223, 180, 0.20), transparent 46%),
+            rgba(112, 223, 180, 0.08);
+  }
+}
+
+.mem-toggle-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(112, 223, 180, 0.25);
+  border-radius: 14px;
+  background: rgba(112, 223, 180, 0.09);
+  color: var(--mem-emerald);
+}
+
+.mem-toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+
+  strong {
+    font-size: 0.84rem;
+    font-weight: 790;
+  }
+
+  small {
+    color: var(--mem-muted);
+    font-size: 0.7rem;
+    line-height: 1.35;
+  }
+}
