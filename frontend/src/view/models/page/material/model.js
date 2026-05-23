@@ -6984,7 +6984,8 @@ export function materialEditorModel(props, emit) {
         handleCanvasWheel,
         openNodeContextMenu,
         closeNodeContextMenu,
-
+        syncTextureSettingsToUvFaces,
+        syncTextureGroupSettingsToUvFaces,
         emitEvent,
         uvHoverState,
         uvCursorClass,
