@@ -38,19 +38,26 @@ const unwrap = response => response?.data || response || null;
 export const normalizeMaterialValuesForApi = (values = {}) => {
     const plain = toPlain(values);
 
+    const textureSize = plain.texture_size === "Original"
+        ? "Original"
+        : String(plain.texture_size || "Original");
+
     return {
         name: plain.name || "Cube Material",
 
         surface: toPlain(plain.surface),
         geometry: toPlain(plain.geometry),
+        light: toPlain(plain.light),
         bitmap_maps: toPlain(plain.bitmap_maps),
         uv: toPlain(plain.uv),
         shader_graph: toPlain(plain.shader_graph),
 
         cube_size: Number(plain.cube_size || 256),
+        texture_size: textureSize,
         rotate_preview: plain.rotate_preview !== false,
 
         blend_mode: plain.blend_mode || "BLEND",
+        alpha_clip: Math.min(Math.max(Number(plain.alpha_clip ?? 0.5), 0), 1),
         shadow_method: plain.shadow_method || "HASHED",
         use_nodes: plain.use_nodes !== false,
     };
@@ -75,9 +82,11 @@ export const appendMaterialForm = (formData, values = {}) => {
     formData.append("shader_graph", shaderGraphJson);
 
     formData.append("cube_size", String(normalized.cube_size));
+    formData.append("texture_size", String(normalized.texture_size));
     formData.append("rotate_preview", boolValue(normalized.rotate_preview));
 
     formData.append("blend_mode", normalized.blend_mode);
+    formData.append("alpha_clip", String(normalized.alpha_clip));
     formData.append("shadow_method", normalized.shadow_method);
     formData.append("use_nodes", boolValue(normalized.use_nodes));
 

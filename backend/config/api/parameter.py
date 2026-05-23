@@ -475,6 +475,7 @@ PARAMETERS = {
         "blend_mode": {"type": str, "default": "BLEND"},
         "shadow_method": {"type": str, "default": "HASHED"},
         "use_nodes": {"type": bool, "default": True},
+        "texture_size": {"type": str, "default": "Original"},
         "values": {"type": dict, "default": {}}
     },
     "material": {
@@ -492,6 +493,7 @@ PARAMETERS = {
         "blend_mode": {"type": str, "default": "BLEND"},
         "shadow_method": {"type": str, "default": "HASHED"},
         "use_nodes": {"type": bool, "default": True},
+        "texture_size": {"type": str, "default": "Original"},
         "values": {"type": dict, "default": {}}
     },
     "path": {

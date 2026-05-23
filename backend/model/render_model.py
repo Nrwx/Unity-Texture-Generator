@@ -517,6 +517,7 @@ class RenderModel(BaseModel):
         shadow_method="HASHED",
         use_nodes=True,
         values="{}",
+        texture_size="Original",
         **extra
     ):
         try:
@@ -528,7 +529,11 @@ class RenderModel(BaseModel):
             if not source_layer:
                 return {"error": f"Source layer '{source_layer_id}' not found."}, 404
 
+            material_id = f"preview-{uuid.uuid4()}"
+
             package = MaterialModel.build_material_package(
+                material_id=material_id,
+                layer_id=material_id,
                 source_layer_id=source_layer_id,
                 name=name,
                 surface=surface,
@@ -542,6 +547,7 @@ class RenderModel(BaseModel):
                 shadow_method=shadow_method,
                 use_nodes=use_nodes,
                 values=values,
+                texture_size=texture_size,
                 **extra
             )
 
@@ -573,6 +579,9 @@ class RenderModel(BaseModel):
                 "preview": package["preview"],
                 "settings": package["settings"],
 
+                "texture_size": package["settings"].get("texture_size", texture_size),
+                "texture_lod_key": package["settings"].get("texture_lod_key", ""),
+
                 "hidden": 0,
                 "opacity": 1,
                 "blend_mode": 0,
@@ -583,7 +592,7 @@ class RenderModel(BaseModel):
             }
 
             return {
-                "id": package["id"],
+                "id": material_id,
                 "title": "material-preview",
                 "src": preview_layer.get("url"),
                 "layer": preview_layer,

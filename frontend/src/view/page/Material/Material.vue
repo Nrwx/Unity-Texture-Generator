@@ -152,7 +152,7 @@
               <div class="mem-view-head">
                 <div>
                   <strong>Surface</strong>
-                  <span>Alle Principled-BSDF-Werte mit Bitmap-Slot, Offset und Node-Insertion.</span>
+                  <span>Alle Principled-BSDF-Werte mit Bitmap-Slot, signed Factor und Node-Insertion.</span>
                 </div>
               </div>
 
@@ -205,48 +205,48 @@
                 </div>
 
                 <div
-                    v-for="field in surfaceFields"
-                    :key="field.key"
+                    v-for="group in surfaceGroups"
+                    :key="group.key"
                     class="mem-surface-row"
-                    :class="{ active: getMapSlot(field.key)?.enabled }"
+                    :class="{ active: getMapSlot(group.key)?.enabled }"
                     @dragover.prevent
-                    @drop="handleMapDrop($event, field.key)"
+                    @drop="handleMapDrop($event, group.key)"
                 >
                   <header>
-                    <strong>{{ field.label }}</strong>
-                    <small>{{ field.key }}</small>
+                    <strong>{{ group.label }}</strong>
+                    <small>{{ group.relation }}</small>
                   </header>
 
-                  <template v-if="field.type === 'color'">
+                  <template v-if="group.field.type === 'color'">
                     <div class="mem-color-line">
                       <input
                           type="color"
-                          :value="getSurfaceColor(field.key)"
-                          @input="setSurfaceColor(field.key, $event.target.value)"
+                          :value="getSurfaceColor(group.key)"
+                          @input="setSurfaceColor(group.key, $event.target.value)"
                       />
 
-                      <span>{{ getSurfaceColor(field.key) }}</span>
+                      <span>{{ getSurfaceColor(group.key) }}</span>
                     </div>
                   </template>
 
-                  <template v-else-if="field.type === 'vector3'">
+                  <template v-else-if="group.field.type === 'vector3'">
                     <div class="mem-vector-row">
                       <v-text-field
-                          v-model.number="values.surface[field.key][0]"
+                          v-model.number="values.surface[group.key][0]"
                           label="X"
                           density="compact"
                           hide-details
                       />
 
                       <v-text-field
-                          v-model.number="values.surface[field.key][1]"
+                          v-model.number="values.surface[group.key][1]"
                           label="Y"
                           density="compact"
                           hide-details
                       />
 
                       <v-text-field
-                          v-model.number="values.surface[field.key][2]"
+                          v-model.number="values.surface[group.key][2]"
                           label="Z"
                           density="compact"
                           hide-details
@@ -256,10 +256,10 @@
 
                   <template v-else>
                     <v-slider
-                        v-model="values.surface[field.key]"
-                        :min="field.min"
-                        :max="field.max"
-                        :step="field.step"
+                        v-model="values.surface[group.key]"
+                        :min="group.field.min"
+                        :max="group.field.max"
+                        :step="group.field.step"
                         thumb-label
                         hide-details
                     />
@@ -270,58 +270,49 @@
                         type="button"
                         class="mem-map-pill"
                         :class="{
-                          active: isSurfaceSlotConnected(field.key),
-                          multitexture: getMapSlot(field.key)?.source_type === 'multitexture',
-                          shader: getMapSlot(field.key)?.source_type === 'shader'
+                          active: isSurfaceSlotConnected(group.key),
+                          multitexture: getMapSlot(group.key)?.source_type === 'multitexture',
+                          shader: getMapSlot(group.key)?.source_type === 'shader'
                         }"
-                        @click="clearMapSlot(field.key)"
+                        @click="clearMapSlot(group.key)"
                     >
                       <v-icon size="15">
-                        {{ getSurfaceSlotIcon(field.key) }}
+                        {{ getSurfaceSlotIcon(group.key) }}
                       </v-icon>
 
                       <span class="mem-map-pill-text">
-                        <strong>{{ getSurfaceSlotLabel(field.key) }}</strong>
-                        <small>{{ getSurfaceSlotDetail(field.key) }}</small>
+                        <strong>{{ getSurfaceSlotLabel(group.key) }}</strong>
+                        <small>{{ getSurfaceSlotDetail(group.key) }}</small>
                       </span>
                     </button>
 
                     <div class="mem-surface-offset-sync">
-                      <v-slider
-                          :model-value="getSurfaceSlotOffset(field.key)"
-                          :min="-1"
-                          :max="1"
-                          :step="0.001"
-                          thumb-label
-                          hide-details
-                          @update:model-value="setSurfaceSlotOffset(field.key, $event)"
-                      />
-
-                      <v-text-field
-                          :model-value="getSurfaceSlotOffset(field.key)"
-                          label="Offset"
-                          type="number"
+                      <v-select
+                          :model-value="getMapSlot(group.key)?.channel || 'rgba'"
+                          :items="textureChannelOptions"
+                          label="Image"
                           density="compact"
                           hide-details
-                          @update:model-value="setSurfaceSlotOffset(field.key, $event)"
+                          @update:model-value="setSurfaceSlotChannel(group.key, $event)"
                       />
 
                       <v-select
-                          :model-value="getMapSlot(field.key)?.channel || 'rgba'"
-                          :items="['rgba', 'rgb']"
-                          label="Mode"
+                          :model-value="getMapSlot(group.key)?.color_mode || 'color'"
+                          :items="textureColorModeOptions"
+                          label="Color"
                           density="compact"
                           hide-details
-                          @update:model-value="setSurfaceSlotChannel(field.key, $event)"
+                          @update:model-value="setSurfaceTextureSetting(group.key, 'color_mode', $event)"
                       />
+
                     </div>
 
                     <div class="mem-slot-node-actions">
                       <button
                           type="button"
                           class="mem-mini-btn"
-                          :disabled="!getMapSlot(field.key)?.enabled"
-                          @click="insertNodeBetweenSurfaceSlot(field.key, 'modifier')"
+                          :disabled="!getMapSlot(group.key)?.enabled"
+                          @click="insertNodeBetweenSurfaceSlot(group.key, 'modifier')"
                       >
                         Modifier
                       </button>
@@ -329,8 +320,8 @@
                       <button
                           type="button"
                           class="mem-mini-btn"
-                          :disabled="!getMapSlot(field.key)?.enabled"
-                          @click="insertNodeBetweenSurfaceSlot(field.key, 'falloff')"
+                          :disabled="!getMapSlot(group.key)?.enabled"
+                          @click="insertNodeBetweenSurfaceSlot(group.key, 'falloff')"
                       >
                         Falloff
                       </button>
@@ -338,8 +329,8 @@
                       <button
                           type="button"
                           class="mem-mini-btn"
-                          :disabled="!getMapSlot(field.key)?.enabled"
-                          @click="insertNodeBetweenSurfaceSlot(field.key, 'filter')"
+                          :disabled="!getMapSlot(group.key)?.enabled"
+                          @click="insertNodeBetweenSurfaceSlot(group.key, 'filter')"
                       >
                         Filter
                       </button>
@@ -482,7 +473,10 @@
                   </label>
                 </section>
 
-                <section class="mem-geometry-card">
+                <section
+                    v-if="false"
+                    class="mem-geometry-card"
+                >
                   <header>
                     <strong>Displacement & Normal</strong>
                     <small>Geometrische Tiefe und Oberflächenstruktur.</small>
@@ -706,6 +700,356 @@
               </div>
             </template>
 
+            <!-- LIGHT -->
+            <template v-else-if="ui.activeTab === 'light'">
+              <div class="mem-view-head">
+                <div>
+                  <strong>Light</strong>
+                  <span>Scene-Licht, Surface-Highlights und Normal/Bump-Reaktion fuer Layer3D.</span>
+                </div>
+              </div>
+
+              <div class="mem-geometry-layout">
+                <section class="mem-geometry-card">
+                  <header>
+                    <strong>Scene Light</strong>
+                    <small>Globale Lichtquelle fuer die Canvas-Preview.</small>
+                  </header>
+
+                  <label
+                      class="mem-toggle-card"
+                      :class="{ active: values.light.enabled }"
+                  >
+                    <span class="mem-toggle-icon">
+                      <v-icon>mdi-lightbulb-on-outline</v-icon>
+                    </span>
+
+                    <span class="mem-toggle-text">
+                      <strong>Enabled</strong>
+                      <small>Aktiviert gerichtetes Licht in Layer3D.</small>
+                    </span>
+
+                    <v-switch
+                        v-model="values.light.enabled"
+                        hide-details
+                        @update:model-value="requestPreviewDebounced"
+                    />
+                  </label>
+
+                  <v-select
+                      v-model="values.light.lightType"
+                      :items="['sun', 'directional', 'point', 'spot', 'area']"
+                      label="Light Type"
+                      density="compact"
+                      hide-details
+                      @update:model-value="requestPreviewDebounced"
+                  />
+
+                  <div class="mem-color-line">
+                    <input
+                        v-model="values.light.color"
+                        type="color"
+                        @input="requestPreviewDebounced"
+                    />
+
+                    <span>Direct {{ values.light.color }}</span>
+                  </div>
+
+                  <div class="mem-color-line">
+                    <input
+                        v-model="values.light.environment_color"
+                        type="color"
+                        @input="requestPreviewDebounced"
+                    />
+
+                    <span>Reflection {{ values.light.environment_color }}</span>
+                  </div>
+
+                  <div class="mem-color-line">
+                    <input
+                        v-model="values.light.ambient_color"
+                        type="color"
+                        @input="requestPreviewDebounced"
+                    />
+
+                    <span>Ambient {{ values.light.ambient_color }}</span>
+                  </div>
+
+                  <label
+                      class="mem-toggle-card"
+                      :class="{ active: values.light.castShadow }"
+                  >
+                    <span class="mem-toggle-icon">
+                      <v-icon>mdi-box-shadow</v-icon>
+                    </span>
+
+                    <span class="mem-toggle-text">
+                      <strong>Cast Shadow</strong>
+                      <small>Shadow-Flag fuer spaetere Shadow-Maps.</small>
+                    </span>
+
+                    <v-switch
+                        v-model="values.light.castShadow"
+                        hide-details
+                        @update:model-value="requestPreviewDebounced"
+                    />
+                  </label>
+                </section>
+
+                <section class="mem-geometry-card">
+                  <header>
+                    <strong>Energy</strong>
+                    <small>Direktes Licht, Umgebung und weiche Flaechen.</small>
+                  </header>
+
+                  <div class="mem-control-card">
+                    <header>
+                      <strong>Intensity</strong>
+                      <small>{{ values.light.intensity }}</small>
+                    </header>
+
+                    <v-slider
+                        v-model="values.light.intensity"
+                        :min="0"
+                        :max="2"
+                        :step="0.001"
+                        thumb-label
+                        hide-details
+                        @update:model-value="requestPreviewDebounced"
+                    />
+                  </div>
+
+                  <div class="mem-control-card">
+                    <header>
+                      <strong>Ambient</strong>
+                      <small>{{ values.light.ambient }}</small>
+                    </header>
+
+                    <v-slider
+                        v-model="values.light.ambient"
+                        :min="0"
+                        :max="1"
+                        :step="0.001"
+                        thumb-label
+                        hide-details
+                        @update:model-value="requestPreviewDebounced"
+                    />
+                  </div>
+
+                  <div class="mem-control-card">
+                    <header>
+                      <strong>Softness</strong>
+                      <small>{{ values.light.softness }}</small>
+                    </header>
+
+                    <v-slider
+                        v-model="values.light.softness"
+                        :min="0"
+                        :max="1"
+                        :step="0.001"
+                        thumb-label
+                        hide-details
+                        @update:model-value="requestPreviewDebounced"
+                    />
+                  </div>
+
+                  <div class="mem-control-card">
+                    <header>
+                      <strong>Temperature</strong>
+                      <small>{{ values.light.temperature }}K</small>
+                    </header>
+
+                    <v-slider
+                        v-model="values.light.temperature"
+                        :min="1000"
+                        :max="20000"
+                        :step="50"
+                        thumb-label
+                        hide-details
+                        @update:model-value="requestPreviewDebounced"
+                    />
+                  </div>
+
+                </section>
+
+                <section class="mem-geometry-card wide">
+                  <header>
+                    <strong>Transform</strong>
+                    <small>Position und Richtung der Lichtquelle relativ zum Material.</small>
+                  </header>
+
+                  <div class="mem-geometry-vector">
+                    <v-text-field
+                        v-if="['point', 'spot', 'area'].includes(values.light.lightType)"
+                        v-model.number="values.light.position_x"
+                        label="PX"
+                        type="number"
+                        density="compact"
+                        hide-details
+                        @update:model-value="requestPreviewDebounced"
+                    />
+
+                    <v-text-field
+                        v-if="['point', 'spot', 'area'].includes(values.light.lightType)"
+                        v-model.number="values.light.position_y"
+                        label="PY"
+                        type="number"
+                        density="compact"
+                        hide-details
+                        @update:model-value="requestPreviewDebounced"
+                    />
+
+                    <v-text-field
+                        v-if="['point', 'spot', 'area'].includes(values.light.lightType)"
+                        v-model.number="values.light.position_z"
+                        label="PZ"
+                        type="number"
+                        density="compact"
+                        hide-details
+                        @update:model-value="requestPreviewDebounced"
+                    />
+
+                    <v-text-field
+                        v-if="['sun', 'directional', 'spot', 'area'].includes(values.light.lightType)"
+                        v-model.number="values.light.direction_x"
+                        label="DX"
+                        type="number"
+                        density="compact"
+                        hide-details
+                        @update:model-value="requestPreviewDebounced"
+                    />
+
+                    <v-text-field
+                        v-if="['sun', 'directional', 'spot', 'area'].includes(values.light.lightType)"
+                        v-model.number="values.light.direction_y"
+                        label="DY"
+                        type="number"
+                        density="compact"
+                        hide-details
+                        @update:model-value="requestPreviewDebounced"
+                    />
+
+                    <v-text-field
+                        v-if="['sun', 'directional', 'spot', 'area'].includes(values.light.lightType)"
+                        v-model.number="values.light.direction_z"
+                        label="DZ"
+                        type="number"
+                        density="compact"
+                        hide-details
+                        @update:model-value="requestPreviewDebounced"
+                    />
+                  </div>
+                </section>
+
+                <section class="mem-geometry-card">
+                  <header>
+                    <strong>Falloff</strong>
+                    <small>Radius, Reichweite und Spot-Kegel.</small>
+                  </header>
+
+                  <div
+                      v-if="['point', 'spot'].includes(values.light.lightType)"
+                      class="mem-control-card"
+                  >
+                    <header>
+                      <strong>Range</strong>
+                      <small>{{ values.light.range }}</small>
+                    </header>
+
+                    <v-slider
+                        v-model="values.light.range"
+                        :min="0.001"
+                        :max="100"
+                        :step="0.001"
+                        thumb-label
+                        hide-details
+                        @update:model-value="requestPreviewDebounced"
+                      />
+                  </div>
+
+                  <div
+                      v-if="['sun', 'point', 'spot', 'area'].includes(values.light.lightType)"
+                      class="mem-control-card"
+                  >
+                    <header>
+                      <strong>{{ values.light.lightType === 'sun' ? 'Angular Radius' : 'Radius' }}</strong>
+                      <small>{{ values.light.radius }}</small>
+                    </header>
+
+                    <v-slider
+                        v-model="values.light.radius"
+                        :min="0"
+                        :max="10"
+                        :step="0.001"
+                        thumb-label
+                        hide-details
+                        @update:model-value="requestPreviewDebounced"
+                      />
+                  </div>
+
+                  <div
+                      v-if="['point', 'spot'].includes(values.light.lightType)"
+                      class="mem-control-card"
+                  >
+                    <header>
+                      <strong>Decay</strong>
+                      <small>{{ values.light.decay }}</small>
+                    </header>
+
+                    <v-slider
+                        v-model="values.light.decay"
+                        :min="0"
+                        :max="4"
+                        :step="0.001"
+                        thumb-label
+                        hide-details
+                        @update:model-value="requestPreviewDebounced"
+                    />
+                  </div>
+
+                  <div
+                      v-if="values.light.lightType === 'spot'"
+                      class="mem-control-card"
+                  >
+                    <header>
+                      <strong>Inner Cone</strong>
+                      <small>{{ values.light.innerCone }}</small>
+                    </header>
+
+                    <v-slider
+                        v-model="values.light.innerCone"
+                        :min="0"
+                        :max="1"
+                        :step="0.001"
+                        thumb-label
+                        hide-details
+                        @update:model-value="requestPreviewDebounced"
+                    />
+                  </div>
+
+                  <div
+                      v-if="values.light.lightType === 'spot'"
+                      class="mem-control-card"
+                  >
+                    <header>
+                      <strong>Outer Cone</strong>
+                      <small>{{ values.light.outerCone }}</small>
+                    </header>
+
+                    <v-slider
+                        v-model="values.light.outerCone"
+                        :min="0"
+                        :max="1"
+                        :step="0.001"
+                        thumb-label
+                        hide-details
+                        @update:model-value="requestPreviewDebounced"
+                    />
+                  </div>
+                </section>
+              </div>
+            </template>
+
             <!-- UV -->
             <template v-else-if="ui.activeTab === 'uv'">
               <div class="mem-uv-workbench">
@@ -915,7 +1259,7 @@
 
                           <v-select
                               :model-value="getMapSlot('baseColor')?.channel || 'rgba'"
-                              :items="['rgba', 'rgb']"
+                              :items="textureChannelOptions"
                               density="compact"
                               hide-details
                               @update:model-value="setSurfaceSlotChannel('baseColor', $event)"
@@ -1040,10 +1384,10 @@
                 <div class="mem-node-actions">
                   <button
                       v-for="nodeType in nodeTypes"
-                      :key="nodeType.type"
+                      :key="`${nodeType.group}-${nodeType.label}-${nodeType.type}`"
                       type="button"
                       class="mem-ghost-btn"
-                      @click="addShaderNode(nodeType.type)"
+                      @click="addShaderNode(nodeType)"
                   >
                     <v-icon size="14">{{ nodeType.icon }}</v-icon>
                     {{ nodeType.label }}
@@ -1173,28 +1517,28 @@
                       <div class="mem-node-sockets">
                         <div class="mem-node-socket-col">
           <span
-              v-for="(socket) in node.inputs"
-              :key="`input-${socket}`"
-              class="mem-node-socket input"
-              data-socket
-              @mousedown.stop="startConnection($event, node, socket, 'input')"
-              @mouseup.stop="completeConnection($event, node, socket, 'input')"
+                          v-for="(_socket, socketName) in node.inputs"
+                          :key="`input-${socketName}`"
+                          class="mem-node-socket input"
+                          data-socket
+                          @mousedown.stop="startConnection($event, node, socketName, 'input')"
+                          @mouseup.stop="completeConnection($event, node, socketName, 'input')"
           >
             <i />
-            {{ socket }}
+            {{ socketName }}
           </span>
                         </div>
 
                         <div class="mem-node-socket-col right">
           <span
-              v-for="(socket) in node.outputs"
-              :key="`output-${socket}`"
+              v-for="(_socket, socketName) in node.outputs"
+              :key="`output-${socketName}`"
               class="mem-node-socket output"
               data-socket
-              @mousedown.stop="startConnection($event, node, socket, 'output')"
-              @mouseup.stop="completeConnection($event, node, socket, 'output')"
+              @mousedown.stop="startConnection($event, node, socketName, 'output')"
+              @mouseup.stop="completeConnection($event, node, socketName, 'output')"
           >
-            {{ socket }}
+            {{ socketName }}
             <i />
           </span>
                         </div>
@@ -1233,11 +1577,20 @@
                     <template v-if="activeShaderNode.type === 'bitmap'">
                       <v-select
                           :model-value="normalizeNodeSettings(activeShaderNode).channel"
-                          :items="['rgba', 'rgb']"
+                          :items="textureChannelOptions"
                           label="Channel"
                           density="compact"
                           hide-details
                           @update:model-value="updateNodeSetting(activeShaderNode, 'channel', $event)"
+                      />
+
+                      <v-select
+                          :model-value="normalizeNodeSettings(activeShaderNode).color_mode"
+                          :items="textureColorModeOptions"
+                          label="Color"
+                          density="compact"
+                          hide-details
+                          @update:model-value="updateNodeSetting(activeShaderNode, 'color_mode', $event)"
                       />
 
                       <v-text-field
@@ -1252,12 +1605,50 @@
                     <template v-if="activeShaderNode.type === 'multitexture'">
                       <v-select
                           :model-value="normalizeNodeSettings(activeShaderNode).channel"
-                          :items="['rgba', 'rgb']"
+                          :items="textureChannelOptions"
                           label="Mode"
                           density="compact"
                           hide-details
                           @update:model-value="updateNodeSetting(activeShaderNode, 'channel', $event)"
                       />
+
+                      <v-select
+                          :model-value="normalizeNodeSettings(activeShaderNode).color_mode"
+                          :items="textureColorModeOptions"
+                          label="Color"
+                          density="compact"
+                          hide-details
+                          @update:model-value="updateNodeSetting(activeShaderNode, 'color_mode', $event)"
+                      />
+
+                      <div
+                          v-for="(group, groupIndex) in normalizeNodeSettings(activeShaderNode).texture_groups || []"
+                          :key="`${group.slot || group.url}-${groupIndex}`"
+                          class="mem-control-card"
+                      >
+                        <header>
+                          <strong>{{ group.name || group.slot || `Texture ${groupIndex + 1}` }}</strong>
+                          <small>{{ group.faces?.join(', ') }}</small>
+                        </header>
+
+                        <v-select
+                            :model-value="group.channel || normalizeNodeSettings(activeShaderNode).channel"
+                            :items="textureChannelOptions"
+                            label="Image"
+                            density="compact"
+                            hide-details
+                            @update:model-value="updateNodeTextureGroupSetting(activeShaderNode, groupIndex, 'channel', $event)"
+                        />
+
+                        <v-select
+                            :model-value="group.color_mode || normalizeNodeSettings(activeShaderNode).color_mode"
+                            :items="textureColorModeOptions"
+                            label="Color"
+                            density="compact"
+                            hide-details
+                            @update:model-value="updateNodeTextureGroupSetting(activeShaderNode, groupIndex, 'color_mode', $event)"
+                        />
+                      </div>
                     </template>
 
                     <template v-if="activeShaderNode.type === 'uv-map'">
@@ -1330,7 +1721,7 @@
 
                       <v-slider
                           :model-value="normalizeNodeSettings(activeShaderNode).strength"
-                          :min="0"
+                          :min="-2"
                           :max="2"
                           :step="0.01"
                           thumb-label
@@ -1339,7 +1730,10 @@
                       />
                     </div>
 
-                    <div class="mem-control-card">
+                    <div
+                        v-if="!['bitmap', 'multitexture'].includes(activeShaderNode.type)"
+                        class="mem-control-card"
+                    >
                       <header>
                         <strong>Offset</strong>
                         <small>{{ normalizeNodeSettings(activeShaderNode).offset }}</small>
@@ -1413,6 +1807,47 @@
               </div>
 
               <div class="mem-section">
+                <div class="mem-select-card">
+                  <strong>Preview Renderer</strong>
+
+                  <v-select
+                      v-model="values.render_backend"
+                      :items="[
+                        { title: 'Canvas2D', value: 'CANVAS2D' },
+                        { title: 'WEBGL2', value: 'WEBGL2' },
+                      ]"
+                      item-title="title"
+                      item-value="value"
+                      label="Renderer"
+                      density="compact"
+                      hide-details
+                      @update:model-value="requestPreviewDebounced"
+                  />
+                </div>
+
+                <div class="mem-select-card">
+                  <strong>Texture Sampling</strong>
+                  <v-select
+                      v-model="values.texture_size"
+                      :items="textureSizeOptions"
+                      label="Texture Size"
+                      density="compact"
+                      hide-details
+                      @update:model-value="requestPreviewDebounced"
+                  >
+                    <template #selection="{ item }">
+                      {{ item.raw === 'Original' ? 'Original' : `${item.raw}px` }}
+                    </template>
+
+                    <template #item="{ props, item }">
+                      <v-list-item
+                          v-bind="props"
+                          :title="item.raw === 'Original' ? 'Original' : `${item.raw}px`"
+                      />
+                    </template>
+                  </v-select>
+                </div>
+
                 <div class="mem-control-card">
                   <header>
                     <strong>Cube Size</strong>
@@ -1459,6 +1894,44 @@
                   />
                 </div>
 
+                <label
+                    class="mem-toggle-card"
+                    :class="{ active: values.backface_culling }"
+                >
+                  <span class="mem-toggle-icon">
+                    <v-icon>mdi-cube-off-outline</v-icon>
+                  </span>
+
+                  <span class="mem-toggle-text">
+                    <strong>Backface Culling</strong>
+                    <small>Rendert Rueckseiten nur, wenn Show Backface aktiv ist.</small>
+                  </span>
+
+                  <v-switch
+                      v-model="values.backface_culling"
+                      hide-details
+                  />
+                </label>
+
+                <div
+                    v-if="values.blend_mode === 'CLIP'"
+                    class="mem-control-card"
+                >
+                  <header>
+                    <strong>Clip Threshold</strong>
+                    <small>{{ values.alpha_clip }}</small>
+                  </header>
+
+                  <v-slider
+                      v-model="values.alpha_clip"
+                      :min="0"
+                      :max="1"
+                      :step="0.01"
+                      thumb-label
+                      hide-details
+                  />
+                </div>
+
                 <div class="mem-select-card">
                   <strong>Shadow Method</strong>
 
@@ -1469,6 +1942,79 @@
                       hide-details
                   />
                 </div>
+
+                <label
+                    class="mem-toggle-card"
+                    :class="{ active: values.show_backface }"
+                >
+                  <span class="mem-toggle-icon">
+                    <v-icon>mdi-flip-to-back</v-icon>
+                  </span>
+
+                  <span class="mem-toggle-text">
+                    <strong>Show Backface</strong>
+                    <small>Transparente Rueckseiten bleiben sichtbar.</small>
+                  </span>
+
+                  <v-switch
+                      v-model="values.show_backface"
+                      hide-details
+                  />
+                </label>
+
+                <label
+                    class="mem-toggle-card"
+                    :class="{ active: values.screen_space_refraction }"
+                >
+                  <span class="mem-toggle-icon">
+                    <v-icon>mdi-glass-fragile</v-icon>
+                  </span>
+
+                  <span class="mem-toggle-text">
+                    <strong>Screen Space Refraction</strong>
+                    <small>Erlaubt Transmission/IOR als Glas-Refraction in WebGL2.</small>
+                  </span>
+
+                  <v-switch
+                      v-model="values.screen_space_refraction"
+                      hide-details
+                  />
+                </label>
+
+                <div class="mem-control-card">
+                  <header>
+                    <strong>Refraction Depth</strong>
+                    <small>{{ values.refraction_depth }} m</small>
+                  </header>
+
+                  <v-slider
+                      v-model="values.refraction_depth"
+                      :min="0"
+                      :max="10"
+                      :step="0.001"
+                      thumb-label
+                      hide-details
+                  />
+                </div>
+
+                <label
+                    class="mem-toggle-card"
+                    :class="{ active: values.subsurface_translucency }"
+                >
+                  <span class="mem-toggle-icon">
+                    <v-icon>mdi-circle-opacity</v-icon>
+                  </span>
+
+                  <span class="mem-toggle-text">
+                    <strong>Subsurface Translucency</strong>
+                    <small>Laesst Subsurface staerker durch Gegenlicht reagieren.</small>
+                  </span>
+
+                  <v-switch
+                      v-model="values.subsurface_translucency"
+                      hide-details
+                  />
+                </label>
 
                 <label
                     class="mem-toggle-card"

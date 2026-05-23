@@ -18,7 +18,11 @@ export const materialEvent = (route) => ({
     },
 
     "material:preview-data": async (payload) => {
-        route.tempData.materialPreview.value = payload.layer;
+        route.tempData.materialPreview.value = {
+            ...payload.layer,
+            material_preview_request_id: payload.requestId,
+            time: payload.layer?.time || Date.now(),
+        };
         route.loadingStates.materialPreview.value = false;
     },
 

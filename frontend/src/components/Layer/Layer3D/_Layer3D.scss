@@ -12,3 +12,139 @@
   height: 100%;
   pointer-events: auto;
 }
+
+.canvas-material-light-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  color: #eaf6ff;
+  font-size: 10px;
+  line-height: 1.25;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.72);
+}
+
+.canvas-material-light-origin {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(234, 246, 255, 0.55);
+  border-radius: 50%;
+  background: rgba(234, 246, 255, 0.18);
+}
+
+.canvas-material-light-range {
+  position: absolute;
+  left: var(--light-x);
+  top: var(--light-y);
+  width: var(--light-range-size);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border: 1px dashed color-mix(in srgb, var(--light-color), white 22%);
+  border-radius: 50%;
+  opacity: calc(0.16 + var(--light-glow) * 0.34 + var(--light-ambient) * 0.18);
+  box-shadow: 0 0 28px color-mix(in srgb, var(--light-color), transparent 48%);
+}
+
+.canvas-material-light-line {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--light-distance);
+  height: 2px;
+  transform: rotate(var(--light-angle));
+  transform-origin: 0 0;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.78), color-mix(in srgb, var(--light-color), transparent 18%), rgba(255, 255, 255, 0));
+  opacity: calc(0.42 + var(--light-glow) * 0.44);
+}
+
+.canvas-material-light-cone {
+  position: absolute;
+  left: var(--light-x);
+  top: var(--light-y);
+  width: 0;
+  height: 0;
+  transform: translate(-50%, -50%) rotate(var(--light-dir-angle));
+  transform-origin: 0 0;
+  border-top: calc(var(--light-cone-spread) * 0.5) solid transparent;
+  border-bottom: calc(var(--light-cone-spread) * 0.5) solid transparent;
+  border-left: min(42vw, 130px) solid color-mix(in srgb, var(--light-color), transparent 72%);
+  filter: blur(calc(var(--light-blur) * 0.25));
+  opacity: calc(0.28 + var(--light-glow) * 0.34);
+}
+
+.canvas-material-light-cone span {
+  position: absolute;
+  left: 0;
+  top: calc(var(--light-inner-spread) * -0.5);
+  width: 0;
+  height: 0;
+  border-top: calc(var(--light-inner-spread) * 0.5) solid transparent;
+  border-bottom: calc(var(--light-inner-spread) * 0.5) solid transparent;
+  border-left: min(32vw, 98px) solid color-mix(in srgb, var(--light-color), transparent 58%);
+}
+
+.canvas-material-light-glyph {
+  position: absolute;
+  left: var(--light-x);
+  top: var(--light-y);
+  width: var(--light-radius-size);
+  height: var(--light-radius-size);
+  min-width: 18px;
+  min-height: 18px;
+  transform: translate(-50%, -50%);
+  border: 1px solid color-mix(in srgb, var(--light-color), white 40%);
+  background: color-mix(in srgb, var(--light-color), transparent 72%);
+  box-shadow:
+    0 0 calc(18px + var(--light-blur)) color-mix(in srgb, var(--light-color), transparent 22%),
+    inset 0 0 18px color-mix(in srgb, var(--light-color), transparent 48%);
+  opacity: calc(0.62 + var(--light-glow) * 0.34);
+}
+
+.canvas-material-light-glyph span {
+  position: absolute;
+  inset: 32%;
+  border-radius: 50%;
+  background: var(--light-color);
+  box-shadow: 0 0 14px var(--light-color);
+}
+
+.canvas-material-light-glyph.type-sun,
+.canvas-material-light-glyph.type-directional {
+  border-radius: 50%;
+}
+
+.canvas-material-light-glyph.type-point {
+  border-radius: 50%;
+}
+
+.canvas-material-light-glyph.type-spot {
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+
+.canvas-material-light-glyph.type-area {
+  border-radius: 2px;
+}
+
+.canvas-material-light-metrics {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.canvas-material-light-metrics small {
+  padding: 2px 5px;
+  border: 1px solid color-mix(in srgb, var(--light-color), transparent 42%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--light-color), rgba(3, 8, 12, 0.82) 78%);
+  color: rgba(234, 246, 255, 0.82);
+  font-size: 9px;
+}

@@ -3,7 +3,10 @@
 # local env files
 .env
 .env.*.local
-
+codex_tmp
+frontend/codex_tmp/*
+.codex_tmp
+frontend/.codex_tmp/*
 # Log files
 npm-debug.log*
 yarn-debug.log*

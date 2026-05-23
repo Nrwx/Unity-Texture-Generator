@@ -2,12 +2,15 @@ import os
 import json
 import uuid
 import shutil
+from PIL import Image
 
 from config.data.constant import LAYERS
 from model.base.main import BaseModel
 from model.layer_model import LayerModel
 from generated.paths import PUBLIC_LAYER_FOLDER, PUBLIC_MATERIAL_FOLDER
 from utils import time
+
+from components import apply_resize
 
 
 SURFACE_DEFAULTS = {
@@ -166,7 +169,17 @@ GEOMETRY_RANGES = {
 
 ALLOWED_PRIMITIVES = {"cube", "box", "plane", "sphere", "cylinder"}
 ALLOWED_UV_FITS = {"stretch", "contain", "cover", "tile", "world"}
+TEXTURE_PRELOAD_OPTIONS = [32, 64, 128, 256, 512, 1024, "Original"]
+TEXTURE_SIZE_ORIGINAL = "Original"
 
+TEXTURE_SIZE_TO_RESIZE_INDEX = {
+    32: 1,
+    64: 2,
+    128: 3,
+    256: 4,
+    512: 5,
+    1024: 6,
+}
 
 def json_loads(value, fallback):
     if value is None or value == "":
@@ -343,9 +356,114 @@ class MaterialModel(BaseModel):
             "name": str(bitmap.get("name", "") or layer_id or ""),
             "width": int(float(bitmap.get("width", 0) or 0)),
             "height": int(float(bitmap.get("height", 0) or 0)),
+            "original_width": int(float(bitmap.get("original_width", 0) or 0)),
+            "original_height": int(float(bitmap.get("original_height", 0) or 0)),
             "filename": str(bitmap.get("filename", "") or ""),
             "cached": cls.safe_bool(bitmap.get("cached", False)),
+            "missing": cls.safe_bool(bitmap.get("missing", False)),
             "channel": str(bitmap.get("channel", "rgba") or "rgba"),
+            "texture_size": cls.normalize_texture_size(bitmap.get("texture_size", TEXTURE_SIZE_ORIGINAL)),
+            "texture_lod_key": str(bitmap.get("texture_lod_key", "") or ""),
+            "texture_resized": cls.safe_bool(bitmap.get("texture_resized", False)),
+        }
+
+    @classmethod
+    def normalize_texture_size(cls, value):
+        if value in (None, "", 0, "0", "original", "Original", "ORIGINAL"):
+            return TEXTURE_SIZE_ORIGINAL
+
+        try:
+            number = int(value)
+        except Exception:
+            return TEXTURE_SIZE_ORIGINAL
+
+        return number if number in TEXTURE_SIZE_TO_RESIZE_INDEX else TEXTURE_SIZE_ORIGINAL
+
+    @classmethod
+    def texture_lod_key(cls, texture_size):
+        texture_size = cls.normalize_texture_size(texture_size)
+        return "original" if texture_size == TEXTURE_SIZE_ORIGINAL else str(texture_size)
+
+    @classmethod
+    def resolve_lod_target(cls, image_width, image_height, texture_size):
+        texture_size = cls.normalize_texture_size(texture_size)
+
+        if texture_size == TEXTURE_SIZE_ORIGINAL:
+            return None
+
+        image_width = max(1, int(image_width or 1))
+        image_height = max(1, int(image_height or 1))
+        max_edge = int(texture_size)
+
+        if image_width == max_edge or image_height == max_edge:
+            # Bereits auf der gewählten Max-Kante.
+            # Trotzdem nur "skippen", wenn die andere Kante proportional passt.
+            if image_width >= image_height:
+                expected_height = max(1, round(max_edge * image_height / image_width))
+                if image_width == max_edge and image_height == expected_height:
+                    return None
+            else:
+                expected_width = max(1, round(max_edge * image_width / image_height))
+                if image_height == max_edge and image_width == expected_width:
+                    return None
+
+        if image_width >= image_height:
+            target_width = max_edge
+            target_height = max(1, round(max_edge * image_height / image_width))
+        else:
+            target_width = max(1, round(max_edge * image_width / image_height))
+            target_height = max_edge
+
+        if target_width == image_width and target_height == image_height:
+            return None
+
+        return target_width, target_height
+
+    @classmethod
+    def resize_texture_image(cls, source_path, target_path, texture_size):
+        texture_size = cls.normalize_texture_size(texture_size)
+
+        with Image.open(source_path) as image:
+            image = image.convert("RGBA")
+            original_width, original_height = image.size
+
+            target_size = cls.resolve_lod_target(
+                original_width,
+                original_height,
+                texture_size,
+            )
+
+            if target_size:
+                target_width, target_height = target_size
+
+                resized = apply_resize(
+                    image=image,
+                    resize_index=0,
+                    resize_mode=1,
+                    upscale_method=1,
+                    resize_width=target_width,
+                    resize_height=target_height,
+                    resize_keep_aspect_ratio=1,
+                    resize_is_custom=1,
+                )
+            else:
+                resized = image
+
+            os.makedirs(os.path.dirname(target_path), exist_ok=True)
+            resized.save(target_path, "PNG")
+
+            width, height = resized.size
+
+        return {
+            "width": int(width),
+            "height": int(height),
+            "original_width": int(original_width),
+            "original_height": int(original_height),
+            "texture_size": texture_size,
+            "texture_lod_key": cls.texture_lod_key(texture_size),
+            "texture_resized": texture_size != TEXTURE_SIZE_ORIGINAL and (
+                int(width) != int(original_width) or int(height) != int(original_height)
+            ),
         }
 
     @classmethod
@@ -355,25 +473,32 @@ class MaterialModel(BaseModel):
         source_layer_id="",
         texture_url="",
         suffix="base_color",
+        texture_size=TEXTURE_SIZE_ORIGINAL,
+        force=False,
     ):
         cls.ensure_dirs()
+
+        texture_size = cls.normalize_texture_size(texture_size)
+        lod_key = cls.texture_lod_key(texture_size)
 
         texture_url = cls.normalize_texture_url(texture_url)
         source_path = ""
 
-        if texture_url and cls.is_download_url(texture_url):
-            possible_path = cls.public_download_url_to_path(texture_url)
-
-            if possible_path and os.path.exists(possible_path):
-                source_path = possible_path
-
-        if not source_path and source_layer_id:
+        # Wichtig: Original-Layer bevorzugen, damit nicht von bereits gecachten LODs
+        # erneut skaliert wird.
+        if source_layer_id:
             possible_path = os.path.join(
                 PUBLIC_LAYER_FOLDER,
                 f"{source_layer_id}.png",
             )
 
             if os.path.exists(possible_path):
+                source_path = possible_path
+
+        if not source_path and texture_url and cls.is_download_url(texture_url):
+            possible_path = cls.public_download_url_to_path(texture_url)
+
+            if possible_path and os.path.exists(possible_path):
                 source_path = possible_path
 
         if not source_path:
@@ -385,16 +510,45 @@ class MaterialModel(BaseModel):
                 "cached": False,
                 "missing": not bool(resolved),
                 "path": "",
+                "width": 0,
+                "height": 0,
+                "original_width": 0,
+                "original_height": 0,
+                "texture_size": texture_size,
+                "texture_lod_key": lod_key,
+                "texture_resized": False,
             }
 
-        filename = f"{suffix}.png"
+        filename = f"{suffix}_{lod_key}.png"
         target_folder = cls.material_folder(material_id)
         target_path = os.path.join(target_folder, filename)
 
         os.makedirs(target_folder, exist_ok=True)
 
-        if os.path.abspath(source_path) != os.path.abspath(target_path):
-            shutil.copy2(source_path, target_path)
+        if force or not os.path.exists(target_path):
+            resize_meta = cls.resize_texture_image(
+                source_path=source_path,
+                target_path=target_path,
+                texture_size=texture_size,
+            )
+        else:
+            with Image.open(target_path) as image:
+                width, height = image.size
+
+            with Image.open(source_path) as source_image:
+                original_width, original_height = source_image.size
+
+            resize_meta = {
+                "width": int(width),
+                "height": int(height),
+                "original_width": int(original_width),
+                "original_height": int(original_height),
+                "texture_size": texture_size,
+                "texture_lod_key": lod_key,
+                "texture_resized": texture_size != TEXTURE_SIZE_ORIGINAL and (
+                    int(width) != int(original_width) or int(height) != int(original_height)
+                ),
+            }
 
         if not os.path.exists(target_path):
             return {
@@ -403,6 +557,7 @@ class MaterialModel(BaseModel):
                 "cached": False,
                 "missing": True,
                 "path": target_path,
+                **resize_meta,
             }
 
         return {
@@ -411,20 +566,42 @@ class MaterialModel(BaseModel):
             "cached": True,
             "missing": False,
             "path": target_path,
+            **resize_meta,
         }
 
     @classmethod
-    def cache_bitmap_payload(cls, material_id, bitmap, suffix):
+    def cache_bitmap_payload(
+        cls,
+        material_id,
+        bitmap,
+        suffix,
+        texture_size=TEXTURE_SIZE_ORIGINAL,
+    ):
         payload = cls.resolve_bitmap_payload(bitmap)
+        texture_size = cls.normalize_texture_size(texture_size)
+        lod_key = cls.texture_lod_key(texture_size)
 
         if not payload.get("url") and not payload.get("layer_id"):
+            payload.update({
+                "texture_size": texture_size,
+                "texture_lod_key": lod_key,
+                "texture_resized": False,
+            })
             return payload
+
+        already_scaled = (
+            payload.get("cached") is True
+            and str(payload.get("texture_lod_key", "")) == lod_key
+            and cls.normalize_texture_size(payload.get("texture_size")) == texture_size
+        )
 
         cached = cls.copy_source_texture(
             material_id=material_id,
             source_layer_id=payload.get("layer_id", ""),
             texture_url=payload.get("url", ""),
             suffix=suffix,
+            texture_size=texture_size,
+            force=not already_scaled,
         )
 
         if cached.get("url"):
@@ -434,6 +611,15 @@ class MaterialModel(BaseModel):
         payload["cached"] = cached.get("cached", False)
         payload["missing"] = cached.get("missing", False)
         payload["path"] = cached.get("path", "")
+
+        payload["width"] = cached.get("width", payload.get("width", 0))
+        payload["height"] = cached.get("height", payload.get("height", 0))
+        payload["original_width"] = cached.get("original_width", payload.get("original_width", 0))
+        payload["original_height"] = cached.get("original_height", payload.get("original_height", 0))
+
+        payload["texture_size"] = cached.get("texture_size", texture_size)
+        payload["texture_lod_key"] = cached.get("texture_lod_key", lod_key)
+        payload["texture_resized"] = cached.get("texture_resized", False)
 
         return payload
 
@@ -567,6 +753,14 @@ class MaterialModel(BaseModel):
             "layer_id": "",
             "url": "",
             "name": "",
+            "width": 0,
+            "height": 0,
+            "original_width": 0,
+            "original_height": 0,
+
+            "texture_size": TEXTURE_SIZE_ORIGINAL,
+            "texture_lod_key": "",
+            "texture_resized": False,
 
             "node_id": "",
             "uv_node_id": "",
@@ -624,6 +818,16 @@ class MaterialModel(BaseModel):
                     "layer_id": str(incoming.get("layer_id", "") or ""),
                     "url": cls.normalize_texture_url(incoming.get("url", "")),
                     "name": str(incoming.get("name", "") or ""),
+                    "width": int(float(incoming.get("width", 0) or 0)),
+                    "height": int(float(incoming.get("height", 0) or 0)),
+                    "original_width": int(float(incoming.get("original_width", 0) or 0)),
+                    "original_height": int(float(incoming.get("original_height", 0) or 0)),
+
+                    "texture_size": cls.normalize_texture_size(
+                        incoming.get("texture_size", TEXTURE_SIZE_ORIGINAL)
+                    ),
+                    "texture_lod_key": str(incoming.get("texture_lod_key", "") or ""),
+                    "texture_resized": cls.safe_bool(incoming.get("texture_resized", False)),
 
                     "node_id": str(incoming.get("node_id", "") or ""),
                     "uv_node_id": str(incoming.get("uv_node_id", "") or ""),
@@ -666,6 +870,15 @@ class MaterialModel(BaseModel):
                         cleaned_groups.append({
                             "url": url,
                             "name": str(group.get("name", "") or group.get("layer_id", "") or "Texture"),
+                            "width": int(float(group.get("width", 0) or 0)),
+                            "height": int(float(group.get("height", 0) or 0)),
+                            "original_width": int(float(group.get("original_width", 0) or 0)),
+                            "original_height": int(float(group.get("original_height", 0) or 0)),
+                            "texture_size": cls.normalize_texture_size(
+                                group.get("texture_size", slot.get("texture_size", TEXTURE_SIZE_ORIGINAL))
+                            ),
+                            "texture_lod_key": str(group.get("texture_lod_key", "") or ""),
+                            "texture_resized": cls.safe_bool(group.get("texture_resized", False)),
                             "layer_id": str(group.get("layer_id", "") or ""),
                             "filename": str(group.get("filename", "") or ""),
                             "cached": cls.safe_bool(group.get("cached", False)),
@@ -854,7 +1067,12 @@ class MaterialModel(BaseModel):
         return normalized
 
     @classmethod
-    def cache_uv_textures(cls, material_id, uv):
+    def cache_uv_textures(
+        cls,
+        material_id,
+        uv,
+        texture_size=TEXTURE_SIZE_ORIGINAL,
+    ):
         if not isinstance(uv, dict):
             return uv
 
@@ -863,6 +1081,7 @@ class MaterialModel(BaseModel):
         if not isinstance(faces, dict):
             return uv
 
+        texture_size = cls.normalize_texture_size(texture_size)
         url_cache = {}
 
         for face in CUBE_FACE_NAMES:
@@ -878,9 +1097,9 @@ class MaterialModel(BaseModel):
 
             original_url = cls.normalize_texture_url(bitmap.get("url", ""))
             layer_id = str(bitmap.get("layer_id", "") or "")
-            cache_key = original_url or layer_id
+            cache_key = f"{original_url or layer_id}::{cls.texture_lod_key(texture_size)}"
 
-            if not cache_key:
+            if not original_url and not layer_id:
                 continue
 
             if cache_key not in url_cache:
@@ -888,6 +1107,7 @@ class MaterialModel(BaseModel):
                     material_id=material_id,
                     bitmap=bitmap,
                     suffix=f"uv_{face}",
+                    texture_size=texture_size,
                 )
 
             face_data["bitmap"] = {
@@ -952,6 +1172,14 @@ class MaterialModel(BaseModel):
                     "missing": group.get("missing", False),
                     "channel": group.get("channel", slot.get("channel", "rgba")),
                     "faces": group.get("faces", []),
+
+                    "width": group.get("width", 0),
+                    "height": group.get("height", 0),
+                    "original_width": group.get("original_width", 0),
+                    "original_height": group.get("original_height", 0),
+                    "texture_size": group.get("texture_size", slot.get("texture_size", TEXTURE_SIZE_ORIGINAL)),
+                    "texture_lod_key": group.get("texture_lod_key", ""),
+                    "texture_resized": group.get("texture_resized", False)
                 }],
 
                 "channel": bitmap.get("channel", slot.get("channel", "rgba")),
@@ -986,6 +1214,13 @@ class MaterialModel(BaseModel):
                     "name": group.get("name", "Texture"),
                     "layer_id": group.get("layer_id", ""),
                     "filename": group.get("filename", ""),
+                    "width": group.get("width", 0),
+                    "height": group.get("height", 0),
+                    "original_width": group.get("original_width", 0),
+                    "original_height": group.get("original_height", 0),
+                    "texture_size": group.get("texture_size", slot.get("texture_size", TEXTURE_SIZE_ORIGINAL)),
+                    "texture_lod_key": group.get("texture_lod_key", ""),
+                    "texture_resized": group.get("texture_resized", False),
                     "cached": group.get("cached", False),
                     "missing": group.get("missing", False),
                     "channel": group.get("channel", slot.get("channel", "rgba")),
@@ -1461,17 +1696,36 @@ class MaterialModel(BaseModel):
         return None, None
 
     @classmethod
-    def cache_graph_bitmap(cls, material_id, settings, suffix):
+    def cache_graph_bitmap(
+        cls,
+        material_id,
+        settings,
+        suffix,
+        texture_size=TEXTURE_SIZE_ORIGINAL,
+    ):
         bitmap = {
             "layer_id": settings.get("layer_id", ""),
             "url": settings.get("url", ""),
             "name": settings.get("name", ""),
             "width": settings.get("width", 0),
             "height": settings.get("height", 0),
+            "original_width": settings.get("original_width", 0),
+            "original_height": settings.get("original_height", 0),
+            "filename": settings.get("filename", ""),
+            "cached": settings.get("cached", False),
+            "missing": settings.get("missing", False),
             "channel": settings.get("channel", "rgba"),
+            "texture_size": settings.get("texture_size", texture_size),
+            "texture_lod_key": settings.get("texture_lod_key", ""),
+            "texture_resized": settings.get("texture_resized", False),
         }
 
-        cached = cls.cache_bitmap_payload(material_id, bitmap, suffix)
+        cached = cls.cache_bitmap_payload(
+            material_id,
+            bitmap,
+            suffix,
+            texture_size=texture_size,
+        )
 
         settings.update({
             "layer_id": cached.get("layer_id", settings.get("layer_id", "")),
@@ -1480,6 +1734,14 @@ class MaterialModel(BaseModel):
             "filename": cached.get("filename", settings.get("filename", "")),
             "cached": cached.get("cached", False),
             "missing": cached.get("missing", False),
+
+            "width": cached.get("width", settings.get("width", 0)),
+            "height": cached.get("height", settings.get("height", 0)),
+            "original_width": cached.get("original_width", settings.get("original_width", 0)),
+            "original_height": cached.get("original_height", settings.get("original_height", 0)),
+            "texture_size": cached.get("texture_size", texture_size),
+            "texture_lod_key": cached.get("texture_lod_key", ""),
+            "texture_resized": cached.get("texture_resized", False),
         })
 
         return {
@@ -1495,10 +1757,18 @@ class MaterialModel(BaseModel):
             "texture_groups": [],
             "mapped_faces": settings.get("mapped_faces", []),
             "faces": settings.get("faces", {}),
+
+            "width": settings.get("width", 0),
+            "height": settings.get("height", 0),
+            "original_width": settings.get("original_width", 0),
+            "original_height": settings.get("original_height", 0),
+            "texture_size": settings.get("texture_size", texture_size),
+            "texture_lod_key": settings.get("texture_lod_key", ""),
+            "texture_resized": settings.get("texture_resized", False),
         }
 
     @classmethod
-    def resolve_graph_source(cls, material_id, nodes, incoming, node_id, socket="", seen=None):
+    def resolve_graph_source(cls, material_id, nodes, incoming, node_id, socket="", seen=None, texture_size=TEXTURE_SIZE_ORIGINAL):
         seen = seen or set()
 
         if not node_id or node_id in seen:
@@ -1524,6 +1794,7 @@ class MaterialModel(BaseModel):
                 material_id,
                 settings,
                 f"node_{node.get('id', 'bitmap')}",
+                texture_size=texture_size,
             )
 
             return resolved_bitmap if resolved_bitmap.get("url") else None
@@ -1556,6 +1827,7 @@ class MaterialModel(BaseModel):
                     source_node.get("id") if source_node else "",
                     input_socket,
                     set(seen),
+                    texture_size=texture_size,
                 )
 
                 if resolved and resolved.get("url"):
@@ -1573,6 +1845,7 @@ class MaterialModel(BaseModel):
                         material_id,
                         group_settings,
                         f"node_{node.get('id', 'multitexture')}_{index + 1}",
+                        texture_size=texture_size,
                     )
                     group_settings.update({
                         "url": cached.get("url", group_settings.get("url", "")),
@@ -1589,6 +1862,13 @@ class MaterialModel(BaseModel):
                         "slot": group_settings.get("slot", input_socket),
                         "url": group_settings.get("url", ""),
                         "name": group_settings.get("name", "") or group_settings.get("layer_id", "") or "Texture",
+                        "width": group_settings.get("width", 0),
+                        "height": group_settings.get("height", 0),
+                        "original_width": group_settings.get("original_width", 0),
+                        "original_height": group_settings.get("original_height", 0),
+                        "texture_size": group_settings.get("texture_size", texture_size),
+                        "texture_lod_key": group_settings.get("texture_lod_key", ""),
+                        "texture_resized": group_settings.get("texture_resized", False),
                         "layer_id": group_settings.get("layer_id", ""),
                         "filename": group_settings.get("filename", ""),
                         "cached": group_settings.get("cached", False),
@@ -1634,6 +1914,7 @@ class MaterialModel(BaseModel):
             source_node.get("id") if source_node else "",
             socket,
             seen,
+            texture_size=texture_size,
         )
 
         if resolved:
@@ -1650,7 +1931,7 @@ class MaterialModel(BaseModel):
         return resolved
 
     @classmethod
-    def resolve_shader_graph_slots(cls, material_id, shader_graph, bitmap_maps):
+    def resolve_shader_graph_slots(cls,material_id,shader_graph,bitmap_maps,texture_size=TEXTURE_SIZE_ORIGINAL):
         nodes, incoming = cls.graph_indexes(shader_graph)
 
         for slot_key in SURFACE_SLOT_KEYS:
@@ -1666,6 +1947,7 @@ class MaterialModel(BaseModel):
                 incoming,
                 source_id,
                 edge.get("from", {}).get("socket", ""),
+                texture_size=texture_size
             )
 
             if not resolved:
@@ -1680,6 +1962,13 @@ class MaterialModel(BaseModel):
                 "layer_id": resolved.get("layer_id", current.get("layer_id", "")),
                 "url": resolved.get("url", current.get("url", "")),
                 "name": resolved.get("name", current.get("name", "")),
+                "width": resolved.get("width", current.get("width", 0)),
+                "height": resolved.get("height", current.get("height", 0)),
+                "original_width": resolved.get("original_width", current.get("original_width", 0)),
+                "original_height": resolved.get("original_height", current.get("original_height", 0)),
+                "texture_size": resolved.get("texture_size", current.get("texture_size", texture_size)),
+                "texture_lod_key": resolved.get("texture_lod_key", current.get("texture_lod_key", "")),
+                "texture_resized": resolved.get("texture_resized", current.get("texture_resized", False)),
                 "node_id": source_id or resolved.get("node_id", current.get("node_id", "")),
                 "uv_node_id": current.get("uv_node_id", ""),
                 "faces": resolved.get("faces", current.get("faces", {})),
@@ -1739,6 +2028,13 @@ class MaterialModel(BaseModel):
                     "layer_id": slot.get("layer_id", ""),
                     "url": slot.get("url", ""),
                     "name": slot.get("name", ""),
+                    "width": slot.get("width", 0),
+                    "height": slot.get("height", 0),
+                    "original_width": slot.get("original_width", 0),
+                    "original_height": slot.get("original_height", 0),
+                    "texture_size": slot.get("texture_size", TEXTURE_SIZE_ORIGINAL),
+                    "texture_lod_key": slot.get("texture_lod_key", ""),
+                    "texture_resized": slot.get("texture_resized", False),
                     "filename": slot.get("filename", ""),
                     "cached": slot.get("cached", False),
                     "missing": slot.get("missing", False),
@@ -1764,6 +2060,13 @@ class MaterialModel(BaseModel):
                         "layer_id": group.get("layer_id", ""),
                         "url": group.get("url", ""),
                         "name": group.get("name", ""),
+                        "width": group.get("width", 0),
+                        "height": group.get("height", 0),
+                        "original_width": group.get("original_width", 0),
+                        "original_height": group.get("original_height", 0),
+                        "texture_size": group.get("texture_size", TEXTURE_SIZE_ORIGINAL),
+                        "texture_lod_key": group.get("texture_lod_key", ""),
+                        "texture_resized": group.get("texture_resized", False),
                         "filename": group.get("filename", ""),
                         "cached": group.get("cached", False),
                         "missing": group.get("missing", False),
@@ -1791,6 +2094,13 @@ class MaterialModel(BaseModel):
                     "layer_id": primary_map.get("layer_id", ""),
                     "url": primary_map.get("url", ""),
                     "name": primary_map.get("name", ""),
+                    "width": primary_map.get("width", 0),
+                    "height": primary_map.get("height", 0),
+                    "original_width": primary_map.get("original_width", 0),
+                    "original_height": primary_map.get("original_height", 0),
+                    "texture_size": primary_map.get("texture_size", TEXTURE_SIZE_ORIGINAL),
+                    "texture_lod_key": primary_map.get("texture_lod_key", ""),
+                    "texture_resized": primary_map.get("texture_resized", False),
                     "filename": primary_map.get("filename", ""),
                     "cached": primary_map.get("cached", False),
                     "missing": primary_map.get("missing", False),
@@ -1827,6 +2137,13 @@ class MaterialModel(BaseModel):
             faces=None,
             node_id="",
             slot="",
+            width=0,
+            height=0,
+            original_width=0,
+            original_height=0,
+            texture_size=TEXTURE_SIZE_ORIGINAL,
+            texture_lod_key="",
+            texture_resized=False,
         ):
             if not url:
                 return
@@ -1835,6 +2152,30 @@ class MaterialModel(BaseModel):
                 existing = by_url[url]
                 existing_faces = set(existing.get("faces", []))
                 existing["faces"] = list(existing_faces.union(faces or []))
+
+                # Fehlende Metadaten nachziehen, falls dieselbe URL zuerst ohne Meta kam.
+                if not existing.get("width") and width:
+                    existing["width"] = width
+
+                if not existing.get("height") and height:
+                    existing["height"] = height
+
+                if not existing.get("original_width") and original_width:
+                    existing["original_width"] = original_width
+
+                if not existing.get("original_height") and original_height:
+                    existing["original_height"] = original_height
+
+                if not existing.get("texture_lod_key") and texture_lod_key:
+                    existing["texture_lod_key"] = texture_lod_key
+
+                if existing.get("texture_size") in ("", None, TEXTURE_SIZE_ORIGINAL) and texture_size:
+                    existing["texture_size"] = texture_size
+
+                existing["texture_resized"] = (
+                    existing.get("texture_resized", False) or bool(texture_resized)
+                )
+
                 return
 
             item = {
@@ -1846,11 +2187,20 @@ class MaterialModel(BaseModel):
                 "faces": faces or [],
                 "node_id": node_id,
                 "slot": slot,
+
+                "width": int(float(width or 0)),
+                "height": int(float(height or 0)),
+                "original_width": int(float(original_width or 0)),
+                "original_height": int(float(original_height or 0)),
+                "texture_size": cls.normalize_texture_size(texture_size),
+                "texture_lod_key": str(texture_lod_key or ""),
+                "texture_resized": cls.safe_bool(texture_resized),
             }
 
             by_url[url] = item
             textures.append(item)
 
+        # UV face bitmaps
         for face_name, face in (uv.get("faces", {}) if isinstance(uv, dict) else {}).items():
             bitmap = face.get("bitmap", {}) if isinstance(face, dict) else {}
 
@@ -1863,8 +2213,17 @@ class MaterialModel(BaseModel):
                 faces=[face_name],
                 node_id="uv-cubemap-layout",
                 slot="uv",
+
+                width=bitmap.get("width", 0),
+                height=bitmap.get("height", 0),
+                original_width=bitmap.get("original_width", 0),
+                original_height=bitmap.get("original_height", 0),
+                texture_size=bitmap.get("texture_size", TEXTURE_SIZE_ORIGINAL),
+                texture_lod_key=bitmap.get("texture_lod_key", ""),
+                texture_resized=bitmap.get("texture_resized", False),
             )
 
+        # Shader graph nodes
         for node in (shader_graph.get("nodes", []) if isinstance(shader_graph, dict) else []):
             if not isinstance(node, dict):
                 continue
@@ -1874,6 +2233,7 @@ class MaterialModel(BaseModel):
             if not isinstance(settings, dict):
                 settings = {}
 
+            # MultiTexture / grouped textures in shader nodes
             if isinstance(settings.get("texture_groups"), list):
                 for group in settings.get("texture_groups", []):
                     if not isinstance(group, dict):
@@ -1887,9 +2247,27 @@ class MaterialModel(BaseModel):
                         channel=group.get("channel", settings.get("channel", "rgba")),
                         faces=group.get("faces", []),
                         node_id=node.get("id", ""),
-                        slot=group.get("slot", ""),
+                        slot=group.get("slot", settings.get("slot", "")),
+
+                        width=group.get("width", 0),
+                        height=group.get("height", 0),
+                        original_width=group.get("original_width", 0),
+                        original_height=group.get("original_height", 0),
+                        texture_size=group.get(
+                            "texture_size",
+                            settings.get("texture_size", TEXTURE_SIZE_ORIGINAL),
+                        ),
+                        texture_lod_key=group.get(
+                            "texture_lod_key",
+                            settings.get("texture_lod_key", ""),
+                        ),
+                        texture_resized=group.get(
+                            "texture_resized",
+                            settings.get("texture_resized", False),
+                        ),
                     )
 
+            # Single bitmap node
             if node.get("type") == "bitmap":
                 add_texture(
                     url=settings.get("url", ""),
@@ -1900,13 +2278,23 @@ class MaterialModel(BaseModel):
                     faces=settings.get("mapped_faces", []),
                     node_id=node.get("id", ""),
                     slot=settings.get("slot", ""),
+
+                    width=settings.get("width", 0),
+                    height=settings.get("height", 0),
+                    original_width=settings.get("original_width", 0),
+                    original_height=settings.get("original_height", 0),
+                    texture_size=settings.get("texture_size", TEXTURE_SIZE_ORIGINAL),
+                    texture_lod_key=settings.get("texture_lod_key", ""),
+                    texture_resized=settings.get("texture_resized", False),
                 )
 
+        # Material bitmap maps / surface slots
         if isinstance(bitmap_maps, dict):
             for slot_key, slot in bitmap_maps.items():
                 if not isinstance(slot, dict):
                     continue
 
+                # Slot texture groups
                 if isinstance(slot.get("texture_groups"), list):
                     for group in slot.get("texture_groups", []):
                         if not isinstance(group, dict):
@@ -1921,8 +2309,26 @@ class MaterialModel(BaseModel):
                             faces=group.get("faces", []),
                             node_id=slot.get("node_id", ""),
                             slot=slot_key,
+
+                            width=group.get("width", 0),
+                            height=group.get("height", 0),
+                            original_width=group.get("original_width", 0),
+                            original_height=group.get("original_height", 0),
+                            texture_size=group.get(
+                                "texture_size",
+                                slot.get("texture_size", TEXTURE_SIZE_ORIGINAL),
+                            ),
+                            texture_lod_key=group.get(
+                                "texture_lod_key",
+                                slot.get("texture_lod_key", ""),
+                            ),
+                            texture_resized=group.get(
+                                "texture_resized",
+                                slot.get("texture_resized", False),
+                            ),
                         )
 
+                # Direct single slot texture
                 if slot.get("url"):
                     add_texture(
                         url=slot.get("url", ""),
@@ -1933,6 +2339,14 @@ class MaterialModel(BaseModel):
                         faces=slot.get("mapped_faces", []),
                         node_id=slot.get("node_id", ""),
                         slot=slot_key,
+
+                        width=slot.get("width", 0),
+                        height=slot.get("height", 0),
+                        original_width=slot.get("original_width", 0),
+                        original_height=slot.get("original_height", 0),
+                        texture_size=slot.get("texture_size", TEXTURE_SIZE_ORIGINAL),
+                        texture_lod_key=slot.get("texture_lod_key", ""),
+                        texture_resized=slot.get("texture_resized", False),
                     )
 
         return textures
@@ -2064,6 +2478,7 @@ class MaterialModel(BaseModel):
         blend_mode="BLEND",
         shadow_method="HASHED",
         use_nodes=True,
+        texture_size=TEXTURE_SIZE_ORIGINAL
     ):
         alpha = surface.get("alpha", 1.0)
         textures = cls.collect_material_textures(
@@ -2095,6 +2510,8 @@ class MaterialModel(BaseModel):
                     "subdivision": geometry.get("subdivision"),
                     "displacement_enabled": geometry.get("displacement_enabled"),
                 },
+                "texture_size": texture_size,
+                "texture_lod_key": cls.texture_lod_key(texture_size)
             },
 
             "geometry": geometry,
@@ -2151,7 +2568,8 @@ class MaterialModel(BaseModel):
         blend_mode="BLEND",
         shadow_method="HASHED",
         use_nodes=True,
-        **fallbacks,
+        texture_size=TEXTURE_SIZE_ORIGINAL,
+        **fallbacks
     ):
         raw_values = values if isinstance(values, dict) else json_loads(values, {})
 
@@ -2193,6 +2611,7 @@ class MaterialModel(BaseModel):
             "blend_mode": raw_values.get("blend_mode", blend_mode or "BLEND"),
             "shadow_method": raw_values.get("shadow_method", shadow_method or "HASHED"),
             "use_nodes": raw_values.get("use_nodes", use_nodes),
+            "texture_size": cls.normalize_texture_size(raw_values.get("texture_size", raw_values.get("TEXTURE_SIZE",fallbacks.get("texture_size", texture_size))))
         }
 
         resolved["name"] = str(resolved.get("name") or "Cube Material")
@@ -2222,6 +2641,7 @@ class MaterialModel(BaseModel):
         shadow_method="HASHED",
         use_nodes=True,
         values=None,
+        texture_size=TEXTURE_SIZE_ORIGINAL,
         **extra
     ):
         cls.ensure_dirs()
@@ -2239,7 +2659,8 @@ class MaterialModel(BaseModel):
             blend_mode=blend_mode,
             shadow_method=shadow_method,
             use_nodes=use_nodes,
-            payload=extra
+            texture_size=texture_size,
+            **extra
         )
 
         material_id = material_id or str(uuid.uuid4())
@@ -2248,9 +2669,12 @@ class MaterialModel(BaseModel):
         normalized_geometry = cls.normalize_geometry(payload["geometry"])
         normalized_uv = cls.normalize_uv(payload["uv"])
 
+        texture_size = cls.normalize_texture_size(payload.get("texture_size", TEXTURE_SIZE_ORIGINAL))
+
         normalized_uv = cls.cache_uv_textures(
             material_id=material_id,
             uv=normalized_uv,
+            texture_size=texture_size
         )
 
         normalized_maps = cls.normalize_bitmap_maps(payload["bitmap_maps"])
@@ -2269,6 +2693,7 @@ class MaterialModel(BaseModel):
             material_id,
             normalized_graph,
             normalized_maps,
+            texture_size=texture_size
         )
 
         normalized_graph = cls.sync_shader_graph_texture_refs(
@@ -2298,7 +2723,11 @@ class MaterialModel(BaseModel):
 
         texture = {
             "url": primary_url,
+            "thumbnail": primary_url,
+            "lod_url": primary_url,
             "filename": "",
+            "texture_size": texture_size,
+            "texture_lod_key": cls.texture_lod_key(texture_size),
             "cached": False,
             "missing": not bool(primary_url),
         }
@@ -2316,6 +2745,7 @@ class MaterialModel(BaseModel):
             blend_mode=payload["blend_mode"],
             shadow_method=payload["shadow_method"],
             use_nodes=payload["use_nodes"],
+            texture_size=texture_size,
         )
 
         package = {
@@ -2356,7 +2786,9 @@ class MaterialModel(BaseModel):
                 "blend_mode": payload["blend_mode"],
                 "shadow_method": payload["shadow_method"],
                 "use_nodes": bool(payload["use_nodes"]),
-                "cube_size": payload["cube_size"],
+                "texture_size": texture_size,
+                "texture_preload": TEXTURE_PRELOAD_OPTIONS,
+                "cube_size": payload["cube_size"]
             },
         }
 
@@ -2377,6 +2809,29 @@ class MaterialModel(BaseModel):
 
     @classmethod
     def resolve_primary_preview_url(cls, package):
+        texture_size = cls.normalize_texture_size(
+            package.get("settings", {}).get(
+                "texture_size",
+                package.get("texture", {}).get("texture_size", TEXTURE_SIZE_ORIGINAL),
+            )
+        )
+        lod_key = cls.texture_lod_key(texture_size)
+
+        def is_matching_lod(item):
+            if not isinstance(item, dict) or not item.get("url"):
+                return False
+
+            item_lod_key = str(item.get("texture_lod_key", "") or "")
+
+            if item_lod_key:
+                return item_lod_key == lod_key
+
+            # Für alte Daten ohne Flag: Original darf noch akzeptiert werden.
+            return texture_size == TEXTURE_SIZE_ORIGINAL
+
+        def get_url(item):
+            return item.get("url", "") if isinstance(item, dict) else ""
+
         maps = package.get("bitmap_maps", {})
 
         if isinstance(maps, dict):
@@ -2397,29 +2852,29 @@ class MaterialModel(BaseModel):
                 if not isinstance(slot, dict):
                     continue
 
-                if slot.get("url"):
-                    return slot["url"]
+                if is_matching_lod(slot):
+                    return get_url(slot)
 
                 groups = slot.get("texture_groups", [])
 
                 if isinstance(groups, list):
                     for group in groups:
-                        if isinstance(group, dict) and group.get("url"):
-                            return group["url"]
+                        if is_matching_lod(group):
+                            return get_url(group)
 
             for slot in maps.values():
                 if not isinstance(slot, dict):
                     continue
 
-                if slot.get("url"):
-                    return slot["url"]
+                if is_matching_lod(slot):
+                    return get_url(slot)
 
                 groups = slot.get("texture_groups", [])
 
                 if isinstance(groups, list):
                     for group in groups:
-                        if isinstance(group, dict) and group.get("url"):
-                            return group["url"]
+                        if is_matching_lod(group):
+                            return get_url(group)
 
         uv_faces = package.get("uv", {}).get("faces", {})
 
@@ -2432,10 +2887,28 @@ class MaterialModel(BaseModel):
 
                 bitmap = face_data.get("bitmap", {})
 
-                if isinstance(bitmap, dict) and bitmap.get("url"):
-                    return bitmap["url"]
+                if is_matching_lod(bitmap):
+                    return get_url(bitmap)
 
         texture = package.get("texture", {})
+
+        if is_matching_lod(texture):
+            return get_url(texture)
+
+        # Fallback: falls alte Daten noch keine texture_lod_key-Felder haben.
+        if isinstance(maps, dict):
+            for slot_key in preferred_slots:
+                slot = maps.get(slot_key, {})
+
+                if isinstance(slot, dict) and slot.get("url"):
+                    return slot["url"]
+
+                groups = slot.get("texture_groups", []) if isinstance(slot, dict) else []
+
+                if isinstance(groups, list):
+                    for group in groups:
+                        if isinstance(group, dict) and group.get("url"):
+                            return group["url"]
 
         if isinstance(texture, dict) and texture.get("url"):
             return texture["url"]
@@ -2529,78 +3002,21 @@ class MaterialModel(BaseModel):
             "material": package["material"],
             "mesh": package["mesh"],
             "shader": package["shader"],
-            "texture": package["texture"],
+            "texture": {
+                **package.get("texture", {}),
+                "url": primary_url,
+                "thumbnail": primary_url,
+                "lod_url": primary_url,
+            },
             "package": package["package"],
             "preview": package["preview"],
             "settings": package["settings"],
-
+            "texture_size": package.get("settings", {}).get("texture_size", TEXTURE_SIZE_ORIGINAL),
+            "texture_lod_key": package.get("settings", {}).get("texture_lod_key", cls.texture_lod_key(
+                package.get("settings", {}).get("texture_size", TEXTURE_SIZE_ORIGINAL)
+            )),
             "time": time("unix_ms"),
         }
-
-    @classmethod
-    def material_preview(
-        cls,
-        source_layer_id="",
-        name="Cube Material",
-        surface="{}",
-        geometry="{}",
-        bitmap_maps="{}",
-        uv="{}",
-        shader_graph="{}",
-        cube_size=256.0,
-        rotate_preview=True,
-        blend_mode="BLEND",
-        shadow_method="HASHED",
-        use_nodes=True,
-        values=None,
-        **extra,
-    ):
-        try:
-            source_layer = cls.find_layer(source_layer_id)
-
-            if not source_layer:
-                return {
-                    "error": f"Source layer '{source_layer_id}' not found.",
-                }, 404
-
-            material_id = f"preview-{uuid.uuid4()}"
-
-            package = cls.build_material_package(
-                material_id=material_id,
-                layer_id=material_id,
-                source_layer_id=source_layer_id,
-                name=name,
-                surface=surface,
-                geometry=geometry,
-                bitmap_maps=bitmap_maps,
-                uv=uv,
-                shader_graph=shader_graph,
-                cube_size=cube_size,
-                rotate_preview=rotate_preview,
-                blend_mode=blend_mode,
-                shadow_method=shadow_method,
-                use_nodes=use_nodes,
-                values=values,
-                **extra,
-            )
-
-            preview_layer = cls.build_preview_layer(source_layer, package)
-
-            return {
-                "id": material_id,
-                "title": "material-preview",
-                "src": preview_layer.get("url", ""),
-                "layer": preview_layer,
-                "package": package,
-                "contract": {
-                    "version": cls.CONTRACT_VERSION,
-                    "renderer": cls.RENDERER,
-                    "engine": cls.ENGINE,
-                },
-            }, 200
-
-        except Exception as e:
-            return cls.handle_error(e)
 
     @classmethod
     def create_cube(

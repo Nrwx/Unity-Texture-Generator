@@ -1,5 +1,8 @@
 .DS_Store
 node_modules
+codex_tmp
+.codex_tmp
+.codex_tmp/*
 /dist
 
 

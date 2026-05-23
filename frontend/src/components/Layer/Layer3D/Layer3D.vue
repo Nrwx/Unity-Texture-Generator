@@ -8,7 +8,48 @@
     <canvas
         ref="canvasRef"
         class="canvas-material-canvas"
+        v-show="activeRenderer !== 'WEBGL2'"
     />
+    <canvas
+        ref="webglCanvasRef"
+        class="canvas-material-canvas"
+        v-show="activeRenderer === 'WEBGL2'"
+    />
+
+    <div
+        v-if="lightOverlay.visible"
+        class="canvas-material-light-overlay"
+        :style="lightOverlay.style"
+    >
+      <div class="canvas-material-light-range" />
+
+      <div class="canvas-material-light-line" />
+
+      <div
+          v-if="lightOverlay.isSpot"
+          class="canvas-material-light-cone"
+      >
+        <span />
+      </div>
+
+      <div
+          class="canvas-material-light-glyph"
+          :class="`type-${lightOverlay.type}`"
+      >
+        <span />
+      </div>
+
+      <div class="canvas-material-light-origin" />
+
+      <div class="canvas-material-light-metrics">
+        <small
+            v-for="metric in lightOverlay.metrics"
+            :key="metric"
+        >
+          {{ metric }}
+        </small>
+      </div>
+    </div>
   </div>
 </template>
 

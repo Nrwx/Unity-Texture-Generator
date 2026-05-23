@@ -94,7 +94,7 @@ export const resolvePrincipled = material => {
 export const createCubeVertices = (width, height, rotation = 0, geometry = {}) => {
     const cx = width / 2;
     const cy = height / 2;
-    const size = Math.min(width, height) * 0.33;
+    const size = Math.min(width, height) * 0.264;
 
     const toRadians = value => (Number(value || 0) * Math.PI) / 180;
     const maxDimension = Math.max(
@@ -109,9 +109,14 @@ export const createCubeVertices = (width, height, rotation = 0, geometry = {}) =
         (Number(geometry.height || 1) * Number(geometry.scale_y || 1)) / maxDimension,
         (Number(geometry.depth || 1) * Number(geometry.scale_z || 1)) / maxDimension,
     ];
+    const pivot = [
+        Number(geometry.pivot_x || 0) / maxDimension,
+        Number(geometry.pivot_y || 0) / maxDimension,
+        Number(geometry.pivot_z || 0) / maxDimension,
+    ];
 
     const yaw = rotation + toRadians(geometry.rotation_y);
-    const pitch = -0.55 + toRadians(geometry.rotation_x);
+    const pitch = -0.34 + toRadians(geometry.rotation_x);
     const roll = toRadians(geometry.rotation_z);
 
     const vertices3d = [
@@ -137,6 +142,10 @@ export const createCubeVertices = (width, height, rotation = 0, geometry = {}) =
         y *= geometryScale[1];
         z *= geometryScale[2];
 
+        x -= pivot[0];
+        y -= pivot[1];
+        z -= pivot[2];
+
         let rx = x * cosY - z * sinY;
         let rz = x * sinY + z * cosY;
         let ry = y;
@@ -153,7 +162,7 @@ export const createCubeVertices = (width, height, rotation = 0, geometry = {}) =
         rx = rx2;
         ry = ry3;
 
-        const perspective = 2.8 / (2.8 + rz * 0.45);
+        const perspective = 3.25 / (3.25 + rz * 0.26);
 
         return {
             x: cx + rx * size * perspective,
@@ -190,7 +199,7 @@ export const rgbToCss = (array, alpha = 1) => {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
-export const applyCanvasShader = (ctx, points, surface, shade = 1) => {
+export const applyCanvasShader = (ctx, points, surface, shade = 1, light = {}) => {
     const alpha = clamp(surface.alpha ?? 1, 0, 1);
     const metallic = clamp(surface.metallic ?? 0, 0, 1);
     const roughness = clamp(surface.roughness ?? 0.4, 0, 1);
@@ -214,11 +223,12 @@ export const applyCanvasShader = (ctx, points, surface, shade = 1) => {
     const emissionStrength = clamp(surface.emissionStrength ?? 0, 0, 20);
     const baseColor = surface.baseColor || [1, 1, 1, 1];
     const subsurfaceColor = surface.subsurfaceColor || [1, 1, 1, 1];
+    const lightSoftness = clamp(light.softness ?? 0.32, 0, 1);
 
-    const specularBoost = 1 + metallic * 0.22 + specular * 0.12 + clearcoat * 0.16 + ior * 0.08;
+    const specularBoost = 1 + metallic * 0.22 + specular * 0.18 + clearcoat * 0.24 + ior * 0.08;
     const roughnessDamping = 1 - roughness * 0.24 - transmissionRoughness * transmission * 0.12;
     const subsurfaceLift = 1 + subsurface * (1 - Math.abs(1 - shade)) * 0.18;
-    const lightFactor = shade * specularBoost * roughnessDamping * subsurfaceLift;
+    const lightFactor = (shade * (1 - lightSoftness * 0.18) + lightSoftness * 0.18) * specularBoost * roughnessDamping * subsurfaceLift;
 
     const materialColor = [
         baseColor[0] * (1 - subsurface) + subsurfaceColor[0] * subsurface,
@@ -315,7 +325,12 @@ export const applyCanvasShader = (ctx, points, surface, shade = 1) => {
     }
 
     if (normal > 0.01 || clearcoatNormal > 0.01 || tangent > 0.01 || bumpStrength > 0.01 || displacementStrength > 0.01) {
-        const textureAlpha = normal * 0.04 + clearcoatNormal * 0.03 + tangent * 0.025 + bumpStrength * 0.08 + displacementStrength * 0.10;
+        const textureAlpha =
+            normal * 0.06 +
+            clearcoatNormal * 0.045 +
+            tangent * 0.025 +
+            bumpStrength * 0.11 +
+            displacementStrength * 0.13;
 
         ctx.globalCompositeOperation = "overlay";
         ctx.strokeStyle = `rgba(255,255,255,${textureAlpha})`;
@@ -371,6 +386,8 @@ const resolveTextureSettings = (channelOrSettings = "rgba") => {
             color_mode: ["color", "bw"].includes(channelOrSettings.color_mode) ? channelOrSettings.color_mode : "color",
             alpha_mode: ["OPAQUE", "BLEND", "HASHED", "CLIP"].includes(channelOrSettings.alpha_mode) ? channelOrSettings.alpha_mode : "BLEND",
             alpha_clip: clamp(channelOrSettings.alpha_clip ?? 0.5, 0, 1),
+            mask_composite: channelOrSettings.mask_composite === true,
+            mask_only: channelOrSettings.mask_only === true,
         };
     }
 
@@ -379,6 +396,8 @@ const resolveTextureSettings = (channelOrSettings = "rgba") => {
         color_mode: "color",
         alpha_mode: channelOrSettings === "rgb" ? "OPAQUE" : "BLEND",
         alpha_clip: 0.5,
+        mask_composite: false,
+        mask_only: false,
     };
 };
 
@@ -488,7 +507,7 @@ export const drawTextureFace = (ctx, image, face, points, uv, alpha = 1, channel
     ctx.scale(scaleX, scaleY);
     ctx.translate(-sw / 2 + tx, -sh / 2 + ty);
 
-    if (settings.channel === "rgb" || settings.alpha_mode === "OPAQUE") {
+    if (!settings.mask_only && (settings.channel === "rgb" || settings.alpha_mode === "OPAQUE")) {
         ctx.fillStyle = "rgb(255, 255, 255)";
         ctx.fillRect(0, 0, sw, sh);
     }
@@ -496,19 +515,35 @@ export const drawTextureFace = (ctx, image, face, points, uv, alpha = 1, channel
     const textureCanvas = createTextureCanvas(image, sx, sy, sw, sh, settings);
 
     if (textureCanvas) {
-        ctx.drawImage(textureCanvas, 0, 0, sw, sh);
+        if (!settings.mask_only) {
+            ctx.drawImage(textureCanvas, 0, 0, sw, sh);
+        }
+
+        if (settings.mask_composite === true) {
+            ctx.globalCompositeOperation = "destination-in";
+            ctx.drawImage(textureCanvas, 0, 0, sw, sh);
+            ctx.globalCompositeOperation = "source-over";
+        }
     } else {
-        ctx.drawImage(
-            image,
-            sx,
-            sy,
-            sw,
-            sh,
-            0,
-            0,
-            sw,
-            sh
-        );
+        if (!settings.mask_only) {
+            ctx.drawImage(
+                image,
+                sx,
+                sy,
+                sw,
+                sh,
+                0,
+                0,
+                sw,
+                sh
+            );
+        }
+
+        if (settings.mask_composite === true) {
+            ctx.globalCompositeOperation = "destination-in";
+            ctx.drawImage(image, sx, sy, sw, sh, 0, 0, sw, sh);
+            ctx.globalCompositeOperation = "source-over";
+        }
     }
 
     ctx.restore();

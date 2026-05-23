@@ -33,6 +33,7 @@ const rgbaArrayToHex = value => {
 const TABS = [
     { key: "surface", title: "Surface", icon: "mdi-tune-variant" },
     { key: "geometry", title: "Geometry", icon: "mdi-cube-outline" },
+    { key: "light", title: "Light", icon: "mdi-lightbulb-spot" },
     { key: "uv", title: "UV", icon: "mdi-vector-square" },
     { key: "shader", title: "Shader", icon: "mdi-graph-outline" },
     { key: "export", title: "Export", icon: "mdi-export-variant" },
@@ -44,62 +45,248 @@ const SURFACE_FIELDS = [
     { key: "subsurface", label: "Subsurface", type: "number", min: 0, max: 1, step: 0.001 },
     { key: "subsurfaceRadius", label: "Subsurface Radius", type: "vector3" },
     { key: "subsurfaceColor", label: "Subsurface Color", type: "color" },
+    { key: "subsurfaceScale", label: "Subsurface Scale", type: "number", min: 0, max: 50, step: 0.01 },
+    { key: "subsurfaceIor", label: "Subsurface IOR", type: "number", min: 1, max: 2, step: 0.001 },
+    { key: "subsurfaceAnisotropy", label: "Subsurface Anisotropy", type: "number", min: 0, max: 1, step: 0.001 },
     { key: "metallic", label: "Metallic", type: "number", min: 0, max: 1, step: 0.001 },
-    { key: "specular", label: "Specular", type: "number", min: 0, max: 1, step: 0.001 },
+    { key: "specular", label: "Specular IOR Level", type: "number", min: 0, max: 1, step: 0.001 },
     { key: "specularTint", label: "Specular Tint", type: "number", min: 0, max: 1, step: 0.001 },
     { key: "roughness", label: "Roughness", type: "number", min: 0, max: 1, step: 0.001 },
+    { key: "diffuseRoughness", label: "Diffuse Roughness", type: "number", min: 0, max: 1, step: 0.001 },
     { key: "anisotropic", label: "Anisotropic", type: "number", min: 0, max: 1, step: 0.001 },
     { key: "anisotropicRotation", label: "Anisotropic Rotation", type: "number", min: 0, max: 1, step: 0.001 },
     { key: "sheen", label: "Sheen", type: "number", min: 0, max: 1, step: 0.001 },
+    { key: "sheenRoughness", label: "Sheen Roughness", type: "number", min: 0, max: 1, step: 0.001 },
     { key: "sheenTint", label: "Sheen Tint", type: "number", min: 0, max: 1, step: 0.001 },
-    { key: "clearcoat", label: "Clearcoat", type: "number", min: 0, max: 1, step: 0.001 },
-    { key: "clearcoatRoughness", label: "Clearcoat Roughness", type: "number", min: 0, max: 1, step: 0.001 },
-    { key: "ior", label: "IOR", type: "number", min: 1, max: 3, step: 0.001 },
-    { key: "transmission", label: "Transmission", type: "number", min: 0, max: 1, step: 0.001 },
+    { key: "clearcoat", label: "Coat Weight", type: "number", min: 0, max: 1, step: 0.001 },
+    { key: "clearcoatRoughness", label: "Coat Roughness", type: "number", min: 0, max: 1, step: 0.001 },
+    { key: "coatIor", label: "Coat IOR", type: "number", min: 1, max: 2, step: 0.001 },
+    { key: "coatTint", label: "Coat Tint", type: "color" },
+    { key: "ior", label: "IOR", type: "number", min: 1, max: 4, step: 0.001 },
+    { key: "transmission", label: "Transmission Weight", type: "number", min: 0, max: 1, step: 0.001 },
     { key: "transmissionRoughness", label: "Transmission Roughness", type: "number", min: 0, max: 1, step: 0.001 },
     { key: "emission", label: "Emission", type: "color" },
-    { key: "emissionStrength", label: "Emission Strength", type: "number", min: 0, max: 20, step: 0.01 },
+    { key: "emissionStrength", label: "Emission Strength", type: "number", min: 0, max: 10, step: 0.01 },
+    { key: "thinFilmThickness", label: "Thin Film Thickness", type: "number", min: 0, max: 1200, step: 1 },
+    { key: "thinFilmIor", label: "Thin Film IOR", type: "number", min: 1, max: 2, step: 0.001 },
     { key: "alpha", label: "Alpha", type: "number", min: 0, max: 1, step: 0.001 },
     { key: "normal", label: "Normal", type: "number", min: 0, max: 1, step: 0.001 },
     { key: "clearcoatNormal", label: "Clearcoat Normal", type: "number", min: 0, max: 1, step: 0.001 },
     { key: "tangent", label: "Tangent", type: "number", min: 0, max: 1, step: 0.001 },
-    { key: "bumpStrength", label: "Bump Strength", type: "number", min: 0, max: 1, step: 0.001 },
-    { key: "displacementStrength", label: "Displacement Strength", type: "number", min: 0, max: 1, step: 0.001 },
+    { key: "bumpStrength", label: "Bump / Height", type: "number", min: 0, max: 1, step: 0.001 },
+    { key: "displacementStrength", label: "Displacement Height", type: "number", min: 0, max: 1, step: 0.001, hidden: true },
 ];
 
+const SURFACE_FIELD_MAP = SURFACE_FIELDS.reduce((acc, field) => {
+    acc[field.key] = field;
+    return acc;
+}, {});
+
+const PRINCIPLED_SURFACE_GROUPS = [
+    {
+        key: "baseColor",
+        label: "Base Color",
+        relation: "Diffuse, subsurface, metal and transmission color",
+    },
+    {
+        key: "metallic",
+        label: "Metallic",
+        relation: "Dielectric to metal reflection blend",
+    },
+    {
+        key: "roughness",
+        label: "Roughness",
+        relation: "Specular and transmission microfacet roughness",
+    },
+    {
+        key: "ior",
+        label: "IOR",
+        relation: "Specular and transmission refraction index",
+    },
+    {
+        key: "alpha",
+        label: "Alpha",
+        relation: "Surface opacity / texture alpha mask",
+    },
+    {
+        key: "normal",
+        label: "Normal",
+        relation: "Base layer normal response",
+    },
+    {
+        key: "subsurface",
+        label: "Subsurface",
+        relation: "Weight -> Radius -> Scale -> IOR -> Anisotropy",
+        affects: ["subsurfaceRadius", "subsurfaceColor", "subsurfaceScale", "subsurfaceIor", "subsurfaceAnisotropy"],
+    },
+    {
+        key: "specular",
+        label: "Specular",
+        relation: "IOR Level -> Tint -> Anisotropic -> Anisotropic Rotation -> Tangent",
+        affects: ["specularTint", "anisotropic", "anisotropicRotation", "tangent"],
+    },
+    {
+        key: "transmission",
+        label: "Transmission",
+        relation: "Weight",
+        affects: ["transmissionRoughness"],
+    },
+    {
+        key: "clearcoat",
+        label: "Coat",
+        relation: "Weight -> Roughness -> IOR -> Tint -> Normal",
+        affects: ["clearcoatRoughness", "coatIor", "coatTint", "clearcoatNormal"],
+    },
+    {
+        key: "sheen",
+        label: "Sheen",
+        relation: "Weight -> Roughness -> Tint",
+        affects: ["sheenRoughness", "sheenTint"],
+    },
+    {
+        key: "emission",
+        label: "Emission",
+        relation: "Color -> Strength -> Tint",
+        affects: ["emissionStrength"],
+    },
+].map(group => ({
+    ...group,
+    field: SURFACE_FIELD_MAP[group.key],
+}));
+
+const PRINCIPLED_NODE_INPUT_KEYS = PRINCIPLED_SURFACE_GROUPS.map(group => group.key);
+
 const NODE_TYPES = [
-    { type: "principled", label: "Principled BSDF", icon: "mdi-material-design" },
-    { type: "output", label: "Material Output", icon: "mdi-export" },
-    { type: "bitmap", label: "Bitmap", icon: "mdi-image" },
-    { type: "uv-map", label: "Map UV", icon: "mdi-vector-square" },
-    { type: "filter", label: "Filter", icon: "mdi-filter" },
-    { type: "modifier", label: "Modifier", icon: "mdi-tune-variant" },
-    { type: "falloff", label: "Falloff", icon: "mdi-chart-bell-curve" },
-    { type: "blend", label: "Blend", icon: "mdi-blender-software" },
-    { type: "math", label: "Math", icon: "mdi-function" },
-    { type: "preview", label: "Viewer", icon: "mdi-eye" },
+    { type: "principled", label: "Principled BSDF", group: "Shader", icon: "mdi-material-design" },
+    { type: "output", label: "Output", group: "Output", icon: "mdi-export" },
+
+    { type: "modifier", label: "Combine XYZ", group: "Vector", icon: "mdi-vector-polyline" },
+    { type: "blend", label: "Mix", group: "Vector", icon: "mdi-vector-combine" },
+    { type: "modifier", label: "Separate XYZ", group: "Vector", icon: "mdi-vector-difference" },
+    { type: "uv-map", label: "Mapping", group: "Vector", icon: "mdi-vector-square" },
+
+    { type: "filter", label: "Blackbody", group: "Color", icon: "mdi-thermometer" },
+    { type: "filter", label: "Brightness/Contrast", group: "Color", icon: "mdi-brightness-6" },
+    { type: "filter", label: "Color Ramp", group: "Color", icon: "mdi-gradient-horizontal" },
+    { type: "filter", label: "Gamma", group: "Color", icon: "mdi-chart-bell-curve" },
+    { type: "filter", label: "Hue/Saturation/Value", group: "Color", icon: "mdi-palette" },
+    { type: "filter", label: "Invert Color", group: "Color", icon: "mdi-invert-colors" },
+    { type: "blend", label: "Mix Color", group: "Color", icon: "mdi-blender-software" },
+    { type: "modifier", label: "Combine Color", group: "Color", icon: "mdi-format-color-fill" },
+    { type: "modifier", label: "Separate Color", group: "Color", icon: "mdi-format-color-highlight" },
+    { type: "filter", label: "RGB to BW", group: "Color", icon: "mdi-circle-half-full" },
+
+    { type: "math", label: "Clamp", group: "Math", icon: "mdi-lock-outline" },
+    { type: "math", label: "Float Curve", group: "Math", icon: "mdi-chart-bell-curve-cumulative" },
+    { type: "math", label: "Math", group: "Math", icon: "mdi-function" },
+    { type: "blend", label: "Mix", group: "Math", icon: "mdi-set-merge" },
+
+    { type: "bitmap", label: "Bitmap", group: "Texture", icon: "mdi-image" },
+    { type: "multitexture", label: "MultiTexture", group: "Texture", icon: "mdi-image-multiple" },
 ];
+
+const TEXTURE_CHANNEL_OPTIONS = ["rgba", "rgb"];
+const TEXTURE_COLOR_MODE_OPTIONS = ["color", "bw"];
+
+const TEXTURE_SETTING_DEFAULTS = Object.freeze({
+    channel: "rgba",
+    color_mode: "color",
+});
+
+const BW_TEXTURE_SLOTS = Object.freeze([
+    "subsurface",
+    "subsurfaceScale",
+    "subsurfaceIor",
+    "subsurfaceAnisotropy",
+    "metallic",
+    "specular",
+    "specularTint",
+    "roughness",
+    "diffuseRoughness",
+    "anisotropic",
+    "anisotropicRotation",
+    "sheen",
+    "sheenRoughness",
+    "sheenTint",
+    "clearcoat",
+    "clearcoatRoughness",
+    "coatIor",
+    "ior",
+    "transmission",
+    "transmissionRoughness",
+    "emissionStrength",
+    "thinFilmThickness",
+    "thinFilmIor",
+    "alpha",
+    "normal",
+    "clearcoatNormal",
+    "tangent",
+    "bumpStrength",
+    "displacementStrength",
+]);
+
+const getTextureSettingDefaults = slotKey => ({
+    ...TEXTURE_SETTING_DEFAULTS,
+    color_mode: BW_TEXTURE_SLOTS.includes(slotKey) ? "bw" : "color",
+});
+
+const normalizeTextureSettings = (settings = {}) => {
+    const rawStrength = Number.isFinite(Number(settings.strength)) ? Number(settings.strength) : 1;
+    const strength = settings.invert === true && rawStrength > 0 ? -rawStrength : rawStrength;
+
+    return {
+        channel: TEXTURE_CHANNEL_OPTIONS.includes(settings.channel) ? settings.channel : getTextureSettingDefaults(settings.slot || settings.target_slot).channel,
+        color_mode: TEXTURE_COLOR_MODE_OPTIONS.includes(settings.color_mode) ? settings.color_mode : getTextureSettingDefaults(settings.slot || settings.target_slot).color_mode,
+        strength,
+        offset: Number.isFinite(Number(settings.offset)) ? Number(settings.offset) : 0,
+        invert: false,
+    };
+};
+
+const mergeTextureSettings = (...sources) => {
+    return normalizeTextureSettings(
+        sources.reduce((acc, source) => ({
+            ...acc,
+            ...(source || {}),
+        }), {})
+    );
+};
+
+const mergeTextureSettingsForSlot = (slotKey, ...sources) => mergeTextureSettings(
+    getTextureSettingDefaults(slotKey),
+    { slot: slotKey },
+    ...sources,
+);
 
 const createSurface = () => ({
     baseColor: [1, 1, 1, 1],
     subsurface: 0,
     subsurfaceRadius: [1, 0.2, 0.1],
     subsurfaceColor: [1, 1, 1, 1],
+    subsurfaceScale: 1,
+    subsurfaceIor: 1.45,
+    subsurfaceAnisotropy: 0,
     metallic: 0,
     specular: 0.5,
     specularTint: 0,
-    roughness: 0.4,
+    roughness: 0.5,
+    diffuseRoughness: 0,
     anisotropic: 0,
     anisotropicRotation: 0,
     sheen: 0,
+    sheenRoughness: 0.5,
     sheenTint: 0.5,
     clearcoat: 0,
     clearcoatRoughness: 0.03,
+    coatIor: 1.5,
+    coatTint: [1, 1, 1, 1],
     ior: 1.45,
     transmission: 0,
     transmissionRoughness: 0,
     emission: [0, 0, 0, 1],
     emissionStrength: 0,
+    thinFilmThickness: 0,
+    thinFilmIor: 1.33,
     alpha: 1,
     normal: 0,
     clearcoatNormal: 0,
@@ -144,6 +331,31 @@ const createGeometry = () => ({
     scale_z: 1,
 });
 
+const createLight = () => ({
+    enabled: true,
+    lightType: "sun",
+    mode: "sun",
+    intensity: 1,
+    ambient: 0.34,
+    softness: 0.32,
+    color: "#fff4e6",
+    ambient_color: "#b3c7e6",
+    environment_color: "#b8d1ff",
+    range: 4,
+    radius: 0.25,
+    decay: 2,
+    innerCone: 0.35,
+    outerCone: 0.75,
+    castShadow: false,
+    temperature: 6500,
+    position_x: 0,
+    position_y: 1.4,
+    position_z: 2.8,
+    direction_x: -0.35,
+    direction_y: -0.65,
+    direction_z: 0.72,
+});
+
 const createBitmapMaps = () => {
     return SURFACE_FIELDS.reduce((acc, field) => {
         acc[field.key] = {
@@ -167,7 +379,7 @@ const createBitmapMaps = () => {
 
             filename: "",
             cached: false,
-            channel: "rgba",
+            ...mergeTextureSettingsForSlot(field.key),
             strength: 1,
             offset: 0,
             invert: false,
@@ -201,7 +413,7 @@ const createCubeFace = (face, x, y, width = 0.25, height = 1 / 3) => ({
         name: "",
         width: 0,
         height: 0,
-        channel: "rgba",
+        ...TEXTURE_SETTING_DEFAULTS,
     },
 });
 
@@ -231,9 +443,11 @@ const createPrincipledNode = () => ({
     label: "Principled BSDF",
     locked: false,
     position: { x: 620, y: 130 },
-    inputs: SURFACE_FIELDS.reduce((acc, field) => {
+    inputs: PRINCIPLED_NODE_INPUT_KEYS.reduce((acc, key) => {
+        const field = SURFACE_FIELD_MAP[key];
         acc[field.key] = {
             type: Array.isArray(createSurface()[field.key]) ? "color" : "float",
+            relation: PRINCIPLED_SURFACE_GROUPS.find(group => group.key === key)?.relation || "",
         };
 
         return acc;
@@ -305,6 +519,18 @@ const hasTextureSlot = slot => {
     return false;
 };
 
+const TEXTURE_SIZE_OPTIONS = [32, 64, 128, 256, 512, 1024, "Original"];
+
+const normalizeTextureSize = value => {
+    if (value === "Original" || value === "original" || value === null || value === undefined || value === "") {
+        return "Original";
+    }
+
+    const number = Number(value);
+
+    return TEXTURE_SIZE_OPTIONS.includes(number) ? number : "Original";
+};
+
 export function materialEditorModel(props, emit) {
     const previewTimer = ref(null);
     const previewRequestId = ref(0);
@@ -325,7 +551,6 @@ export function materialEditorModel(props, emit) {
     const SNAP_EDGE_DISTANCE = 34;
     const pauseAutoSync = ref(false);
     const nodePositionMemory = reactive({});
-
     const uvViewport = reactive({
         zoom: 1,
         panX: 0,
@@ -356,14 +581,24 @@ export function materialEditorModel(props, emit) {
         name: "Cube Material",
         surface: createSurface(),
         geometry: createGeometry(),
+        light: createLight(),
         bitmap_maps: createBitmapMaps(),
         uv: createUv(),
         shader_graph: createShaderGraph(),
 
         cube_size: 256,
         rotate_preview: true,
+        render_backend: "WEBGL2",
+        texture_size: "Original",
+        texture_preload: TEXTURE_SIZE_OPTIONS,
         blend_mode: "BLEND",
+        alpha_clip: 0.5,
         shadow_method: "HASHED",
+        backface_culling: false,
+        show_backface: true,
+        screen_space_refraction: false,
+        refraction_depth: 0,
+        subsurface_translucency: false,
         use_nodes: true,
     });
 
@@ -592,7 +827,7 @@ export function materialEditorModel(props, emit) {
 
     const NODE_VALUE_DEFAULTS = {
         bitmap: {
-            channel: "rgba",
+            ...TEXTURE_SETTING_DEFAULTS,
             strength: 1,
             offset: 0,
             invert: false,
@@ -647,7 +882,7 @@ export function materialEditorModel(props, emit) {
 
         multitexture: {
             mode: "cubemap-url-group-composite",
-            channel: "rgba",
+            ...TEXTURE_SETTING_DEFAULTS,
             strength: 1,
             offset: 0,
             blend: "replace",
@@ -689,12 +924,40 @@ export function materialEditorModel(props, emit) {
 
         node.settings[key] = value;
 
-        if (key === "offset" || key === "strength" || key === "channel" || key === "invert" || key === "blend") {
+        if (["offset", "strength", "channel", "color_mode", "invert", "blend"].includes(key)) {
             syncNodeValuesToSurface(node);
             syncSurfaceOffsetsFromNodes();
         }
 
         syncNodeValuesToSurface(node);
+        requestPreviewDebounced();
+    };
+
+    const updateNodeTextureGroupSetting = (node, index, key, value) => {
+        if (!node || node.type !== "multitexture") {
+            return;
+        }
+
+        const settings = ensureNodeSettings(node);
+        const groups = Array.isArray(settings.texture_groups)
+            ? settings.texture_groups
+            : [];
+
+        if (!groups[index]) {
+            return;
+        }
+
+        groups[index] = {
+            ...groups[index],
+            ...mergeTextureSettingsForSlot(getSurfaceSlotForNode(node.id), settings, groups[index], {
+                [key]: value,
+            }),
+        };
+
+        settings.texture_groups = groups;
+
+        syncNodeValuesToSurface(node);
+        syncSurfaceOffsetsFromNodes();
         requestPreviewDebounced();
     };
 
@@ -734,7 +997,10 @@ export function materialEditorModel(props, emit) {
             url: settings.url || values.bitmap_maps[slotKey].url || "",
             layer_id: settings.layer_id || values.bitmap_maps[slotKey].layer_id || "",
 
-            channel: settings.channel || values.bitmap_maps[slotKey].channel || "rgba",
+            faces: settings.faces || values.bitmap_maps[slotKey].faces || {},
+            mapped_faces: settings.mapped_faces || values.bitmap_maps[slotKey].mapped_faces || [],
+            texture_groups: settings.texture_groups || values.bitmap_maps[slotKey].texture_groups || [],
+            ...mergeTextureSettingsForSlot(slotKey, values.bitmap_maps[slotKey], settings),
             strength: settings.strength ?? values.bitmap_maps[slotKey].strength ?? 1,
             offset: settings.offset ?? values.bitmap_maps[slotKey].offset ?? 0,
             invert: settings.invert === true,
@@ -773,12 +1039,36 @@ export function materialEditorModel(props, emit) {
         ));
     });
 
+    const sanitizeSurfaceBitmapMaps = bitmapMaps => {
+        const maps = clonePlain(bitmapMaps);
+
+        SURFACE_FIELDS.forEach(field => {
+            const slot = maps?.[field.key];
+
+            if (!slot) {
+                return;
+            }
+
+            slot.offset = 0;
+
+            if (Array.isArray(slot.texture_groups)) {
+                slot.texture_groups = slot.texture_groups.map(group => ({
+                    ...group,
+                    offset: 0,
+                }));
+            }
+        });
+
+        return maps;
+    };
+
     const normalizeValues = () => ({
         name: values.name || "Cube Material",
 
         surface: clonePlain(values.surface),
         geometry: clonePlain(values.geometry),
-        bitmap_maps: clonePlain(values.bitmap_maps),
+        light: clonePlain(values.light),
+        bitmap_maps: sanitizeSurfaceBitmapMaps(values.bitmap_maps),
         uv: clonePlain(values.uv),
         shader_graph: {
             ...clonePlain(values.shader_graph),
@@ -787,14 +1077,105 @@ export function materialEditorModel(props, emit) {
 
         cube_size: clamp(Number(values.cube_size || 256), 64, 4096),
         rotate_preview: values.rotate_preview === true,
+        render_backend: ["CANVAS2D", "WEBGL2"].includes(String(values.render_backend || "").toUpperCase())
+            ? String(values.render_backend).toUpperCase()
+            : "WEBGL2",
+
+        texture_size: normalizeTextureSize(values.texture_size),
+        texture_preload: TEXTURE_SIZE_OPTIONS,
 
         blend_mode: values.blend_mode || "BLEND",
+        alpha_clip: clamp(Number(values.alpha_clip ?? 0.5), 0, 1),
         shadow_method: values.shadow_method || "HASHED",
+        backface_culling: values.backface_culling === true,
+        show_backface: values.show_backface !== false,
+        screen_space_refraction: values.screen_space_refraction === true,
+        refraction_depth: clamp(Number(values.refraction_depth ?? 0), 0, 100),
+        subsurface_translucency: values.subsurface_translucency === true,
         use_nodes: values.use_nodes !== false,
     });
 
+    const getBackendPreviewLayer = normalized => {
+        const layer = props.materialPreview;
+
+        if (!layer || !normalized) {
+            return null;
+        }
+
+        const previewTextureSize = normalizeTextureSize(
+            layer?.settings?.texture_size ??
+            layer?.texture_size ??
+            layer?.texture?.texture_size ??
+            "Original"
+        );
+
+        if (previewTextureSize !== normalized.texture_size) {
+            return null;
+        }
+
+        if (
+            layer.material_preview_request_id &&
+            layer.material_preview_request_id !== previewRequestId.value
+        ) {
+            return null;
+        }
+
+        return layer;
+    };
+
+    const getPreviewTextureUrl = normalized => {
+        const backendLayer = getBackendPreviewLayer(normalized);
+
+        return (
+            backendLayer?.texture?.url ||
+            backendLayer?.url ||
+            sourceLayerTextureUrl.value
+        );
+    };
+
     const previewLayer = computed(() => {
         const normalized = normalizeValues();
+        const backendLayer = getBackendPreviewLayer(normalized);
+
+        if (backendLayer) {
+            const previewLight = {
+                ...normalized.light,
+                editing: ui.activeTab === "light",
+            };
+
+            return {
+                ...backendLayer,
+                id: `preview-${props.layer?.id || selectedSourceLayer.value?.id || "material"}`,
+                source: selectedSourceLayer.value?.id || props.layer?.id || backendLayer.source || "",
+                source_layer_id: selectedSourceLayer.value?.id || props.layer?.id || backendLayer.source_layer_id || "",
+                light: previewLight,
+                shader: {
+                    ...(backendLayer.shader || {}),
+                    light: previewLight,
+                },
+                settings: {
+                    ...(backendLayer.settings || {}),
+                    blend_mode: normalized.blend_mode,
+                    alpha_clip: normalized.alpha_clip,
+                    shadow_method: normalized.shadow_method,
+                    backface_culling: normalized.backface_culling,
+                    show_backface: normalized.show_backface,
+                    screen_space_refraction: normalized.screen_space_refraction,
+                    refraction_depth: normalized.refraction_depth,
+                    subsurface_translucency: normalized.subsurface_translucency,
+                    light: previewLight,
+                    light_editing: ui.activeTab === "light",
+                    render_backend: normalized.render_backend,
+                },
+                render_backend: normalized.render_backend,
+                time: backendLayer.time || previewStableTime.value,
+            };
+        }
+
+        const previewLight = {
+            ...normalized.light,
+            editing: ui.activeTab === "light",
+        };
 
         return {
             id: `preview-${props.layer?.id || selectedSourceLayer.value?.id || "material"}`,
@@ -805,6 +1186,7 @@ export function materialEditorModel(props, emit) {
             type: 5,
 
             renderer: "canvas-cube",
+            render_backend: normalized.render_backend,
             engine: "material",
 
             width: 512,
@@ -815,14 +1197,19 @@ export function materialEditorModel(props, emit) {
 
             surface: normalized.surface,
             geometry: normalized.geometry,
+            light: previewLight,
             bitmap_maps: normalized.bitmap_maps,
             uv: normalized.uv,
             shader_graph: normalized.shader_graph,
 
             material: {
                 surface: normalized.surface,
+                light: previewLight,
                 bitmap_maps: normalized.bitmap_maps,
                 shader_graph: normalized.shader_graph,
+                texture_size: normalized.texture_size,
+                texture_preload: normalized.texture_preload,
+                render_backend: normalized.render_backend,
             },
 
             shader: {
@@ -832,13 +1219,22 @@ export function materialEditorModel(props, emit) {
                 inputs: normalized.surface,
                 surface: normalized.surface,
                 geometry: normalized.geometry,
+                light: previewLight,
                 bitmap_maps: normalized.bitmap_maps,
                 uv: normalized.uv,
                 graph: normalized.shader_graph,
+                texture_size: normalized.texture_size,
+                texture_preload: normalized.texture_preload,
+                render_backend: normalized.render_backend,
             },
 
             texture: {
-                url: sourceLayerTextureUrl.value,
+                url: getPreviewTextureUrl(normalized),
+                thumbnail: getPreviewTextureUrl(normalized),
+                texture_size: normalized.texture_size,
+                texture_lod_key: normalized.texture_size === "Original"
+                    ? "original"
+                    : String(normalized.texture_size),
             },
 
             preview: {
@@ -852,11 +1248,26 @@ export function materialEditorModel(props, emit) {
 
             settings: {
                 blend_mode: normalized.blend_mode,
+                alpha_clip: normalized.alpha_clip,
                 shadow_method: normalized.shadow_method,
+                backface_culling: normalized.backface_culling,
+                show_backface: normalized.show_backface,
+                screen_space_refraction: normalized.screen_space_refraction,
+                refraction_depth: normalized.refraction_depth,
+                subsurface_translucency: normalized.subsurface_translucency,
                 use_nodes: normalized.use_nodes,
+                render_backend: normalized.render_backend,
                 cube_size: normalized.cube_size,
+                light: {
+                    ...previewLight,
+                },
+                light_editing: ui.activeTab === "light",
+                texture_size: normalized.texture_size,
+                texture_preload: normalized.texture_preload,
             },
 
+            texture_size: normalized.texture_size,
+            texture_preload: normalized.texture_preload,
             time: previewStableTime.value,
         };
     });
@@ -940,31 +1351,51 @@ export function materialEditorModel(props, emit) {
     const setSurfaceSlotChannel = (key, channel) => {
         const nextChannel = ["rgb", "rgba"].includes(channel) ? channel : "rgba";
 
+        setSurfaceTextureSetting(key, "channel", nextChannel);
+    };
+
+    const setSurfaceTextureSetting = (key, settingKey, value) => {
+        const current = values.bitmap_maps[key] || {};
+        const nextSettings = mergeTextureSettingsForSlot(key, current, {
+            [settingKey]: value,
+        });
+
         values.bitmap_maps[key] = {
-            ...values.bitmap_maps[key],
-            channel: nextChannel,
-            texture_groups: (values.bitmap_maps[key]?.texture_groups || []).map(group => ({
+            ...current,
+            ...nextSettings,
+            texture_groups: (current.texture_groups || []).map(group => ({
                 ...group,
-                channel: nextChannel,
+                ...mergeTextureSettingsForSlot(key, nextSettings, group, {
+                    [settingKey]: value,
+                }),
             })),
         };
 
         Object.values(values.uv.faces || {}).forEach(face => {
             if (face?.bitmap?.url) {
-                face.bitmap.channel = nextChannel;
+                face.bitmap = {
+                    ...face.bitmap,
+                    ...mergeTextureSettingsForSlot(key, nextSettings, face.bitmap, {
+                        [settingKey]: value,
+                    }),
+                };
             }
         });
 
         const node = getSurfaceSlotSourceNode(key);
 
         if (node) {
-            node.settings = normalizeNodeSettings(node);
-            node.settings.channel = nextChannel;
+            node.settings = {
+                ...normalizeNodeSettings(node),
+                ...nextSettings,
+            };
 
             if (Array.isArray(node.settings.texture_groups)) {
                 node.settings.texture_groups = node.settings.texture_groups.map(group => ({
                     ...group,
-                    channel: nextChannel,
+                    ...mergeTextureSettingsForSlot(key, nextSettings, group, {
+                        [settingKey]: value,
+                    }),
                 }));
             }
         }
@@ -983,8 +1414,8 @@ export function materialEditorModel(props, emit) {
                 ...values.bitmap_maps[field.key],
                 offset: Number(node.settings.offset || 0),
                 strength: Number(node.settings.strength ?? values.bitmap_maps[field.key].strength ?? 1),
-                channel: node.settings.channel || values.bitmap_maps[field.key].channel || "rgba",
-                invert: node.settings.invert === true,
+                ...mergeTextureSettingsForSlot(field.key, values.bitmap_maps[field.key], node.settings),
+                invert: false,
                 blend: node.settings.blend || values.bitmap_maps[field.key].blend || "replace",
             };
         });
@@ -1242,7 +1673,7 @@ export function materialEditorModel(props, emit) {
             filename: layer.texture?.filename || "",
             cached: layer.texture?.cached === true,
 
-            channel: values.bitmap_maps.baseColor?.channel || "rgba",
+            ...mergeTextureSettingsForSlot("baseColor", values.bitmap_maps.baseColor),
             strength: values.bitmap_maps.baseColor?.strength ?? 1,
             offset: values.bitmap_maps.baseColor?.offset ?? 0,
             invert: values.bitmap_maps.baseColor?.invert === true,
@@ -1357,7 +1788,7 @@ export function materialEditorModel(props, emit) {
         const sockets = Object.keys(node.inputs || {});
 
         return (
-            sockets.find(socket => ["image", "color", "value", "factor", "surface"].includes(socket)) ||
+            sockets.find(socket => ["image", "color", "value", "factor", "vector", "surface"].includes(socket)) ||
             sockets[0] ||
             "image"
         );
@@ -1371,7 +1802,7 @@ export function materialEditorModel(props, emit) {
         const sockets = Object.keys(node.outputs || {});
 
         return (
-            sockets.find(socket => ["color", "image", "value", "bsdf"].includes(socket)) ||
+            sockets.find(socket => ["color", "image", "value", "vector", "bsdf"].includes(socket)) ||
             sockets[0] ||
             "color"
         );
@@ -1496,11 +1927,8 @@ export function materialEditorModel(props, emit) {
         const offset = Number(settings.offset ?? 0);
         const shouldClamp = settings.clamp !== false;
 
-        let result = Number(value ?? 0) * strength + offset;
-
-        if (settings.invert === true) {
-            result = 1 - result;
-        }
+        const input = strength < 0 ? 1 - clamp(Number(value ?? 0), 0, 1) : Number(value ?? 0);
+        let result = input * Math.abs(strength) + offset;
 
         if (shouldClamp) {
             result = clamp(result, 0, 1);
@@ -1520,11 +1948,8 @@ export function materialEditorModel(props, emit) {
                 return channel;
             }
 
-            let result = Number(channel ?? 0) * strength + offset;
-
-            if (settings.invert === true) {
-                result = 1 - result;
-            }
+            const input = strength < 0 ? 1 - clamp(Number(channel ?? 0), 0, 1) : Number(channel ?? 0);
+            const result = input * Math.abs(strength) + offset;
 
             return shouldClamp ? clamp(result, 0, 1) : result;
         });
@@ -1857,7 +2282,7 @@ export function materialEditorModel(props, emit) {
                     layer_id: slot.layer_id,
                     url: slot.url,
                     name: slot.name,
-                    channel: slot.channel,
+                    ...mergeTextureSettingsForSlot(slotKey, slot),
                     strength: slot.strength,
                     offset: slot.offset,
                     invert: slot.invert,
@@ -1873,7 +2298,7 @@ export function materialEditorModel(props, emit) {
                 layer_id: slot.layer_id,
                 url: slot.url,
                 name: slot.name,
-                channel: slot.channel,
+                ...mergeTextureSettingsForSlot(slotKey, slot),
                 strength: slot.strength,
                 offset: slot.offset,
                 invert: slot.invert,
@@ -1952,7 +2377,7 @@ export function materialEditorModel(props, emit) {
 
             filename: "",
             cached: false,
-            channel: "rgba",
+            ...mergeTextureSettingsForSlot(key),
             strength: 1,
             offset: 0,
             invert: false,
@@ -2000,7 +2425,7 @@ export function materialEditorModel(props, emit) {
             faces: {},
             mapped_faces: [],
             texture_groups: [],
-            channel: values.bitmap_maps[key]?.channel || "rgba",
+            ...mergeTextureSettingsForSlot(key, values.bitmap_maps[key]),
         };
 
         ensureBitmapNodeForSlot(key);
@@ -2096,8 +2521,8 @@ export function materialEditorModel(props, emit) {
             return true;
         }
 
-        return ["color", "image", "float", "value"].includes(fromType) &&
-            ["color", "image", "float", "value"].includes(toType);
+        return ["color", "image", "float", "value", "vector"].includes(fromType) &&
+            ["color", "image", "float", "value", "vector"].includes(toType);
     };
 
     const reconcileShaderGraph = () => {
@@ -2196,7 +2621,77 @@ export function materialEditorModel(props, emit) {
         applyRememberedNodePositions();
     };
 
-    const addShaderNode = type => {
+    const getNodeDescriptor = nodeType => {
+        if (typeof nodeType === "object" && nodeType) {
+            return nodeType;
+        }
+
+        return NODE_TYPES.find(item => item.type === nodeType) || { type: nodeType, label: "Shader Node" };
+    };
+
+    const createShaderNodeIO = label => {
+        const lowerLabel = String(label || "").toLowerCase();
+
+        if (lowerLabel === "combine xyz") {
+            return {
+                inputs: { x: { type: "float" }, y: { type: "float" }, z: { type: "float" } },
+                outputs: { vector: { type: "vector" }, value: { type: "float" } },
+            };
+        }
+
+        if (lowerLabel === "separate xyz") {
+            return {
+                inputs: { vector: { type: "vector" } },
+                outputs: { x: { type: "float" }, y: { type: "float" }, z: { type: "float" } },
+            };
+        }
+
+        if (lowerLabel === "combine color") {
+            return {
+                inputs: { red: { type: "float" }, green: { type: "float" }, blue: { type: "float" }, alpha: { type: "float" } },
+                outputs: { color: { type: "color" }, value: { type: "float" } },
+            };
+        }
+
+        if (lowerLabel === "separate color") {
+            return {
+                inputs: { color: { type: "color" } },
+                outputs: { red: { type: "float" }, green: { type: "float" }, blue: { type: "float" }, alpha: { type: "float" } },
+            };
+        }
+
+        if (lowerLabel === "mapping") {
+            return {
+                inputs: { vector: { type: "vector" } },
+                outputs: { vector: { type: "vector" }, image: { type: "image" } },
+            };
+        }
+
+        if (["blackbody", "rgb to bw"].includes(lowerLabel)) {
+            return {
+                inputs: lowerLabel === "blackbody" ? { temperature: { type: "float" } } : { bitmap: { type: "image" } },
+                outputs: { color: { type: "color" }, value: { type: "float" } },
+            };
+        }
+
+        return {
+            inputs: {
+                image: { type: "image" },
+                value: { type: "float" },
+                factor: { type: "float" },
+            },
+            outputs: {
+                image: { type: "image" },
+                value: { type: "float" },
+                color: { type: "color" },
+            },
+        };
+    };
+
+    const addShaderNode = nodeType => {
+        const descriptor = getNodeDescriptor(nodeType);
+        const type = descriptor.type;
+
         if (type === "principled") {
             if (!getGraphNode("principled-bsdf")) {
                 values.shader_graph.nodes.push(createPrincipledNode());
@@ -2229,37 +2724,22 @@ export function materialEditorModel(props, emit) {
         ensureCoreNodes();
 
         const id = uuid('shader-node');
+        const nodeIO = createShaderNodeIO(descriptor.label);
 
         const node = {
             id,
             type,
-            label: {
-                "uv-map": "Map UV",
-                filter: "Filter",
-                modifier: "Modifier",
-                falloff: "Falloff",
-                blend: "Blend",
-                math: "Math",
-                bitmap: "Bitmap",
-                value: "Value",
-                preview: "Viewer",
-            }[type] || "Shader Node",
+            label: descriptor.label || "Shader Node",
             locked: false,
             position: {
                 x: 280,
                 y: 120 + values.shader_graph.nodes.length * 30,
             },
-            inputs: {
-                image: null,
-                value: null,
-                factor: null,
-            },
-            outputs: {
-                image: { type: "image" },
-                value: { type: "float" },
-                color: { type: "color" },
-            },
+            inputs: nodeIO.inputs,
+            outputs: nodeIO.outputs,
             settings: {
+                node_name: descriptor.label || type,
+                group: descriptor.group || "",
                 operation: type === "blend" ? "multiply" : "none",
                 filter: "none",
                 falloff: "smooth",
@@ -2394,7 +2874,7 @@ export function materialEditorModel(props, emit) {
             height: Number(layer.height || 0),
             filename: layer.texture?.filename || "",
             cached: layer.texture?.cached === true,
-            channel: values.bitmap_maps[getUvTargetSlots()[0]]?.channel || "rgba",
+            ...mergeTextureSettingsForSlot(getUvTargetSlots()[0], values.bitmap_maps[getUvTargetSlots()[0]]),
         };
     };
 
@@ -2436,7 +2916,13 @@ export function materialEditorModel(props, emit) {
             defaults[key] = {
                 ...defaults[key],
                 ...(source[key] || {}),
+                ...mergeTextureSettingsForSlot(key, defaults[key], source[key] || {}),
             };
+
+            defaults[key].texture_groups = (defaults[key].texture_groups || []).map(group => ({
+                ...group,
+                ...mergeTextureSettingsForSlot(key, defaults[key], group),
+            }));
         });
 
         return defaults;
@@ -2481,6 +2967,10 @@ export function materialEditorModel(props, emit) {
             ...createGeometry(),
             ...(cloneData(source.geometry || source.material?.geometry || {})),
         };
+        values.light = {
+            ...createLight(),
+            ...(cloneData(source.light || source.settings?.light || source.shader?.light || {})),
+        };
         values.bitmap_maps = mergeBitmapMaps(cloneData(source.bitmap_maps || source.material?.bitmap_maps || {}));
         values.uv = {
             ...createUv(),
@@ -2496,9 +2986,28 @@ export function materialEditorModel(props, emit) {
         };
         rememberAllNodePositions();
         values.cube_size = Number(source.settings?.cube_size || values.cube_size || 256);
+        values.texture_size = normalizeTextureSize(
+            source?.settings?.texture_size ??
+            source?.texture_size ??
+            source?.material?.material_settings?.texture_size ??
+            "Original"
+        );
+        values.texture_preload = TEXTURE_SIZE_OPTIONS;
         values.rotate_preview = source.preview?.rotate ?? source.preview?.idle_rotation?.enabled ?? values.rotate_preview;
+        values.render_backend = String(
+            source.settings?.render_backend ??
+            source.render_backend ??
+            values.render_backend ??
+            "WEBGL2"
+        ).toUpperCase() === "CANVAS2D" ? "CANVAS2D" : "WEBGL2";
         values.blend_mode = source.settings?.blend_mode || values.blend_mode;
+        values.alpha_clip = Number(source.settings?.alpha_clip ?? source.alpha_clip ?? values.alpha_clip ?? 0.5);
         values.shadow_method = source.settings?.shadow_method || values.shadow_method;
+        values.backface_culling = source.settings?.backface_culling ?? values.backface_culling;
+        values.show_backface = source.settings?.show_backface ?? values.show_backface;
+        values.screen_space_refraction = source.settings?.screen_space_refraction ?? values.screen_space_refraction;
+        values.refraction_depth = Number(source.settings?.refraction_depth ?? values.refraction_depth ?? 0);
+        values.subsurface_translucency = source.settings?.subsurface_translucency ?? values.subsurface_translucency;
         values.use_nodes = source.settings?.use_nodes ?? values.use_nodes;
 
         ensureCoreNodes();
@@ -2531,6 +3040,7 @@ export function materialEditorModel(props, emit) {
                 acc[url] = {
                     url,
                     bitmap,
+                    ...mergeTextureSettingsForSlot(getUvTargetSlots()[0], values.bitmap_maps[getUvTargetSlots()[0]], bitmap),
                     faces: [],
                 };
             }
@@ -2589,7 +3099,7 @@ export function materialEditorModel(props, emit) {
                 name: settings.name || node.label || node.id,
                 filename: settings.filename || "",
                 cached: settings.cached === true,
-                channel: settings.channel || "rgba",
+                ...mergeTextureSettingsForSlot(settings.slot || settings.target_slot || getSurfaceSlotForNode(node.id), settings),
                 strength: settings.strength ?? 1,
                 offset: settings.offset ?? 0,
                 invert: settings.invert === true,
@@ -2616,7 +3126,7 @@ export function materialEditorModel(props, emit) {
                             name: resolved.name || group.name || "Texture",
                             filename: resolved.filename || group.filename || "",
                             cached: resolved.cached === true,
-                            channel: resolved.channel || group.channel || settings.channel || "rgba",
+                            ...mergeTextureSettingsForSlot(settings.slot || settings.target_slot || getSurfaceSlotForNode(node.id), settings, group, resolved),
                         }
                         : group;
 
@@ -2631,7 +3141,7 @@ export function materialEditorModel(props, emit) {
                         layer_id: merged.layer_id || "",
                         filename: merged.filename || "",
                         cached: merged.cached === true,
-                        channel: merged.channel || settings.channel || "rgba",
+                        ...mergeTextureSettingsForSlot(settings.slot || settings.target_slot || getSurfaceSlotForNode(node.id), settings, merged),
                         faces: Array.isArray(merged.faces) ? merged.faces : [],
                     };
                 })
@@ -2650,7 +3160,7 @@ export function materialEditorModel(props, emit) {
                 name: settings.name || node.label || "Cube MultiTexture",
                 filename: "",
                 cached: textureGroups.every(group => group.cached === true),
-                channel: settings.channel || "rgba",
+                ...mergeTextureSettingsForSlot(settings.slot || settings.target_slot || getSurfaceSlotForNode(node.id), settings),
                 strength: settings.strength ?? 1,
                 offset: settings.offset ?? 0,
                 invert: settings.invert === true,
@@ -2679,7 +3189,7 @@ export function materialEditorModel(props, emit) {
             source_type: "shader",
             node_id: node.id,
             name: node.label || resolved.name || node.id,
-            channel: settings.channel || resolved.channel || "rgba",
+            ...mergeTextureSettingsForSlot(getSurfaceSlotForNode(node.id), resolved, settings),
             strength: settings.strength ?? resolved.strength ?? 1,
             offset: settings.offset ?? resolved.offset ?? 0,
             invert: settings.invert === true || resolved.invert === true,
@@ -2743,7 +3253,7 @@ export function materialEditorModel(props, emit) {
             faces: resolved.faces || values.bitmap_maps[slotKey]?.faces || {},
             mapped_faces: resolved.mapped_faces || values.bitmap_maps[slotKey]?.mapped_faces || [],
             texture_groups: resolved.texture_groups || [],
-            channel: resolved.channel || values.bitmap_maps[slotKey]?.channel || "rgba",
+            ...mergeTextureSettingsForSlot(slotKey, values.bitmap_maps[slotKey], resolved),
             strength: resolved.strength ?? values.bitmap_maps[slotKey]?.strength ?? 1,
             offset: resolved.offset ?? values.bitmap_maps[slotKey]?.offset ?? 0,
             invert: resolved.invert === true,
@@ -2840,7 +3350,7 @@ export function materialEditorModel(props, emit) {
                     name: bitmap.name || layerId || "Texture",
                     filename: bitmap.filename || "",
                     cached: bitmap.cached === true,
-                    channel: bitmap.channel || slot.channel || "rgba",
+                    ...mergeTextureSettingsForSlot(slotKey, slot, bitmap),
                     faces: [],
                 });
             }
@@ -2873,7 +3383,7 @@ export function materialEditorModel(props, emit) {
             mapped_faces: mappedFaces,
             texture_groups: textureGroups,
 
-            channel: slot.channel || "rgba",
+            ...mergeTextureSettingsForSlot(slotKey, slot),
             strength: slot.strength ?? 1,
             offset: slot.offset ?? 0,
             invert: slot.invert === true,
@@ -2928,7 +3438,7 @@ export function materialEditorModel(props, emit) {
         const targetSlots = getUvTargetSlots();
         const primarySlotKey = targetSlots[0] || "baseColor";
         const primarySlot = values.bitmap_maps[primarySlotKey] || {};
-        const primaryChannel = primarySlot.channel || "rgba";
+        const primaryTextureSettings = mergeTextureSettingsForSlot(primarySlotKey, primarySlot);
         rememberAllNodePositions();
         const preservedUvNodePositions = getGeneratedUvNodePositions();
 
@@ -2979,7 +3489,7 @@ export function materialEditorModel(props, emit) {
                     layer_id: group.bitmap?.layer_id || "",
                     filename: group.bitmap?.filename || "",
                     cached: group.bitmap?.cached === true,
-                    channel: group.bitmap?.channel || primaryChannel,
+                    ...mergeTextureSettingsForSlot(primarySlotKey, primaryTextureSettings, group.bitmap),
                     faces: group.faces,
                 }))),
             },
@@ -3048,7 +3558,7 @@ export function materialEditorModel(props, emit) {
                     name: bitmap.name || "SingleTexture",
                     width: bitmap.width || 0,
                     height: bitmap.height || 0,
-                    channel: bitmap.channel || primaryChannel,
+                    ...mergeTextureSettingsForSlot(primarySlotKey, primaryTextureSettings, bitmap),
                     faces: cloneData(values.uv.faces),
                     mapped_faces: cloneData(mappedFaces),
                     texture_faces: cloneData(group.faces),
@@ -3105,7 +3615,7 @@ export function materialEditorModel(props, emit) {
                 slot: primarySlotKey,
                 target_slot: primarySlotKey,
                 target_slots: cloneData(targetSlots),
-                channel: primaryChannel,
+                ...primaryTextureSettings,
                 atlas: values.uv.atlas,
                 faces: cloneData(values.uv.faces),
                 mapped_faces: cloneData(mappedFaces),
@@ -3116,7 +3626,7 @@ export function materialEditorModel(props, emit) {
                     layer_id: group.bitmap?.layer_id || "",
                     filename: group.bitmap?.filename || "",
                     cached: group.bitmap?.cached === true,
-                    channel: group.bitmap?.channel || primaryChannel,
+                    ...mergeTextureSettingsForSlot(primarySlotKey, primaryTextureSettings, group.bitmap),
                     faces: group.faces,
                 }))),
             },
@@ -3159,7 +3669,7 @@ export function materialEditorModel(props, emit) {
                     name: bitmap.name || `Texture Group ${index + 1}`,
                     width: bitmap.width || 0,
                     height: bitmap.height || 0,
-                    channel: bitmap.channel || primaryChannel,
+                    ...mergeTextureSettingsForSlot(primarySlotKey, primaryTextureSettings, bitmap),
                     faces: cloneData(values.uv.faces),
                     mapped_faces: cloneData(group.faces),
                 },
@@ -3719,13 +4229,22 @@ export function materialEditorModel(props, emit) {
         name: values.name,
         surface: values.surface,
         geometry: values.geometry,
+        light: values.light,
         bitmap_maps: values.bitmap_maps,
         uv: values.uv,
         shader_graph: values.shader_graph,
         cube_size: values.cube_size,
         rotate_preview: values.rotate_preview,
+        render_backend: values.render_backend,
+        texture_size: values.texture_size,
         blend_mode: values.blend_mode,
+        alpha_clip: values.alpha_clip,
         shadow_method: values.shadow_method,
+        backface_culling: values.backface_culling,
+        show_backface: values.show_backface,
+        screen_space_refraction: values.screen_space_refraction,
+        refraction_depth: values.refraction_depth,
+        subsurface_translucency: values.subsurface_translucency,
         use_nodes: values.use_nodes,
     }));
 
@@ -3834,7 +4353,11 @@ export function materialEditorModel(props, emit) {
 
         tabs: TABS,
         surfaceFields: SURFACE_FIELDS,
+        surfaceGroups: PRINCIPLED_SURFACE_GROUPS,
         nodeTypes: NODE_TYPES,
+        textureChannelOptions: TEXTURE_CHANNEL_OPTIONS,
+        textureColorModeOptions: TEXTURE_COLOR_MODE_OPTIONS,
+        textureSizeOptions: TEXTURE_SIZE_OPTIONS,
 
         textureLayers,
         selectedSourceLayer,
@@ -3870,6 +4393,7 @@ export function materialEditorModel(props, emit) {
         getSurfaceSlotOffset,
         setSurfaceSlotOffset,
         setSurfaceSlotChannel,
+        setSurfaceTextureSetting,
         syncSurfaceOffsetsFromNodes,
         requestPreviewDebounced,
         nodeCanvasRef,
@@ -3892,6 +4416,7 @@ export function materialEditorModel(props, emit) {
         normalizeNodeSettings,
         ensureNodeSettings,
         updateNodeSetting,
+        updateNodeTextureGroupSetting,
         syncNodeValuesToSurface,
         getSurfaceSlotForNode,
         getNodeValueSummary,
@@ -3975,5 +4500,10 @@ export const materialEditorProps = {
         type: String,
         required: false,
         default: "dark",
+    },
+    materialPreview: {
+        type: Object,
+        required: false,
+        default: null,
     },
 };

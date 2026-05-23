@@ -18,7 +18,7 @@
     "project_name": "unity-texture-generator"
   },
   "dependencies": {
-    "last_build": "2026-05-22T00:29:28.063146Z",
+    "last_build": "2026-05-22T14:17:35.436818Z",
     "config": {
       "library_policy": {
         "auto_update": true,
@@ -1151,6 +1151,7 @@
             "blend_mode",
             "shadow_method",
             "use_nodes",
+            "texture_size",
             "values"
           ],
           "function": "create_cube"
@@ -1169,6 +1170,7 @@
             "blend_mode",
             "shadow_method",
             "use_nodes",
+            "texture_size",
             "values"
           ],
           "function": "update"
@@ -1447,6 +1449,7 @@
             "blend_mode",
             "shadow_method",
             "use_nodes",
+            "texture_size",
             "values"
           ],
           "function": "material_preview"
