@@ -20,6 +20,7 @@ export function scrollbarModel(props, emit) {
     const lastActivity = ref(0);
     const hideDelay = 450;
     const isLoopRunning = ref(false);
+    const lastPointerPosition = ref(0);
 
     const isHorizontal = () => props.mode === "horizontal";
 
@@ -58,10 +59,19 @@ export function scrollbarModel(props, emit) {
         target.scrollTop = value;
     };
 
-    const getPointerDelta = event => {
+    const getPointerPosition = event => {
         return isHorizontal()
-            ? event.movementX
-            : event.movementY;
+            ? event.clientX
+            : event.clientY;
+    };
+
+    const getPointerDelta = event => {
+        const currentPointerPosition = getPointerPosition(event);
+        const delta = currentPointerPosition - lastPointerPosition.value;
+
+        lastPointerPosition.value = currentPointerPosition;
+
+        return delta;
     };
 
     /* -------------------------------------------------------
@@ -166,16 +176,29 @@ export function scrollbarModel(props, emit) {
 
     const onPointerDown = e => {
         isDrag.value = true;
+        lastPointerPosition.value = getPointerPosition(e);
+
         document.body.classList.add("scrollbar-grabbing");
+
+        if (th.value?.setPointerCapture && e.pointerId !== undefined) {
+            th.value.setPointerCapture(e.pointerId);
+        }
+
         e.preventDefault();
 
         active.value = true;
         markActivity();
     };
 
-    const onPointerUp = () => {
+    const onPointerUp = e => {
         if (!isDrag.value) return;
+
+        if (th.value?.releasePointerCapture && e?.pointerId !== undefined) {
+            th.value.releasePointerCapture(e.pointerId);
+        }
+
         document.body.classList.remove("scrollbar-grabbing");
+
         isDrag.value = false;
         markActivity();
     };
@@ -197,6 +220,8 @@ export function scrollbarModel(props, emit) {
 
             markActivity();
         }
+
+        e.preventDefault();
     };
 
     const onResize = () => updateThumb(el.value);
