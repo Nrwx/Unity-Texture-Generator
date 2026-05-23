@@ -1391,7 +1391,7 @@
                     <button
                         type="button"
                         class="mem-node-category-btn"
-                        @click="ui.activeNodeCategory = ui.activeNodeCategory === group.key ? '' : group.key"
+                        @click="closeNodeContextMenu(); ui.activeNodeCategory = ui.activeNodeCategory === group.key ? '' : group.key"
                     >
                       <strong>{{ group.label }}</strong>
                       <v-icon size="14">
@@ -1411,7 +1411,7 @@
                           @click="addShaderNode(nodeType); ui.activeNodeCategory = ''"
                       >
                         <v-icon size="14">{{ nodeType.icon }}</v-icon>
-                        {{ nodeType.label }}
+                        <span>{{ nodeType.label }}</span>
                       </button>
                     </div>
                   </div>
@@ -1455,6 +1455,8 @@
                     ref="nodeCanvasRef"
                     class="mem-node-canvas"
                     @mousedown="startCanvasPan"
+                    @click="closeNodeContextMenu"
+                    @contextmenu.prevent="openNodeContextMenu"
                     @wheel.prevent="handleCanvasWheel"
                 >
                   <div
@@ -1655,6 +1657,43 @@
                         {{ getNodeConnectionSummary(node) }}
                       </small>
                     </div>
+
+                    <div
+                        v-if="ui.nodeContextMenu.open"
+                        class="mem-node-context-menu"
+                        :style="{
+                          left: `${ui.nodeContextMenu.x}px`,
+                          top: `${ui.nodeContextMenu.y}px`
+                        }"
+                        @mousedown.stop
+                        @click.stop
+                        @wheel.stop
+                    >
+                      <div class="mem-node-context-tabs">
+                        <button
+                            v-for="group in nodeTypeGroups"
+                            :key="`context-${group.key}`"
+                            type="button"
+                            :class="{ active: ui.nodeContextMenu.category === group.key }"
+                            @click="ui.nodeContextMenu.category = group.key"
+                        >
+                          {{ group.label }}
+                        </button>
+                      </div>
+
+                      <div class="mem-node-context-list">
+                        <button
+                            v-for="nodeType in (nodeTypeGroups.find(group => group.key === ui.nodeContextMenu.category)?.items || [])"
+                            :key="`context-${nodeType.group}-${nodeType.label}-${nodeType.type}`"
+                            type="button"
+                            class="mem-node-menu-item"
+                            @click="addShaderNodeFromContext(nodeType)"
+                        >
+                          <v-icon size="14">{{ nodeType.icon }}</v-icon>
+                          <span>{{ nodeType.label }}</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                   <div class="mem-node-zoom-indicator">
@@ -1753,7 +1792,7 @@
                       </div>
                     </template>
 
-                    <template v-if="activeShaderNode.type === 'uv-map'">
+                    <template v-if="activeShaderNode.type === 'uv-map' && !getShaderNodeFieldItems(activeShaderNode).length">
                       <v-text-field
                           :model-value="normalizeNodeSettings(activeShaderNode).offset_x"
                           label="Offset X"
@@ -1782,7 +1821,7 @@
                       />
                     </template>
 
-                    <template v-if="activeShaderNode.type === 'filter'">
+                    <template v-if="activeShaderNode.type === 'filter' && !getShaderNodeFieldItems(activeShaderNode).length">
                       <v-select
                           :model-value="normalizeNodeSettings(activeShaderNode).filter"
                           :items="['none', 'blur', 'sharpen', 'contrast', 'hue', 'invert', 'grayscale']"
@@ -1793,7 +1832,7 @@
                       />
                     </template>
 
-                    <template v-if="activeShaderNode.type === 'falloff'">
+                    <template v-if="activeShaderNode.type === 'falloff' && !getShaderNodeFieldItems(activeShaderNode).length">
                       <v-select
                           :model-value="normalizeNodeSettings(activeShaderNode).falloff"
                           :items="['smooth', 'sphere', 'root', 'sharp', 'linear', 'constant', 'random', 'inverted']"

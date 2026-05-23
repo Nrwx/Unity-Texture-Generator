@@ -111,3 +111,224 @@ export const parseColor = (() => {
         return cache[str];
     };
 })();
+
+const HEX_TO_INT = new Int8Array(103);
+
+for (let i = 0; i < HEX_TO_INT.length; i++) {
+    HEX_TO_INT[i] = -1;
+}
+
+for (let i = 48; i <= 57; i++) {
+    HEX_TO_INT[i] = i - 48;
+}
+
+for (let i = 65; i <= 70; i++) {
+    HEX_TO_INT[i] = i - 55;
+}
+
+for (let i = 97; i <= 102; i++) {
+    HEX_TO_INT[i] = i - 87;
+}
+
+const INV_255 = 1 / 255;
+const HEX_SHORT_SCALE = 17 * INV_255;
+
+/**
+ * Converts a HEX color string into a normalized RGB or RGBA array.
+ *
+ * Optimized for performance-sensitive paths:
+ * - no regex
+ * - no parseInt
+ * - no split/map/join
+ * - no padEnd/slice
+ * - optional output array reuse
+ *
+ * Supported input:
+ * - "#fff"
+ * - "fff"
+ * - "#ffffff"
+ * - "ffffff"
+ *
+ * Supported modes:
+ * - "rgb"  -> [r, g, b]
+ * - "rgba" -> [r, g, b, a]
+ *
+ * Invalid input falls back to white.
+ *
+ * @param {string} [hex="#ffffff"] - HEX color string.
+ * @param {number} [alpha=1] - Alpha value between 0 and 1.
+ * @param {"rgb"|"rgba"} [mode="rgba"] - Output mode.
+ * @param {number[]} [out] - Optional output array to avoid allocations.
+ * @returns {number[]} Normalized RGB or RGBA array.
+ *
+ * @example
+ * hexToRgbaArray("#ff0000");
+ * // [1, 0, 0, 1]
+ *
+ * @example
+ * hexToRgbaArray("#ff0000", 1, "rgb");
+ * // [1, 0, 0]
+ *
+ * @example
+ * const out = [0, 0, 0, 1];
+ * hexToRgbaArray("#336699", 0.8, "rgba", out);
+ * // out === [0.2, 0.4, 0.6, 0.8]
+ */
+export const hexToRgbaArray = (
+    hex = "#ffffff",
+    alpha = 1,
+    mode = "rgba",
+    out
+) => {
+    const isRgb = mode === "rgb";
+    const result = out || (isRgb ? [1, 1, 1] : [1, 1, 1, 1]);
+
+    let a = alpha;
+
+    if (a !== a) {
+        a = 1;
+    } else if (a < 0) {
+        a = 0;
+    } else if (a > 1) {
+        a = 1;
+    }
+
+    if (typeof hex !== "string") {
+        result[0] = 1;
+        result[1] = 1;
+        result[2] = 1;
+
+        if (!isRgb) {
+            result[3] = a;
+        }
+
+        return result;
+    }
+
+    const length = hex.length;
+    let offset = 0;
+    let digits = length;
+
+    if (hex.charCodeAt(0) === 35) {
+        offset = 1;
+        digits = length - 1;
+    }
+
+    if (digits === 3) {
+        const r = HEX_TO_INT[hex.charCodeAt(offset)] ?? -1;
+        const g = HEX_TO_INT[hex.charCodeAt(offset + 1)] ?? -1;
+        const b = HEX_TO_INT[hex.charCodeAt(offset + 2)] ?? -1;
+
+        if ((r | g | b) < 0) {
+            result[0] = 1;
+            result[1] = 1;
+            result[2] = 1;
+        } else {
+            result[0] = r * HEX_SHORT_SCALE;
+            result[1] = g * HEX_SHORT_SCALE;
+            result[2] = b * HEX_SHORT_SCALE;
+        }
+
+        if (!isRgb) {
+            result[3] = a;
+        }
+
+        return result;
+    }
+
+    if (digits === 6) {
+        const r1 = HEX_TO_INT[hex.charCodeAt(offset)] ?? -1;
+        const r2 = HEX_TO_INT[hex.charCodeAt(offset + 1)] ?? -1;
+        const g1 = HEX_TO_INT[hex.charCodeAt(offset + 2)] ?? -1;
+        const g2 = HEX_TO_INT[hex.charCodeAt(offset + 3)] ?? -1;
+        const b1 = HEX_TO_INT[hex.charCodeAt(offset + 4)] ?? -1;
+        const b2 = HEX_TO_INT[hex.charCodeAt(offset + 5)] ?? -1;
+
+        if ((r1 | r2 | g1 | g2 | b1 | b2) < 0) {
+            result[0] = 1;
+            result[1] = 1;
+            result[2] = 1;
+        } else {
+            result[0] = ((r1 << 4) | r2) * INV_255;
+            result[1] = ((g1 << 4) | g2) * INV_255;
+            result[2] = ((b1 << 4) | b2) * INV_255;
+        }
+
+        if (!isRgb) {
+            result[3] = a;
+        }
+
+        return result;
+    }
+
+    result[0] = 1;
+    result[1] = 1;
+    result[2] = 1;
+
+    if (!isRgb) {
+        result[3] = a;
+    }
+
+    return result;
+};
+
+const BYTE_TO_HEX = new Array(256);
+
+for (let i = 0; i < 256; i++) {
+    BYTE_TO_HEX[i] = i < 16
+        ? "0" + i.toString(16)
+        : i.toString(16);
+}
+
+/**
+ * Converts a normalized RGB/RGBA array into a HEX color string.
+ *
+ * Supported modes:
+ * - "rgb"  -> expects [r, g, b]
+ * - "rgba" -> expects [r, g, b, a], alpha is ignored for HEX output
+ *
+ * Note:
+ * HEX output does not include alpha. The alpha channel is intentionally ignored.
+ *
+ * Optimized for hot paths:
+ * - no per-call helper function
+ * - no padStart
+ * - no repeated toString(16)
+ * - uses a precomputed byte-to-hex lookup table
+ *
+ * @param {number[]} value - Normalized RGB or RGBA array.
+ * @param {"rgb"|"rgba"} [mode="rgba"] - Input mode.
+ * @returns {string} HEX color string.
+ *
+ * @example
+ * colorArrayToHex([1, 0, 0], "rgb");
+ * // "#ff0000"
+ *
+ * @example
+ * colorArrayToHex([1, 0, 0, 0.5], "rgba");
+ * // "#ff0000"
+ */
+export const colorArrayToHex = (value, mode = "rgba") => {
+    if (!Array.isArray(value)) {
+        return "#ffffff";
+    }
+
+    const requiredLength = mode === "rgb" ? 3 : 4;
+
+    if (value.length < requiredLength) {
+        return "#ffffff";
+    }
+
+    let r = value[0];
+    let g = value[1];
+    let b = value[2];
+
+    r = r !== r ? 1 : r < 0 ? 0 : r > 1 ? 1 : r;
+    g = g !== g ? 1 : g < 0 ? 0 : g > 1 ? 1 : g;
+    b = b !== b ? 1 : b < 0 ? 0 : b > 1 ? 1 : b;
+
+    return "#" +
+        BYTE_TO_HEX[(r * 255 + 0.5) | 0] +
+        BYTE_TO_HEX[(g * 255 + 0.5) | 0] +
+        BYTE_TO_HEX[(b * 255 + 0.5) | 0];
+};

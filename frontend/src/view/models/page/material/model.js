@@ -1,34 +1,9 @@
 import {computed, onBeforeUnmount, onMounted, reactive, ref, watch,} from "vue";
 import {clamp} from "@/utils/tools";
 import {uuid} from "@/utils/uuid";
+import {colorArrayToHex, hexToRgbaArray} from "@/utils/color";
 
 const PREVIEW_DEBOUNCE_MS = 220;
-
-const hexToRgbaArray = (hex = "#ffffff", alpha = 1) => {
-    const value = String(hex || "#ffffff").replace("#", "");
-    const full = value.length === 3
-        ? value.split("").map(char => char + char).join("")
-        : value.padEnd(6, "f").slice(0, 6);
-
-    return [
-        parseInt(full.slice(0, 2), 16) / 255,
-        parseInt(full.slice(2, 4), 16) / 255,
-        parseInt(full.slice(4, 6), 16) / 255,
-        clamp(Number(alpha), 0, 1),
-    ];
-};
-
-const rgbaArrayToHex = value => {
-    if (!Array.isArray(value)) {
-        return "#ffffff";
-    }
-
-    const toHex = number => Math.round(clamp(number, 0, 1) * 255)
-        .toString(16)
-        .padStart(2, "0");
-
-    return `#${toHex(value[0])}${toHex(value[1])}${toHex(value[2])}`;
-};
 
 const TABS = [
     { key: "surface", title: "Surface", icon: "mdi-tune-variant" },
@@ -169,6 +144,7 @@ const NODE_TYPES = [
     { type: "math", label: "Clamp", group: "Math", icon: "mdi-lock-outline" },
     { type: "math", label: "Float Curve", group: "Math", icon: "mdi-chart-bell-curve-cumulative" },
     { type: "math", label: "Math", group: "Math", icon: "mdi-function" },
+    { type: "blend", label: "Mix", group: "Math", icon: "mdi-blender-software" },
     { type: "value", label: "Value", group: "Math", icon: "mdi-numeric" },
 
     { type: "modifier", label: "Combine XYZ", group: "Vector", icon: "mdi-vector-polyline" },
@@ -191,6 +167,14 @@ const NODE_TYPES = [
 ];
 
 const nodeSocket = (type, label = "") => ({ type, label });
+
+const isEditableNodeInput = socket => {
+    if (!socket || typeof socket !== "object") {
+        return false;
+    }
+
+    return ["float", "value", "color", "vector"].includes(socket.type);
+};
 
 const SHADER_NODE_DEFINITIONS = Object.freeze({
     UV: {
@@ -309,7 +293,7 @@ const SHADER_NODE_DEFINITIONS = Object.freeze({
     Blackbody: {
         fields: ["temperature"],
         inputs: {
-            temperature: nodeSocket("float"),
+            temperature: nodeSocket("float", "Temperature (K)"),
         },
         outputs: {
             color: nodeSocket("color"),
@@ -838,6 +822,14 @@ export function materialEditorModel(props, emit) {
     const ui = reactive({
         activeTab: "surface",
         activeNodeCategory: "",
+        nodeContextMenu: {
+            open: false,
+            x: 0,
+            y: 0,
+            worldX: 0,
+            worldY: 0,
+            category: "Math",
+        },
     });
 
     const values = reactive({
@@ -1216,7 +1208,14 @@ export function materialEditorModel(props, emit) {
             return [];
         }
 
-        return definition.fields.map(field => ({
+        const inputFields = Object.entries(definition.inputs || {})
+            .filter(([, socket]) => isEditableNodeInput(socket))
+            .map(([key]) => key);
+
+        return Array.from(new Set([
+            ...definition.fields,
+            ...inputFields,
+        ])).map(field => ({
             key: field,
             label: field === "a" ? "A" : field === "b" ? "B" : field.replace(/_/g, " "),
         }));
@@ -1261,6 +1260,18 @@ export function materialEditorModel(props, emit) {
             return ["Sine", "Saw", "Triangle", "Rings"];
         }
 
+        if (nodeName === "Math" && fieldKey === "mode") {
+            return ["Add", "Subtract", "Multiply", "Divide", "Min", "Max", "Power", "Mix"];
+        }
+
+        if (nodeName === "Combine Color" && fieldKey === "mode") {
+            return ["RGB", "HSV", "HSL"];
+        }
+
+        if (nodeName === "Separate Color" && fieldKey === "mode") {
+            return ["RGB", "HSV", "HSL"];
+        }
+
         if (fieldKey === "type") {
             return ["Float", "Vector", "Color", "Point", "Bitmap", "Min Max", "Range"];
         }
@@ -1282,6 +1293,421 @@ export function materialEditorModel(props, emit) {
         return definition?.label || socket;
     };
 
+    const getSocketDefinition = (nodeId, socket, direction) => {
+        const node = getGraphNode(nodeId);
+        const sockets = direction === "input"
+            ? node?.inputs || {}
+            : node?.outputs || {};
+
+        return sockets[socket] || null;
+    };
+
+    const toFiniteNumber = (value, fallback = 0) => {
+        const number = Number(value);
+        return Number.isFinite(number) ? number : fallback;
+    };
+
+    const clampSurfaceValue = (slotKey, value) => {
+        const field = SURFACE_FIELD_MAP[slotKey];
+        const number = toFiniteNumber(value, toFiniteNumber(createSurface()[slotKey], 0));
+
+        if (!field || field.type !== "number") {
+            return number;
+        }
+
+        return clamp(number, field.min ?? 0, field.max ?? 1);
+    };
+
+    const coerceSocketValue = (value, socketType = "float", slotKey = "") => {
+        if (value === null || value === undefined) {
+            return null;
+        }
+
+        if (socketType === "color" || socketType === "image") {
+            if (Array.isArray(value)) {
+                return [
+                    clamp(toFiniteNumber(value[0], 1), 0, 1),
+                    clamp(toFiniteNumber(value[1], 1), 0, 1),
+                    clamp(toFiniteNumber(value[2], 1), 0, 1),
+                    clamp(toFiniteNumber(value[3], 1), 0, 1),
+                ];
+            }
+
+            const number = clamp(toFiniteNumber(value, 1), 0, 1);
+            return [number, number, number, 1];
+        }
+
+        if (socketType === "vector") {
+            if (Array.isArray(value)) {
+                return [
+                    toFiniteNumber(value[0], 0),
+                    toFiniteNumber(value[1], value[0] ?? 0),
+                    toFiniteNumber(value[2], value[0] ?? 0),
+                ];
+            }
+
+            const number = toFiniteNumber(value, 0);
+            return [number, number, number];
+        }
+
+        if (Array.isArray(value)) {
+            return clampSurfaceValue(slotKey, value[0]);
+        }
+
+        return clampSurfaceValue(slotKey, value);
+    };
+
+    const mixNumbers = (a, b, factor) => {
+        const amount = clamp(toFiniteNumber(factor, 0.5), 0, 1);
+        return toFiniteNumber(a, 0) * (1 - amount) + toFiniteNumber(b, 0) * amount;
+    };
+
+    const applyMathOperation = (mode, a, b) => {
+        const left = toFiniteNumber(a, 0);
+        const right = toFiniteNumber(b, 0);
+
+        switch (String(mode || "add").toLowerCase()) {
+            case "subtract":
+                return left - right;
+            case "multiply":
+                return left * right;
+            case "divide":
+                return right === 0 ? left : left / right;
+            case "min":
+                return Math.min(left, right);
+            case "max":
+                return Math.max(left, right);
+            case "power":
+                return Math.pow(left, right);
+            case "mix":
+                return mixNumbers(left, right, 0.5);
+            case "add":
+            default:
+                return left + right;
+        }
+    };
+
+    const normalizeColorValue = (value, fallback = [1, 1, 1, 1]) => {
+        if (Array.isArray(value)) {
+            return [
+                clamp(toFiniteNumber(value[0], fallback[0] ?? 1), 0, 1),
+                clamp(toFiniteNumber(value[1], fallback[1] ?? 1), 0, 1),
+                clamp(toFiniteNumber(value[2], fallback[2] ?? 1), 0, 1),
+                clamp(toFiniteNumber(value[3], fallback[3] ?? 1), 0, 1),
+            ];
+        }
+
+        const number = clamp(toFiniteNumber(value, fallback[0] ?? 1), 0, 1);
+        return [number, number, number, 1];
+    };
+
+    const luminanceFromColor = color => {
+        const value = normalizeColorValue(color, [0, 0, 0, 1]);
+        return clamp(value[0] * 0.2126 + value[1] * 0.7152 + value[2] * 0.0722, 0, 1);
+    };
+
+    const mixColors = (a, b, factor) => {
+        const amount = clamp(toFiniteNumber(factor, 0.5), 0, 1);
+        const left = normalizeColorValue(a, [0, 0, 0, 1]);
+        const right = normalizeColorValue(b, [1, 1, 1, 1]);
+
+        return left.map((channel, index) => (
+            index === 3
+                ? mixNumbers(channel, right[index] ?? 1, amount)
+                : clamp(mixNumbers(channel, right[index] ?? 0, amount), 0, 1)
+        ));
+    };
+
+    const kelvinToColor = value => {
+        const temperature = clamp(toFiniteNumber(value, 6500), 1000, 40000) / 100;
+        const red = temperature <= 66
+            ? 255
+            : 329.698727446 * Math.pow(temperature - 60, -0.1332047592);
+        const green = temperature <= 66
+            ? 99.4708025861 * Math.log(temperature) - 161.1195681661
+            : 288.1221695283 * Math.pow(temperature - 60, -0.0755148492);
+        const blue = temperature >= 66
+            ? 255
+            : temperature <= 19
+                ? 0
+                : 138.5177312231 * Math.log(temperature - 10) - 305.0447927307;
+
+        return [
+            clamp(red / 255, 0, 1),
+            clamp(green / 255, 0, 1),
+            clamp(blue / 255, 0, 1),
+            1,
+        ];
+    };
+
+    const resolveInputValue = (nodeId, socket, seen = new Set()) => {
+        const edge = values.shader_graph.edges.find(item => (
+            item.to.node === nodeId &&
+            item.to.socket === socket
+        ));
+
+        if (!edge) {
+            return null;
+        }
+
+        return resolveNodeOutputValue(edge.from.node, edge.from.socket, seen);
+    };
+
+    const resolveNodeOutputValue = (nodeId, socket = "", seen = new Set()) => {
+        if (!nodeId || seen.has(nodeId)) {
+            return null;
+        }
+
+        seen.add(nodeId);
+
+        const node = getGraphNode(nodeId);
+
+        if (!node) {
+            return null;
+        }
+
+        const settings = normalizeNodeSettings(node);
+        const nodeName = settings.node_name || node.label || "";
+
+        if (
+            node.type === "bitmap" ||
+            node.type === "multitexture" ||
+            nodeName === "Bitmap/Image" ||
+            nodeName === "Multi Texture"
+        ) {
+            return null;
+        }
+
+        if (node.type === "value" || nodeName === "Value") {
+            return toFiniteNumber(settings.value, 0);
+        }
+
+        if (nodeName === "Math" || node.type === "math") {
+            const a = resolveInputValue(node.id, "a", new Set(seen)) ?? settings.a ?? settings.value ?? 0;
+            const b = resolveInputValue(node.id, "b", new Set(seen)) ?? settings.b ?? settings.factor ?? 0;
+            const result = applyMathOperation(settings.mode || settings.operation, a, b);
+            return settings.clamp === true ? clamp(result, 0, 1) : result;
+        }
+
+        if (nodeName === "Mix" || node.type === "blend") {
+            const factor = resolveInputValue(node.id, "factor", new Set(seen)) ?? settings.factor ?? 0.5;
+            const a = resolveInputValue(node.id, "a", new Set(seen)) ?? settings.a ?? 0;
+            const b = resolveInputValue(node.id, "b", new Set(seen)) ?? settings.b ?? 1;
+            const result = socket === "color" || settings.type === "Color"
+                ? mixColors(a, b, factor)
+                : mixNumbers(a, b, factor);
+
+            if (Array.isArray(result)) {
+                return result;
+            }
+
+            return settings.clamp === false ? result : clamp(result, 0, 1);
+        }
+
+        if (nodeName === "Clamp") {
+            const value = resolveInputValue(node.id, "value", new Set(seen)) ?? settings.value ?? 0;
+            const min = resolveInputValue(node.id, "min", new Set(seen)) ?? settings.min ?? 0;
+            const max = resolveInputValue(node.id, "max", new Set(seen)) ?? settings.max ?? 1;
+            return clamp(toFiniteNumber(value, 0), toFiniteNumber(min, 0), toFiniteNumber(max, 1));
+        }
+
+        if (nodeName === "Float Curve") {
+            return resolveInputValue(node.id, "value", new Set(seen)) ?? settings.value ?? settings.factor ?? 0;
+        }
+
+        if (nodeName === "Blackbody") {
+            const temperature = resolveInputValue(node.id, "temperature", new Set(seen)) ?? settings.temperature ?? 6500;
+            return socket === "color" ? kelvinToColor(temperature) : temperature;
+        }
+
+        if (nodeName === "Gradient") {
+            const factor = resolveInputValue(node.id, "vector", new Set(seen)) ?? settings.factor ?? 0.5;
+            return socket === "color"
+                ? normalizeColorValue(factor, [0.5, 0.5, 0.5, 1])
+                : clamp(toFiniteNumber(Array.isArray(factor) ? factor[0] : factor, 0.5), 0, 1);
+        }
+
+        if (nodeName === "Noise" || nodeName === "Wave") {
+            const scale = resolveInputValue(node.id, "scale", new Set(seen)) ?? settings.scale ?? 0.5;
+            const factor = clamp(toFiniteNumber(scale, 0.5), 0, 1);
+            return socket === "color" ? [factor, factor, factor, 1] : factor;
+        }
+
+        if (nodeName === "Color Ramp") {
+            const factor = resolveInputValue(node.id, "factor", new Set(seen)) ?? settings.factor ?? settings.position ?? 0.5;
+            return socket === "alpha" ? clamp(toFiniteNumber(factor, 1), 0, 1) : normalizeColorValue(settings.color ?? factor);
+        }
+
+        if (nodeName === "Brightness/Contrast") {
+            const source = resolveInputValue(node.id, "bitmap", new Set(seen)) ?? settings.bitmap ?? 0.5;
+            const brightness = resolveInputValue(node.id, "brightness", new Set(seen)) ?? settings.brightness ?? 0;
+            const contrast = resolveInputValue(node.id, "contrast", new Set(seen)) ?? settings.contrast ?? 0;
+            const value = clamp((Array.isArray(source) ? luminanceFromColor(source) : toFiniteNumber(source, 0.5)) + toFiniteNumber(brightness, 0), 0, 1);
+            const contrasted = clamp((value - 0.5) * (1 + toFiniteNumber(contrast, 0)) + 0.5, 0, 1);
+            return socket === "bitmap" ? [contrasted, contrasted, contrasted, 1] : contrasted;
+        }
+
+        if (nodeName === "Gamma") {
+            const color = resolveInputValue(node.id, "color", new Set(seen)) ?? settings.color ?? [1, 1, 1, 1];
+            const gamma = Math.max(0.001, toFiniteNumber(resolveInputValue(node.id, "gamma", new Set(seen)) ?? settings.gamma, 1));
+            return normalizeColorValue(color).map((channel, index) => (
+                index === 3 ? channel : clamp(Math.pow(channel, gamma), 0, 1)
+            ));
+        }
+
+        if (nodeName === "Hue/Saturation/Value") {
+            const source = resolveInputValue(node.id, "bitmap", new Set(seen)) ?? settings.bitmap ?? [1, 1, 1, 1];
+            const amount = toFiniteNumber(resolveInputValue(node.id, "value", new Set(seen)) ?? settings.value, 1);
+            return normalizeColorValue(source).map((channel, index) => (
+                index === 3 ? channel : clamp(channel * amount, 0, 1)
+            ));
+        }
+
+        if (nodeName === "Invert Color") {
+            const color = resolveInputValue(node.id, "color", new Set(seen)) ?? settings.color ?? [1, 1, 1, 1];
+            const factor = clamp(toFiniteNumber(resolveInputValue(node.id, "factor", new Set(seen)) ?? settings.factor, 1), 0, 1);
+            return normalizeColorValue(color).map((channel, index) => (
+                index === 3 ? channel : mixNumbers(channel, 1 - channel, factor)
+            ));
+        }
+
+        if (nodeName === "RGB to BW") {
+            const source = resolveInputValue(node.id, "bitmap", new Set(seen)) ?? settings.bitmap ?? [1, 1, 1, 1];
+            return luminanceFromColor(source);
+        }
+
+        if (nodeName === "Combine Color") {
+            return [
+                clamp(toFiniteNumber(resolveInputValue(node.id, "red", new Set(seen)) ?? settings.red, 0), 0, 1),
+                clamp(toFiniteNumber(resolveInputValue(node.id, "green", new Set(seen)) ?? settings.green, 0), 0, 1),
+                clamp(toFiniteNumber(resolveInputValue(node.id, "blue", new Set(seen)) ?? settings.blue, 0), 0, 1),
+                clamp(toFiniteNumber(resolveInputValue(node.id, "alpha", new Set(seen)) ?? settings.alpha, 1), 0, 1),
+            ];
+        }
+
+        if (nodeName === "Separate Color") {
+            const color = normalizeColorValue(resolveInputValue(node.id, "color", new Set(seen)) ?? settings.color);
+            const channelIndex = { red: 0, green: 1, blue: 2, alpha: 3 }[socket] ?? 0;
+            return color[channelIndex];
+        }
+
+        if (nodeName === "Combine XYZ") {
+            return [
+                toFiniteNumber(resolveInputValue(node.id, "x", new Set(seen)) ?? settings.x, 0),
+                toFiniteNumber(resolveInputValue(node.id, "y", new Set(seen)) ?? settings.y, 0),
+                toFiniteNumber(resolveInputValue(node.id, "z", new Set(seen)) ?? settings.z, 0),
+            ];
+        }
+
+        if (nodeName === "Separate XYZ") {
+            const vector = resolveInputValue(node.id, "vector", new Set(seen)) ?? [settings.x ?? 0, settings.y ?? 0, settings.z ?? 0];
+            const channelIndex = { x: 0, y: 1, z: 2 }[socket] ?? 0;
+            return Array.isArray(vector) ? toFiniteNumber(vector[channelIndex], 0) : toFiniteNumber(vector, 0);
+        }
+
+        if (socket && settings[socket] !== undefined) {
+            return settings[socket];
+        }
+
+        const primaryInput = Object.keys(node.inputs || {}).find(input => (
+            ["value", "factor", "a", "b", "brightness", "contrast", "color", "bitmap"].includes(input)
+        ));
+
+        if (primaryInput) {
+            const incoming = resolveInputValue(node.id, primaryInput, new Set(seen));
+
+            if (incoming !== null && incoming !== undefined) {
+                return incoming;
+            }
+        }
+
+        return settings.value ?? settings.factor ?? settings.strength ?? null;
+    };
+
+    const applyResolvedValueToSurfaceSlot = (slotKey, value, sourceNode = null) => {
+        if (!SURFACE_FIELD_MAP[slotKey] || value === null || value === undefined) {
+            return;
+        }
+
+        const field = SURFACE_FIELD_MAP[slotKey];
+        const socketType = field.type === "color" ? "color" : "float";
+        const coerced = coerceSocketValue(value, socketType, slotKey);
+
+        if (coerced === null) {
+            return;
+        }
+
+        values.surface[slotKey] = coerced;
+
+        values.bitmap_maps[slotKey] = {
+            ...values.bitmap_maps[slotKey],
+            enabled: true,
+            source_type: "shader",
+            node_id: sourceNode?.id || values.bitmap_maps[slotKey]?.node_id || "",
+            name: sourceNode?.label || values.bitmap_maps[slotKey]?.name || "Shader Value",
+            url: values.bitmap_maps[slotKey]?.url || "",
+            layer_id: values.bitmap_maps[slotKey]?.layer_id || "",
+            ...mergeTextureSettingsForSlot(slotKey, values.bitmap_maps[slotKey], sourceNode?.settings || {}),
+        };
+    };
+
+    const applyResolvedValueToNodeInput = (from, to) => {
+        const targetNode = getGraphNode(to.node);
+        const value = resolveNodeOutputValue(from.node, from.socket);
+
+        if (!targetNode || value === null || value === undefined) {
+            return;
+        }
+
+        if (to.node === "principled-bsdf") {
+            const textureSource = resolveShaderGraphSource(from.node);
+
+            if (
+                textureSource?.url ||
+                textureSource?.layer_id ||
+                textureSource?.source_type === "single" ||
+                textureSource?.source_type === "multitexture" ||
+                (Array.isArray(textureSource?.texture_groups) && textureSource.texture_groups.length)
+            ) {
+                return;
+            }
+
+            applyResolvedValueToSurfaceSlot(to.socket, value, getGraphNode(from.node));
+            return;
+        }
+
+        const targetInputs = targetNode.inputs || {};
+
+        if (!targetInputs[to.socket]) {
+            return;
+        }
+
+        const socketType = getSocketDefinition(to.node, to.socket, "input")?.type || "float";
+        const settings = ensureNodeSettings(targetNode);
+        settings[to.socket] = coerceSocketValue(value, socketType, to.socket);
+    };
+
+    const propagateNodeOutputValues = (nodeId, seen = new Set()) => {
+        if (!nodeId || seen.has(nodeId)) {
+            return;
+        }
+
+        seen.add(nodeId);
+
+        values.shader_graph.edges
+            .filter(edge => edge.from.node === nodeId)
+            .forEach(edge => {
+                applyResolvedValueToNodeInput(edge.from, edge.to);
+                propagateNodeOutputValues(edge.to.node, new Set(seen));
+            });
+    };
+
+    const syncConnectedSurfaceValuesFromGraph = () => {
+        values.shader_graph.edges
+            .filter(edge => edge.to.node === "principled-bsdf")
+            .forEach(edge => applyResolvedValueToNodeInput(edge.from, edge.to));
+    };
+
     const ensureNodeSettings = node => {
         if (!node) {
             return {};
@@ -1300,13 +1726,16 @@ export function materialEditorModel(props, emit) {
         ensureNodeSettings(node);
 
         node.settings[key] = value;
+        node.user_edited = true;
 
         if (["offset", "strength", "channel", "color_mode", "invert", "blend"].includes(key)) {
             syncNodeValuesToSurface(node);
             syncSurfaceOffsetsFromNodes();
         }
 
+        propagateNodeOutputValues(node.id);
         syncNodeValuesToSurface(node);
+        syncConnectedSurfaceValuesFromGraph();
         requestPreviewDebounced();
     };
 
@@ -1332,13 +1761,26 @@ export function materialEditorModel(props, emit) {
         };
 
         settings.texture_groups = groups;
+        node.user_edited = true;
 
         syncNodeValuesToSurface(node);
+        syncTextureGroupSettingsToUvFaces(getSurfaceSlotForNode(node.id), groups[index], { [key]: value });
         syncSurfaceOffsetsFromNodes();
         requestPreviewDebounced();
     };
 
-    const getSurfaceSlotForNode = nodeId => {
+    const getNodeTargetSlotFromSettings = node => {
+        const settings = node?.settings || {};
+        const candidates = [
+            settings.slot,
+            settings.target_slot,
+            ...(Array.isArray(settings.target_slots) ? settings.target_slots : []),
+        ];
+
+        return candidates.find(slotKey => Boolean(values.bitmap_maps[slotKey])) || "";
+    };
+
+    const getDirectSurfaceSlotForNode = nodeId => {
         const edge = values.shader_graph.edges.find(item => (
             item.from.node === nodeId &&
             item.to.node === "principled-bsdf" &&
@@ -1346,6 +1788,85 @@ export function materialEditorModel(props, emit) {
         ));
 
         return edge?.to?.socket || "";
+    };
+
+    const getDownstreamSurfaceSlotForNode = (nodeId, seen = new Set()) => {
+        if (!nodeId || seen.has(nodeId)) {
+            return "";
+        }
+
+        seen.add(nodeId);
+
+        const directSlot = getDirectSurfaceSlotForNode(nodeId);
+
+        if (directSlot) {
+            return directSlot;
+        }
+
+        const outgoingEdges = values.shader_graph.edges.filter(edge => edge.from.node === nodeId);
+
+        for (const edge of outgoingEdges) {
+            const slotKey = getDownstreamSurfaceSlotForNode(edge.to.node, new Set(seen));
+
+            if (slotKey) {
+                return slotKey;
+            }
+        }
+
+        return "";
+    };
+
+    const getSurfaceSlotForNode = nodeId => {
+        const node = getGraphNode(nodeId);
+
+        return getDirectSurfaceSlotForNode(nodeId)
+            || getDownstreamSurfaceSlotForNode(nodeId)
+            || getNodeTargetSlotFromSettings(node);
+    };
+
+    const syncTextureSettingsToUvFaces = (slotKey, settings = {}) => {
+        if (!slotKey || !values.bitmap_maps[slotKey]) {
+            return;
+        }
+
+        const nextSettings = mergeTextureSettingsForSlot(slotKey, values.bitmap_maps[slotKey], settings);
+
+        Object.values(values.uv.faces || {}).forEach(face => {
+            if (!face?.bitmap?.url && !face?.bitmap?.layer_id) {
+                return;
+            }
+
+            face.bitmap = {
+                ...face.bitmap,
+                ...mergeTextureSettingsForSlot(slotKey, face.bitmap, nextSettings),
+            };
+        });
+    };
+
+    const syncTextureGroupSettingsToUvFaces = (slotKey, group = {}, settings = {}) => {
+        if (!slotKey || !values.bitmap_maps[slotKey]) {
+            return;
+        }
+
+        const affectedFaces = Array.isArray(group.faces) ? group.faces : [];
+        const nextSettings = mergeTextureSettingsForSlot(slotKey, values.bitmap_maps[slotKey], group, settings);
+
+        Object.entries(values.uv.faces || {}).forEach(([faceName, face]) => {
+            const bitmap = face?.bitmap || {};
+            const sameTexture =
+                (group.url && bitmap.url === group.url) ||
+                (group.layer_id && bitmap.layer_id === group.layer_id);
+            const belongsToGroup = affectedFaces.includes(faceName) || sameTexture;
+
+            if (!belongsToGroup || (!bitmap.url && !bitmap.layer_id)) {
+                return;
+            }
+
+            face.bitmap = {
+                ...bitmap,
+                ...mergeTextureSettingsForSlot(slotKey, bitmap, nextSettings),
+            };
+        });
     };
 
     const syncNodeValuesToSurface = node => {
@@ -1383,6 +1904,8 @@ export function materialEditorModel(props, emit) {
             invert: settings.invert === true,
             blend: settings.blend || values.bitmap_maps[slotKey].blend || "replace",
         };
+
+        syncTextureSettingsToUvFaces(slotKey, settings);
     };
 
     const ensureCoreNodes = () => {
@@ -1650,20 +2173,36 @@ export function materialEditorModel(props, emit) {
     });
 
     const getSurfaceColor = key => {
-        return rgbaArrayToHex(values.surface[key]);
+        return colorArrayToHex(values.surface[key], 'rgba');
     };
 
     const setSurfaceColor = (key, hex) => {
-        const alpha = Array.isArray(values.surface[key])
-            ? values.surface[key][3] ?? 1
-            : 1;
+        const current = values.surface[key];
 
-        values.surface[key] = hexToRgbaArray(hex, alpha);
+        if (Array.isArray(current)) {
+            hexToRgbaArray(hex, current[3] ?? 1, "rgba", current);
+        } else {
+            values.surface[key] = hexToRgbaArray(hex, 1, "rgba");
+        }
+
         requestPreviewDebounced();
     };
 
     const getSurfaceSlotSourceNode = key => {
         const slot = values.bitmap_maps[key];
+
+        const edge = values.shader_graph.edges.find(item => (
+            item.to.node === "principled-bsdf" &&
+            item.to.socket === key
+        ));
+
+        if (edge) {
+            const node = getGraphNode(edge.from.node);
+
+            if (node) {
+                return node;
+            }
+        }
 
         if (slot?.node_id) {
             const node = getGraphNode(slot.node_id);
@@ -1673,12 +2212,7 @@ export function materialEditorModel(props, emit) {
             }
         }
 
-        const edge = values.shader_graph.edges.find(item => (
-            item.to.node === "principled-bsdf" &&
-            item.to.socket === key
-        ));
-
-        return edge ? getGraphNode(edge.from.node) : null;
+        return null;
     };
 
     const getGeneratedUvNodePositions = () => {
@@ -1929,19 +2463,21 @@ export function materialEditorModel(props, emit) {
                 return;
             }
 
-            values.shader_graph.edges.push({
-                id: uuid("shader-node"),
-                from: {
+            connectEdgeUnique(
+                {
                     node: uvNode.id,
                     socket: "uv",
                 },
-                to: {
+                {
                     node: node.id,
                     socket: "uv",
                 },
-                generated: true,
-                system: "uv-material-slot",
-            });
+                {
+                    generated: true,
+                    system: "uv-material-slot",
+                    replaceInput: false,
+                },
+            );
         });
     };
 
@@ -2003,6 +2539,10 @@ export function materialEditorModel(props, emit) {
     };
 
     const handleCanvasWheel = event => {
+        if (ui.nodeContextMenu.open) {
+            return;
+        }
+
         const rect = nodeCanvasRef.value?.getBoundingClientRect();
 
         if (!rect) {
@@ -2022,6 +2562,38 @@ export function materialEditorModel(props, emit) {
         nodeCanvas.zoom = nextZoom;
         nodeCanvas.panX = mouseX - worldX * nextZoom;
         nodeCanvas.panY = mouseY - worldY * nextZoom;
+    };
+
+    const closeNodeContextMenu = () => {
+        ui.nodeContextMenu.open = false;
+    };
+
+    const openNodeContextMenu = event => {
+        if (
+            event.target.closest(".mem-shader-graph-node") ||
+            event.target.closest("[data-socket]") ||
+            event.target.closest(".mem-node-context-menu")
+        ) {
+            return;
+        }
+
+        const point = getCanvasPoint(event);
+
+        ui.activeNodeCategory = "";
+        ui.nodeContextMenu.open = true;
+        ui.nodeContextMenu.x = point.x;
+        ui.nodeContextMenu.y = point.y;
+        ui.nodeContextMenu.worldX = point.x;
+        ui.nodeContextMenu.worldY = point.y;
+        ui.nodeContextMenu.category = ui.nodeContextMenu.category || "Math";
+    };
+
+    const addShaderNodeFromContext = nodeType => {
+        addShaderNode(nodeType, {
+            x: ui.nodeContextMenu.worldX,
+            y: ui.nodeContextMenu.worldY,
+        });
+        closeNodeContextMenu();
     };
 
     const getNodeSocketPosition = (nodeId, socket, direction) => {
@@ -2240,6 +2812,10 @@ export function materialEditorModel(props, emit) {
             return null;
         }
 
+        if (isNodeAlreadyInlineConnected(node)) {
+            return null;
+        }
+
         const center = getNodeCenter(node);
 
         let closest = null;
@@ -2254,6 +2830,10 @@ export function materialEditorModel(props, emit) {
                 edge.from.node === node.id ||
                 edge.to.node === node.id
             ) {
+                return;
+            }
+
+            if (!getCompatibleInsertSockets(node, edge)) {
                 return;
             }
 
@@ -2274,32 +2854,40 @@ export function materialEditorModel(props, emit) {
         return closest;
     };
 
-    const getPrimaryInputSocket = node => {
-        if (!node) {
-            return "image";
+    const isNodeAlreadyInlineConnected = node => {
+        if (!node?.id) {
+            return false;
         }
 
-        const sockets = Object.keys(node.inputs || {});
-
-        return (
-            sockets.find(socket => ["image", "color", "value", "factor", "vector", "surface"].includes(socket)) ||
-            sockets[0] ||
-            "image"
-        );
+        return getNodeEdgesIn(node.id).length > 0 && getNodeEdgesOut(node.id).length > 0;
     };
 
-    const getPrimaryOutputSocket = node => {
-        if (!node) {
-            return "color";
+    const getCompatibleInsertSockets = (node, edge) => {
+        if (!node || !edge || node.id === "principled-bsdf" || node.id === "material-output") {
+            return null;
         }
 
-        const sockets = Object.keys(node.outputs || {});
+        const inputSocket = Object.keys(node.inputs || {}).find(socket => (
+            canConnectSockets(edge.from, {
+                node: node.id,
+                socket,
+            })
+        ));
+        const outputSocket = Object.keys(node.outputs || {}).find(socket => (
+            canConnectSockets({
+                node: node.id,
+                socket,
+            }, edge.to)
+        ));
 
-        return (
-            sockets.find(socket => ["color", "image", "value", "vector", "bsdf"].includes(socket)) ||
-            sockets[0] ||
-            "color"
-        );
+        if (!inputSocket || !outputSocket) {
+            return null;
+        }
+
+        return {
+            inputSocket,
+            outputSocket,
+        };
     };
 
     const insertNodeIntoEdge = (nodeId, edgeId) => {
@@ -2317,8 +2905,17 @@ export function materialEditorModel(props, emit) {
             return;
         }
 
-        const inputSocket = getPrimaryInputSocket(node);
-        const outputSocket = getPrimaryOutputSocket(node);
+        if (isNodeAlreadyInlineConnected(node)) {
+            return;
+        }
+
+        const compatibleSockets = getCompatibleInsertSockets(node, edge);
+
+        if (!compatibleSockets) {
+            return;
+        }
+
+        const { inputSocket, outputSocket } = compatibleSockets;
 
         values.shader_graph.edges = values.shader_graph.edges.filter(item => item.id !== edge.id);
 
@@ -2341,6 +2938,12 @@ export function materialEditorModel(props, emit) {
         });
 
         syncNodeValuesToSurface(node);
+        applyResolvedValueToNodeInput(edge.from, {
+            node: node.id,
+            socket: inputSocket,
+        });
+        propagateNodeOutputValues(node.id);
+        syncConnectedSurfaceValuesFromGraph();
 
         activeSnapEdgeId.value = "";
         requestPreviewDebounced();
@@ -2370,6 +2973,24 @@ export function materialEditorModel(props, emit) {
                 `sy:${Number(settings.scale_y || 1).toFixed(2)}`,
                 `rot:${Number(settings.rotate || 0).toFixed(1)}°`,
             ].join(" · ");
+        }
+
+        const definition = getShaderNodeDefinition(node);
+
+        if (definition?.fields?.length) {
+            return definition.fields
+                .slice(0, 3)
+                .map(field => {
+                    const value = settings[field];
+                    const formatted = Array.isArray(value)
+                        ? value.slice(0, 3).map(item => Number(item || 0).toFixed(2)).join(",")
+                        : Number.isFinite(Number(value))
+                            ? Number(value).toFixed(2)
+                            : value;
+
+                    return `${field}:${formatted ?? "-"}`;
+                })
+                .join(" Â· ");
         }
 
         if (node.type === "falloff") {
@@ -2781,6 +3402,9 @@ export function materialEditorModel(props, emit) {
             to,
         });
 
+        applyResolvedValueToNodeInput(from, to);
+        propagateNodeOutputValues(to.node);
+
         if (
             to.node === "principled-bsdf" &&
             values.bitmap_maps[to.socket]
@@ -2791,6 +3415,7 @@ export function materialEditorModel(props, emit) {
 
         cancelConnection();
         reconcileShaderGraph();
+        syncConnectedSurfaceValuesFromGraph();
         requestPreviewDebounced();
     };
 
@@ -2911,21 +3536,6 @@ export function materialEditorModel(props, emit) {
         values.shader_graph.nodes = values.shader_graph.nodes.filter(node => (
             node.id !== nodeId
         ));
-    };
-
-    const pruneDisconnectedAutoBitmapNodes = () => {
-        const connectedNodeIds = new Set(
-            values.shader_graph.edges.map(edge => edge.from.node)
-        );
-
-        SURFACE_FIELDS.forEach(field => {
-            const nodeId = `bitmap-${field.key}`;
-            const node = getGraphNode(nodeId);
-
-            if (node && !connectedNodeIds.has(nodeId)) {
-                values.shader_graph.nodes = values.shader_graph.nodes.filter(item => item.id !== nodeId);
-            }
-        });
     };
 
     const clearMapSlot = key => {
@@ -3063,8 +3673,6 @@ export function materialEditorModel(props, emit) {
     const canConnectSockets = (from, to) => {
         const fromType = getSocketType(from.node, from.socket, "output");
         const toType = getSocketType(to.node, to.socket, "input");
-        const colorLikeTypes = ["color", "image"];
-        const numericTypes = ["float", "value"];
 
         if (!fromType || !toType) {
             return false;
@@ -3087,14 +3695,15 @@ export function materialEditorModel(props, emit) {
                 return fromType === "shader";
             }
 
-            if (colorLikeTypes.includes(fromType) && ["color", "float"].includes(toType)) {
-                return true;
-            }
-
-            if (numericTypes.includes(fromType) && numericTypes.includes(toType)) {
-                return true;
-            }
+            return areSocketTypesCompatible(fromType, toType);
         }
+
+        return areSocketTypesCompatible(fromType, toType);
+    };
+
+    const areSocketTypesCompatible = (fromType, toType) => {
+        const colorLikeTypes = ["color", "image"];
+        const numericTypes = ["float", "value"];
 
         if (fromType === toType) {
             return true;
@@ -3109,6 +3718,18 @@ export function materialEditorModel(props, emit) {
         }
 
         if (numericTypes.includes(fromType) && numericTypes.includes(toType)) {
+            return true;
+        }
+
+        if (numericTypes.includes(fromType) && colorLikeTypes.includes(toType)) {
+            return true;
+        }
+
+        if (numericTypes.includes(fromType) && toType === "vector") {
+            return true;
+        }
+
+        if (fromType === "vector" && numericTypes.includes(toType)) {
             return true;
         }
 
@@ -3156,7 +3777,10 @@ export function materialEditorModel(props, emit) {
             };
         }
 
-        const byLabel = NODE_TYPES.find(item => item.label === node.label);
+        const byLabel = NODE_TYPES.find(item => (
+            item.label === node.label &&
+            (!node.settings?.group || item.group === node.settings.group)
+        )) || NODE_TYPES.find(item => item.label === node.label);
 
         if (byLabel) {
             return {
@@ -3241,7 +3865,9 @@ export function materialEditorModel(props, emit) {
 
             return {
                 ...node,
-                locked: node.locked === true,
+                locked: node.generated === true && node.system === "uv-cubemap"
+                    ? false
+                    : node.locked === true,
                 position: getNodePosition(node, node.position || { x: 280, y: 140 }),
                 ...nodeIO,
                 settings,
@@ -3281,6 +3907,7 @@ export function materialEditorModel(props, emit) {
             });
 
             syncSurfaceOffsetsFromNodes();
+            syncConnectedSurfaceValuesFromGraph();
         }
 
         applyRememberedNodePositions();
@@ -3318,6 +3945,8 @@ export function materialEditorModel(props, emit) {
         return SHADER_NODE_DEFINITIONS[name] || null;
     };
 
+    const hasShaderNodeDefinition = node => Boolean(getShaderNodeDefinition(node));
+
     const createShaderNodeIO = label => {
         const definition = getShaderNodeDefinition(label);
 
@@ -3342,7 +3971,7 @@ export function materialEditorModel(props, emit) {
         };
     };
 
-    const addShaderNode = nodeType => {
+    const addShaderNode = (nodeType, position = null) => {
         const descriptor = getNodeDescriptor(nodeType);
         const type = descriptor.type;
 
@@ -3385,7 +4014,7 @@ export function materialEditorModel(props, emit) {
             type,
             label: descriptor.label || "Shader Node",
             locked: false,
-            position: {
+            position: position || {
                 x: 280,
                 y: 120 + values.shader_graph.nodes.length * 30,
             },
@@ -3461,6 +4090,7 @@ export function materialEditorModel(props, emit) {
             {
                 generated: true,
                 system: "uv-cubemap",
+                replaceInput: false,
             },
         );
     };
@@ -3852,12 +4482,16 @@ export function materialEditorModel(props, emit) {
 
         const sourceEdge = getIncomingShaderEdge(node.id, [
             "image",
+            "bitmap",
             "color",
             "value",
             "factor",
+            "vector",
             "uv",
             "surface",
             "texture",
+            "a",
+            "b",
         ]);
         const resolved = resolveShaderGraphSource(sourceEdge?.from?.node, seen);
 
@@ -3917,6 +4551,12 @@ export function materialEditorModel(props, emit) {
         const resolved = resolveShaderGraphSource(sourceNode.id);
 
         if (!resolved) {
+            const value = resolveNodeOutputValue(sourceNode.id, edge.from.socket);
+
+            if (value !== null && value !== undefined) {
+                applyResolvedValueToSurfaceSlot(slotKey, value, sourceNode);
+            }
+
             return;
         }
 
@@ -3977,8 +4617,6 @@ export function materialEditorModel(props, emit) {
             reconcileShaderGraph();
             syncAllSurfaceSlotsFromShaderGraph();
             syncSurfaceOffsetsFromNodes();
-
-            pruneDisconnectedAutoBitmapNodes();
 
             return normalizeValues();
         } finally {
@@ -4090,6 +4728,168 @@ export function materialEditorModel(props, emit) {
         ));
     };
 
+    const getGeneratedUvNodeSnapshots = () => {
+        return values.shader_graph.nodes
+            .filter(node => node.generated === true && node.system === "uv-cubemap")
+            .reduce((acc, node) => {
+                acc[node.id] = cloneData(node);
+                return acc;
+            }, {});
+    };
+
+    const isGeneratedUvNodeId = nodeId => {
+        const node = getGraphNode(nodeId);
+        return node?.generated === true && node.system === "uv-cubemap";
+    };
+
+    const getGeneratedUvBridgeEdges = () => {
+        return values.shader_graph.edges
+            .filter(edge => {
+                const fromGenerated = isGeneratedUvNodeId(edge.from.node);
+                const toGenerated = isGeneratedUvNodeId(edge.to.node);
+
+                if (fromGenerated === toGenerated) {
+                    return false;
+                }
+
+                if (edge.to.node === "principled-bsdf") {
+                    return false;
+                }
+
+                return fromGenerated || toGenerated;
+            })
+            .map(edge => cloneData(edge));
+    };
+
+    const restoreGeneratedUvBridgeEdges = bridgeEdges => {
+        bridgeEdges.forEach(edge => {
+            if (!getGraphNode(edge.from.node) || !getGraphNode(edge.to.node)) {
+                return;
+            }
+
+            if (!canConnectSockets(edge.from, edge.to)) {
+                return;
+            }
+
+            connectEdgeUnique(
+                edge.from,
+                edge.to,
+                {
+                    ...(edge.generated ? { generated: edge.generated } : {}),
+                    ...(edge.system ? { system: edge.system } : {}),
+                },
+            );
+        });
+    };
+
+    const isSocketOccupied = to => values.shader_graph.edges.some(edge => (
+        edge.to.node === to.node &&
+        edge.to.socket === to.socket
+    ));
+
+    const mergeGeneratedUvSettings = (snapshots, nodeId, baseSettings, forcedSettings = {}) => {
+        const previousSettings = snapshots[nodeId]?.settings || {};
+        const merged = {
+            ...baseSettings,
+            ...previousSettings,
+            ...forcedSettings,
+        };
+
+        [
+            "name",
+            "bitmap",
+            "interpolation",
+            "projection",
+            "extension",
+            "offset_x",
+            "offset_y",
+            "scale_x",
+            "scale_y",
+            "rotate",
+            "clamp",
+            "channel",
+            "color_mode",
+            "strength",
+            "offset",
+            "invert",
+            "blend",
+        ].forEach(key => {
+            if (previousSettings[key] !== undefined) {
+                merged[key] = previousSettings[key];
+            }
+        });
+
+        return merged;
+    };
+
+    const mergeGeneratedUvTextureGroups = (snapshots, nodeId, groups) => {
+        const previousGroups = snapshots[nodeId]?.settings?.texture_groups || [];
+
+        return groups.map(group => {
+            const previous = previousGroups.find(item => (
+                (item.slot && item.slot === group.slot) ||
+                (item.url && item.url === group.url) ||
+                (item.layer_id && item.layer_id === group.layer_id)
+            )) || {};
+
+            return {
+                ...group,
+                channel: previous.channel ?? group.channel,
+                color_mode: previous.color_mode ?? group.color_mode,
+                name: previous.name ?? group.name,
+                strength: previous.strength ?? group.strength,
+                offset: previous.offset ?? group.offset,
+                invert: previous.invert ?? group.invert,
+                blend: previous.blend ?? group.blend,
+            };
+        });
+    };
+
+    const getGeneratedUvChainEntryForSlot = slotKey => {
+        const surfaceEdge = values.shader_graph.edges.find(edge => (
+            edge.to.node === "principled-bsdf" &&
+            edge.to.socket === slotKey
+        ));
+
+        if (!surfaceEdge) {
+            return null;
+        }
+
+        const directSource = getGraphNode(surfaceEdge.from.node);
+
+        if (directSource?.generated === true && directSource.system === "uv-cubemap") {
+            return null;
+        }
+
+        let currentNodeId = surfaceEdge.from.node;
+        const seen = new Set();
+
+        while (currentNodeId && !seen.has(currentNodeId)) {
+            seen.add(currentNodeId);
+
+            const incoming = values.shader_graph.edges.find(edge => (
+                edge.to.node === currentNodeId
+            ));
+
+            if (!incoming) {
+                return null;
+            }
+
+            const sourceNode = getGraphNode(incoming.from.node);
+
+            if (sourceNode?.generated === true && sourceNode.system === "uv-cubemap") {
+                return {
+                    node: incoming.to.node,
+                    socket: incoming.to.socket,
+                };
+            }
+
+            currentNodeId = incoming.from.node;
+        }
+
+        return null;
+    };
+
     const connectEdgeUnique = (from, to, extra = {}) => {
         const exists = values.shader_graph.edges.some(edge => (
             edge.from.node === from.node &&
@@ -4102,11 +4902,24 @@ export function materialEditorModel(props, emit) {
             return;
         }
 
+        if (extra.replaceInput === false && isSocketOccupied(to)) {
+            return;
+        }
+
+        if (extra.replaceInput !== false) {
+            values.shader_graph.edges = values.shader_graph.edges.filter(edge => !(
+                edge.to.node === to.node &&
+                edge.to.socket === to.socket
+            ));
+        }
+
         values.shader_graph.edges.push({
             id: uuid('shader-node'),
             from,
             to,
-            ...extra,
+            ...Object.fromEntries(
+                Object.entries(extra).filter(([key]) => key !== "replaceInput")
+            ),
         });
     };
 
@@ -4122,6 +4935,12 @@ export function materialEditorModel(props, emit) {
         const primaryTextureSettings = mergeTextureSettingsForSlot(primarySlotKey, primarySlot);
         rememberAllNodePositions();
         const preservedUvNodePositions = getGeneratedUvNodePositions();
+        const generatedUvSnapshots = getGeneratedUvNodeSnapshots();
+        const generatedUvBridgeEdges = getGeneratedUvBridgeEdges();
+        const preservedSlotChainEntries = targetSlots.reduce((acc, slotKey) => {
+            acc[slotKey] = getGeneratedUvChainEntryForSlot(slotKey);
+            return acc;
+        }, {});
 
         removeGeneratedUvShaderNodes();
         syncUvToActiveSlots();
@@ -4150,7 +4969,10 @@ export function materialEditorModel(props, emit) {
                 ),
             ),
             ...createShaderNodeIO("UV"),
-            settings: {
+            settings: mergeGeneratedUvSettings(generatedUvSnapshots, uvNodeId, {
+                node_name: "UV",
+                group: "Texture",
+            }, {
                 node_name: "UV",
                 group: "Texture",
                 mode: values.uv.mode,
@@ -4163,7 +4985,7 @@ export function materialEditorModel(props, emit) {
                 texture_mode: textureMode,
                 faces: cloneData(values.uv.faces),
                 mapped_faces: cloneData(mappedFaces),
-                texture_groups: cloneData(textureGroups.map(group => ({
+                texture_groups: cloneData(mergeGeneratedUvTextureGroups(generatedUvSnapshots, uvNodeId, textureGroups.map(group => ({
                     url: group.url,
                     name: group.bitmap?.name || group.bitmap?.layer_id || "Texture",
                     layer_id: group.bitmap?.layer_id || "",
@@ -4171,28 +4993,63 @@ export function materialEditorModel(props, emit) {
                     cached: group.bitmap?.cached === true,
                     ...mergeTextureSettingsForSlot(primarySlotKey, primaryTextureSettings, group.bitmap),
                     faces: group.faces,
-                }))),
-            },
+                })))),
+            }),
         };
 
         values.shader_graph.nodes.push(uvNode);
 
+        const restoreGeneratedBridges = () => {
+            restoreGeneratedUvBridgeEdges(generatedUvBridgeEdges);
+        };
+
         const connectGeneratedOutputToSlots = sourceNodeId => {
+            restoreGeneratedBridges();
+
             values.shader_graph.edges = values.shader_graph.edges.filter(edge => !(
                 edge.to.node === "principled-bsdf" &&
-                targetSlots.includes(edge.to.socket)
+                targetSlots.includes(edge.to.socket) &&
+                getGraphNode(edge.from.node)?.generated === true &&
+                getGraphNode(edge.from.node)?.system === "uv-cubemap"
             ));
 
             targetSlots.forEach(slotKey => {
+                const chainEntry = preservedSlotChainEntries[slotKey];
+
+                if (chainEntry && getGraphNode(chainEntry.node)) {
+                    if (isSocketOccupied(chainEntry)) {
+                        return;
+                    }
+
+                    connectEdgeUnique(
+                        {
+                            node: sourceNodeId,
+                            socket: "color",
+                        },
+                        chainEntry,
+                        {
+                            generated: true,
+                            system: "uv-cubemap",
+                        },
+                    );
+                    return;
+                }
+
+                const to = {
+                    node: "principled-bsdf",
+                    socket: slotKey,
+                };
+
+                if (isSocketOccupied(to)) {
+                    return;
+                }
+
                 connectEdgeUnique(
                     {
                         node: sourceNodeId,
                         socket: "color",
                     },
-                    {
-                        node: "principled-bsdf",
-                        socket: slotKey,
-                    },
+                    to,
                     {
                         generated: true,
                         system: "uv-cubemap",
@@ -4222,7 +5079,10 @@ export function materialEditorModel(props, emit) {
                     ),
                 ),
                 ...createShaderNodeIO("Bitmap/Image"),
-                settings: {
+                settings: mergeGeneratedUvSettings(generatedUvSnapshots, bitmapNodeId, {
+                    node_name: "Bitmap/Image",
+                    group: "Texture",
+                }, {
                     node_name: "Bitmap/Image",
                     group: "Texture",
                     mode: "single-texture-cubemap-uv",
@@ -4238,7 +5098,7 @@ export function materialEditorModel(props, emit) {
                     faces: cloneData(values.uv.faces),
                     mapped_faces: cloneData(mappedFaces),
                     texture_faces: cloneData(group.faces),
-                },
+                }),
             });
 
             connectEdgeUnique(
@@ -4253,6 +5113,7 @@ export function materialEditorModel(props, emit) {
                 {
                     generated: true,
                     system: "uv-cubemap",
+                    replaceInput: false,
                 },
             );
 
@@ -4286,7 +5147,10 @@ export function materialEditorModel(props, emit) {
                 color: { type: "color" },
                 alpha: { type: "float" },
             },
-            settings: {
+            settings: mergeGeneratedUvSettings(generatedUvSnapshots, multiTextureNodeId, {
+                node_name: "Multi Texture",
+                group: "Texture",
+            }, {
                 node_name: "Multi Texture",
                 group: "Texture",
                 mode: "cubemap-url-group-composite",
@@ -4297,7 +5161,7 @@ export function materialEditorModel(props, emit) {
                 atlas: values.uv.atlas,
                 faces: cloneData(values.uv.faces),
                 mapped_faces: cloneData(mappedFaces),
-                texture_groups: cloneData(textureGroups.map((group, index) => ({
+                texture_groups: cloneData(mergeGeneratedUvTextureGroups(generatedUvSnapshots, multiTextureNodeId, textureGroups.map((group, index) => ({
                     slot: `texture_${index + 1}`,
                     url: group.url,
                     name: group.bitmap?.name || group.bitmap?.layer_id || `Texture ${index + 1}`,
@@ -4306,8 +5170,8 @@ export function materialEditorModel(props, emit) {
                     cached: group.bitmap?.cached === true,
                     ...mergeTextureSettingsForSlot(primarySlotKey, primaryTextureSettings, group.bitmap),
                     faces: group.faces,
-                }))),
-            },
+                })))),
+            }),
         };
 
         textureGroups.forEach((group, index) => {
@@ -4331,7 +5195,10 @@ export function materialEditorModel(props, emit) {
                     ),
                 ),
                 ...createShaderNodeIO("Bitmap/Image"),
-                settings: {
+                settings: mergeGeneratedUvSettings(generatedUvSnapshots, bitmapNodeId, {
+                    node_name: "Bitmap/Image",
+                    group: "Texture",
+                }, {
                     node_name: "Bitmap/Image",
                     group: "Texture",
                     mode: "texture-group-cubemap-uv",
@@ -4346,7 +5213,7 @@ export function materialEditorModel(props, emit) {
                     ...mergeTextureSettingsForSlot(primarySlotKey, primaryTextureSettings, bitmap),
                     faces: cloneData(values.uv.faces),
                     mapped_faces: cloneData(group.faces),
-                },
+                }),
             });
 
             connectEdgeUnique(
@@ -4361,6 +5228,7 @@ export function materialEditorModel(props, emit) {
                 {
                     generated: true,
                     system: "uv-cubemap",
+                    replaceInput: false,
                 },
             );
 
@@ -4376,6 +5244,7 @@ export function materialEditorModel(props, emit) {
                 {
                     generated: true,
                     system: "uv-cubemap",
+                    replaceInput: false,
                 },
             );
         });
@@ -4969,6 +5838,7 @@ export function materialEditorModel(props, emit) {
                 SURFACE_FIELDS.forEach(field => {
                     syncSurfaceSlotFromShaderGraph(field.key);
                 });
+                syncConnectedSurfaceValuesFromGraph();
             } finally {
                 queueMicrotask(() => {
                     pauseAutoSync.value = false;
@@ -5109,6 +5979,7 @@ export function materialEditorModel(props, emit) {
         getNodeSocketLabel,
         getShaderNodeFieldItems,
         getShaderNodeFieldOptions,
+        hasShaderNodeDefinition,
         resolveNodeDisplayValue,
         getNodeResolvedValueText,
         interpolateValue,
@@ -5126,6 +5997,8 @@ export function materialEditorModel(props, emit) {
         nodeWorldStyle,
         startCanvasPan,
         handleCanvasWheel,
+        openNodeContextMenu,
+        closeNodeContextMenu,
 
         emitEvent,
         requestPreviewNow,
@@ -5146,6 +6019,7 @@ export function materialEditorModel(props, emit) {
         resetActiveUvFace,
 
         addShaderNode,
+        addShaderNodeFromContext,
         removeShaderNode,
         insertNodeBetweenSurfaceSlot,
 
