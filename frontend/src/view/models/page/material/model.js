@@ -387,9 +387,8 @@ export function materialEditorModel(props, emit) {
         if (!layer) {
             return "";
         }
-
         return (
-            layer.thumbnail ||
+            layer?.thumbnail || layer?.url ||
             resolveLayerTextureUrl(layer)
         );
     };
