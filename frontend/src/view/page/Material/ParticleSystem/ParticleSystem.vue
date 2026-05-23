@@ -280,7 +280,12 @@
         <div class="mem-particle-path-views">
           <div class="mem-particle-path-view timebar">
             <strong>Time</strong>
-            <svg viewBox="0 0 100 24" preserveAspectRatio="none" @pointerdown="addPathPoint($event, 'time')">
+            <svg
+                viewBox="0 0 100 24"
+                preserveAspectRatio="none"
+                @pointerdown="addPathPoint($event, 'time')"
+                @contextmenu.prevent="deleteNearestPathPoint($event, 'time')"
+            >
               <rect x="0" y="0" width="100" height="24" />
               <line x1="0" y1="12" x2="100" y2="12" />
               <polyline :points="pathTimePolyline" />
@@ -315,7 +320,12 @@
                   @update:model-value="setPathViewSlot(index, $event)"
               />
             </header>
-            <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+            <svg
+                viewBox="0 0 100 100"
+                preserveAspectRatio="xMidYMid meet"
+                @pointerdown="addPathPoint($event, view.key)"
+                @contextmenu.prevent="deleteNearestPathPoint($event, view.key)"
+            >
               <rect x="0" y="0" width="100" height="100" />
               <line x1="50" y1="0" x2="50" y2="100" />
               <line x1="0" y1="50" x2="100" y2="50" />

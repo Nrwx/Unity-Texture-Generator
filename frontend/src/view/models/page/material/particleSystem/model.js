@@ -840,6 +840,37 @@ export function particleSystemModel(props, emit) {
         return { ...sorted[sorted.length - 1].translate };
     };
 
+    const createSpatialPathInsertionPlan = points => {
+        const sorted = (Array.isArray(points) ? points : [])
+            .map(point => ({
+                id: point.id,
+                t: clampValue(point?.t, 0, lifetimeWidth.value),
+            }))
+            .sort((a, b) => a.t - b.t);
+
+        if (!sorted.length) {
+            return { newTime: 0 };
+        }
+
+        const activeId = state.particleSystem.path_follow?.active_point_id;
+        const foundIndex = sorted.findIndex(point => point.id === activeId);
+        const activeIndex = foundIndex >= 0 ? foundIndex : sorted.length - 1;
+        const active = sorted[activeIndex];
+        const next = sorted[activeIndex + 1];
+        const previous = sorted[activeIndex - 1];
+        const shiftTarget = next
+            ? active.t + (next.t - active.t) / 2
+            : previous
+                ? previous.t + (active.t - previous.t) / 2
+                : lifetimeWidth.value / 2;
+
+        return {
+            newTime: active.t,
+            shiftedPointId: active.id,
+            shiftedTime: clampValue(shiftTarget, 0, lifetimeWidth.value),
+        };
+    };
+
     const setPathGridMode = value => {
         state.pathGridMode = ["normal", "all"].includes(value) ? value : "normal";
     };
@@ -959,24 +990,34 @@ export function particleSystemModel(props, emit) {
     };
 
     const addPathPoint = (event, view = "side") => {
-        if (!event.altKey || event.button !== 0) {
+        if (event.button !== 0) {
             return;
         }
 
-        const path = ensurePathFollow();
-        if (view !== "time") {
-            return;
-        }
+        event.preventDefault();
 
         const point = pointerToPathPoint(event, event.currentTarget, view);
-        const nextTime = point.t;
+        const path = ensurePathFollow();
+        const insertionPlan = view === "time"
+            ? { newTime: point.t }
+            : createSpatialPathInsertionPlan(path.points);
+        const nextTime = insertionPlan.newTime;
         const nextPoint = {
             id: `path-point-${Date.now()}`,
             t: nextTime,
-            translate: interpolatePathTranslateAt(path.points, nextTime),
+            translate: view === "time"
+                ? interpolatePathTranslateAt(path.points, nextTime)
+                : point.translate,
         };
+        const shiftedPoints = insertionPlan.shiftedPointId
+            ? path.points.map(pathPoint => (
+                pathPoint.id === insertionPlan.shiftedPointId
+                    ? { ...pathPoint, t: insertionPlan.shiftedTime }
+                    : pathPoint
+            ))
+            : path.points;
 
-        path.points = [...path.points, nextPoint].sort((a, b) => a.t - b.t);
+        path.points = [...shiftedPoints, nextPoint].sort((a, b) => a.t - b.t);
         path.active_point_id = nextPoint.id;
         emitParticleSystem({ restart: true });
     };
@@ -993,12 +1034,41 @@ export function particleSystemModel(props, emit) {
         emitParticleSystem({ restart: true });
     };
 
-    const handlePathPointContext = (event, pointId, force = false) => {
+    const deleteNearestPathPoint = (event, view = "time") => {
         event.preventDefault();
-        if (!force && !event.altKey) {
+        const path = ensurePathFollow();
+
+        if (path.points.length <= 1) {
             return;
         }
 
+        let nearest = null;
+
+        if (view === "time") {
+            const time = pointerToPathTime(event, event.currentTarget);
+            nearest = path.points.reduce((best, point) => {
+                const distance = Math.abs((Number(point.t) || 0) - time);
+                return !best || distance < best.distance ? { point, distance } : best;
+            }, null)?.point;
+        } else {
+            const rect = event.currentTarget.getBoundingClientRect();
+            const x = ((event.clientX - rect.left) / Math.max(rect.width, 1)) * 100;
+            const y = ((event.clientY - rect.top) / Math.max(rect.height, 1)) * 100;
+
+            nearest = path.points.reduce((best, point) => {
+                const projected = pathViewPoint(point, view);
+                const distance = Math.hypot(projected.x - x, projected.y - y);
+                return !best || distance < best.distance ? { point, distance } : best;
+            }, null)?.point;
+        }
+
+        if (nearest) {
+            deletePathPoint(nearest.id);
+        }
+    };
+
+    const handlePathPointContext = (event, pointId) => {
+        event.preventDefault();
         deletePathPoint(pointId);
     };
 
@@ -1060,6 +1130,7 @@ export function particleSystemModel(props, emit) {
         resetPathFollow,
         updatePathPoint,
         addPathPoint,
+        deleteNearestPathPoint,
         startPathPointDrag,
         handlePathPointContext,
     };
