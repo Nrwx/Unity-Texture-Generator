@@ -54,6 +54,7 @@
           :webgl-active="true"
           :webgl-scope="exportState ? 'export' : 'main-canvas'"
           :webgl-exclusive="exportState"
+          :export-time-seconds="exportTimeSeconds"
           :selected="selectedLayer.includes(layer)"
           :rotate="layer?.preview?.idle_rotation?.enabled === true"
           class="absolute"

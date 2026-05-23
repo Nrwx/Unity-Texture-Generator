@@ -351,9 +351,30 @@ export function layer3DModel(props, emit) {
         );
     };
 
-    const resolveExportAnimationTime = materialLayer => {
+    const toFiniteNumberOrNull = value => {
+        if (value === undefined || value === null || value === "") {
+            return null;
+        }
+
+        const number = Number(value);
+
+        return Number.isFinite(number) ? number : null;
+    };
+
+    const resolveExportAnimationSeconds = materialLayer => {
         if (props.exportState !== true) {
             return null;
+        }
+
+        const explicitSeconds =
+            toFiniteNumberOrNull(props.exportTimeSeconds) ??
+            toFiniteNumberOrNull(props.layer?.export_time_seconds) ??
+            toFiniteNumberOrNull(materialLayer?.export_time_seconds) ??
+            toFiniteNumberOrNull(props.layer?.exportTimeSeconds) ??
+            toFiniteNumberOrNull(materialLayer?.exportTimeSeconds);
+
+        if (explicitSeconds !== null) {
+            return Math.max(0, explicitSeconds);
         }
 
         const rawTime =
@@ -365,32 +386,34 @@ export function layer3DModel(props, emit) {
 
         const time = Number(rawTime);
 
-        return Number.isFinite(time) ? time : 0;
+        return Number.isFinite(time) ? Math.max(0, time / 60) : 0;
     };
 
     const resolveRotationSpeedPerSecond = materialLayer => {
-        const raw =
+        const explicit =
             materialLayer?.preview?.idle_rotation?.speed_per_second ??
-            materialLayer?.preview?.idle_rotation?.speedPerSecond ??
-            materialLayer?.preview?.idle_rotation?.speed ??
-            0.006;
+            materialLayer?.preview?.idle_rotation?.speedPerSecond;
 
-        return Number.isFinite(Number(raw)) ? Number(raw) : 0.006;
+        if (Number.isFinite(Number(explicit))) {
+            return Number(explicit);
+        }
+
+        const legacyFrameSpeed = materialLayer?.preview?.idle_rotation?.speed ?? 0.006;
+
+        return Number.isFinite(Number(legacyFrameSpeed))
+            ? Number(legacyFrameSpeed) * 60
+            : 0.36;
     };
 
     const applyDeterministicExportTime = materialLayer => {
-        const animationTime = resolveExportAnimationTime(materialLayer);
+        const animationTime = resolveExportAnimationSeconds(materialLayer);
 
         if (animationTime === null) {
             return false;
         }
 
         if (particleSystemEnabled(materialLayer)) {
-            const system = materialLayer.particle_system || {};
-            const lifetime = Math.max(0.1, Number(system.lifetime) || 1);
-            const speed = Math.max(0, Number(system.time_scale) || 1);
-
-            particleAge = (animationTime * speed) % lifetime;
+            particleAge = Math.max(0, animationTime);
         }
 
         if (shouldRotatePreview(materialLayer)) {
@@ -545,7 +568,6 @@ export function layer3DModel(props, emit) {
     };
 
     const shouldRotatePreview = materialLayer => (
-        props.exportState !== true &&
         !isAnimatorViewport(materialLayer) &&
         (
             materialLayer?.preview?.idle_rotation?.enabled === true ||
@@ -1598,15 +1620,11 @@ export function layer3DModel(props, emit) {
         const didApplyExportTime = applyDeterministicExportTime(materialLayer);
 
         if (!didApplyExportTime && hasParticles && !shouldPauseLayerAnimation(materialLayer)) {
-            const system = materialLayer.particle_system || {};
-            const lifetime = Math.max(0.1, Number(system.lifetime) || 1);
-            const speed = Math.max(0, Number(system.time_scale) || 1);
-
-            particleAge = (particleAge + frameClock.deltaTime * speed) % lifetime;
+            particleAge = Math.max(0, particleAge + frameClock.deltaTime);
         }
 
         if (shouldRotate && !shouldPauseLayerAnimation(materialLayer)) {
-            rotation += materialLayer?.preview?.idle_rotation?.speed || 0.006;
+            rotation += frameClock.deltaTime * resolveRotationSpeedPerSecond(materialLayer);
         }
 
         // Wichtig:
@@ -1705,7 +1723,6 @@ export function layer3DModel(props, emit) {
 
     watch(
         () => [props.layer?.id,
-            props.layer?.time,
             props.layer?.url,
             props.exportState,
             props.pauseWebgl,
@@ -1743,6 +1760,23 @@ export function layer3DModel(props, emit) {
             props.layer?.preview?.vertices].join("|"),
         () => {
             requestInit();
+        }
+    );
+
+    watch(
+        () => [
+            props.layer?.time,
+            props.layer?.export_time_seconds,
+            props.layer?.exportTimeSeconds,
+            props.exportTimeSeconds,
+            props.exportState,
+        ].join("|"),
+        () => {
+            const materialLayer = resolveMaterialLayer(props.layer);
+
+            if (applyDeterministicExportTime(materialLayer)) {
+                draw();
+            }
         }
     );
 
@@ -1816,6 +1850,11 @@ export const layer3DProps = {
         type: Boolean,
         required: false,
         default: false,
+    },
+    exportTimeSeconds: {
+        type: Number,
+        required: false,
+        default: null,
     },
     webglScope: {
         type: String,

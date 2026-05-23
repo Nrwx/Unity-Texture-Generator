@@ -903,6 +903,11 @@ class ExportModel(BaseModel):
         title,
         timelineFps=30,
         frameCount=0,
+        durationSeconds=0,
+        encodedDurationSeconds=0,
+        timelineStart=0,
+        timelineEnd=0,
+        timelineUnitsPerSecond=60,
         videoResolution=1024,
         videoProfile="main",
         videoPreset="normal",
@@ -925,6 +930,11 @@ class ExportModel(BaseModel):
                 "title": title or "export",
                 "fps": max(1, min(cls._to_int(timelineFps, 30), 240)),
                 "frame_count": max(0, cls._to_int(frameCount, 0)),
+                "duration_seconds": max(0, cls._to_float(durationSeconds, 0)),
+                "encoded_duration_seconds": max(0, cls._to_float(encodedDurationSeconds, 0)),
+                "timeline_start": cls._to_float(timelineStart, 0),
+                "timeline_end": cls._to_float(timelineEnd, 0),
+                "timeline_units_per_second": max(1, cls._to_float(timelineUnitsPerSecond, 60)),
                 "resolution": cls._to_int(videoResolution, 1024),
                 "profile": str(videoProfile or "main"),
                 "preset": str(videoPreset or "normal"),
@@ -946,7 +956,7 @@ class ExportModel(BaseModel):
             return cls.handle_error(error)
 
     @classmethod
-    def append_mp4_frame(cls, sessionId, frameIndex=0, frameTime=0, files=None):
+    def append_mp4_frame(cls, sessionId, frameIndex=0, frameTime=0, mediaTimeSeconds=0, files=None):
         try:
             folder = cls._mp4_session_folder(sessionId)
 
@@ -967,6 +977,13 @@ class ExportModel(BaseModel):
             frame_file.save(target)
 
             manifest = cls._read_session_manifest(folder)
+            manifest_frames = manifest.get("frames") if isinstance(manifest.get("frames"), dict) else {}
+            manifest_frames[str(index)] = {
+                "frame_time": cls._to_float(frameTime, 0),
+                "media_time_seconds": cls._to_float(mediaTimeSeconds, 0),
+            }
+            manifest["frames"] = manifest_frames
+            cls._write_session_manifest(folder, manifest)
             frame_count = max(1, cls._to_int(manifest.get("frame_count"), index + 1))
             progress = min(99, round(((index + 1) / frame_count) * 100))
 
@@ -974,6 +991,7 @@ class ExportModel(BaseModel):
                 "sessionId": sessionId,
                 "frameIndex": index,
                 "frameTime": cls._to_float(frameTime, 0),
+                "mediaTimeSeconds": cls._to_float(mediaTimeSeconds, 0),
                 "progress": progress,
             }, 200
 
@@ -1036,7 +1054,7 @@ class ExportModel(BaseModel):
             finally:
                 writer.release()
 
-            shutil.copyfile(frame_paths[-1], preview_path)
+            shutil.copyfile(frame_paths[0], preview_path)
 
             if not cls._to_bool(manifest.get("use_filesystem"), True):
                 shutil.rmtree(folder, ignore_errors=True)

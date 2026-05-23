@@ -1,7 +1,9 @@
 import {nextTick} from "vue";
 import {screenshot} from "@/utils/screenshot";
+import {Accumulator} from "@/view/models/page/material/core/Accumulator/Accumulator";
 
 const optionValue = value => value && typeof value === "object" && "value" in value ? value.value : value;
+const TIMELINE_UNITS_PER_SECOND = 60;
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const waitFrames = async (count = 2) => {
     for (let i = 0; i < count; i += 1) {
@@ -19,69 +21,45 @@ const toNumberSafe = (value, fallback = 0) => {
     return Number.isFinite(number) ? number : fallback;
 };
 
-const parseDurationSeconds = value => {
-    if (value === null || value === undefined || value === "") {
-        return 0;
-    }
-
-    const raw = String(value).trim();
-
-    // 04:13.26 -> echte Sekunden für MP4-Dauer
-    if (raw.includes(":")) {
-        const parts = raw.split(":").map(part => part.trim());
-        const seconds = Number(parts.pop()) || 0;
-        const minutes = Number(parts.pop()) || 0;
-        const hours = Number(parts.pop()) || 0;
-
-        return hours * 3600 + minutes * 60 + seconds;
-    }
-
-    const number = Number(raw);
-
-    if (!Number.isFinite(number)) {
-        return 0;
-    }
-
-    // 413 oder 413.26 wird für Dauer als 4:13.26 interpretiert
-    if (number >= 100) {
-        const [integerPart, decimalPart = ""] = raw.split(".");
-        const padded = integerPart.padStart(3, "0");
-        const secondsPart = Number(padded.slice(-2));
-        const minutesPart = Number(padded.slice(0, -2)) || 0;
-        const fractional = decimalPart ? Number(`0.${decimalPart}`) : 0;
-
-        return minutesPart * 60 + secondsPart + fractional;
-    }
-
-    return number;
-};
-
-const buildExportFrames = ({ start, end, fps }) => {
+const buildTimelineExportPlan = ({ start, end, fps, durationSeconds: requestedDurationSeconds = 0 }) => {
     const safeFps = Math.max(1, Math.min(Number(fps) || 30, 240));
-
-    // Das ist die Timeline-/Keyframe-Domäne:
-    // 0 -> 413 bleibt 0 -> 413.
     const timelineStart = toNumberSafe(start, 0);
     const timelineEnd = toNumberSafe(end, timelineStart);
+    const direction = timelineEnd >= timelineStart ? 1 : -1;
+    const durationUnits = Math.abs(timelineEnd - timelineStart);
+    const fallbackDurationSeconds = durationUnits / TIMELINE_UNITS_PER_SECOND;
+    const configuredDurationSeconds = toNumberSafe(requestedDurationSeconds, 0);
+    const durationSeconds = Math.max(
+        1 / safeFps,
+        configuredDurationSeconds > 0 ? configuredDurationSeconds : fallbackDurationSeconds
+    );
+    const frameCount = Math.max(1, Math.round(durationSeconds * safeFps));
+    const clock = new Accumulator(0, 1);
 
-    // Das ist die echte Videodauer:
-    // 413 wird als 4:13 gelesen.
-    const durationStart = parseDurationSeconds(start);
-    const durationEnd = parseDurationSeconds(end);
-    const durationSeconds = Math.max(0, Math.abs(durationEnd - durationStart));
-
-    const frameCount = Math.max(1, Math.round(durationSeconds * safeFps) + 1);
-
-    return Array.from({ length: frameCount }, (_, index) => {
-        const progress = frameCount <= 1 ? 0 : index / (frameCount - 1);
-
-        return {
+    const frames = Array.from({ length: frameCount }, (_, index) => {
+        const mediaTimeSeconds = Math.min(clock.time, durationSeconds);
+        const progress = durationSeconds > 0 ? Math.min(mediaTimeSeconds / durationSeconds, 1) : 0;
+        const frame = {
             index,
             progress,
-            mediaTimeSeconds: durationStart + progress * (durationEnd - durationStart),
-            timelineTime: timelineStart + progress * (timelineEnd - timelineStart),
+            mediaTimeSeconds,
+            timelineTime: timelineStart + direction * durationUnits * progress,
         };
+
+        clock.update(1 / safeFps);
+
+        return frame;
     });
+
+    return {
+        frames,
+        fps: safeFps,
+        durationSeconds,
+        encodedDurationSeconds: frameCount / safeFps,
+        timelineStart,
+        timelineEnd,
+        timelineUnitsPerSecond: TIMELINE_UNITS_PER_SECOND,
+    };
 };
 
 const captureCanvasFrame = async (route, resolution) => {
@@ -111,7 +89,7 @@ const setExportProgress = async (route, percent, title = "MP4 Export", subTitle 
         indeterminate: false,
         complete: percent >= 100,
         method: percent >= 100 ? "FINISH" : "POST",
-        path: "/export/mp4",
+        path: "/export",
     });
 };
 
@@ -120,22 +98,38 @@ const exportMp4WithTimelineCapture = async (route, data) => {
     const useTimeline = optionValue(data.useTimeline) === true;
     const start = useTimeline ? (timeline.startTime ?? -100) : data.exportStart;
     const end = useTimeline ? (timeline.endTime ?? 100) : data.exportEnd;
-    const frames = buildExportFrames({
+    const exportPlan = buildTimelineExportPlan({
         start,
         end,
         fps: data.timelineFps,
+        durationSeconds: data.videoDurationSeconds,
     });
+    const frames = exportPlan.frames;
     const oldTime = timeline.time;
+    const oldExportTimeSeconds = timeline.exportTimeSeconds;
+    const oldExportFrameIndex = timeline.exportFrameIndex;
+    const oldExportFrameCount = timeline.exportFrameCount;
+    const oldExportFrameProgress = timeline.exportFrameProgress;
+    const oldExportDurationSeconds = timeline.exportDurationSeconds;
+    const oldExportTimelineUnitsPerSecond = timeline.exportTimelineUnitsPerSecond;
     const oldTimelineState = route.windowStates.timeline.value;
     const oldSelection = [...(route.localData.selectedLayer.value || [])];
 
     route.windowStates.timeline.value = true;
     route.localData.selectedLayer.value = [];
+    route.timelineData.value.exportFrameCount = frames.length;
+    route.timelineData.value.exportDurationSeconds = exportPlan.durationSeconds;
+    route.timelineData.value.exportTimelineUnitsPerSecond = exportPlan.timelineUnitsPerSecond;
     await setExportProgress(route, 0, "MP4 Export", `${frames.length} Frames vorbereiten`);
 
     const session = await route.api.startMp4Export({
         ...data,
         frameCount: frames.length,
+        durationSeconds: exportPlan.durationSeconds,
+        encodedDurationSeconds: exportPlan.encodedDurationSeconds,
+        timelineStart: exportPlan.timelineStart,
+        timelineEnd: exportPlan.timelineEnd,
+        timelineUnitsPerSecond: exportPlan.timelineUnitsPerSecond,
     });
 
     try {
@@ -143,6 +137,9 @@ const exportMp4WithTimelineCapture = async (route, data) => {
             const index = frameInfo.index;
 
             route.timelineData.value.time = frameInfo.timelineTime;
+            route.timelineData.value.exportTimeSeconds = frameInfo.mediaTimeSeconds;
+            route.timelineData.value.exportFrameIndex = index;
+            route.timelineData.value.exportFrameProgress = frameInfo.progress;
 
             await nextTick();
             await waitFrames(3);
@@ -156,6 +153,7 @@ const exportMp4WithTimelineCapture = async (route, data) => {
                 sessionId: session.sessionId,
                 frameIndex: index,
                 frameTime: frameInfo.timelineTime,
+                mediaTimeSeconds: frameInfo.mediaTimeSeconds,
                 frame,
             });
 
@@ -176,6 +174,12 @@ const exportMp4WithTimelineCapture = async (route, data) => {
         if (oldTime !== undefined) {
             route.timelineData.value.time = oldTime;
         }
+        route.timelineData.value.exportTimeSeconds = oldExportTimeSeconds ?? 0;
+        route.timelineData.value.exportFrameIndex = oldExportFrameIndex ?? 0;
+        route.timelineData.value.exportFrameCount = oldExportFrameCount ?? 0;
+        route.timelineData.value.exportFrameProgress = oldExportFrameProgress ?? 0;
+        route.timelineData.value.exportDurationSeconds = oldExportDurationSeconds ?? 0;
+        route.timelineData.value.exportTimelineUnitsPerSecond = oldExportTimelineUnitsPerSecond ?? TIMELINE_UNITS_PER_SECOND;
         route.windowStates.timeline.value = oldTimelineState;
         route.localData.selectedLayer.value = oldSelection;
     }
@@ -246,6 +250,9 @@ export const exportEvent = (route) => ({
     "export:fps": async (payload) => {
         route.exportData.value.timelineFps = payload;
     },
+    "export:video-duration": async (payload) => {
+        route.exportData.value.videoDurationSeconds = payload;
+    },
     "export:video-resolution": async (payload) => {
         route.exportData.value.videoResolution = payload;
     },
@@ -292,6 +299,7 @@ export const exportEvent = (route) => ({
             exportStart: payload.exportStart,
             exportEnd: payload.exportEnd,
             timelineFps: payload.timelineFps,
+            videoDurationSeconds: payload.videoDurationSeconds,
             videoResolution: payload.videoResolution,
             videoProfile: optionValue(payload.videoProfile),
             videoPreset: optionValue(payload.videoPreset),

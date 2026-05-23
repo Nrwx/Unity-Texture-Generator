@@ -37,6 +37,11 @@ const applyEasing = (factor, easeType, bezier) => {
 export function imageModel(props, emit) {
     const containerRef = ref(null);
     const localTime = ref(Number.isFinite(props.timelineTime) ? props.timelineTime : 0);
+    const exportTimeSeconds = computed(() => (
+        Number.isFinite(Number(props.exportTimeSeconds))
+            ? Number(props.exportTimeSeconds)
+            : 0
+    ));
 
     const emitSelectLayer = (payload, event) => {
         emit("update:select-layer", payload, event);
@@ -147,10 +152,13 @@ export function imageModel(props, emit) {
             props.miniTimeline ||
             props.timelinePlay
         ) ? localTime.value : null;
+        const exportMeta = props.exportState
+            ? {export_time_seconds: exportTimeSeconds.value}
+            : {};
 
         for (const layer of props.layers || []) {
             if (t === null) {
-                map[layer.id] = layer;
+                map[layer.id] = props.exportState ? {...layer, ...exportMeta} : layer;
                 continue;
             }
 
@@ -158,6 +166,7 @@ export function imageModel(props, emit) {
                 map[layer.id] = {
                     ...layer,
                     time: t,
+                    ...exportMeta,
                 };
                 continue;
             }
@@ -168,6 +177,7 @@ export function imageModel(props, emit) {
                 time: t,
                 opacity: state.opacity ?? layer.opacity ?? 1,
                 matrix: state.matrix ?? normalizeMatrix(layer.matrix ?? DEFAULT_MATRIX),
+                ...exportMeta,
             };
         }
 
@@ -333,6 +343,11 @@ export const imageProps = {
         required: true,
     },
     timelineTime: {
+        type: Number,
+        required: false,
+        default: 0,
+    },
+    exportTimeSeconds: {
         type: Number,
         required: false,
         default: 0,

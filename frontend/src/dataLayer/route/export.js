@@ -25,6 +25,7 @@ export const updateExport = async (data) => {
         formData.append("exportStart", data.exportStart);
         formData.append("exportEnd", data.exportEnd);
         formData.append("timelineFps", data.timelineFps);
+        formData.append("videoDurationSeconds", data.videoDurationSeconds);
         formData.append("videoResolution", data.videoResolution);
         formData.append("videoProfile", data.videoProfile);
         formData.append("videoPreset", data.videoPreset);
@@ -51,6 +52,11 @@ export const startMp4Export = async (data) => {
         formData.append("title", data.title);
         formData.append("timelineFps", data.timelineFps);
         formData.append("frameCount", data.frameCount);
+        formData.append("durationSeconds", data.durationSeconds);
+        formData.append("encodedDurationSeconds", data.encodedDurationSeconds);
+        formData.append("timelineStart", data.timelineStart);
+        formData.append("timelineEnd", data.timelineEnd);
+        formData.append("timelineUnitsPerSecond", data.timelineUnitsPerSecond);
         formData.append("videoResolution", data.videoResolution);
         formData.append("videoProfile", data.videoProfile);
         formData.append("videoPreset", data.videoPreset);
@@ -75,6 +81,7 @@ export const appendMp4Frame = async (data) => {
         formData.append("sessionId", data.sessionId);
         formData.append("frameIndex", data.frameIndex);
         formData.append("frameTime", data.frameTime);
+        formData.append("mediaTimeSeconds", data.mediaTimeSeconds);
         formData.append("frame", data.frame, `frame_${String(data.frameIndex).padStart(6, "0")}.png`);
 
         return await api.post("/export", formData, {

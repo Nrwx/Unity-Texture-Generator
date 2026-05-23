@@ -18,7 +18,7 @@
     "project_name": "unity-texture-generator"
   },
   "dependencies": {
-    "last_build": "2026-05-24T03:51:08.940570Z",
+    "last_build": "2026-05-23T02:43:37.180730Z",
     "config": {
       "library_policy": {
         "auto_update": true,
@@ -589,6 +589,11 @@
             "title",
             "timelineFps",
             "frameCount",
+            "durationSeconds",
+            "encodedDurationSeconds",
+            "timelineStart",
+            "timelineEnd",
+            "timelineUnitsPerSecond",
             "videoResolution",
             "videoProfile",
             "videoPreset",
@@ -603,7 +608,8 @@
           "keys": [
             "sessionId",
             "frameIndex",
-            "frameTime"
+            "frameTime",
+            "mediaTimeSeconds"
           ],
           "function": "append_mp4_frame"
         },

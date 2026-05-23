@@ -17,7 +17,7 @@ EXTENSION = [".png", ".jpg", ".jpeg"]
 REDIRECT_ROUTE = False
 HEADER_NO_CACHE = False
 
-QUEUE_HANDLER = ["/upload", "/brush", "/ai/generateImage", "/modifier"]
+QUEUE_HANDLER = ["/upload", "/brush", "/ai/generateImage", "/modifier", "/export"]
 FRONTEND_PATH = ['../frontend/dist', 'index.html']
 
 def set_nvcompress(path):

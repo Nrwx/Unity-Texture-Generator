@@ -20,6 +20,7 @@ export const exportData = ref({
         exportStart: 0,
         exportEnd: 100,
         timelineFps: 30,
+        videoDurationSeconds: 0,
         videoResolution: 1024,
         videoProfile: 'main',
         videoPreset: 'normal',

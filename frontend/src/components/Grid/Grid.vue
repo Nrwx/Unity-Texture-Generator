@@ -42,6 +42,8 @@
                 :mini-timeline="miniTimeline"
                 :timeline-play="timelinePlay"
                 :timeline-time="time"
+                :export-state="exportState"
+                :export-time-seconds="exportTimeSeconds"
             />
 
             <template v-if="!exportState">

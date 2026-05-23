@@ -1140,6 +1140,11 @@ export const gridProps = {
         type: Number,
         required: true,
     },
+    exportTimeSeconds: {
+        type: Number,
+        required: false,
+        default: 0,
+    },
     timelineRecord: {
         type: Boolean,
         required: true,
