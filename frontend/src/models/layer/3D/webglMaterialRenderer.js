@@ -1573,15 +1573,33 @@ export class WebGLMaterialRenderer {
             uSoft: 1,
         });
 
-        gl.bindVertexArray(particles.vao);
         renderLayers.forEach(layer => {
+            const layerParticles = layer?.particles
+                ? this.getParticleBuffer({
+                    ...materialLayer.particle_system,
+                    ...layer.settings,
+                    id: `${materialLayer.particle_system?.id || "particle-system"}:${layer.id}`,
+                    particles: layer.particles,
+                    count: layer.count || layer.settings?.count || materialLayer.particle_system?.count,
+                    alpha: layer.alpha ?? layer.settings?.alpha ?? materialLayer.particle_system?.alpha,
+                    color: layer.color || layer.settings?.color || materialLayer.particle_system?.color,
+                })
+                : particles;
+
+            if (!layerParticles) {
+                return;
+            }
+
             const particleTexture = getParticleTextureForLayer?.(layer) || fallbackTexture;
 
             this.setTexture(this.particleProgram, "uParticleMap", 0, particleTexture, "white");
             this.setUniforms(this.particleProgram, {
+                uColor: layerParticles.color || particles.color,
+                uAlpha: layerParticles.alpha ?? particles.alpha,
                 uUseParticleMap: mapEnabled(true, particleTexture),
             });
-            gl.drawArrays(gl.POINTS, 0, particles.count);
+            gl.bindVertexArray(layerParticles.vao);
+            gl.drawArrays(gl.POINTS, 0, layerParticles.count);
         });
         gl.bindVertexArray(null);
         gl.depthMask(true);

@@ -590,14 +590,45 @@ export function layer3DModel(props, emit) {
         }
 
         const sourceParticleSystem = materialLayer.particle_system || {};
+        const particleSystem = ParticleSystem.update(
+            sourceParticleSystem,
+            { age: particleAge },
+            { mesh: materialLayer.mesh }
+        );
+        const particleLayers = Array.isArray(particleSystem.layers)
+            ? particleSystem.layers.map(layer => {
+                if (!layer?.settings || typeof layer.settings !== "object") {
+                    return layer;
+                }
+
+                const layerSystem = ParticleSystem.update(
+                    {
+                        ...particleSystem,
+                        ...layer.settings,
+                        active_layer_id: layer.id,
+                        texture_slot: layer.texture_slot || particleSystem.texture_slot,
+                        layers: [layer],
+                    },
+                    { age: particleAge },
+                    { mesh: materialLayer.mesh }
+                );
+
+                return {
+                    ...layer,
+                    particles: layerSystem.particles,
+                    count: layerSystem.count,
+                    alpha: layerSystem.alpha,
+                    color: layerSystem.color,
+                };
+            })
+            : [];
 
         return {
             ...materialLayer,
-            particle_system: ParticleSystem.update(
-                sourceParticleSystem,
-                { age: particleAge },
-                { mesh: materialLayer.mesh }
-            ),
+            particle_system: {
+                ...particleSystem,
+                layers: particleLayers.length ? particleLayers : particleSystem.layers,
+            },
         };
     };
 
@@ -955,8 +986,34 @@ export function layer3DModel(props, emit) {
         return mapped || Object.values(textureImages).find(item => item.image && canonicalSlotKey(item.slot) === canonical) || null;
     };
 
+    const seededSequenceRandom = (seed, step) => {
+        let value = (Math.trunc(Number(seed) || 1) + Math.trunc(Number(step) || 0) * 1013904223) >>> 0;
+        value = (value * 1664525 + 1013904223) >>> 0;
+        return value / 4294967296;
+    };
+
+    const resolveParticleLayerTextureUrl = layer => {
+        const sequence = Array.isArray(layer?.texture_sequence)
+            ? layer.texture_sequence.filter(item => item?.url)
+            : [];
+
+        if (layer?.sequence_enabled === true && sequence.length) {
+            const interval = Math.max(16, Number(layer.sequence_interval_ms) || 100);
+            const step = Math.floor((particleAge * 1000) / interval);
+            const index = layer.sequence_mode === "random"
+                ? Math.floor(seededSequenceRandom(layer.id?.length || 1, step) * sequence.length) % sequence.length
+                : step % sequence.length;
+
+            return sequence[index]?.url || layer.url || "";
+        }
+
+        return layer?.url || "";
+    };
+
     const getParticleTextureForLayer = layer => {
-        if (!layer?.url) {
+        const url = resolveParticleLayerTextureUrl(layer);
+
+        if (!url) {
             return null;
         }
 
@@ -964,7 +1021,7 @@ export function layer3DModel(props, emit) {
             item.image &&
             item.kind === "particle" &&
             item.particleLayerId === layer.id &&
-            item.url === layer.url
+            item.url === url
         )) || null;
     };
 
@@ -1425,18 +1482,23 @@ export function layer3DModel(props, emit) {
         });
 
         (layer?.particle_system?.layers || []).forEach(particleLayer => {
-            if (!particleLayer?.url) {
-                return;
-            }
+            [
+                { url: particleLayer?.url, source: particleLayer },
+                ...(Array.isArray(particleLayer?.texture_sequence) ? particleLayer.texture_sequence : []),
+            ].forEach(sequenceItem => {
+                if (!sequenceItem?.url) {
+                    return;
+                }
 
-            entries.push({
-                key: `particle:${particleLayer.id}:${particleLayer.url}`,
-                kind: "particle",
-                particleLayerId: particleLayer.id,
-                url: particleLayer.url,
-                slot: "baseColor",
-                faces: ["front"],
-                ...normalizeTextureSettings(particleLayer),
+                entries.push({
+                    key: `particle:${particleLayer.id}:${sequenceItem.url}`,
+                    kind: "particle",
+                    particleLayerId: particleLayer.id,
+                    url: sequenceItem.url,
+                    slot: "baseColor",
+                    faces: ["front"],
+                    ...normalizeTextureSettings(particleLayer),
+                });
             });
         });
 

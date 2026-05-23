@@ -2636,12 +2636,33 @@ class MaterialModel(BaseModel):
             if not isinstance(layer, dict):
                 continue
 
+            texture_sequence = layer.get("texture_sequence", [])
+            if not isinstance(texture_sequence, list):
+                texture_sequence = []
+            normalized_sequence = []
+            for sequence_index, sequence_item in enumerate(texture_sequence):
+                if not isinstance(sequence_item, dict):
+                    continue
+
+                normalized_sequence.append({
+                    "id": str(sequence_item.get("id", "") or f"particle-sequence-{sequence_index}"),
+                    "layer_id": str(sequence_item.get("layer_id", "") or ""),
+                    "name": str(sequence_item.get("name", "") or f"Texture {sequence_index + 1}"),
+                    "url": str(sequence_item.get("url", "") or ""),
+                })
+
             normalized_layers.append({
                 "id": str(layer.get("id", "") or f"particle-layer-{index}"),
                 "name": str(layer.get("name", "") or ("Default Layer" if index == 0 else f"Layer {index + 1}")),
                 "texture_slot": str(layer.get("texture_slot", data.get("texture_slot", "baseColor")) or "baseColor"),
                 "layer_id": str(layer.get("layer_id", "") or ""),
                 "url": str(layer.get("url", "") or ""),
+                "sequence_enabled": cls.safe_bool(layer.get("sequence_enabled", False)),
+                "sequence_mode": str(layer.get("sequence_mode", "clockwise") or "clockwise")
+                if str(layer.get("sequence_mode", "clockwise") or "clockwise") in {"clockwise", "random"} else "clockwise",
+                "sequence_interval_ms": clamp_int(layer.get("sequence_interval_ms", 100), 16, 60000, 100),
+                "texture_sequence": normalized_sequence,
+                "settings": layer.get("settings", {}) if isinstance(layer.get("settings", {}), dict) else {},
             })
 
         if not normalized_layers:
@@ -2651,6 +2672,11 @@ class MaterialModel(BaseModel):
                 "texture_slot": str(data.get("texture_slot", "baseColor") or "baseColor"),
                 "layer_id": "",
                 "url": "",
+                "sequence_enabled": False,
+                "sequence_mode": "clockwise",
+                "sequence_interval_ms": 100,
+                "texture_sequence": [],
+                "settings": {},
             }]
 
         active_layer_id = str(data.get("active_layer_id", "") or normalized_layers[0]["id"])

@@ -130,6 +130,22 @@ const createPathPoint = (point = {}, index = 0) => ({
     },
 });
 
+const normalizeTextureSequenceItem = (item = {}, index = 0) => ({
+    id: item.id || uuid("particle-sequence-item"),
+    layer_id: String(item.layer_id || ""),
+    name: String(item.name || `Texture ${index + 1}`),
+    url: String(item.url || ""),
+});
+
+const normalizeTextureSequence = items => (
+    Array.isArray(items)
+        ? items
+            .filter(item => item && typeof item === "object")
+            .map(normalizeTextureSequenceItem)
+            .filter(item => item.layer_id || item.url)
+        : []
+);
+
 const mix = (a, b, t) => a + (b - a) * t;
 const mixVector = (a, b, t) => ({
     x: mix(a.x, b.x, t),
@@ -157,6 +173,11 @@ const createParticleLayer = (layer = {}, index = 0, textureSlot = "baseColor") =
     texture_slot: String(layer.texture_slot || textureSlot || "baseColor"),
     layer_id: String(layer.layer_id || ""),
     url: String(layer.url || ""),
+    sequence_enabled: layer.sequence_enabled === true,
+    sequence_mode: ["clockwise", "random"].includes(layer.sequence_mode) ? layer.sequence_mode : "clockwise",
+    sequence_interval_ms: clampInt(layer.sequence_interval_ms ?? 100, 16, 60000),
+    texture_sequence: normalizeTextureSequence(layer.texture_sequence),
+    settings: layer.settings && typeof layer.settings === "object" ? clone(layer.settings) : {},
 });
 
 const rootAnimationFactor = (mode = "inner", life = 0) => {

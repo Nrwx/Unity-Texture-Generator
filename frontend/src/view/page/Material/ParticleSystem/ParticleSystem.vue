@@ -50,6 +50,7 @@
 
           <v-color-picker
               :model-value="activeColorRampColor"
+              width="100%"
               mode="rgb"
               hide-inputs
               canvas-height="90"
@@ -413,7 +414,7 @@
       <section v-if="activeParticleLayer" class="mem-particle-layer-inspector">
         <header>
           <strong>{{ activeParticleLayer.name }}</strong>
-          <small>Diffuse Particle Texture</small>
+          <small>Diffuse Particle Texture und Sequence.</small>
         </header>
 
         <v-select
@@ -423,6 +424,69 @@
             density="compact"
             hide-details
             @update:model-value="updateActiveParticleTextureLayer"
+        />
+
+        <div class="mem-particle-sequence-head">
+          <v-btn
+              :variant="activeParticleLayer.sequence_enabled ? 'tonal' : 'outlined'"
+              size="small"
+              @click="updateActiveParticleLayerPatch({ sequence_enabled: !activeParticleLayer.sequence_enabled })"
+          >
+            Sequence
+          </v-btn>
+
+          <v-select
+              :model-value="activeParticleLayer.sequence_mode"
+              :items="particleSequenceModeOptions"
+              density="compact"
+              hide-details
+              variant="outlined"
+              @update:model-value="updateActiveParticleLayerPatch({ sequence_mode: $event })"
+          />
+        </div>
+
+        <v-text-field
+            :model-value="activeParticleLayer.sequence_interval_ms"
+            label="Interval ms"
+            type="number"
+            :min="16"
+            :step="10"
+            density="compact"
+            hide-details
+            @update:model-value="updateActiveParticleLayerPatch({ sequence_interval_ms: Number($event) || 100 })"
+        />
+
+        <div class="mem-particle-sequence-list">
+          <div
+              v-for="(item, index) in activeLayerTextureSequence"
+              :key="item.id"
+              class="mem-particle-sequence-item"
+          >
+            <strong>{{ index + 1 }}</strong>
+            <v-select
+                :model-value="item.layer_id"
+                :items="textureLayerOptions"
+                density="compact"
+                hide-details
+                variant="outlined"
+                @update:model-value="updateActiveParticleSequenceTexture(index, $event)"
+            />
+            <v-btn
+                icon="mdi-close"
+                variant="text"
+                size="x-small"
+                @click="removeActiveParticleSequenceTexture(index)"
+            />
+          </div>
+        </div>
+
+        <v-select
+            :model-value="''"
+            :items="textureLayerOptions.filter(item => item.value)"
+            label="Texture zur Sequence"
+            density="compact"
+            hide-details
+            @update:model-value="addActiveParticleSequenceTexture"
         />
       </section>
     </aside>

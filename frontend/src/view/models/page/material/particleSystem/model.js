@@ -7,6 +7,10 @@ export const PARTICLE_EMITTER_OPTIONS = Object.freeze(["volume", "surface", "ver
 export const PARTICLE_ROOT_ANIMATION_OPTIONS = Object.freeze(["point", "inner", "outer"]);
 export const PARTICLE_BLEND_OPTIONS = Object.freeze(["alpha", "additive", "screen"]);
 export const PARTICLE_INTERPOLATION_ATTRIBUTES = ParticleSystem.INTERPOLATION_ATTRIBUTES;
+export const PARTICLE_SEQUENCE_MODE_OPTIONS = Object.freeze([
+    { title: "Clockwise", value: "clockwise" },
+    { title: "Random", value: "random" },
+]);
 
 export const createParticleSystem = () => ParticleSystem.create();
 
@@ -63,6 +67,48 @@ const normalizeColorRampStop = (stop = {}, index = 0) => ({
     t: clamp01(stop.t ?? index),
     color: Array.isArray(stop.color) ? stop.color : [1, 1, 1, 1],
 });
+const PARTICLE_LAYER_SETTING_KEYS = Object.freeze([
+    "mode",
+    "source",
+    "emitter",
+    "root_animation",
+    "count",
+    "seed",
+    "lifetime",
+    "time_scale",
+    "size",
+    "radius",
+    "random_size",
+    "size_randomness",
+    "size_x",
+    "size_y",
+    "alpha",
+    "spread_x",
+    "spread_y",
+    "spread_z",
+    "velocity",
+    "velocity_x",
+    "velocity_y",
+    "velocity_z",
+    "direction_x",
+    "direction_y",
+    "direction_z",
+    "rotation",
+    "velocity_randomness",
+    "gravity",
+    "turbulence",
+    "orbit",
+    "mesh_influence",
+    "color",
+    "color_ramp",
+    "blend",
+    "depth_write",
+    "sort",
+    "use_mesh_reference",
+    "interpolation_attribute",
+    "interpolations",
+    "path_follow",
+]);
 const INTERPOLATION_RANGES = Object.freeze({
     alpha: { min: 0, max: 1, visualMax: 1, step: 0.01, label: "Alpha 0-1" },
     size_x: { min: 0, max: null, visualMin: 0, visualMax: 100, step: 0.01, label: "Size X" },
@@ -127,6 +173,42 @@ export function particleSystemModel(props, emit) {
         { deep: true }
     );
 
+    const snapshotLayerSettings = (source = state.particleSystem) => (
+        PARTICLE_LAYER_SETTING_KEYS.reduce((settings, key) => {
+            settings[key] = cloneData(source?.[key]);
+            return settings;
+        }, {})
+    );
+
+    const syncActiveParticleLayerSettings = () => {
+        const activeId = state.particleSystem.active_layer_id;
+
+        if (!activeId || !Array.isArray(state.particleSystem.layers)) {
+            return;
+        }
+
+        const settings = snapshotLayerSettings();
+        state.particleSystem.layers = state.particleSystem.layers.map(layer => (
+            layer.id === activeId
+                ? { ...layer, settings }
+                : layer
+        ));
+    };
+
+    const applyParticleLayerSettings = layer => {
+        if (!layer?.settings || typeof layer.settings !== "object") {
+            return;
+        }
+
+        PARTICLE_LAYER_SETTING_KEYS.forEach(key => {
+            if (Object.prototype.hasOwnProperty.call(layer.settings, key)) {
+                state.particleSystem[key] = cloneData(layer.settings[key]);
+            }
+        });
+
+        state.interpolationAttribute = state.particleSystem.interpolation_attribute || state.interpolationAttribute || "alpha";
+    };
+
     const restartParticleSystem = () => {
         state.particleSystem.age = 0;
         state.particleSystem.meta = {
@@ -161,7 +243,11 @@ export function particleSystemModel(props, emit) {
         }
     };
 
-    const emitParticleSystem = ({ restart = false } = {}) => {
+    const emitParticleSystem = ({ restart = false, syncLayer = true } = {}) => {
+        if (syncLayer) {
+            syncActiveParticleLayerSettings();
+        }
+
         if (restart) {
             restartParticleSystem();
         }
@@ -257,6 +343,11 @@ export function particleSystemModel(props, emit) {
             value: layer.id,
         })),
     ]);
+    const activeLayerTextureSequence = computed(() => (
+        Array.isArray(activeParticleLayer.value?.texture_sequence)
+            ? activeParticleLayer.value.texture_sequence
+            : []
+    ));
 
     const ensureParticleLayers = () => {
         state.particleSystem = {
@@ -529,6 +620,7 @@ export function particleSystemModel(props, emit) {
     };
 
     const setActiveParticleLayer = layerId => {
+        syncActiveParticleLayerSettings();
         const layers = ensureParticleLayers();
         const layer = layers.find(item => item.id === layerId) || layers[0];
 
@@ -538,6 +630,7 @@ export function particleSystemModel(props, emit) {
 
         state.particleSystem.active_layer_id = layer.id;
         state.particleSystem.texture_slot = "baseColor";
+        applyParticleLayerSettings(layer);
         emitParticleSystem({ restart: true });
     };
 
@@ -674,6 +767,7 @@ export function particleSystemModel(props, emit) {
     };
 
     const addParticleLayer = () => {
+        syncActiveParticleLayerSettings();
         const layers = ensureParticleLayers();
         const nextLayer = {
             id: `particle-layer-${Date.now()}`,
@@ -681,6 +775,11 @@ export function particleSystemModel(props, emit) {
             texture_slot: "baseColor",
             layer_id: "",
             url: "",
+            sequence_enabled: false,
+            sequence_mode: "clockwise",
+            sequence_interval_ms: 100,
+            texture_sequence: [],
+            settings: snapshotLayerSettings(),
         };
 
         state.particleSystem.layers = [...layers, nextLayer];
@@ -738,6 +837,66 @@ export function particleSystemModel(props, emit) {
         ));
 
         emitParticleSystem({ restart: true });
+    };
+
+    const updateActiveParticleLayerPatch = patch => {
+        const layers = ensureParticleLayers();
+        const activeId = activeParticleLayer.value?.id;
+
+        state.particleSystem.layers = layers.map(layer => (
+            layer.id === activeId
+                ? { ...layer, ...patch }
+                : layer
+        ));
+        emitParticleSystem({ restart: true });
+    };
+
+    const normalizeTextureSequenceItem = (layerId, index = 0) => {
+        const textureLayer = (props.textureLayers || []).find(layer => layer.id === layerId);
+
+        return {
+            id: `particle-sequence-${Date.now()}-${index}`,
+            layer_id: layerId || "",
+            name: textureLayer?.name || `Texture ${index + 1}`,
+            url: textureLayer?.texture?.url || textureLayer?.url || textureLayer?.masked || "",
+        };
+    };
+
+    const addActiveParticleSequenceTexture = layerId => {
+        if (!layerId) {
+            return;
+        }
+
+        const sequence = activeLayerTextureSequence.value;
+        updateActiveParticleLayerPatch({
+            texture_sequence: [
+                ...sequence,
+                normalizeTextureSequenceItem(layerId, sequence.length),
+            ],
+            sequence_enabled: true,
+        });
+    };
+
+    const updateActiveParticleSequenceTexture = (index, layerId) => {
+        const sequence = activeLayerTextureSequence.value;
+
+        updateActiveParticleLayerPatch({
+            texture_sequence: sequence.map((item, itemIndex) => (
+                itemIndex === index
+                    ? {
+                        ...item,
+                        ...normalizeTextureSequenceItem(layerId, itemIndex),
+                        id: item.id,
+                    }
+                    : item
+            )),
+        });
+    };
+
+    const removeActiveParticleSequenceTexture = index => {
+        updateActiveParticleLayerPatch({
+            texture_sequence: activeLayerTextureSequence.value.filter((_item, itemIndex) => itemIndex !== index),
+        });
     };
 
     const removeParticleLayer = layerId => {
@@ -990,7 +1149,7 @@ export function particleSystemModel(props, emit) {
     };
 
     const addPathPoint = (event, view = "side") => {
-        if (event.button !== 0) {
+        if (!event.altKey || event.button !== 0) {
             return;
         }
 
@@ -1036,6 +1195,10 @@ export function particleSystemModel(props, emit) {
 
     const deleteNearestPathPoint = (event, view = "time") => {
         event.preventDefault();
+        if (!event.altKey) {
+            return;
+        }
+
         const path = ensurePathFollow();
 
         if (path.points.length <= 1) {
@@ -1069,6 +1232,10 @@ export function particleSystemModel(props, emit) {
 
     const handlePathPointContext = (event, pointId) => {
         event.preventDefault();
+        if (!event.altKey) {
+            return;
+        }
+
         deletePathPoint(pointId);
     };
 
@@ -1099,6 +1266,7 @@ export function particleSystemModel(props, emit) {
         pathViewPolyline,
         particleLayers,
         activeParticleLayer,
+        activeLayerTextureSequence,
         textureLayerOptions,
         setParticleValue,
         setParticleNumber,
@@ -1126,6 +1294,11 @@ export function particleSystemModel(props, emit) {
         startParticleLayerDrag,
         dropParticleLayer,
         updateActiveParticleTextureLayer,
+        updateActiveParticleLayerPatch,
+        addActiveParticleSequenceTexture,
+        updateActiveParticleSequenceTexture,
+        removeActiveParticleSequenceTexture,
+        particleSequenceModeOptions: PARTICLE_SEQUENCE_MODE_OPTIONS,
         interpolationPointY,
         resetPathFollow,
         updatePathPoint,
