@@ -2415,20 +2415,18 @@ export class WebGLMaterialRenderer {
                 uSubsurfaceTranslucency: objectTextureSettings.subsurface_translucency ? 1 : 0,
             });
 
-            drawEntries.forEach(entry => {
-                const mesh = entry.mesh;
+            const mesh = entry.mesh;
 
-                if (!mesh?.buffer) {
-                    return;
-                }
+            if (!mesh?.buffer) {
+                return;
+            }
 
-                const indexType = mesh.buffer.indexType;
-                const indexBytes = indexType === gl.UNSIGNED_INT ? 4 : 2;
-                const count = entry.count || mesh.count;
-                const offset = entry.start * indexBytes;
+            const indexType = mesh.buffer.indexType;
+            const indexBytes = indexType === gl.UNSIGNED_INT ? 4 : 2;
+            const count = entry.count || mesh.count;
+            const offset = entry.start * indexBytes;
 
-                mesh.buffer.drawElements(gl.TRIANGLES, count, offset);
-            });
+            mesh.buffer.drawElements(gl.TRIANGLES, count, offset);
         });
 
         this.drawOverlayPass({

@@ -4250,7 +4250,9 @@ export function materialEditorModel(props, emit) {
 
         values.uv.mode = "cubemap";
         values.uv.view_mode = "cubemap";
-        values.uv.selected_faces = [...CUBE_FACE_ORDER];
+
+        values.uv.active_face = values.uv.active_face || "front";
+        values.uv.selected_faces = [values.uv.active_face];
 
         return true;
     };
