@@ -195,6 +195,9 @@ export const createSurface = () => ({
     displacementStrength: 0,
 });
 
+/**
+ * @returns {Record<string, any>}
+ */
 export const createBitmapMaps = () => {
     return SURFACE_FIELDS.reduce((acc, field) => {
         acc[field.key] = {
@@ -224,7 +227,7 @@ export const createBitmapMaps = () => {
         };
 
         return acc;
-    }, {});
+    }, /** @type {Record<string, any>} */ ({}));
 };
 
 const cloneData = value => {

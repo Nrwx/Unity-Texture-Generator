@@ -9,6 +9,7 @@ import {
     getTextureSettingDefaults,
     PRINCIPLED_SURFACE_GROUPS, SURFACE_FIELD_MAP, SURFACE_FIELDS, TEXTURE_CHANNEL_OPTIONS, TEXTURE_COLOR_MODE_OPTIONS
 } from "@/view/models/page/material/surface/model";
+import {createGeometry} from "@/view/models/page/material/geometry/model";
 
 const PREVIEW_DEBOUNCE_MS = 220;
 
@@ -62,42 +63,6 @@ const mergeTextureSettingsForSlot = (slotKey, ...sources) => mergeTextureSetting
     { slot: slotKey },
     ...sources,
 );
-
-const createGeometry = () => ({
-    primitive: "cube",
-
-    width: 1,
-    height: 1,
-    depth: 1,
-
-    bevel: 0,
-    bevel_segments: 1,
-
-    subdivision: 0,
-    shade_smooth: true,
-
-    displacement_enabled: false,
-    displacement_strength: 0,
-    displacement_midlevel: 0.5,
-
-    normal_strength: 1,
-    bump_strength: 0,
-
-    uv_fit: "stretch",
-    uv_density: 1,
-
-    pivot_x: 0,
-    pivot_y: 0,
-    pivot_z: 0,
-
-    rotation_x: 0,
-    rotation_y: 0,
-    rotation_z: 0,
-
-    scale_x: 1,
-    scale_y: 1,
-    scale_z: 1,
-});
 
 const createLight = () => ({
     enabled: true,
