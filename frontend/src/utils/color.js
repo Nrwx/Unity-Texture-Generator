@@ -1,4 +1,4 @@
-import {clamp} from "@/utils/tools";
+import {clamp, mixNumbers, toFiniteNumber} from "@/utils/tools";
 
 /**
  * Adjusts a HEX color by adding an amount to each RGB channel.
@@ -331,4 +331,151 @@ export const colorArrayToHex = (value, mode = "rgba") => {
         BYTE_TO_HEX[(r * 255 + 0.5) | 0] +
         BYTE_TO_HEX[(g * 255 + 0.5) | 0] +
         BYTE_TO_HEX[(b * 255 + 0.5) | 0];
+};
+
+/**
+ * Normalizes any scalar or array value into an RGBA array.
+ *
+ * @param {*|number[]} value
+ * @param {number[]} [fallback=[1, 1, 1, 1]]
+ * @returns {number[]}
+ */
+export const normalizeColorValue = (value, fallback = [1, 1, 1, 1]) => {
+    if (Array.isArray(value)) {
+        return [
+            clamp(toFiniteNumber(value[0], fallback[0] ?? 1), 0, 1),
+            clamp(toFiniteNumber(value[1], fallback[1] ?? 1), 0, 1),
+            clamp(toFiniteNumber(value[2], fallback[2] ?? 1), 0, 1),
+            clamp(toFiniteNumber(value[3], fallback[3] ?? 1), 0, 1),
+        ];
+    }
+
+    const number = clamp(toFiniteNumber(value, fallback[0] ?? 1), 0, 1);
+
+    return [number, number, number, 1];
+};
+
+/**
+ * Calculates luminance from an RGBA-like color value.
+ *
+ * @param {*|number[]} color
+ * @returns {number}
+ */
+export const luminanceFromColor = color => {
+    const value = normalizeColorValue(color, [0, 0, 0, 1]);
+
+    return clamp(
+        value[0] * 0.2126 +
+        value[1] * 0.7152 +
+        value[2] * 0.0722,
+        0,
+        1
+    );
+};
+
+/**
+ * Mixes two RGBA-like color values.
+ *
+ * @param {*|number[]} a
+ * @param {*|number[]} b
+ * @param {*} factor
+ * @param {boolean} [shouldClamp=true]
+ * @returns {number[]}
+ */
+export const mixColors = (a, b, factor, shouldClamp = true) => {
+    const amount = clamp(toFiniteNumber(factor, 0.5), 0, 1);
+    const left = normalizeColorValue(a, [0, 0, 0, 1]);
+    const right = normalizeColorValue(b, [1, 1, 1, 1]);
+
+    return left.map((channel, index) => {
+        const mixed = mixNumbers(
+            channel,
+            right[index] ?? (index === 3 ? 1 : 0),
+            amount
+        );
+
+        return index === 3 || shouldClamp === false
+            ? mixed
+            : clamp(mixed, 0, 1);
+    });
+};
+
+/**
+ * Converts a Kelvin temperature into normalized RGBA.
+ *
+ * @param {*} value
+ * @returns {number[]}
+ */
+export const kelvinToColor = value => {
+    const temperature = clamp(toFiniteNumber(value, 6500), 1000, 40000) / 100;
+
+    const red = temperature <= 66
+        ? 255
+        : 329.698727446 * Math.pow(temperature - 60, -0.1332047592);
+
+    const green = temperature <= 66
+        ? 99.4708025861 * Math.log(temperature) - 161.1195681661
+        : 288.1221695283 * Math.pow(temperature - 60, -0.0755148492);
+
+    const blue = temperature >= 66
+        ? 255
+        : temperature <= 19
+            ? 0
+            : 138.5177312231 * Math.log(temperature - 10) - 305.0447927307;
+
+    return [
+        clamp(red / 255, 0, 1),
+        clamp(green / 255, 0, 1),
+        clamp(blue / 255, 0, 1),
+        1,
+    ];
+};
+
+/**
+ * Applies strength/offset/invert-like interpolation to a scalar value.
+ *
+ * @param {*} value
+ * @param {Object} [settings={}]
+ * @returns {number}
+ */
+export const interpolateValue = (value, settings = {}) => {
+    const strength = toFiniteNumber(settings.strength ?? settings.factor ?? 1, 1);
+    const offset = toFiniteNumber(settings.offset ?? 0, 0);
+    const shouldClamp = settings.clamp !== false;
+
+    const input = strength < 0
+        ? 1 - clamp(toFiniteNumber(value ?? 0, 0), 0, 1)
+        : toFiniteNumber(value ?? 0, 0);
+
+    const result = input * Math.abs(strength) + offset;
+
+    return shouldClamp ? clamp(result, 0, 1) : result;
+};
+
+/**
+ * Applies strength/offset/invert-like interpolation to a color.
+ *
+ * @param {*|number[]} color
+ * @param {Object} [settings={}]
+ * @returns {number[]}
+ */
+export const interpolateColor = (color, settings = {}) => {
+    const source = Array.isArray(color) ? color : [1, 1, 1, 1];
+    const strength = toFiniteNumber(settings.strength ?? settings.factor ?? 1, 1);
+    const offset = toFiniteNumber(settings.offset ?? 0, 0);
+    const shouldClamp = settings.clamp !== false;
+
+    return source.map((channel, index) => {
+        if (index === 3) {
+            return channel;
+        }
+
+        const input = strength < 0
+            ? 1 - clamp(toFiniteNumber(channel ?? 0, 0), 0, 1)
+            : toFiniteNumber(channel ?? 0, 0);
+
+        const result = input * Math.abs(strength) + offset;
+
+        return shouldClamp ? clamp(result, 0, 1) : result;
+    });
 };

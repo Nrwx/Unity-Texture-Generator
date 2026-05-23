@@ -1,5 +1,6 @@
 import { uuid } from "@/utils/uuid";
-import { clone } from "@/utils/tools";
+import {applyMathOperation, clamp, clone, mixNumbers, toFiniteNumber, toVector3} from "@/utils/tools";
+import {kelvinToColor, luminanceFromColor, mixColors, normalizeColorValue} from "@/utils/color";
 
 export class Node {
     static TYPE_ORDER = ["Shader", "Texture", "UV", "Math", "Vector", "Color", "Output"];
@@ -11,6 +12,40 @@ export class Node {
 
     static socket(type, label = "") {
         return { type, label };
+    }
+
+    static getGraphNode(graph, nodeId) {
+        return (graph?.nodes || []).find(node => node.id === nodeId) || null;
+    }
+
+    static getIncomingEdge(graph, nodeId, socket) {
+        return (graph?.edges || []).find(edge => (
+            edge.to.node === nodeId &&
+            edge.to.socket === socket
+        )) || null;
+    }
+
+    static resolveInputValue(graph, nodeId, socket, seen = new Set()) {
+        const edge = Node.getIncomingEdge(graph, nodeId, socket);
+
+        if (!edge) {
+            return null;
+        }
+
+        return Node.resolveOutputValue(graph, edge.from.node, edge.from.socket, seen);
+    }
+
+    static clampSurfaceValue(slotKey, value, context = {}) {
+        const field = context.surfaceFieldMap?.[slotKey];
+        const defaults = context.surfaceDefaults || {};
+        const fallback = toFiniteNumber(defaults[slotKey], 0);
+        const number = toFiniteNumber(value, fallback);
+
+        if (!field || field.type !== "number") {
+            return number;
+        }
+
+        return clamp(number, field.min ?? 0, field.max ?? 1);
     }
 
     static define({
@@ -713,6 +748,433 @@ export class Node {
             return acc;
         }, {})
     );
+
+    static coerceSocketValue(value, socketType = "float", slotKey = "", context = {}) {
+        if (value === null || value === undefined) {
+            return null;
+        }
+
+        if (socketType === "color" || socketType === "image") {
+            return normalizeColorValue(value);
+        }
+
+        if (socketType === "vector") {
+            return toVector3(value);
+        }
+
+        if (Array.isArray(value)) {
+            return Node.clampSurfaceValue(slotKey, value[0], context);
+        }
+
+        return Node.clampSurfaceValue(slotKey, value, context);
+    }
+
+    static resolveOutputValue(graph, nodeId, socket = "", seen = new Set()) {
+        if (!nodeId || seen.has(nodeId)) {
+            return null;
+        }
+
+        seen.add(nodeId);
+
+        const node = Node.getGraphNode(graph, nodeId);
+
+        if (!node) {
+            return null;
+        }
+
+        const settings = Node.normalizeSettings(node);
+        const nodeKey = settings.node_key || "";
+
+        if (nodeKey === "texture.bitmap" || nodeKey === "texture.multitexture") {
+            return null;
+        }
+
+        if (nodeKey === "uv.map" || nodeKey === "uv.cubemap") {
+            return settings.uv || settings.vector || [0, 0, 0];
+        }
+
+        if (nodeKey === "math.value") {
+            return toFiniteNumber(settings.value, 0);
+        }
+
+        if (nodeKey === "math.operation") {
+            const a = Node.resolveInputValue(graph, node.id, "a", new Set(seen)) ?? settings.a ?? settings.value ?? 0;
+            const b = Node.resolveInputValue(graph, node.id, "b", new Set(seen)) ?? settings.b ?? settings.factor ?? 0;
+            const result = applyMathOperation(settings.mode || settings.operation, a, b);
+
+            return settings.clamp === true ? clamp(result, 0, 1) : result;
+        }
+
+        if (nodeKey === "math.mix") {
+            const factor = Node.resolveInputValue(graph, node.id, "factor", new Set(seen)) ?? settings.factor ?? 0.5;
+            const a = Node.resolveInputValue(graph, node.id, "a", new Set(seen)) ?? settings.a ?? 0;
+            const b = Node.resolveInputValue(graph, node.id, "b", new Set(seen)) ?? settings.b ?? 1;
+            const result = mixNumbers(a, b, factor);
+
+            return settings.clamp === false ? result : clamp(result, 0, 1);
+        }
+
+        if (nodeKey === "vector.mix") {
+            const factor = Node.resolveInputValue(graph, node.id, "factor", new Set(seen)) ?? settings.factor ?? 0.5;
+            const a = Node.resolveInputValue(graph, node.id, "a", new Set(seen)) ?? settings.a ?? [0, 0, 0];
+            const b = Node.resolveInputValue(graph, node.id, "b", new Set(seen)) ?? settings.b ?? [1, 1, 1];
+            const amount = clamp(toFiniteNumber(factor, 0.5), 0, 1);
+
+            const left = toVector3(a, [0, 0, 0]);
+            const right = toVector3(b, [1, 1, 1]);
+
+            const result = [
+                mixNumbers(left[0], right[0], amount),
+                mixNumbers(left[1], right[1], amount),
+                mixNumbers(left[2], right[2], amount),
+            ];
+
+            return settings.clamp === false
+                ? result
+                : result.map(value => clamp(value, 0, 1));
+        }
+
+        if (nodeKey === "color.mix") {
+            const factor = Node.resolveInputValue(graph, node.id, "factor", new Set(seen)) ?? settings.factor ?? 0.5;
+            const a = Node.resolveInputValue(graph, node.id, "a", new Set(seen)) ?? settings.a ?? [0, 0, 0, 1];
+            const b = Node.resolveInputValue(graph, node.id, "b", new Set(seen)) ?? settings.b ?? [1, 1, 1, 1];
+
+            return mixColors(a, b, factor, settings.clamp !== false);
+        }
+
+        if (nodeKey === "math.clamp") {
+            const value = Node.resolveInputValue(graph, node.id, "value", new Set(seen)) ?? settings.value ?? 0;
+            const min = Node.resolveInputValue(graph, node.id, "min", new Set(seen)) ?? settings.min ?? 0;
+            const max = Node.resolveInputValue(graph, node.id, "max", new Set(seen)) ?? settings.max ?? 1;
+
+            return clamp(
+                toFiniteNumber(value, 0),
+                toFiniteNumber(min, 0),
+                toFiniteNumber(max, 1)
+            );
+        }
+
+        if (nodeKey === "math.floatCurve") {
+            return Node.resolveInputValue(graph, node.id, "value", new Set(seen)) ??
+                settings.value ??
+                settings.factor ??
+                0;
+        }
+
+        if (nodeKey === "color.blackbody") {
+            const temperature =
+                Node.resolveInputValue(graph, node.id, "temperature", new Set(seen)) ??
+                settings.temperature ??
+                6500;
+
+            return socket === "color"
+                ? kelvinToColor(temperature)
+                : temperature;
+        }
+
+        if (nodeKey === "texture.gradient") {
+            const factor =
+                Node.resolveInputValue(graph, node.id, "vector", new Set(seen)) ??
+                settings.factor ??
+                0.5;
+
+            return socket === "color"
+                ? normalizeColorValue(factor, [0.5, 0.5, 0.5, 1])
+                : clamp(toFiniteNumber(Array.isArray(factor) ? factor[0] : factor, 0.5), 0, 1);
+        }
+
+        if (nodeKey === "texture.noise" || nodeKey === "texture.wave") {
+            const scale =
+                Node.resolveInputValue(graph, node.id, "scale", new Set(seen)) ??
+                settings.scale ??
+                0.5;
+
+            const factor = clamp(toFiniteNumber(scale, 0.5), 0, 1);
+
+            return socket === "color"
+                ? [factor, factor, factor, 1]
+                : factor;
+        }
+
+        if (nodeKey === "color.colorRamp") {
+            const factor =
+                Node.resolveInputValue(graph, node.id, "factor", new Set(seen)) ??
+                settings.factor ??
+                settings.position ??
+                0.5;
+
+            return socket === "alpha"
+                ? clamp(toFiniteNumber(factor, 1), 0, 1)
+                : normalizeColorValue(settings.color ?? factor);
+        }
+
+        if (nodeKey === "color.brightnessContrast") {
+            const source =
+                Node.resolveInputValue(graph, node.id, "bitmap", new Set(seen)) ??
+                settings.bitmap ??
+                0.5;
+
+            const brightness =
+                Node.resolveInputValue(graph, node.id, "brightness", new Set(seen)) ??
+                settings.brightness ??
+                0;
+
+            const contrast =
+                Node.resolveInputValue(graph, node.id, "contrast", new Set(seen)) ??
+                settings.contrast ??
+                0;
+
+            const value = clamp(
+                (Array.isArray(source) ? luminanceFromColor(source) : toFiniteNumber(source, 0.5)) +
+                toFiniteNumber(brightness, 0),
+                0,
+                1
+            );
+
+            const contrasted = clamp(
+                (value - 0.5) * (1 + toFiniteNumber(contrast, 0)) + 0.5,
+                0,
+                1
+            );
+
+            return socket === "bitmap"
+                ? [contrasted, contrasted, contrasted, 1]
+                : contrasted;
+        }
+
+        if (nodeKey === "color.gamma") {
+            const color =
+                Node.resolveInputValue(graph, node.id, "color", new Set(seen)) ??
+                settings.color ??
+                [1, 1, 1, 1];
+
+            const gamma = Math.max(
+                0.001,
+                toFiniteNumber(
+                    Node.resolveInputValue(graph, node.id, "gamma", new Set(seen)) ?? settings.gamma,
+                    1
+                )
+            );
+
+            return normalizeColorValue(color).map((channel, index) => (
+                index === 3 ? channel : clamp(Math.pow(channel, gamma), 0, 1)
+            ));
+        }
+
+        if (nodeKey === "color.hsv") {
+            const source =
+                Node.resolveInputValue(graph, node.id, "bitmap", new Set(seen)) ??
+                settings.bitmap ??
+                [1, 1, 1, 1];
+
+            const amount = toFiniteNumber(
+                Node.resolveInputValue(graph, node.id, "value", new Set(seen)) ?? settings.value,
+                1
+            );
+
+            return normalizeColorValue(source).map((channel, index) => (
+                index === 3 ? channel : clamp(channel * amount, 0, 1)
+            ));
+        }
+
+        if (nodeKey === "color.invert") {
+            const color =
+                Node.resolveInputValue(graph, node.id, "color", new Set(seen)) ??
+                settings.color ??
+                [1, 1, 1, 1];
+
+            const factor = clamp(
+                toFiniteNumber(
+                    Node.resolveInputValue(graph, node.id, "factor", new Set(seen)) ?? settings.factor,
+                    1
+                ),
+                0,
+                1
+            );
+
+            return normalizeColorValue(color).map((channel, index) => (
+                index === 3 ? channel : mixNumbers(channel, 1 - channel, factor)
+            ));
+        }
+
+        if (nodeKey === "color.rgbToBw") {
+            const source =
+                Node.resolveInputValue(graph, node.id, "bitmap", new Set(seen)) ??
+                settings.bitmap ??
+                [1, 1, 1, 1];
+
+            return luminanceFromColor(source);
+        }
+
+        if (nodeKey === "color.combine") {
+            return [
+                clamp(toFiniteNumber(Node.resolveInputValue(graph, node.id, "red", new Set(seen)) ?? settings.red, 0), 0, 1),
+                clamp(toFiniteNumber(Node.resolveInputValue(graph, node.id, "green", new Set(seen)) ?? settings.green, 0), 0, 1),
+                clamp(toFiniteNumber(Node.resolveInputValue(graph, node.id, "blue", new Set(seen)) ?? settings.blue, 0), 0, 1),
+                clamp(toFiniteNumber(Node.resolveInputValue(graph, node.id, "alpha", new Set(seen)) ?? settings.alpha, 1), 0, 1),
+            ];
+        }
+
+        if (nodeKey === "color.separate") {
+            const color = normalizeColorValue(
+                Node.resolveInputValue(graph, node.id, "color", new Set(seen)) ?? settings.color
+            );
+
+            const channelIndex = {
+                red: 0,
+                green: 1,
+                blue: 2,
+                alpha: 3,
+            }[socket] ?? 0;
+
+            return color[channelIndex];
+        }
+
+        if (nodeKey === "vector.combineXYZ") {
+            return [
+                toFiniteNumber(Node.resolveInputValue(graph, node.id, "x", new Set(seen)) ?? settings.x, 0),
+                toFiniteNumber(Node.resolveInputValue(graph, node.id, "y", new Set(seen)) ?? settings.y, 0),
+                toFiniteNumber(Node.resolveInputValue(graph, node.id, "z", new Set(seen)) ?? settings.z, 0),
+            ];
+        }
+
+        if (nodeKey === "vector.separateXYZ") {
+            const vector =
+                Node.resolveInputValue(graph, node.id, "vector", new Set(seen)) ??
+                [settings.x ?? 0, settings.y ?? 0, settings.z ?? 0];
+
+            const channelIndex = {
+                x: 0,
+                y: 1,
+                z: 2,
+            }[socket] ?? 0;
+
+            return Array.isArray(vector)
+                ? toFiniteNumber(vector[channelIndex], 0)
+                : toFiniteNumber(vector, 0);
+        }
+
+        if (nodeKey === "vector.mapping") {
+            const vector =
+                Node.resolveInputValue(graph, node.id, "vector", new Set(seen)) ??
+                settings.vector ??
+                [0, 0, 0];
+
+            return toVector3(vector);
+        }
+
+        if (socket && settings[socket] !== undefined) {
+            return settings[socket];
+        }
+
+        const primaryInput = Object.keys(node.inputs || {}).find(input => (
+            ["value", "factor", "a", "b", "brightness", "contrast", "color", "bitmap", "vector"].includes(input)
+        ));
+
+        if (primaryInput) {
+            const incoming = Node.resolveInputValue(graph, node.id, primaryInput, new Set(seen));
+
+            if (incoming !== null && incoming !== undefined) {
+                return incoming;
+            }
+        }
+
+        return settings.value ?? settings.factor ?? settings.strength ?? null;
+    }
+
+    static interpolateValue(value, settings = {}) {
+        const strength = toFiniteNumber(settings.strength ?? settings.factor ?? 1, 1);
+        const offset = toFiniteNumber(settings.offset ?? 0, 0);
+        const shouldClamp = settings.clamp !== false;
+
+        const input = strength < 0
+            ? 1 - clamp(toFiniteNumber(value ?? 0, 0), 0, 1)
+            : toFiniteNumber(value ?? 0, 0);
+
+        const result = input * Math.abs(strength) + offset;
+
+        return shouldClamp ? clamp(result, 0, 1) : result;
+    }
+
+    static interpolateColor(color, settings = {}) {
+        const source = Array.isArray(color) ? color : [1, 1, 1, 1];
+        const strength = toFiniteNumber(settings.strength ?? settings.factor ?? 1, 1);
+        const offset = toFiniteNumber(settings.offset ?? 0, 0);
+        const shouldClamp = settings.clamp !== false;
+
+        return source.map((channel, index) => {
+            if (index === 3) {
+                return channel;
+            }
+
+            const input = strength < 0
+                ? 1 - clamp(toFiniteNumber(channel ?? 0, 0), 0, 1)
+                : toFiniteNumber(channel ?? 0, 0);
+
+            const result = input * Math.abs(strength) + offset;
+
+            return shouldClamp ? clamp(result, 0, 1) : result;
+        });
+    }
+
+    static resolveDisplayValue(node) {
+        if (!node) {
+            return null;
+        }
+
+        const settings = Node.normalizeSettings(node);
+        const nodeKey = settings.node_key || "";
+
+        if (nodeKey === "texture.bitmap") {
+            return {
+                type: "color",
+                label: settings.name || settings.url || "Bitmap",
+                url: settings.url || "",
+                value: Node.interpolateColor([1, 1, 1, 1], settings),
+                settings,
+            };
+        }
+
+        if (nodeKey === "uv.map" || nodeKey === "uv.cubemap") {
+            return {
+                type: "uv",
+                label: node.label,
+                value: {
+                    offset_x: settings.offset_x,
+                    offset_y: settings.offset_y,
+                    scale_x: settings.scale_x,
+                    scale_y: settings.scale_y,
+                    rotate: settings.rotate,
+                },
+                settings,
+            };
+        }
+
+        return {
+            type: "value",
+            label: node.label,
+            value: Node.interpolateValue(1, settings),
+            settings,
+        };
+    }
+
+    static getResolvedValueText(node) {
+        const resolved = Node.resolveDisplayValue(node);
+
+        if (!resolved) {
+            return "";
+        }
+
+        if (resolved.type === "uv") {
+            return `UV ${resolved.value.offset_x}, ${resolved.value.offset_y} · ${resolved.value.scale_x}×${resolved.value.scale_y}`;
+        }
+
+        if (resolved.type === "color") {
+            return resolved.label;
+        }
+
+        return String(Math.round(Number(resolved.value || 0) * 1000) / 1000);
+    }
 
     static get(nodeKey) {
         if (typeof nodeKey === "object" && nodeKey?.key) {

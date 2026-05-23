@@ -404,3 +404,94 @@ export const intersect = (a, b, mode = "2D") => {
         height: bottom - top,
     };
 };
+
+/**
+ * Converts a value into a finite number.
+ *
+ * @param {*} value
+ * @param {number} [fallback=0]
+ * @returns {number}
+ */
+export const toFiniteNumber = (value, fallback = 0) => {
+    const number = Number(value);
+
+    return Number.isFinite(number) ? number : fallback;
+};
+
+/**
+ * Converts a scalar or array value into a 3D vector.
+ *
+ * @param {*|number[]} value
+ * @param {number[]} [fallback=[0, 0, 0]]
+ * @returns {number[]}
+ */
+export const toVector3 = (value, fallback = [0, 0, 0]) => {
+    if (Array.isArray(value)) {
+        return [
+            toFiniteNumber(value[0], fallback[0] ?? 0),
+            toFiniteNumber(value[1], value[0] ?? fallback[1] ?? 0),
+            toFiniteNumber(value[2], value[0] ?? fallback[2] ?? 0),
+        ];
+    }
+
+    const number = toFiniteNumber(value, fallback[0] ?? 0);
+
+    return [number, number, number];
+};
+
+/**
+ * Mixes two numeric values with a clamped factor.
+ *
+ * @param {*} a
+ * @param {*} b
+ * @param {*} factor
+ * @returns {number}
+ */
+export const mixNumbers = (a, b, factor) => {
+    const amount = clamp(toFiniteNumber(factor, 0.5), 0, 1);
+
+    return (
+        toFiniteNumber(a, 0) * (1 - amount) +
+        toFiniteNumber(b, 0) * amount
+    );
+};
+
+/**
+ * Applies a named math operation.
+ *
+ * @param {string} mode
+ * @param {*} a
+ * @param {*} b
+ * @returns {number}
+ */
+export const applyMathOperation = (mode, a, b) => {
+    const left = toFiniteNumber(a, 0);
+    const right = toFiniteNumber(b, 0);
+
+    switch (String(mode || "add").toLowerCase()) {
+        case "subtract":
+            return left - right;
+
+        case "multiply":
+            return left * right;
+
+        case "divide":
+            return right === 0 ? left : left / right;
+
+        case "min":
+            return Math.min(left, right);
+
+        case "max":
+            return Math.max(left, right);
+
+        case "power":
+            return Math.pow(left, right);
+
+        case "mix":
+            return mixNumbers(left, right, 0.5);
+
+        case "add":
+        default:
+            return left + right;
+    }
+};
