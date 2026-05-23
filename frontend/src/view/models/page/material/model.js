@@ -10,6 +10,7 @@ import {
     PRINCIPLED_SURFACE_GROUPS, SURFACE_FIELD_MAP, SURFACE_FIELDS, TEXTURE_CHANNEL_OPTIONS, TEXTURE_COLOR_MODE_OPTIONS
 } from "@/view/models/page/material/surface/model";
 import {createGeometry} from "@/view/models/page/material/geometry/model";
+import {createLight} from "@/view/models/page/material/light/model";
 
 const PREVIEW_DEBOUNCE_MS = 220;
 
@@ -63,31 +64,6 @@ const mergeTextureSettingsForSlot = (slotKey, ...sources) => mergeTextureSetting
     { slot: slotKey },
     ...sources,
 );
-
-const createLight = () => ({
-    enabled: true,
-    lightType: "sun",
-    mode: "sun",
-    intensity: 1,
-    ambient: 0.34,
-    softness: 0.32,
-    color: "#fff4e6",
-    ambient_color: "#b3c7e6",
-    environment_color: "#b8d1ff",
-    range: 4,
-    radius: 0.25,
-    decay: 2,
-    innerCone: 0.35,
-    outerCone: 0.75,
-    castShadow: false,
-    temperature: 6500,
-    position_x: 0,
-    position_y: 1.4,
-    position_z: 2.8,
-    direction_x: -0.35,
-    direction_y: -0.65,
-    direction_z: 0.72,
-});
 
 const createCubeFace = (face, x, y, width = 0.25, height = 1 / 3) => ({
     face,
