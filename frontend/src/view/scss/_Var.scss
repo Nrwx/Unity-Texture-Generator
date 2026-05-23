@@ -106,8 +106,46 @@ $app_shadow_highlight_01: #07081499;
 $app_shadow_highlight_02: #7C5CFF2D;
 
 
-// SETTINGS //
+// SCROLLBAR START //
+$app_scrollbar_z_index: 999;
 $app_scrollbar_width: 12px;
 $app_scrollbar_radius: 999px;
 $app_scrollbar_inset: 6px;
 $app_scrollbar_right: 0;
+$app_scrollbar_page_scale: 0.5;
+$app_scrollbar_menu_scale: 0.333333;
+$app_scrollbar_approach_offset: 6px;
+$app_scrollbar_track_border: #FFFFFF13;
+$app_scrollbar_track_bg: #FFFFFF06;
+$app_scrollbar_track_glow: #61E6FF17;
+$app_scrollbar_track_shadow: #0000002E;
+$app_scrollbar_track_inner_light: #FFFFFF0C;
+$app_scrollbar_thumb_light_00: #FFFFFF47;
+$app_scrollbar_thumb_light_01: #FFFFFF0F;
+$app_scrollbar_thumb_light_02: #FFFFFF1F;
+$app_scrollbar_thumb_00: #99F6FFF5;
+$app_scrollbar_thumb_01: #61E6FFF0;
+$app_scrollbar_thumb_02: #6DD3FFE6;
+$app_scrollbar_thumb_03: #78A8FFDB;
+$app_scrollbar_thumb_shadow: #02061799;
+$app_scrollbar_thumb_glow_00: #61E6FF2E;
+$app_scrollbar_thumb_glow_01: #99F6FF1A;
+$app_scrollbar_thumb_inner_light: #FFFFFF57;
+$app_scrollbar_thumb_inner_dark: #00121829;
+$app_scrollbar_thumb_hover_shadow: #0206179E;
+$app_scrollbar_thumb_hover_glow_00: #61E6FF4D;
+$app_scrollbar_thumb_hover_glow_01: #99F6FF2E;
+$app_scrollbar_thumb_hover_inner_light: #FFFFFF66;
+$app_scrollbar_wave_light: #FFFFFF61;
+$app_scrollbar_wave_color: #7C5CFF6B;
+$app_scrollbar_wave_transparent: #7C5CFF00;
+$app_scrollbar_pulse_glow_from: #7C5CFF29;
+$app_scrollbar_pulse_glow_to: #7C5CFF57;
+$app_scrollbar_transition_fast: 160ms;
+$app_scrollbar_transition_default: 180ms;
+$app_scrollbar_transition_visible: 220ms;
+$app_scrollbar_wave_duration: 560ms;
+$app_scrollbar_pulse_duration: 760ms;
+$app_scrollbar_ease_out: cubic-bezier(0.2, 0.8, 0.2, 1);
+$app_scrollbar_ease_wave: cubic-bezier(0.18, 0.9, 0.22, 1);
+// SCROLLBAR END //

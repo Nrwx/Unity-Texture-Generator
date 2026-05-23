@@ -21,6 +21,9 @@ export function scrollbarModel(props, emit) {
     const hideDelay = 450;
     const isLoopRunning = ref(false);
     const lastPointerPosition = ref(0);
+    const approachDistance = () => 34;
+    const isWheelScrolling = ref(false);
+    const wheelTimer = ref(null);
 
     const isHorizontal = () => props.mode === "horizontal";
 
@@ -74,6 +77,34 @@ export function scrollbarModel(props, emit) {
         return delta;
     };
 
+    const hasScrollableContent = target => {
+        if (!target) return false;
+
+        return getScrollSize(target) > getClientSize(target);
+    };
+
+    const isPointerNearScrollbar = event => {
+        if (!el.value || !hasScrollableContent(el.value)) return false;
+
+        const rect = el.value.getBoundingClientRect();
+        const distance = approachDistance();
+
+        const x = event.clientX;
+        const y = event.clientY;
+
+        if (isHorizontal()) {
+            const insideX = x >= rect.left && x <= rect.right;
+            const nearBottom = y >= rect.bottom - distance && y <= rect.bottom + distance;
+
+            return insideX && nearBottom;
+        }
+
+        const insideY = y >= rect.top && y <= rect.bottom;
+        const nearRight = x >= rect.right - distance && x <= rect.right + distance;
+
+        return insideY && nearRight;
+    };
+
     /* -------------------------------------------------------
      * RAF LOOP
      * ----------------------------------------------------- */
@@ -85,15 +116,21 @@ export function scrollbarModel(props, emit) {
         const loop = () => {
             const now = performance.now();
 
+            if (isDrag.value) {
+                active.value = true;
+                lastActivity.value = now;
+
+                rafId.value = requestAnimationFrame(loop);
+                return;
+            }
+
             if (now - lastActivity.value > hideDelay) {
                 stopLoop();
 
-                // Pulse end
                 if (props.pulse && th.value) {
                     th.value.classList.remove("pulse-active");
                 }
 
-                // Wave animation
                 if (props.wave) {
                     wvActive.value = true;
                     setTimeout(() => (wvActive.value = false), 580);
@@ -122,6 +159,16 @@ export function scrollbarModel(props, emit) {
         if (!isLoopRunning.value) {
             startLoop();
         }
+    };
+
+    const hideScrollbar = () => {
+        stopLoop();
+
+        if (props.pulse && th.value) {
+            th.value.classList.remove("pulse-active");
+        }
+
+        active.value = false;
     };
 
     /* -------------------------------------------------------
@@ -164,8 +211,14 @@ export function scrollbarModel(props, emit) {
     const onScroll = () => {
         if (!el.value) return;
 
-        active.value = true;
         updateThumb(el.value);
+
+        if (props.hideOnWheel && isWheelScrolling.value) {
+            hideScrollbar();
+            return;
+        }
+
+        active.value = true;
 
         if (props.pulse && th.value) {
             th.value.classList.add("pulse-active");
@@ -187,6 +240,11 @@ export function scrollbarModel(props, emit) {
         e.preventDefault();
 
         active.value = true;
+
+        if (props.pulse && th.value) {
+            th.value.classList.add("pulse-active");
+        }
+
         markActivity();
     };
 
@@ -200,6 +258,8 @@ export function scrollbarModel(props, emit) {
         document.body.classList.remove("scrollbar-grabbing");
 
         isDrag.value = false;
+        active.value = true;
+
         markActivity();
     };
 
@@ -222,6 +282,34 @@ export function scrollbarModel(props, emit) {
         }
 
         e.preventDefault();
+    };
+
+    const onPointerApproach = e => {
+        if (isDrag.value || !el.value) return;
+
+        if (!isPointerNearScrollbar(e)) return;
+
+        active.value = true;
+        updateThumb(el.value);
+
+        markActivity();
+    };
+
+    const onWheel = () => {
+        isWheelScrolling.value = true;
+
+        if (wheelTimer.value) {
+            clearTimeout(wheelTimer.value);
+        }
+
+        wheelTimer.value = setTimeout(() => {
+            isWheelScrolling.value = false;
+            wheelTimer.value = null;
+        }, 80);
+
+        if (!props.hideOnWheel) return;
+
+        hideScrollbar();
     };
 
     const onResize = () => updateThumb(el.value);
@@ -250,6 +338,8 @@ export function scrollbarModel(props, emit) {
 
         updateThumb(el.value);
 
+        register("add", el.value, "wheel", onWheel, { passive: true });
+        register("add", document, "pointermove", onPointerApproach, { passive: true });
         register("add", el.value, "scroll", onScroll, { passive: true });
         register("add", window, "resize", onResize);
         register("add", th.value, "pointerdown", onPointerDown);
@@ -261,6 +351,9 @@ export function scrollbarModel(props, emit) {
 
     onBeforeUnmount(() => {
         stopLoop();
+        if (wheelTimer.value) {
+            clearTimeout(wheelTimer.value);
+        }
         document.body.classList.remove("scrollbar-grabbing");
         register("removeAll");
     });
@@ -292,6 +385,11 @@ export const scrollbarProps = {
     },
 
     pulse: {
+        type: Boolean,
+        default: true,
+    },
+    
+    hideOnWheel: {
         type: Boolean,
         default: true,
     },

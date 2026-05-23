@@ -4,49 +4,51 @@ $width: v.$app_scrollbar_width;
 $radius: v.$app_scrollbar_radius;
 $inset: v.$app_scrollbar_inset;
 $right: v.$app_scrollbar_right;
+$z-index: v.$app_scrollbar_z_index;
+
+$page-scale: v.$app_scrollbar_page_scale;
+$menu-scale: v.$app_scrollbar_menu_scale;
+
+$approach-offset: v.$app_scrollbar_approach_offset;
+
+$fast: v.$app_scrollbar_transition_fast;
+$default: v.$app_scrollbar_transition_default;
+$visible: v.$app_scrollbar_transition_visible;
+$wave-duration: v.$app_scrollbar_wave_duration;
+$pulse-duration: v.$app_scrollbar_pulse_duration;
+
+$ease-out: v.$app_scrollbar_ease_out;
+$ease-wave: v.$app_scrollbar_ease_wave;
+
+/* ==========================================================
+   SCROLL CONTAINERS
+   ========================================================== */
 
 .menu-scrollbar,
 .page-scrollbar {
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-}
-
-.menu-scrollbar.horizontal {
-  touch-action: pan-x;
-}
-
-.menu-scrollbar.vertical {
-  touch-action: pan-y;
-}
-
-.page-scrollbar.horizontal {
-  touch-action: pan-x;
-}
-
-.page-scrollbar.vertical {
-  touch-action: pan-y;
-}
-
-.scrollbar-track,
-.scrollbar-thumb {
-  touch-action: none;
-}
-
-.scrollbar-thumb {
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.menu-scrollbar,
-.page-scrollbar {
+  position: static !important;
+  overflow: auto;
   scroll-behavior: smooth;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  user-select: none;
 }
 
 .menu-scrollbar::-webkit-scrollbar,
 .page-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+.menu-scrollbar.horizontal,
+.page-scrollbar.horizontal {
+  touch-action: pan-x;
+}
+
+.menu-scrollbar.vertical,
+.page-scrollbar.vertical {
+  touch-action: pan-y;
 }
 
 /* ==========================================================
@@ -55,52 +57,70 @@ $right: v.$app_scrollbar_right;
 
 .scrollbar-track {
   position: absolute;
-  z-index: 999;
+  z-index: $z-index;
   pointer-events: none;
   cursor: default;
   opacity: 0;
+  will-change: opacity, transform, filter;
   transition:
-          opacity 220ms ease,
-          filter 180ms ease;
+          opacity $visible ease,
+          filter $default ease,
+          transform $default $ease-out;
+
+  &,
+  .scrollbar-thumb {
+    touch-action: none;
+  }
 
   &::before {
     position: absolute;
     inset: 0;
-    border: 1px solid rgba(255, 255, 255, 0.075);
+    content: "";
+    border: 1px solid v.$app_scrollbar_track_border;
     border-radius: inherit;
     background:
-            radial-gradient(circle at top, rgba(97, 230, 255, 0.09), transparent 54%),
-            rgba(255, 255, 255, 0.025);
+            radial-gradient(
+                            circle at top,
+                            v.$app_scrollbar_track_glow,
+                            transparent 54%
+            ),
+            v.$app_scrollbar_track_bg;
     box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.045),
-            0 8px 22px rgba(0, 0, 0, 0.18);
-    mask-image: linear-gradient(
-                    180deg,
-                    transparent 0%,
-                    #000 5%,
-                    #000 95%,
-                    transparent 100%
-    );
-    content: "";
+            inset 0 1px 0 v.$app_scrollbar_track_inner_light,
+            0 8px 22px v.$app_scrollbar_track_shadow;
+    mask-image:
+            linear-gradient(
+                            180deg,
+                            transparent 0%,
+                            #000 5%,
+                            #000 95%,
+                            transparent 100%
+            );
   }
 
   &.horizontal::before {
     background:
-            radial-gradient(circle at left, rgba(97, 230, 255, 0.09), transparent 54%),
-            rgba(255, 255, 255, 0.025);
-    mask-image: linear-gradient(
-                    90deg,
-                    transparent 0%,
-                    #000 5%,
-                    #000 95%,
-                    transparent 100%
-    );
+            radial-gradient(
+                            circle at left,
+                            v.$app_scrollbar_track_glow,
+                            transparent 54%
+            ),
+            v.$app_scrollbar_track_bg;
+    mask-image:
+            linear-gradient(
+                            90deg,
+                            transparent 0%,
+                            #000 5%,
+                            #000 95%,
+                            transparent 100%
+            );
   }
 
   &[data-active="true"] {
     opacity: 1;
     pointer-events: auto;
     filter: saturate(1.08);
+    transform: translate3d(0, 0, 0) !important;
   }
 
   &.vertical {
@@ -109,6 +129,7 @@ $right: v.$app_scrollbar_right;
     bottom: $inset;
     width: $width;
     border-radius: calc($width / 2);
+    transform: translate3d($approach-offset, 0, 0);
   }
 
   &.horizontal {
@@ -117,6 +138,7 @@ $right: v.$app_scrollbar_right;
     bottom: $right !important;
     height: $width;
     border-radius: calc($width / 2);
+    transform: translate3d(0, $approach-offset, 0);
   }
 }
 
@@ -128,33 +150,35 @@ $right: v.$app_scrollbar_right;
   position: absolute;
   z-index: 1;
   border-radius: $radius;
-  background:
-          linear-gradient(
-                          180deg,
-                          rgba(255, 255, 255, 0.28) 0%,
-                          rgba(255, 255, 255, 0.06) 22%,
-                          rgba(255, 255, 255, 0.12) 100%
-          ),
-          linear-gradient(
-                          180deg,
-                          rgba(153, 246, 255, 0.96) 0%,
-                          rgba(97, 230, 255, 0.94) 34%,
-                          rgba(109, 211, 255, 0.90) 68%,
-                          rgba(120, 168, 255, 0.86) 100%
-          );
-  box-shadow:
-          0 8px 30px rgba(2, 6, 23, 0.6),
-          0 0 12px rgba(97, 230, 255, 0.18),
-          0 0 26px rgba(153, 246, 255, 0.10),
-          inset 0 1px 0 rgba(255, 255, 255, 0.34),
-          inset 0 -1px 0 rgba(0, 18, 24, 0.16);
+  user-select: none;
+  -webkit-user-select: none;
   pointer-events: all;
   cursor: grab;
   will-change: transform, box-shadow, filter;
+  background:
+          linear-gradient(
+                          180deg,
+                          v.$app_scrollbar_thumb_light_00 0%,
+                          v.$app_scrollbar_thumb_light_01 22%,
+                          v.$app_scrollbar_thumb_light_02 100%
+          ),
+          linear-gradient(
+                          180deg,
+                          v.$app_scrollbar_thumb_00 0%,
+                          v.$app_scrollbar_thumb_01 34%,
+                          v.$app_scrollbar_thumb_02 68%,
+                          v.$app_scrollbar_thumb_03 100%
+          );
+  box-shadow:
+          0 8px 30px v.$app_scrollbar_thumb_shadow,
+          0 0 12px v.$app_scrollbar_thumb_glow_00,
+          0 0 26px v.$app_scrollbar_thumb_glow_01,
+          inset 0 1px 0 v.$app_scrollbar_thumb_inner_light,
+          inset 0 -1px 0 v.$app_scrollbar_thumb_inner_dark;
   transition:
-          transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
-          box-shadow 180ms ease,
-          filter 180ms ease;
+          transform $fast $ease-out,
+          box-shadow $default ease,
+          filter $default ease;
 
   &:active {
     cursor: grabbing;
@@ -167,10 +191,10 @@ $right: v.$app_scrollbar_right;
     &:hover {
       transform: scaleX(1.1);
       box-shadow:
-              0 10px 34px rgba(2, 6, 23, 0.62),
-              0 0 18px rgba(97, 230, 255, 0.30),
-              0 0 32px rgba(153, 246, 255, 0.18),
-              inset 0 1px 0 rgba(255, 255, 255, 0.40);
+              0 10px 34px v.$app_scrollbar_thumb_hover_shadow,
+              0 0 18px v.$app_scrollbar_thumb_hover_glow_00,
+              0 0 32px v.$app_scrollbar_thumb_hover_glow_01,
+              inset 0 1px 0 v.$app_scrollbar_thumb_hover_inner_light;
     }
   }
 
@@ -179,25 +203,25 @@ $right: v.$app_scrollbar_right;
     background:
             linear-gradient(
                             90deg,
-                            rgba(255, 255, 255, 0.28) 0%,
-                            rgba(255, 255, 255, 0.06) 22%,
-                            rgba(255, 255, 255, 0.12) 100%
+                            v.$app_scrollbar_thumb_light_00 0%,
+                            v.$app_scrollbar_thumb_light_01 22%,
+                            v.$app_scrollbar_thumb_light_02 100%
             ),
             linear-gradient(
                             90deg,
-                            rgba(153, 246, 255, 0.96) 0%,
-                            rgba(97, 230, 255, 0.94) 34%,
-                            rgba(109, 211, 255, 0.90) 68%,
-                            rgba(120, 168, 255, 0.86) 100%
+                            v.$app_scrollbar_thumb_00 0%,
+                            v.$app_scrollbar_thumb_01 34%,
+                            v.$app_scrollbar_thumb_02 68%,
+                            v.$app_scrollbar_thumb_03 100%
             );
 
     &:hover {
       transform: scaleY(1.1);
       box-shadow:
-              0 10px 34px rgba(2, 6, 23, 0.62),
-              0 0 18px rgba(97, 230, 255, 0.30),
-              0 0 32px rgba(153, 246, 255, 0.18),
-              inset 0 1px 0 rgba(255, 255, 255, 0.40);
+              0 10px 34px v.$app_scrollbar_thumb_hover_shadow,
+              0 0 18px v.$app_scrollbar_thumb_hover_glow_00,
+              0 0 32px v.$app_scrollbar_thumb_hover_glow_01,
+              inset 0 1px 0 v.$app_scrollbar_thumb_hover_inner_light;
     }
   }
 }
@@ -208,45 +232,45 @@ $right: v.$app_scrollbar_right;
 
 .scrollbar-thumb.wave {
   position: relative;
-}
 
-.scrollbar-thumb.wave::after {
-  content: "";
-  position: absolute;
-  width: calc($width * 2.35);
-  height: calc($width * 2.35);
-  border-radius: 50%;
-  background:
-          radial-gradient(
-                          circle,
-                          rgba(255, 255, 255, 0.38) 0%,
-                          rgba(124, 92, 255, 0.42) 26%,
-                          rgba(124, 92, 255, 0) 68%
-          );
-  opacity: 0;
-  pointer-events: none;
-  filter: blur(0.2px);
-}
+  &::after {
+    position: absolute;
+    content: "";
+    width: calc($width * 2.35);
+    height: calc($width * 2.35);
+    border-radius: 50%;
+    opacity: 0;
+    pointer-events: none;
+    filter: blur(0.2px);
+    background:
+            radial-gradient(
+                            circle,
+                            v.$app_scrollbar_wave_light 0%,
+                            v.$app_scrollbar_wave_color 26%,
+                            v.$app_scrollbar_wave_transparent 68%
+            );
+  }
 
-.scrollbar-thumb.wave.vertical::after {
-  left: 50%;
-  transform: translateX(-50%) scale(0);
-}
+  &.vertical::after {
+    left: 50%;
+    transform: translateX(-50%) scale(0);
+  }
 
-.scrollbar-thumb.wave.horizontal::after {
-  top: 50%;
-  transform: translateY(-50%) scale(0);
+  &.horizontal::after {
+    top: 50%;
+    transform: translateY(-50%) scale(0);
+  }
 }
 
 .scrollbar-thumb.waveActive.vertical::after {
-  animation: wave-vertical 560ms cubic-bezier(0.18, 0.9, 0.22, 1);
+  animation: scrollbar-wave-vertical $wave-duration $ease-wave;
 }
 
 .scrollbar-thumb.waveActive.horizontal::after {
-  animation: wave-horizontal 560ms cubic-bezier(0.18, 0.9, 0.22, 1);
+  animation: scrollbar-wave-horizontal $wave-duration $ease-wave;
 }
 
-@keyframes wave-vertical {
+@keyframes scrollbar-wave-vertical {
   0% {
     transform: translateX(-50%) scale(0.12);
     opacity: 0.72;
@@ -263,7 +287,7 @@ $right: v.$app_scrollbar_right;
   }
 }
 
-@keyframes wave-horizontal {
+@keyframes scrollbar-wave-horizontal {
   0% {
     transform: translateY(-50%) scale(0.12);
     opacity: 0.72;
@@ -285,51 +309,51 @@ $right: v.$app_scrollbar_right;
    ========================================================== */
 
 .scrollbar-thumb.pulse-active.vertical {
-  animation: sb-pulse-vertical 760ms ease-in-out infinite alternate;
+  animation: scrollbar-pulse-vertical $pulse-duration ease-in-out infinite alternate;
 }
 
 .scrollbar-thumb.pulse-active.horizontal {
-  animation: sb-pulse-horizontal 760ms ease-in-out infinite alternate;
+  animation: scrollbar-pulse-horizontal $pulse-duration ease-in-out infinite alternate;
 }
 
-@keyframes sb-pulse-vertical {
+@keyframes scrollbar-pulse-vertical {
   from {
     transform: translateY(0) scaleX(1);
     filter: brightness(1) saturate(1);
     box-shadow:
-            0 8px 30px rgba(2, 6, 23, 0.6),
-            0 0 10px rgba(124, 92, 255, 0.16);
+            0 8px 30px v.$app_scrollbar_thumb_shadow,
+            0 0 10px v.$app_scrollbar_pulse_glow_from;
   }
 
   to {
     transform: translateY(1px) scaleX(1.035);
     filter: brightness(1.1) saturate(1.14);
     box-shadow:
-            0 12px 38px rgba(2, 6, 23, 0.66),
-            0 0 26px rgba(124, 92, 255, 0.34);
+            0 12px 38px v.$app_scrollbar_thumb_hover_shadow,
+            0 0 26px v.$app_scrollbar_pulse_glow_to;
   }
 }
 
-@keyframes sb-pulse-horizontal {
+@keyframes scrollbar-pulse-horizontal {
   from {
     transform: translateX(0) scaleY(1);
     filter: brightness(1) saturate(1);
     box-shadow:
-            0 8px 30px rgba(2, 6, 23, 0.6),
-            0 0 10px rgba(124, 92, 255, 0.16);
+            0 8px 30px v.$app_scrollbar_thumb_shadow,
+            0 0 10px v.$app_scrollbar_pulse_glow_from;
   }
 
   to {
     transform: translateX(1px) scaleY(1.035);
     filter: brightness(1.1) saturate(1.14);
     box-shadow:
-            0 12px 38px rgba(2, 6, 23, 0.66),
-            0 0 26px rgba(124, 92, 255, 0.34);
+            0 12px 38px v.$app_scrollbar_thumb_hover_shadow,
+            0 0 26px v.$app_scrollbar_pulse_glow_to;
   }
 }
 
 /* ==========================================================
-   CURSOR
+   GRABBING CURSOR
    ========================================================== */
 
 .scrollbar-grabbing,
@@ -340,54 +364,46 @@ $right: v.$app_scrollbar_right;
 
 /* ==========================================================
    PAGE VARIANT
-   IMPORTANT:
-   direct child selector prevents nested menu-scrollbar override
+   Direct child selector prevents nested menu-scrollbar override.
    ========================================================== */
 
 .page-scrollbar {
-  position: static !important;
-  overflow: auto;
-
   > .scrollbar-track.vertical {
-    width: calc($width / 2) !important;
+    width: calc($width * $page-scale) !important;
 
     .scrollbar-thumb {
-      width: calc($width / 2) !important;
+      width: calc($width * $page-scale) !important;
     }
   }
 
   > .scrollbar-track.horizontal {
-    height: calc($width / 2) !important;
+    height: calc($width * $page-scale) !important;
 
     .scrollbar-thumb {
-      height: calc($width / 2) !important;
+      height: calc($width * $page-scale) !important;
     }
   }
 }
 
 /* ==========================================================
    MENU VARIANT
-   IMPORTANT:
-   comes after page-scrollbar and uses direct child selector
+   Comes after page-scrollbar and uses direct child selector.
    ========================================================== */
 
 .menu-scrollbar {
-  position: static !important;
-  overflow: auto;
-
   > .scrollbar-track.vertical {
-    width: calc($width / 3) !important;
+    width: calc($width * $menu-scale) !important;
 
     .scrollbar-thumb {
-      width: calc($width / 3) !important;
+      width: calc($width * $menu-scale) !important;
     }
   }
 
   > .scrollbar-track.horizontal {
-    height: calc($width / 3) !important;
+    height: calc($width * $menu-scale) !important;
 
     .scrollbar-thumb {
-      height: calc($width / 3) !important;
+      height: calc($width * $menu-scale) !important;
     }
   }
 }
