@@ -9,11 +9,29 @@ export function layerModel(props, emit) {
         return dragData.id.value !== null ? props.layers[dragData.id.value]?.id : null;
     });
     const tabIndex = ref(0)
-    const tabs = [
-        { name: 'Ebenen', icon: 'mdi-layers-outline', content: 'Content for Tab 5' },
-        { name: 'Kanäle', icon: 'mdi-card-multiple-outline', content: 'Content for Tab 1' },
-        { name: 'Pfade', icon: 'mdi-square-rounded-badge-outline', content: 'Content for Tab 2' },
-    ];
+    const tabs = computed(() => {
+        if (props.animatorState) {
+            return [
+                { name: "Layer", icon: "mdi-cube-outline", content: "Animator Material Layers" },
+                { name: "Transform", icon: "mdi-axis-arrow", content: "Selected Material Transform" },
+            ];
+        }
+
+        return [
+            { name: "Ebenen", icon: "mdi-layers-outline", content: "Content for Tab 5" },
+            { name: "Kanäle", icon: "mdi-card-multiple-outline", content: "Content for Tab 1" },
+            { name: "Pfade", icon: "mdi-square-rounded-badge-outline", content: "Content for Tab 2" },
+        ];
+    });
+
+    const visibleLayers = computed(() => {
+        if (props.animatorState) {
+            return (props.layers || []).filter(layer => Number(layer?.type) === 5);
+        }
+
+        return props.layers || [];
+    });
+
     const emitEvent = (event, payload) => {
         emit("component-event", event, payload);
     };
@@ -81,19 +99,23 @@ export function layerModel(props, emit) {
     }))
 
     const toggleLayerSelection = (layer) => {
-        let data = props.selectedLayer || [];
+        if (props.animatorState && Number(layer?.type) !== 5) {
+            return;
+        }
+
+        let data = [...(props.selectedLayer || [])];
         const index = data.findIndex(l => l.id === layer.id);
 
-        globalOpacity.value = layer.opacity * 100;
+        globalOpacity.value = Number(layer.opacity ?? 1) * 100;
         localData.selectedBlendMode.value = layer.blendMode;
 
         if (index === -1) {
             data.push(layer);
-            emitEvent('layer:select', data);
         } else {
             data.splice(index, 1);
-            emitEvent('layer:select', data);
         }
+
+        emitEvent('layer:select', data);
     };
 
     const handleDrop = (fromIndex, toIndex) => {
@@ -170,6 +192,7 @@ export function layerModel(props, emit) {
     });
 
     return {
+        visibleLayers,
         groupCollapse,
         shouldShowLayer,
         toggleGroupCollapse,
@@ -195,6 +218,11 @@ export const layerProps = {
     state: {
         type: Boolean,
         default: false
+    },
+    animatorState: {
+        type: Boolean,
+        required: false,
+        default: false,
     },
     layers: {
         type: Array,

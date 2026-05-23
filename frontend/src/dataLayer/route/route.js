@@ -35,7 +35,7 @@ export { fillModifier, resizeModifier, colorModifier, detailsModifier, effectsMo
 
 export { viewportSetup, fetchViewport } from "./viewport";
 
-export { updateExport } from "./export";
+export { updateExport, startMp4Export, appendMp4Frame, finishMp4Export } from "./export";
 
 export { materialPreview, createMaterialCube, exportBlenderMaterial, updateMaterial } from "./material";
 

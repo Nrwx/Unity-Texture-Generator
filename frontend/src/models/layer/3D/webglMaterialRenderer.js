@@ -741,34 +741,212 @@ const mat4Perspective = (fov, aspect, near, far) => {
     return out;
 };
 
+const mat4Orthographic = (left, right, bottom, top, near, far) => {
+    const lr = 1 / (left - right);
+    const bt = 1 / (bottom - top);
+    const nf = 1 / (near - far);
+    const out = new Float32Array(16);
+
+    out[0] = -2 * lr;
+    out[5] = -2 * bt;
+    out[10] = 2 * nf;
+    out[12] = (left + right) * lr;
+    out[13] = (top + bottom) * bt;
+    out[14] = (far + near) * nf;
+    out[15] = 1;
+
+    return out;
+};
+
 const mat4LookAt = (eye, center, up) => {
-    const z = normalize3([eye[0] - center[0], eye[1] - center[1], eye[2] - center[2]]);
+    const z = normalize3([
+        eye[0] - center[0],
+        eye[1] - center[1],
+        eye[2] - center[2],
+    ]);
+
     const x = normalize3([
         up[1] * z[2] - up[2] * z[1],
         up[2] * z[0] - up[0] * z[2],
         up[0] * z[1] - up[1] * z[0],
     ]);
+
     const y = [
         z[1] * x[2] - z[2] * x[1],
         z[2] * x[0] - z[0] * x[2],
         z[0] * x[1] - z[1] * x[0],
     ];
+
     const out = mat4Identity();
 
     out[0] = x[0];
     out[1] = y[0];
     out[2] = z[0];
+
     out[4] = x[1];
     out[5] = y[1];
     out[6] = z[1];
+
     out[8] = x[2];
     out[9] = y[2];
     out[10] = z[2];
+
     out[12] = -(x[0] * eye[0] + x[1] * eye[1] + x[2] * eye[2]);
     out[13] = -(y[0] * eye[0] + y[1] * eye[1] + y[2] * eye[2]);
     out[14] = -(z[0] * eye[0] + z[1] * eye[1] + z[2] * eye[2]);
 
     return out;
+};
+
+const asVec3Array = (value, fallback = [0, 0, 0]) => {
+    if (Array.isArray(value)) {
+        return [
+            toNumber(value[0], fallback[0]),
+            toNumber(value[1], fallback[1]),
+            toNumber(value[2], fallback[2]),
+        ];
+    }
+
+    if (value && typeof value === "object") {
+        return [
+            toNumber(value.x, fallback[0]),
+            toNumber(value.y, fallback[1]),
+            toNumber(value.z, fallback[2]),
+        ];
+    }
+
+    return fallback;
+};
+
+const clampNumber = (value, min, max, fallback = min) => {
+    const number = toNumber(value, fallback);
+
+    return Math.min(Math.max(number, min), max);
+};
+
+const resolveViewportCamera = ({
+                                   materialLayer,
+                                   viewportCamera,
+                                   width,
+                                   height,
+                               }) => {
+    const source =
+        viewportCamera ||
+        materialLayer?.viewport_camera ||
+        materialLayer?.settings?.viewport_camera ||
+        materialLayer?.preview?.viewport_camera ||
+        materialLayer?.shader?.viewport_camera ||
+        materialLayer?.material?.viewport_camera ||
+        null;
+
+    const aspect = Math.max(
+        0.0001,
+        toNumber(source?.aspect, width / Math.max(1, height))
+    );
+
+    if (!source || typeof source !== "object") {
+        return {
+            enabled: false,
+            projection: "perspective",
+            aspect,
+            fov: 42,
+            near: 0.01,
+            far: 1000,
+            position: [0, 0.18, 3.25],
+            target: [0, 0, 0],
+            up: [0, 1, 0],
+            orthographicScale: 5,
+        };
+    }
+
+    const projection = String(
+        source.projection ||
+        source.type ||
+        "perspective"
+    ).toLowerCase();
+
+    return {
+        enabled: true,
+
+        projection: projection === "orthographic" || projection === "ortho"
+            ? "orthographic"
+            : "perspective",
+
+        aspect,
+
+        fov: clampNumber(source.fov, 1, 175, 50),
+        near: Math.max(0.0001, toNumber(source.near, 0.01)),
+        far: Math.max(0.01, toNumber(source.far, 1000)),
+
+        radius: Math.max(0.0001, toNumber(source.radius, 4.6)),
+
+        orthographicScale: Math.max(
+            0.0001,
+            toNumber(
+                source.orthographic_scale ??
+                source.orthographicScale,
+                5
+            )
+        ),
+
+        position: asVec3Array(source.position, [0, 0.18, 3.25]),
+        target: asVec3Array(source.target, [0, 0, 0]),
+        up: normalize3(asVec3Array(source.up, [0, 1, 0])),
+    };
+};
+
+const buildCameraMatrices = ({
+                                 width,
+                                 height,
+                                 materialLayer,
+                                 viewportCamera,
+                             }) => {
+    const camera = resolveViewportCamera({
+        materialLayer,
+        viewportCamera,
+        width,
+        height,
+    });
+
+    const aspect = Math.max(
+        0.0001,
+        camera.aspect || width / Math.max(1, height)
+    );
+
+    const view = mat4LookAt(
+        camera.position,
+        camera.target,
+        camera.up
+    );
+
+    const projection = camera.projection === "orthographic"
+        ? (() => {
+            const halfHeight = camera.orthographicScale * 0.5;
+            const halfWidth = halfHeight * aspect;
+
+            return mat4Orthographic(
+                -halfWidth,
+                halfWidth,
+                -halfHeight,
+                halfHeight,
+                camera.near,
+                camera.far
+            );
+        })()
+        : mat4Perspective(
+            camera.fov * Math.PI / 180,
+            aspect,
+            camera.near,
+            camera.far
+        );
+
+    return {
+        camera,
+        view,
+        projection,
+        viewProj: mat4Multiply(projection, view),
+        cameraPos: camera.position,
+    };
 };
 
 const mat4RotateY = angle => {
@@ -793,6 +971,19 @@ const mat4RotateX = angle => {
     out[6] = s;
     out[9] = -s;
     out[10] = c;
+
+    return out;
+};
+
+const mat4RotateZ = angle => {
+    const out = mat4Identity();
+    const c = Math.cos(angle);
+    const s = Math.sin(angle);
+
+    out[0] = c;
+    out[1] = s;
+    out[4] = -s;
+    out[5] = c;
 
     return out;
 };
@@ -1188,6 +1379,7 @@ export class WebGLMaterialRenderer {
             alpha: true,
             antialias: true,
             premultipliedAlpha: false,
+            preserveDrawingBuffer: true,
         });
         this.ready = false;
         this.program = null;
@@ -1568,26 +1760,54 @@ export class WebGLMaterialRenderer {
         });
     }
 
-    buildMatrices(width, height, geometry, rotation) {
-        const aspect = Math.max(width / Math.max(height, 1), 0.01);
-        const projection = mat4Perspective(Math.PI / 4.2, aspect, 0.05, 30);
-        const camera = [0, 0.18, 3.25];
-        const view = mat4LookAt(camera, [0, 0, 0], [0, 1, 0]);
-        const viewProj = mat4Multiply(projection, view);
+    buildMatrices(width, height, geometry, rotation = 0, materialLayer = null, viewportCamera = null) {
         const scale = mat4Scale(
             toNumber(geometry?.width, 1) * toNumber(geometry?.scale_x, 1),
             toNumber(geometry?.height, 1) * toNumber(geometry?.scale_y, 1),
             toNumber(geometry?.depth, 1) * toNumber(geometry?.scale_z, 1)
         );
-        const rx = mat4RotateX(-0.34 + (toNumber(geometry?.rotation_x, 0) * Math.PI / 180));
-        const ry = mat4RotateY(rotation + (toNumber(geometry?.rotation_y, 0) * Math.PI / 180));
-        const model = mat4Multiply(ry, mat4Multiply(rx, scale));
+
+        const rx = mat4RotateX(
+            -0.34 +
+            toNumber(geometry?.rotation_x, 0) * Math.PI / 180
+        );
+
+        const ry = mat4RotateY(
+            toNumber(rotation, 0) +
+            toNumber(geometry?.rotation_y, 0) * Math.PI / 180
+        );
+
+        const rz = mat4RotateZ(
+            toNumber(geometry?.rotation_z, 0) * Math.PI / 180
+        );
+
+        const model = mat4Multiply(
+            rz,
+            mat4Multiply(
+                ry,
+                mat4Multiply(rx, scale)
+            )
+        );
+
+        const cameraMatrices = buildCameraMatrices({
+            width,
+            height,
+            materialLayer,
+            viewportCamera,
+        });
 
         return {
             model,
-            viewProj,
+            viewProj: cameraMatrices.viewProj,
             normalMatrix: mat3FromMat4(model),
-            camera,
+
+            // Wichtig:
+            // Bestehende Render-Pfade nutzen teils "camera",
+            // der Shader braucht aber uCameraPos.
+            camera: cameraMatrices.cameraPos,
+            cameraPos: cameraMatrices.cameraPos,
+
+            viewportCamera: cameraMatrices.camera,
         };
     }
 
@@ -1779,6 +1999,10 @@ export class WebGLMaterialRenderer {
             light,
             objectTextureSettings,
             rotation,
+
+            // Animator / World-Orbit Camera
+            viewportCamera = null,
+
             previewOverlay = {},
             resolveSurfaceForFace,
             getTextureForFace,
@@ -1786,9 +2010,11 @@ export class WebGLMaterialRenderer {
             getAlphaTextureForFace,
             getParticleTextureForLayer,
         } = options;
+
         const gl = this.gl;
         const useObjectTextures = shouldUseObjectTextures(previewOverlay);
         const wireframeMaterialAlpha = previewOverlay?.wireframe === true ? 0.2 : 1;
+
         this.canvas.width = Math.round(width * dpr);
         this.canvas.height = Math.round(height * dpr);
         this.canvas.style.width = `${width}px`;
@@ -1805,12 +2031,23 @@ export class WebGLMaterialRenderer {
             gl.disable(gl.CULL_FACE);
         }
 
-        const matrices = this.buildMatrices(width, height, materialLayer.geometry || {}, rotation);
+        const matrices = this.buildMatrices(
+            width,
+            height,
+            materialLayer.geometry || {},
+            rotation,
+            materialLayer,
+            viewportCamera
+        );
+
+        const cameraPos = matrices.cameraPos || matrices.camera || [0, 0.18, 3.25];
+
         const lightDirection = normalize3([
             toNumber(light.direction_x, -0.35),
             toNumber(light.direction_y, -0.65),
             toNumber(light.direction_z, 0.72),
         ]);
+
         const alphaMode = objectTextureSettings.alpha_mode === "OPAQUE"
             ? 0
             : objectTextureSettings.alpha_mode === "CLIP"
@@ -1825,8 +2062,14 @@ export class WebGLMaterialRenderer {
             materialLayer.geometry?.fluid?.enabled === true ||
             materialLayer.mesh?.fluid?.enabled === true
         );
-        const showFluidMesh = materialLayer.preview?.fluid_mesh !== false && materialLayer.settings?.fluid_mesh_preview !== false;
-        const showFluidParticles = materialLayer.preview?.fluid_particles !== false && materialLayer.settings?.fluid_particle_preview !== false;
+
+        const showFluidMesh =
+            materialLayer.preview?.fluid_mesh !== false &&
+            materialLayer.settings?.fluid_mesh_preview !== false;
+
+        const showFluidParticles =
+            materialLayer.preview?.fluid_particles !== false &&
+            materialLayer.settings?.fluid_particle_preview !== false;
 
         if (materialLayer.particle_system?.enabled === true && !volumeLayeredPreview) {
             return this.drawParticlePass({
@@ -1856,6 +2099,7 @@ export class WebGLMaterialRenderer {
         gl.useProgram(this.program);
 
         const materialMesh = this.getRenderMesh(materialLayer.mesh);
+
         const drawEntries = materialMesh
             ? materialMesh.parts.map(part => ({
                 faceName: part.faceName || part.materialSlot || part.name || "front",
@@ -1873,10 +2117,12 @@ export class WebGLMaterialRenderer {
         const revealParticlesThroughVolumeAlpha = volumeLayeredPreview && showFluidParticles && drawEntries.some(entry => {
             const faceName = entry.faceName;
             const faceSurface = resolveSurfaceForFace(surface, materialLayer, faceName);
+
             const baseTexture = resolvePreviewTexture(
                 useObjectTextures,
                 () => getTextureForFace(materialLayer, faceName)
             );
+
             const alphaTexture = resolvePreviewTexture(
                 useObjectTextures,
                 () => getAlphaTextureForFace?.(materialLayer, faceName) || getTextureForSlotFace("alpha", faceName)
@@ -1898,12 +2144,14 @@ export class WebGLMaterialRenderer {
                 getParticleTextureForLayer,
                 ignoreDepth: true,
             });
+
             gl.useProgram(this.program);
         }
 
         drawEntries.forEach(entry => {
             const faceName = entry.faceName;
             const faceSurface = resolveSurfaceForFace(surface, materialLayer, faceName);
+
             const slotTexture = slot => resolvePreviewTexture(
                 useObjectTextures,
                 () => getTextureForSlotFace(slot, faceName)
@@ -1968,6 +2216,7 @@ export class WebGLMaterialRenderer {
                     invert: slot.invert === true || texture.invert === true ? 1 : 0,
                 };
             };
+
             const textureParams = (slotKey, texture) => {
                 const slot = materialLayer.bitmap_maps?.[slotKey] || {};
 
@@ -1977,6 +2226,7 @@ export class WebGLMaterialRenderer {
                     invert: slot.invert === true || texture?.invert === true ? 1 : 0,
                 };
             };
+
             const baseParams = slotParams("baseColor", "base_color");
             const alphaParams = textureParams("alpha", alphaTexture);
             const roughnessParams = slotParams("roughness");
@@ -1992,13 +2242,16 @@ export class WebGLMaterialRenderer {
             const normalParams = slotParams("normal", "clearcoatNormal");
             const bumpParams = slotParams("bumpStrength", "bump_strength");
             const displacementParams = slotParams("displacementStrength", "displacement_strength");
+
             const hasDisplacementTexture = mapEnabled(useObjectTextures, displacementTexture) === 1;
             const hasBumpTexture = mapEnabled(useObjectTextures, slotTexture("bumpStrength")) === 1;
 
             const heightParams = hasDisplacementTexture && !hasBumpTexture
                 ? displacementParams
                 : bumpParams;
+
             const lightType = String(light.lightType || light.light_type || light.mode || "sun").toLowerCase();
+
             const lightTypeIndex = lightType === "directional"
                 ? 1
                 : lightType === "point"
@@ -2008,6 +2261,7 @@ export class WebGLMaterialRenderer {
                         : lightType === "area"
                             ? 4
                             : 0;
+
             if (alphaMode === 2 && clamp01(faceSurface.alpha) < objectTextureSettings.alpha_clip) {
                 return;
             }
@@ -2033,6 +2287,7 @@ export class WebGLMaterialRenderer {
                 uModel: matrices.model,
                 uViewProj: matrices.viewProj,
                 uNormalMatrix: matrices.normalMatrix,
+
                 uUseBaseMap: mapEnabled(useObjectTextures, baseTexture),
                 uUseAlphaMap: mapEnabled(useObjectTextures, alphaTexture),
                 uUseNormalMap: mapEnabled(useObjectTextures, normalTexture),
@@ -2048,115 +2303,186 @@ export class WebGLMaterialRenderer {
                 uUseIorMap: mapEnabled(useObjectTextures, iorTexture),
                 uUseSheenMap: mapEnabled(useObjectTextures, sheenTexture),
                 uUseClearcoatRoughnessMap: mapEnabled(useObjectTextures, clearcoatRoughnessTexture),
+
                 uAlphaMode: alphaMode,
+
                 uBaseColor: toColor4(faceSurface.baseColor),
                 uSubsurfaceColor: toColor4(faceSurface.subsurfaceColor),
                 uEmissionColor: toColor4(faceSurface.emission),
+
                 uAlpha: (
                     objectTextureSettings.alpha_mode === "OPAQUE" && !revealFaceAlpha
                         ? 1
                         : clamp01(faceSurface.alpha)
                 ) * wireframeMaterialAlpha,
+
                 uAlphaClip: toNumber(objectTextureSettings.alpha_clip, 0.5),
+
                 uBaseStrength: baseParams.strength,
                 uBaseOffset: baseParams.offset,
                 uBaseInvert: baseParams.invert,
+
                 uAlphaStrength: alphaParams.strength,
                 uAlphaOffset: alphaParams.offset,
                 uAlphaInvert: alphaParams.invert,
                 uAlphaMapSource: resolveAlphaMapSource(alphaTexture),
+
                 uRoughness: clamp01(faceSurface.roughness),
                 uRoughnessStrength: roughnessParams.strength,
                 uRoughnessOffset: roughnessParams.offset,
                 uRoughnessInvert: roughnessParams.invert,
+
                 uMetallic: clamp01(faceSurface.metallic),
                 uMetallicStrength: metallicParams.strength,
                 uMetallicOffset: metallicParams.offset,
                 uMetallicInvert: metallicParams.invert,
+
                 uSpecular: clamp01(faceSurface.specular),
                 uSpecularStrength: specularParams.strength,
                 uSpecularOffset: specularParams.offset,
                 uSpecularInvert: specularParams.invert,
                 uSpecularTint: clamp01(faceSurface.specularTint),
+
                 uIor: Math.min(Math.max(toNumber(faceSurface.ior, 1.45), 1), 4),
+
                 uSubsurface: clamp01(faceSurface.subsurface),
                 uSubsurfaceStrength: subsurfaceParams.strength,
                 uSubsurfaceOffset: subsurfaceParams.offset,
                 uSubsurfaceInvert: subsurfaceParams.invert,
                 uSubsurfaceRadius: toColor3(faceSurface.subsurfaceRadius),
+
                 uTransmission: clamp01(faceSurface.transmission),
                 uTransmissionStrength: transmissionParams.strength,
                 uTransmissionOffset: transmissionParams.offset,
                 uTransmissionInvert: transmissionParams.invert,
+
                 uTransmissionRoughness: clamp01(faceSurface.transmissionRoughness),
                 uTransmissionRoughnessStrength: transmissionRoughnessParams.strength,
                 uTransmissionRoughnessOffset: transmissionRoughnessParams.offset,
                 uTransmissionRoughnessInvert: transmissionRoughnessParams.invert,
+
                 uAnisotropic: clamp01(faceSurface.anisotropic),
                 uAnisotropicRotation: clamp01(faceSurface.anisotropicRotation),
+
                 uSheen: clamp01(faceSurface.sheen),
                 uSheenStrength: sheenParams.strength,
                 uSheenOffset: sheenParams.offset,
                 uSheenInvert: sheenParams.invert,
                 uSheenTint: clamp01(faceSurface.sheenTint),
+
                 uClearcoat: clamp01(faceSurface.clearcoat),
                 uClearcoatStrength: clearcoatParams.strength,
                 uClearcoatOffset: clearcoatParams.offset,
                 uClearcoatInvert: clearcoatParams.invert,
+
                 uClearcoatRoughness: clamp01(faceSurface.clearcoatRoughness),
                 uClearcoatRoughnessStrength: clearcoatRoughnessParams.strength,
                 uClearcoatRoughnessOffset: clearcoatRoughnessParams.offset,
                 uClearcoatRoughnessInvert: clearcoatRoughnessParams.invert,
+
                 uEmissionStrength: Math.min(Math.max(toNumber(faceSurface.emissionStrength, 0), 0), 10),
+
                 uNormalStrength: mapEnabled(useObjectTextures, normalTexture)
                     ? Math.min(Math.max(Math.abs(normalParams.strength), 0), 2)
                     : Math.max(clamp01(faceSurface.normal), clamp01(faceSurface.clearcoatNormal)),
+
                 uNormalStrengthInput: normalParams.strength,
                 uNormalInvert: normalParams.invert,
+
                 uBumpStrength: mapEnabled(useObjectTextures, bumpTexture)
                     ? Math.min(Math.max(Math.abs(heightParams.strength), 0), 2) * 0.28
                     : clamp01(faceSurface.bumpStrength) * 0.2,
+
                 uBumpStrengthInput: heightParams.strength,
                 uBumpOffset: heightParams.offset,
                 uBumpInvert: heightParams.invert,
+
                 uDiffuseRoughness: clamp01(faceSurface.diffuseRoughness ?? faceSurface.diffuse_roughness),
-                uSubsurfaceScale: Math.min(Math.max(toNumber(faceSurface.subsurfaceScale ?? faceSurface.subsurface_scale, 1), 0), 50),
-                uSubsurfaceIor: Math.min(Math.max(toNumber(faceSurface.subsurfaceIor ?? faceSurface.subsurface_ior ?? faceSurface.ior, 1.45), 1), 4),
+
+                uSubsurfaceScale: Math.min(
+                    Math.max(toNumber(faceSurface.subsurfaceScale ?? faceSurface.subsurface_scale, 1), 0),
+                    50
+                ),
+
+                uSubsurfaceIor: Math.min(
+                    Math.max(toNumber(faceSurface.subsurfaceIor ?? faceSurface.subsurface_ior ?? faceSurface.ior, 1.45), 1),
+                    4
+                ),
+
                 uSubsurfaceAnisotropy: clamp01(faceSurface.subsurfaceAnisotropy ?? faceSurface.subsurface_anisotropy),
-                uCoatIor: Math.min(Math.max(toNumber(faceSurface.coatIor ?? faceSurface.clearcoatIor ?? faceSurface.coat_ior, 1.5), 1), 2),
-                uCoatTint: toColor3(faceSurface.coatTint || faceSurface.clearcoatTint || faceSurface.coat_tint || [1, 1, 1]),
+
+                uCoatIor: Math.min(
+                    Math.max(toNumber(faceSurface.coatIor ?? faceSurface.clearcoatIor ?? faceSurface.coat_ior, 1.5), 1),
+                    2
+                ),
+
+                uCoatTint: toColor3(
+                    faceSurface.coatTint ||
+                    faceSurface.clearcoatTint ||
+                    faceSurface.coat_tint ||
+                    [1, 1, 1]
+                ),
+
                 uSheenRoughness: clamp01(faceSurface.sheenRoughness ?? faceSurface.sheen_roughness ?? 0.5),
-                uThinFilmThickness: Math.min(Math.max(toNumber(faceSurface.thinFilmThickness ?? faceSurface.thin_film_thickness, 0), 0), 1200),
-                uThinFilmIor: Math.min(Math.max(toNumber(faceSurface.thinFilmIor ?? faceSurface.thin_film_ior, 1.33), 1), 2),
+
+                uThinFilmThickness: Math.min(
+                    Math.max(toNumber(faceSurface.thinFilmThickness ?? faceSurface.thin_film_thickness, 0), 0),
+                    1200
+                ),
+
+                uThinFilmIor: Math.min(
+                    Math.max(toNumber(faceSurface.thinFilmIor ?? faceSurface.thin_film_ior, 1.33), 1),
+                    2
+                ),
+
                 uTangentStrength: clamp01(faceSurface.tangent),
+
                 uIorStrength: iorParams.strength,
                 uIorOffset: iorParams.offset,
                 uIorInvert: iorParams.invert,
-                uMaskThreshold: Math.min(Math.max(toNumber(materialLayer.settings?.mask_threshold ?? light.mask_threshold, 0.5), 0), 1),
-                uCameraPos: matrices.camera,
+
+                uMaskThreshold: Math.min(
+                    Math.max(toNumber(materialLayer.settings?.mask_threshold ?? light.mask_threshold, 0.5), 0),
+                    1
+                ),
+
+                // Wichtig: Animator / World-Orbit Kamera
+                uCameraPos: cameraPos,
+
                 uLightType: lightTypeIndex,
+
                 uLightPos: [
                     toNumber(light.position_x, 0),
                     toNumber(light.position_y, 1.4),
                     toNumber(light.position_z, 2.8),
                 ],
+
                 uLightDir: lightDirection,
                 uLightColor: toHexColor3(light.color, [1, 0.96, 0.9]),
-                uLightIntensity: light.enabled === false ? 0 : toNumber(light.intensity, 1) * 4.2,
+
+                uLightIntensity: light.enabled === false
+                    ? 0
+                    : toNumber(light.intensity, 1) * 4.2,
+
                 uLightRange: Math.min(Math.max(toNumber(light.range, 4), 0.001), 100),
                 uLightDecay: Math.min(Math.max(toNumber(light.decay, 2), 0), 4),
                 uLightRadius: Math.min(Math.max(toNumber(light.radius, 0.25), 0), 10),
+
                 uInnerCone: Math.min(Math.max(toNumber(light.innerCone ?? light.inner_cone, 0.35), 0), 1),
                 uOuterCone: Math.min(Math.max(toNumber(light.outerCone ?? light.outer_cone, 0.75), 0), 1),
+
                 uAmbientColor: toHexColor3(light.ambient_color, [0.7, 0.78, 0.9]),
                 uAmbientIntensity: light.enabled === false ? 1 : toNumber(light.ambient, 0.34),
+
                 uEnvironmentColor: toHexColor3(light.environment_color, [0.72, 0.82, 1]),
+
                 uReflectionIntensity: 1,
                 uGlossIntensity: 1,
                 uTransmissionLight: 1,
                 uRimIntensity: 1,
                 uExposure: 1,
                 uContrast: 1,
+
                 uScreenSpaceRefraction: objectTextureSettings.screen_space_refraction ? 1 : 0,
                 uRefractionDepth: Math.min(Math.max(toNumber(objectTextureSettings.refraction_depth, 0), 0), 10),
                 uSubsurfaceTranslucency: objectTextureSettings.subsurface_translucency ? 1 : 0,

@@ -20,6 +20,13 @@ export const exportData = ref({
         exportStart: 0,
         exportEnd: 100,
         timelineFps: 30,
+        videoResolution: 1024,
+        videoProfile: 'main',
+        videoPreset: 'normal',
+        videoEncoding: 'crf',
+        videoBitrate: 8000,
+        videoCrf: 16,
+        useFileSystem: true,
     }
 );
 

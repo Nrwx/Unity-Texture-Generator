@@ -59,11 +59,11 @@
       >
         <div v-for="(tab, index) in tabs" :key="tab.name" v-show="tabIndex === index">
           <!-- Layer-Liste -->
-          <v-list density="comfortable" two-line class="layer-list overflow-hidden" v-show="tabIndex === 0 && layers.length > 0" bg-color="transparent">
-            <Drag :items="layers" :on-drop="handleDrop" @update:drag-event="emitEvent">
+          <v-list density="comfortable" two-line class="layer-list overflow-hidden" v-show="tabIndex === 0 && visibleLayers.length > 0" bg-color="transparent">
+            <Drag :items="visibleLayers" :on-drop="handleDrop" @update:drag-event="emitEvent">
               <template #default>
                 <v-list-item
-                    v-for="(layer) in layers"
+                    v-for="(layer) in visibleLayers"
                     v-show="shouldShowLayer(layer)"
                     :key="layer.time"
                     :disabled="windowStates.drag.value && dragId === layer.id"
@@ -172,7 +172,7 @@
               icon
               color="#DCFDD4"
               size="x-small"
-              :disabled="!layers.length"
+              :disabled="!visibleLayers.length"
               @click="emitEvent('renderer:preview')"
           >
             <v-icon color="black">mdi-printer</v-icon>

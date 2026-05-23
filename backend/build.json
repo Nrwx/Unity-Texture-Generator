@@ -18,7 +18,7 @@
     "project_name": "unity-texture-generator"
   },
   "dependencies": {
-    "last_build": "2026-05-23T12:59:38.347627Z",
+    "last_build": "2026-05-23T16:36:29.385876Z",
     "config": {
       "library_policy": {
         "auto_update": true,
@@ -573,9 +573,45 @@
             "timelineTime",
             "exportStart",
             "exportEnd",
-            "timelineFps"
+            "timelineFps",
+            "videoResolution",
+            "videoProfile",
+            "videoPreset",
+            "videoEncoding",
+            "videoBitrate",
+            "videoCrf",
+            "useFileSystem"
           ],
           "function": "update"
+        },
+        "start-mp4": {
+          "keys": [
+            "title",
+            "timelineFps",
+            "frameCount",
+            "videoResolution",
+            "videoProfile",
+            "videoPreset",
+            "videoEncoding",
+            "videoBitrate",
+            "videoCrf",
+            "useFileSystem"
+          ],
+          "function": "start_mp4_session"
+        },
+        "append-mp4-frame": {
+          "keys": [
+            "sessionId",
+            "frameIndex",
+            "frameTime"
+          ],
+          "function": "append_mp4_frame"
+        },
+        "finish-mp4": {
+          "keys": [
+            "sessionId"
+          ],
+          "function": "finish_mp4_session"
         }
       },
       "api": {

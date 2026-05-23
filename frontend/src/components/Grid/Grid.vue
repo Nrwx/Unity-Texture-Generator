@@ -20,8 +20,21 @@
             :style="grid.container.style"
             :id="grid.container.id"
         >
+          <Animator
+              v-if="animatorState"
+              :selected-layers="selectedLayer"
+              :orbit-settings="ui.animator"
+              :timeline="timeline"
+              :mini-timeline="miniTimeline"
+              :timeline-play="timelinePlay"
+              :timeline-time="time"
+              :viewport="viewport"
+              :settings="settings"
+              @update:component-event="emitEvent"
+          />
+
           <!-- Zentrale Inhalte im Canvas -->
-          <div class="canvas-content overflow-hidden transparent">
+          <div v-else class="canvas-content overflow-hidden transparent">
 
             <Image
                 :layers="layers"
@@ -36,36 +49,40 @@
                 :timeline-time="time"
             />
 
-            <div v-if="!selectedLayer.length" class="center-crosshair"></div>
+            <template v-if="!exportState">
+              <div v-if="!selectedLayer.length" class="center-crosshair"></div>
 
-            <Text :state="text" @update:component-event="emitEvent" :layer="textLayer"/>
+              <Text :state="text" @update:component-event="emitEvent" :layer="textLayer"/>
 
-            <Edit :state="editText" :layer="editTextLayer" @update:component-event="emitEvent"/>
-            <!-- Formzeichnung -->
-            <Path :viewport="viewport" :state="pathDrag" :selected="selectedPath" :mouse="cursor" @update:component-event="emitEvent"/>
-            <!-- Zeichnung -->
-            <Brush @update:write-ui="writeUi" :wrapper="grid.main.id" :selected-layer="selectedLayer[selectedLayer.length - 1]" :brush-menu="ui.brush.menu.active" :current-brush="ui.brush.cursor.current" :eraser="eraser" :canvas-id="brushCanvasId" :mouse="cursor" :cursor="brushCursor" :viewport="viewport" :brushes="brushes" :state="brush" :drawing="drawing" :data="brushSettings" @update:component-event="emitEvent"/>
-            <!-- Pfadzeichnung -->
-            <Pen :mouse="cursor" :bezier="bezier" :viewport="viewport" :state="pen" :path-import="pathImport" :path-layer="pathLayer" :loading="loading" :path-state="penPathState" :theme="theme" @update:component-event="emitEvent"/>
+              <Edit :state="editText" :layer="editTextLayer" @update:component-event="emitEvent"/>
+              <!-- Formzeichnung -->
+              <Path :viewport="viewport" :state="pathDrag" :selected="selectedPath" :mouse="cursor" @update:component-event="emitEvent"/>
+              <!-- Zeichnung -->
+              <Brush @update:write-ui="writeUi" :wrapper="grid.main.id" :selected-layer="selectedLayer[selectedLayer.length - 1]" :brush-menu="ui.brush.menu.active" :current-brush="ui.brush.cursor.current" :eraser="eraser" :canvas-id="brushCanvasId" :mouse="cursor" :cursor="brushCursor" :viewport="viewport" :brushes="brushes" :state="brush" :drawing="drawing" :data="brushSettings" @update:component-event="emitEvent"/>
+              <!-- Pfadzeichnung -->
+              <Pen :mouse="cursor" :bezier="bezier" :viewport="viewport" :state="pen" :path-import="pathImport" :path-layer="pathLayer" :loading="loading" :path-state="penPathState" :theme="theme" @update:component-event="emitEvent"/>
+            </template>
           </div>
 
-          <SelectVector
-              v-if="selectedLayer.length && !editText"
-              :frameBox="frameBox"
-              :anchor="anchorScreen"
-              @resize="startResize"
-              @rotate="startRotate"
-              @anchor="startAnchorDrag"
-          />
+          <template v-if="!animatorState && !exportState">
+            <SelectVector
+                v-if="selectedLayer.length && !editText"
+                :frameBox="frameBox"
+                :anchor="anchorScreen"
+                @resize="startResize"
+                @rotate="startRotate"
+                @anchor="startAnchorDrag"
+            />
 
-          <!-- Brush-Cursor -->
-          <Cursor
-              v-if="brush && cursorVector?.paths?.length"
-              :brush="brush"
-              :brush-settings="brushSettings"
-              :cursor-vector="cursorVector"
-              :position="ui.brush.cursor.position"
-          />
+            <!-- Brush-Cursor -->
+            <Cursor
+                v-if="brush && cursorVector?.paths?.length"
+                :brush="brush"
+                :brush-settings="brushSettings"
+                :cursor-vector="cursorVector"
+                :position="ui.brush.cursor.position"
+            />
+          </template>
         </div>
 
         <!-- Brush-Menu -->
@@ -88,7 +105,6 @@
           :always-show="true"
           :docked="false"
       />
-
       <!-- Selection Box -->
       <Selection
           :state="select"
@@ -145,6 +161,7 @@ import Menu from "@/components/Brush/Menu";
 import Box from "@/components/Selection/Box";
 import Cursor from "@/components/Brush/Cursor";
 import Edit from "@/components/Text/Edit";
+import Animator from "@/view/page/Material/Animator/Animator";
 
 export default defineComponent({
   name: "GridComponent",
@@ -163,7 +180,8 @@ export default defineComponent({
     Control,
     Status,
     Menu,
-    Box
+    Box,
+    Animator
   },
   setup(props, { emit }) {
     const model = gridModel(props, emit);

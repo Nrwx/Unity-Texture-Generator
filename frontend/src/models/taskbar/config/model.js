@@ -261,6 +261,26 @@ export const taskbarItemCenter = [
         event: 'material-editor:state'
     },
     {
+        position: 'left',
+        id: uuid(),
+        title: 'Animator',
+        subtitle: 'World Orbit für 3D Material-Layer...',
+        icon: 'mdi-orbit',
+        tooltip: 'Animator',
+        active: false,
+        hidden: computed(() => {
+            return !(Array.isArray(localData.layers.value) &&
+                localData.layers.value.some(layer => Number(layer?.type) === 5));
+        }),
+        badge: {
+            content: computed(() => {
+                return localData.selectedLayer.value.filter(layer => Number(layer?.type) === 5).length;
+            }),
+            dot: true
+        },
+        event: 'animator:state',
+    },
+    {
         position: 'center',
         id: uuid(),
         icon: 'mdi-view-dashboard',

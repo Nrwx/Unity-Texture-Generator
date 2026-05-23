@@ -12,6 +12,7 @@ export const windowStates = {
     drawerLeft: ref(false),
     drawerRight: ref(false),
     drawerCenter: ref(false),
+    animator: ref(false),
     export: ref(false),
     layer: ref(false),
     mixer: ref(false),

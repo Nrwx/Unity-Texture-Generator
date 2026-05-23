@@ -5,6 +5,8 @@ import base64
 import html
 import re
 import math
+import json
+import shutil
 from copy import deepcopy
 from io import BytesIO
 from urllib.parse import urlparse, unquote
@@ -24,6 +26,8 @@ from typing import Dict, Any, Optional, Iterable, Callable
 
 
 class ExportModel(BaseModel):
+    MP4_SESSION_PREFIX = "mp4-session-"
+
     @classmethod
     def _nvcompress(cls):
         try:
@@ -812,7 +816,7 @@ class ExportModel(BaseModel):
     def _frame_times(cls, start_time, end_time):
         start = cls._to_float(start_time, 0.0)
         end = cls._to_float(end_time, start)
-        frame_count = max(1, int(abs(end - start)) + 1)
+        frame_count = max(1, int(round(abs(end - start))))
 
         if frame_count == 1:
             return [start]
@@ -866,6 +870,196 @@ class ExportModel(BaseModel):
 
         return None
 
+    @classmethod
+    def _mp4_session_folder(cls, session_id):
+        safe_id = re.sub(r"[^a-zA-Z0-9_-]", "", str(session_id or ""))
+
+        if not safe_id:
+            return ""
+
+        return cls._safe_public_path(
+            PUBLIC_TEMP_UPLOAD_FOLDER,
+            f"{cls.MP4_SESSION_PREFIX}{safe_id}",
+        )
+
+    @classmethod
+    def _write_session_manifest(cls, folder, data):
+        with open(os.path.join(folder, "manifest.json"), "w", encoding="utf-8") as file:
+            json.dump(data, file, ensure_ascii=False, indent=2)
+
+    @classmethod
+    def _read_session_manifest(cls, folder):
+        path = os.path.join(folder, "manifest.json")
+
+        if not os.path.exists(path):
+            return {}
+
+        with open(path, "r", encoding="utf-8") as file:
+            return json.load(file)
+
+    @classmethod
+    def start_mp4_session(
+        cls,
+        title,
+        timelineFps=30,
+        frameCount=0,
+        videoResolution=1024,
+        videoProfile="main",
+        videoPreset="normal",
+        videoEncoding="crf",
+        videoBitrate=8000,
+        videoCrf=16,
+        useFileSystem=True,
+    ):
+        try:
+            session_id = str(uuid.uuid4())
+            folder = cls._mp4_session_folder(session_id)
+
+            if not folder:
+                return {"error": "Invalid MP4 session id."}, 400
+
+            os.makedirs(folder, exist_ok=True)
+
+            manifest = {
+                "id": session_id,
+                "title": title or "export",
+                "fps": max(1, min(cls._to_int(timelineFps, 30), 240)),
+                "frame_count": max(0, cls._to_int(frameCount, 0)),
+                "resolution": cls._to_int(videoResolution, 1024),
+                "profile": str(videoProfile or "main"),
+                "preset": str(videoPreset or "normal"),
+                "encoding": str(videoEncoding or "crf"),
+                "bitrate": max(1, cls._to_int(videoBitrate, 8000)),
+                "crf": max(0, min(cls._to_int(videoCrf, 16), 51)),
+                "use_filesystem": cls._to_bool(useFileSystem, True),
+            }
+
+            cls._write_session_manifest(folder, manifest)
+
+            return {
+                "sessionId": session_id,
+                "frameCount": manifest["frame_count"],
+                "fps": manifest["fps"],
+            }, 200
+
+        except Exception as error:
+            return cls.handle_error(error)
+
+    @classmethod
+    def append_mp4_frame(cls, sessionId, frameIndex=0, frameTime=0, files=None):
+        try:
+            folder = cls._mp4_session_folder(sessionId)
+
+            if not folder or not os.path.isdir(folder):
+                return {"error": "MP4 session not found."}, 404
+
+            if not files or "frame" not in files:
+                return {"error": "MP4 frame file is missing."}, 400
+
+            index = max(0, cls._to_int(frameIndex, 0))
+            frame_file = files["frame"]
+            filename = f"frame_{index:06d}.png"
+            target = cls._safe_public_path(folder, filename)
+
+            if not target:
+                return {"error": "Invalid MP4 frame path."}, 400
+
+            frame_file.save(target)
+
+            manifest = cls._read_session_manifest(folder)
+            frame_count = max(1, cls._to_int(manifest.get("frame_count"), index + 1))
+            progress = min(99, round(((index + 1) / frame_count) * 100))
+
+            return {
+                "sessionId": sessionId,
+                "frameIndex": index,
+                "frameTime": cls._to_float(frameTime, 0),
+                "progress": progress,
+            }, 200
+
+        except Exception as error:
+            return cls.handle_error(error)
+
+    @classmethod
+    def finish_mp4_session(cls, sessionId):
+        try:
+            folder = cls._mp4_session_folder(sessionId)
+
+            if not folder or not os.path.isdir(folder):
+                return {"error": "MP4 session not found."}, 404
+
+            manifest = cls._read_session_manifest(folder)
+            frame_paths = sorted(
+                os.path.join(folder, filename)
+                for filename in os.listdir(folder)
+                if filename.startswith("frame_") and filename.lower().endswith(".png")
+            )
+
+            if not frame_paths:
+                return {"error": "No MP4 frames uploaded."}, 400
+
+            export_id = str(uuid.uuid4())
+            preview_id = str(uuid.uuid4())
+            title = manifest.get("title") or "export"
+            filename_base = f"{title}_{export_id}"
+            export_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER, f"{filename_base}.mp4")
+            preview_path = os.path.join(PUBLIC_TEMP_UPLOAD_FOLDER, f"{preview_id}.png")
+            fps = max(1, min(cls._to_int(manifest.get("fps"), 30), 240))
+
+            first = cv2.imread(frame_paths[0], cv2.IMREAD_COLOR)
+
+            if first is None:
+                return {"error": "First MP4 frame could not be read."}, 500
+
+            height, width = first.shape[:2]
+            writer = cv2.VideoWriter(
+                export_path,
+                cv2.VideoWriter_fourcc(*"mp4v"),
+                fps,
+                (width, height),
+            )
+
+            if not writer.isOpened():
+                return {"error": "MP4 writer could not be initialized."}, 500
+
+            try:
+                for frame_path in frame_paths:
+                    frame = cv2.imread(frame_path, cv2.IMREAD_COLOR)
+
+                    if frame is None:
+                        continue
+
+                    if frame.shape[1] != width or frame.shape[0] != height:
+                        frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_AREA)
+
+                    writer.write(frame)
+            finally:
+                writer.release()
+
+            shutil.copyfile(frame_paths[-1], preview_path)
+
+            if not cls._to_bool(manifest.get("use_filesystem"), True):
+                shutil.rmtree(folder, ignore_errors=True)
+
+            return {
+                "src": f"/download/{preview_id}.png",
+                "file": f"/download/{filename_base}.mp4",
+                "title": title,
+                "id": export_id,
+                "frames": len(frame_paths),
+                "encoding": {
+                    "profile": manifest.get("profile"),
+                    "preset": manifest.get("preset"),
+                    "mode": manifest.get("encoding"),
+                    "bitrate": manifest.get("bitrate"),
+                    "crf": manifest.get("crf"),
+                    "backend": "opencv-mp4v",
+                },
+            }, 200
+
+        except Exception as error:
+            return cls.handle_error(error)
+
     # -------------------------------------------------------------------------
     # Export
     # -------------------------------------------------------------------------
@@ -894,6 +1088,13 @@ class ExportModel(BaseModel):
         exportStart=0,
         exportEnd=100,
         timelineFps=30,
+        videoResolution=1024,
+        videoProfile="main",
+        videoPreset="normal",
+        videoEncoding="crf",
+        videoBitrate=8000,
+        videoCrf=16,
+        useFileSystem=True,
     ):
         try:
             if not LAYERS:

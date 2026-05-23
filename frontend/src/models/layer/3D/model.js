@@ -522,7 +522,96 @@ export function layer3DModel(props, emit) {
         emit("component-event", event, payload);
     };
 
+    const shouldPauseLayerAnimation = (materialLayer = null) => {
+        if (materialLayer && isAnimatorViewport(materialLayer)) {
+            return false;
+        }
+
+        return (
+            props.pauseWebgl === true ||
+            props.exportState === true
+        );
+    };
+
+    const resolveExportAnimationTime = materialLayer => {
+        if (props.exportState !== true) {
+            return null;
+        }
+
+        const rawTime =
+            props.layer?.time ??
+            materialLayer?.time ??
+            materialLayer?.particle_system?.time ??
+            materialLayer?.particle_system?.age ??
+            0;
+
+        const time = Number(rawTime);
+
+        return Number.isFinite(time) ? time : 0;
+    };
+
+    const resolveRotationSpeedPerSecond = materialLayer => {
+        const raw =
+            materialLayer?.preview?.idle_rotation?.speed_per_second ??
+            materialLayer?.preview?.idle_rotation?.speedPerSecond ??
+            materialLayer?.preview?.idle_rotation?.speed ??
+            0.006;
+
+        return Number.isFinite(Number(raw)) ? Number(raw) : 0.006;
+    };
+
+    const applyDeterministicExportTime = materialLayer => {
+        const animationTime = resolveExportAnimationTime(materialLayer);
+
+        if (animationTime === null) {
+            return false;
+        }
+
+        if (particleSystemEnabled(materialLayer)) {
+            const system = materialLayer.particle_system || {};
+            const lifetime = Math.max(0.1, Number(system.lifetime) || 1);
+            const speed = Math.max(0, Number(system.time_scale) || 1);
+
+            particleAge = (animationTime * speed) % lifetime;
+        }
+
+        if (shouldRotatePreview(materialLayer)) {
+            const speed = resolveRotationSpeedPerSecond(materialLayer);
+            rotation = animationTime * speed;
+        }
+
+        return true;
+    };
+
+    const hasObjectKeys = value => (
+        value &&
+        typeof value === "object" &&
+        Object.keys(value).length > 0
+    );
+
+    const pickViewportCamera = layer => {
+        const candidates = [
+            layer?.viewport_camera,
+            layer?.settings?.viewport_camera,
+            layer?.preview?.viewport_camera,
+            layer?.shader?.viewport_camera,
+            layer?.material?.viewport_camera,
+        ];
+
+        for (const candidate of candidates) {
+            const parsed = parsePlainObject(candidate);
+
+            if (hasObjectKeys(parsed)) {
+                return parsed;
+            }
+        }
+
+        return {};
+    };
+
     const resolveMaterialLayer = layer => {
+        const viewportCamera = pickViewportCamera(layer);
+
         const packageData = parsePlainObject(materialPackage);
         const material = parsePlainObject(packageData.values || materialPackage || layer?.values || layer?.material || {});
         const shader = parsePlainObject(layer?.shader || material.shader || {});
@@ -530,64 +619,94 @@ export function layer3DModel(props, emit) {
 
         return {
             ...clonePlain(material),
+
             surface: {
                 ...parsePlainObject(material.principled_bsdf),
                 ...parsePlainObject(material.surface),
                 ...parsePlainObject(layer?.surface),
             },
+
             geometry: {
                 ...parsePlainObject(material.geometry),
                 ...parsePlainObject(shader.geometry),
                 ...parsePlainObject(layer?.geometry),
             },
+
             mesh: {
                 ...parsePlainObject(material.mesh),
                 ...parsePlainObject(shader.mesh),
                 ...parsePlainObject(layer?.mesh),
             },
+
             particle_system: {
                 ...parsePlainObject(material.particle_system),
                 ...parsePlainObject(shader.particle_system),
                 ...parsePlainObject(layer?.particle_system),
             },
+
             light: {
                 ...parsePlainObject(material.light),
                 ...parsePlainObject(shader.light),
                 ...parsePlainObject(settings.light),
                 ...parsePlainObject(layer?.light),
             },
+
             bitmap_maps: {
                 ...parsePlainObject(material.bitmap_maps),
                 ...parsePlainObject(shader.bitmap_maps),
                 ...parsePlainObject(layer?.bitmap_maps),
             },
+
             uv: {
                 ...parsePlainObject(material.uv),
                 ...parsePlainObject(shader.uv),
                 ...parsePlainObject(layer?.uv),
             },
+
             shader_graph: {
                 ...parsePlainObject(material.shader_graph),
                 ...parsePlainObject(shader.graph),
                 ...parsePlainObject(layer?.shader_graph),
             },
+
             preview: {
                 ...parsePlainObject(material.preview),
                 ...parsePlainObject(layer?.preview),
+                viewport_camera: viewportCamera,
             },
+
+            viewport_camera: viewportCamera,
+
             settings: {
                 ...settings,
                 ...parsePlainObject(layer?.settings),
+                viewport_camera: viewportCamera,
             },
         };
     };
 
     const particleSystemEnabled = layer => layer?.particle_system?.enabled === true;
 
+    const isAnimatorViewport = materialLayer => (
+        materialLayer?.settings?.animator_viewport === true ||
+        materialLayer?.viewport_camera?.mode === "world_orbit" ||
+        materialLayer?.preview?.viewport_camera?.mode === "world_orbit"
+    );
+
+    const hasViewportCamera = materialLayer => (
+        hasObjectKeys(materialLayer?.viewport_camera) ||
+        hasObjectKeys(materialLayer?.settings?.viewport_camera) ||
+        hasObjectKeys(materialLayer?.preview?.viewport_camera)
+    );
+
     const shouldRotatePreview = materialLayer => (
-        materialLayer?.preview?.idle_rotation?.enabled === true ||
-        materialLayer?.preview?.rotate === true ||
-        materialLayer?.settings?.rotate_preview === true
+        props.exportState !== true &&
+        !isAnimatorViewport(materialLayer) &&
+        (
+            materialLayer?.preview?.idle_rotation?.enabled === true ||
+            materialLayer?.preview?.rotate === true ||
+            materialLayer?.settings?.rotate_preview === true
+        )
     );
 
     const resolveAnimatedMaterialLayer = materialLayer => {
@@ -1362,6 +1481,12 @@ export function layer3DModel(props, emit) {
             return false;
         }
 
+        const viewportCamera =
+            materialLayer?.viewport_camera ||
+            materialLayer?.settings?.viewport_camera ||
+            materialLayer?.preview?.viewport_camera ||
+            materialLayer?.shader?.viewport_camera ||
+            null;
         const surface = normalizeSurface(materialLayer);
         const light = resolveLight(materialLayer);
         const objectTextureSettings = resolveObjectTextureSettings(materialLayer);
@@ -1380,6 +1505,7 @@ export function layer3DModel(props, emit) {
                 light,
                 objectTextureSettings,
                 rotation,
+                viewportCamera,
                 previewOverlay: resolvePreviewOverlaySettings(materialLayer),
                 resolveSurfaceForFace,
                 getTextureForFace,
@@ -1600,11 +1726,15 @@ export function layer3DModel(props, emit) {
         }
 
         const materialLayer = resolveMaterialLayer(props.layer);
+
         const hasParticles = particleSystemEnabled(materialLayer);
         const shouldRotate = shouldRotatePreview(materialLayer);
+        const shouldRenderCamera = isAnimatorViewport(materialLayer) && hasViewportCamera(materialLayer);
+
         const shouldAnimate =
             hasParticles ||
-            shouldRotate;
+            shouldRotate ||
+            shouldRenderCamera;
 
         if (!shouldAnimate) {
             frameId = null;
@@ -1614,20 +1744,33 @@ export function layer3DModel(props, emit) {
         const delta = lastFrameTime
             ? Math.min(Math.max((frameTime - lastFrameTime) / 1000, 0), 0.08)
             : 0;
+
         lastFrameTime = frameTime;
 
-        if (hasParticles) {
+        const didApplyExportTime = applyDeterministicExportTime(materialLayer);
+
+        if (!didApplyExportTime && hasParticles && !shouldPauseLayerAnimation(materialLayer)) {
             const system = materialLayer.particle_system || {};
             const lifetime = Math.max(0.1, Number(system.lifetime) || 1);
             const speed = Math.max(0, Number(system.time_scale) || 1);
+
             particleAge = (particleAge + delta * speed) % lifetime;
         }
 
-        if (shouldRotate) {
+        if (shouldRotate && !shouldPauseLayerAnimation(materialLayer)) {
             rotation += materialLayer?.preview?.idle_rotation?.speed || 0.006;
         }
 
+        // Wichtig:
+        // Auch wenn keine Particles/Rotation laufen, rendert der Animator hier
+        // jede Kameraänderung kontinuierlich neu.
         draw();
+
+        if (shouldPauseLayerAnimation(materialLayer) && !shouldRenderCamera) {
+            frameId = null;
+            running = false;
+            return;
+        }
 
         frameId = requestAnimationFrame(loop);
     };
@@ -1654,19 +1797,27 @@ export function layer3DModel(props, emit) {
         }
 
         running = true;
-        particleAge = Number(resolveMaterialLayer(props.layer)?.particle_system?.age || 0);
-        lastFrameTime = performance.now();
-
-        // wichtig: immer einmal zeichnen, auch ohne Rotation
-        draw();
 
         const materialLayer = resolveMaterialLayer(props.layer);
+        const didApplyExportTime = applyDeterministicExportTime(materialLayer);
+
+        if (!didApplyExportTime) {
+            particleAge = Number(materialLayer?.particle_system?.age || 0);
+        }
+
+        lastFrameTime = performance.now();
+
+        draw();
+
         const shouldRotate = shouldRotatePreview(materialLayer);
+        const shouldRenderCamera = isAnimatorViewport(materialLayer) && hasViewportCamera(materialLayer);
+
         const shouldAnimate =
             particleSystemEnabled(materialLayer) ||
-            shouldRotate;
+            shouldRotate ||
+            shouldRenderCamera;
 
-        if (shouldAnimate) {
+        if (shouldAnimate && (!shouldPauseLayerAnimation(materialLayer) || shouldRenderCamera)) {
             frameId = requestAnimationFrame(loop);
         }
     };
@@ -1688,6 +1839,12 @@ export function layer3DModel(props, emit) {
         () => [props.layer?.id,
             props.layer?.time,
             props.layer?.url,
+            props.exportState,
+            props.pauseWebgl,
+            props.layer?.settings?.animator_viewport,
+            props.layer?.viewport_camera?.mode,
+            props.layer?.settings?.viewport_camera?.mode,
+            props.layer?.preview?.viewport_camera?.mode,
             props.layer?.texture?.url,
             props.layer?.texture?.thumbnail,
             props.layer?.texture?.lod_url,
@@ -1759,6 +1916,14 @@ export const layer3DProps = {
         type: [Boolean, Number],
         required: false,
         default: false,
+    },
+    exportState: {
+        type: Boolean,
+        required: true,
+    },
+    pauseWebgl: {
+        type: Boolean,
+        required: true,
     },
     selected: {
         type: Boolean,

@@ -46,16 +46,17 @@
       <!-- 🧊 3D Material-Layer -->
       <Layer3D
           v-else-if="layer.type === 5"
-          :key="layer.time"
-          :layer="layer"
+          :key="layer.id"
+          :layer="getLiveLayer(layer)"
           :hidden="layer.hidden"
+          :export-state="exportState"
+          :pause-webgl="exportState"
           :selected="selectedLayer.includes(layer)"
           :rotate="layer?.preview?.idle_rotation?.enabled === true"
           class="absolute"
           :data-context-id="layer.id"
           :style="getLayer3DStyle(layer)"
           @click="emitSelectLayer(layer, $event)"
-          @component-event="emitEvent"
       />
     </template>
   </v-col>

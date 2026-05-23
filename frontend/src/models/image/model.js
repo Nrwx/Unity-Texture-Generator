@@ -141,17 +141,31 @@ export function imageModel(props, emit) {
 
     const liveLayerById = computed(() => {
         const map = {};
-        const t = (props.timeline || props.miniTimeline || props.timelinePlay) ? localTime.value : null;
+        const t = (
+            props.exportState ||
+            props.timeline ||
+            props.miniTimeline ||
+            props.timelinePlay
+        ) ? localTime.value : null;
 
         for (const layer of props.layers || []) {
-            if (t === null || !Array.isArray(layer.keyframes) || layer.keyframes.length === 0) {
+            if (t === null) {
                 map[layer.id] = layer;
+                continue;
+            }
+
+            if (!Array.isArray(layer.keyframes) || layer.keyframes.length === 0) {
+                map[layer.id] = {
+                    ...layer,
+                    time: t,
+                };
                 continue;
             }
 
             const state = interpolateLayerAtTime(layer, t);
             map[layer.id] = {
                 ...layer,
+                time: t,
                 opacity: state.opacity ?? layer.opacity ?? 1,
                 matrix: state.matrix ?? normalizeMatrix(layer.matrix ?? DEFAULT_MATRIX),
             };
@@ -299,6 +313,10 @@ export const imageProps = {
         required: true,
     },
     fillState: {
+        type: Boolean,
+        required: true,
+    },
+    exportState: {
         type: Boolean,
         required: true,
     },

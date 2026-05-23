@@ -380,4 +380,7 @@ export const windowStateEvent = (route) => ({
             route.loadingStates.material.value = false;
         }
     },
+    "animator:state": async (payload) => {
+        route.windowStates.animator.value = payload;
+    },
 });

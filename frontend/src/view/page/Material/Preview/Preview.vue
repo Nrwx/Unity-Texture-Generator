@@ -4,6 +4,8 @@
         v-if="config.state"
         :layer="config.layer.ref"
         :rotate="config.layer.idle"
+        :pause-webgl="!config.state"
+        :export-state="false"
         :selected="false"
         class="layer relative w-h"
     />
