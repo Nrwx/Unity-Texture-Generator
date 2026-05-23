@@ -304,7 +304,7 @@
         <section class="mem-workspace">
           <nav class="mem-tabs">
             <button
-                v-for="tab in tabs"
+                v-for="tab in ui.material.tabs"
                 :key="tab.key"
                 type="button"
                 class="mem-tab"

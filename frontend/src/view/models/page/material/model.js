@@ -22,18 +22,6 @@ import {createParticleSystem} from "@/view/models/page/material/particleSystem/m
 
 const PREVIEW_DEBOUNCE_MS = 220;
 
-const TABS = [
-    { key: "surface", title: "Surface", icon: "mdi-tune-variant" },
-    { key: "geometry", title: "Geometry", icon: "mdi-cube-outline" },
-    { key: "particleSystem", title: "Particle System", icon: "mdi-particle" },
-    { key: "physics", title: "Physics", icon: "mdi-atom" },
-    { key: "light", title: "Light", icon: "mdi-lightbulb-spot" },
-    { key: "uv", title: "UV", icon: "mdi-vector-square" },
-    { key: "shader", title: "Shader", icon: "mdi-graph-outline" },
-    { key: "export", title: "Export", icon: "mdi-export-variant" },
-    { key: "settings", title: "Settings", icon: "mdi-cog" },
-];
-
 const PRINCIPLED_NODE_INPUT_KEYS = PRINCIPLED_SURFACE_GROUPS.map(group => group.key);
 
 const createShaderNode = (nodeKey, position = { x: 280, y: 140 }) => {
@@ -523,6 +511,17 @@ export function materialEditorModel(props, emit) {
             category: "Math",
         },
         material: {
+            tabs:[
+                { key: "surface", title: "Surface", icon: "mdi-tune-variant" },
+                { key: "geometry", title: "Geometry", icon: "mdi-cube-outline" },
+                { key: "particleSystem", title: "Particle System", icon: "mdi-particle" },
+                { key: "physics", title: "Physics", icon: "mdi-atom" },
+                { key: "light", title: "Light", icon: "mdi-lightbulb-spot" },
+                { key: "uv", title: "UV", icon: "mdi-vector-square" },
+                { key: "shader", title: "Shader", icon: "mdi-graph-outline" },
+                { key: "export", title: "Export", icon: "mdi-export-variant" },
+                { key: "settings", title: "Settings", icon: "mdi-cog" },
+            ],
             header: {
                 title: 'Material Editor',
                 icon: 'mdi-cube-scan',
@@ -3560,7 +3559,7 @@ export function materialEditorModel(props, emit) {
                     ...node,
                     id: "principled-bsdf",
                     type: "Shader",
-                    locked: node.locked === true,
+                    locked: false,
                     position: getNodePosition(node, base.position),
                     inputs: base.inputs,
                     outputs: base.outputs,
@@ -3582,7 +3581,7 @@ export function materialEditorModel(props, emit) {
                     ...node,
                     id: "material-output",
                     type: "Output",
-                    locked: node.locked === true,
+                    locked: false,
                     position: getNodePosition(node, base.position),
                     inputs: base.inputs,
                     outputs: {},
@@ -3620,9 +3619,7 @@ export function materialEditorModel(props, emit) {
                 ...node,
                 type: definition.type,
                 label: node.label || definition.label,
-                locked: node.generated === true && node.system === "uv-cubemap"
-                    ? false
-                    : node.locked === true,
+                locked: false,
                 position: getNodePosition(node, node.position || { x: 280, y: 140 }),
                 ...nodeIO,
                 settings,
@@ -6141,7 +6138,12 @@ export function materialEditorModel(props, emit) {
     };
 
     const syncGeometryVolumeShaderGraph = () => {
-        ensureCoreNodes();
+        const outputNode = getGraphNode("material-output");
+        const principledNode = getGraphNode("principled-bsdf");
+
+        if (!outputNode || !principledNode) {
+            return;
+        }
 
         const volume = Volume.create(values.geometry.volume || {});
         const fluid = Fluid.create(values.geometry.fluid || {});
@@ -6178,25 +6180,37 @@ export function materialEditorModel(props, emit) {
             )
             : volumeNode;
 
-        if (fluid.enabled && targetNode) {
+        if (!targetNode) {
+            return;
+        }
+
+        if (fluid.enabled) {
             connectEdgeUnique(
                 { node: volumeNode.id, socket: "volume" },
                 { node: targetNode.id, socket: "volume" },
-                { generated: true, system: "geometry-fluid" },
+                {
+                    generated: true,
+                    system: "geometry-fluid",
+                    replaceInput: true,
+                },
             );
         }
 
         values.shader_graph.edges = values.shader_graph.edges.filter(edge => !(
             edge.generated === true &&
             ["geometry-volume", "geometry-fluid"].includes(edge.system) &&
-            edge.to.node === "material-output" &&
-            edge.to.socket === "surface"
+            edge.to.node === outputNode.id &&
+            ["surface", "volume"].includes(edge.to.socket)
         ));
 
         connectEdgeUnique(
             { node: targetNode.id, socket: "volume" },
-            { node: "material-output", socket: "volume" },
-            { generated: true, system: fluid.enabled ? "geometry-fluid" : "geometry-volume" },
+            { node: outputNode.id, socket: "volume" },
+            {
+                generated: true,
+                system: fluid.enabled ? "geometry-fluid" : "geometry-volume",
+                replaceInput: true,
+            },
         );
     };
 
@@ -6542,8 +6556,6 @@ export function materialEditorModel(props, emit) {
         ui,
         values,
         previewLayer,
-
-        tabs: TABS,
         surfaceFields: SURFACE_FIELDS,
         surfaceGroups: PRINCIPLED_SURFACE_GROUPS,
         nodeTypeGroups,
