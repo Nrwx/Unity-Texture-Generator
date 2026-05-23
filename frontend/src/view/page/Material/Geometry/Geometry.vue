@@ -172,6 +172,101 @@
       </div>
     </section>
 
+    <section class="mem-geometry-card">
+      <header>
+        <strong>Volume</strong>
+        <small>Mesh-basiertes Innenvolumen fuer Shader und Partikelbindung.</small>
+      </header>
+
+      <label class="mem-toggle-card" :class="{ active: state.geometry.volume?.enabled }">
+        <span class="mem-toggle-icon">
+          <v-icon>mdi-cube-scan</v-icon>
+        </span>
+
+        <span class="mem-toggle-text">
+          <strong>Geometry Volume</strong>
+          <small>Bindet ein berechnetes Volumen an die aktuelle Mesh-Geometrie.</small>
+        </span>
+
+        <v-switch
+            :model-value="state.geometry.volume?.enabled"
+            hide-details
+            @update:model-value="setVolumeBoolean('enabled', $event)"
+        />
+      </label>
+
+      <v-select
+          :model-value="state.geometry.volume?.mode"
+          :items="volumeModeOptions"
+          label="Volume Mode"
+          density="compact"
+          hide-details
+          @update:model-value="setVolumeValue('mode', $event)"
+      />
+
+      <div class="mem-geometry-vector">
+        <v-text-field :model-value="state.geometry.volume?.resolution" label="Resolution" type="number" :min="4" :max="256" density="compact" hide-details @update:model-value="setVolumeNumber('resolution', $event)" />
+        <v-text-field :model-value="state.geometry.volume?.density" label="Density" type="number" :min="0" density="compact" hide-details @update:model-value="setVolumeNumber('density', $event)" />
+        <v-text-field :model-value="state.geometry.volume?.shell_thickness" label="Shell" type="number" :min="0" density="compact" hide-details @update:model-value="setVolumeNumber('shell_thickness', $event)" />
+      </div>
+
+      <v-select
+          :model-value="state.geometry.volume?.falloff"
+          :items="volumeFalloffOptions"
+          label="Falloff"
+          density="compact"
+          hide-details
+          @update:model-value="setVolumeValue('falloff', $event)"
+      />
+
+      <div class="mem-geometry-switch-row">
+        <v-switch :model-value="state.geometry.volume?.particle_bind" label="Particle Bind" hide-details @update:model-value="setVolumeBoolean('particle_bind', $event)" />
+        <v-switch :model-value="state.geometry.volume?.shader_bind" label="Shader Bind" hide-details @update:model-value="setVolumeBoolean('shader_bind', $event)" />
+      </div>
+    </section>
+
+    <section class="mem-geometry-card">
+      <header>
+        <strong>Fluid Dynamics</strong>
+        <small>Volumenfeld fuer Smoke, Fire, Mist, Liquid und Particle Advection.</small>
+      </header>
+
+      <label class="mem-toggle-card" :class="{ active: state.geometry.fluid?.enabled }">
+        <span class="mem-toggle-icon">
+          <v-icon>mdi-waves</v-icon>
+        </span>
+
+        <span class="mem-toggle-text">
+          <strong>Fluid Field</strong>
+          <small>Aktiviert ein Fluid-Feld innerhalb des Mesh-Volumes.</small>
+        </span>
+
+        <v-switch
+            :model-value="state.geometry.fluid?.enabled"
+            :disabled="!state.geometry.volume?.enabled"
+            hide-details
+            @update:model-value="setFluidBoolean('enabled', $event)"
+        />
+      </label>
+
+      <div class="mem-geometry-vector compact">
+        <v-select :model-value="state.geometry.fluid?.type" :items="fluidTypeOptions" label="Fluid" density="compact" hide-details @update:model-value="setFluidValue('type', $event)" />
+        <v-select :model-value="state.geometry.fluid?.solver" :items="fluidSolverOptions" label="Solver" density="compact" hide-details @update:model-value="setFluidValue('solver', $event)" />
+      </div>
+
+      <div class="mem-geometry-vector">
+        <v-text-field :model-value="state.geometry.fluid?.viscosity" label="Viscosity" type="number" :min="0" :step="0.01" density="compact" hide-details @update:model-value="setFluidNumber('viscosity', $event)" />
+        <v-text-field :model-value="state.geometry.fluid?.buoyancy" label="Buoyancy" type="number" :step="0.01" density="compact" hide-details @update:model-value="setFluidNumber('buoyancy', $event)" />
+        <v-text-field :model-value="state.geometry.fluid?.vorticity" label="Vorticity" type="number" :min="0" :step="0.01" density="compact" hide-details @update:model-value="setFluidNumber('vorticity', $event)" />
+      </div>
+
+      <div class="mem-geometry-vector">
+        <v-text-field :model-value="state.geometry.fluid?.turbulence" label="Turbulence" type="number" :min="0" :step="0.01" density="compact" hide-details @update:model-value="setFluidNumber('turbulence', $event)" />
+        <v-text-field :model-value="state.geometry.fluid?.diffusion" label="Diffusion" type="number" :min="0" :step="0.01" density="compact" hide-details @update:model-value="setFluidNumber('diffusion', $event)" />
+        <v-text-field :model-value="state.geometry.fluid?.particle_coupling" label="Particle Coupling" type="number" :min="0" :max="1" :step="0.01" density="compact" hide-details @update:model-value="setFluidNumber('particle_coupling', $event)" />
+      </div>
+    </section>
+
     <section class="mem-geometry-card wide">
       <header>
         <strong>Transform</strong>

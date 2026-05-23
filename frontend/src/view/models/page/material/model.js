@@ -6,6 +6,8 @@ import {Node} from "@/view/models/page/material/core/Node/Node";
 import {Mesh} from "@/view/models/page/material/core/Mesh/Mesh";
 import {UV} from "@/view/models/page/material/core/UV/UV";
 import {ParticleSystem} from "@/view/models/page/material/core/ParticleSystem/ParticleSystem";
+import {Volume} from "@/view/models/page/material/core/Volume/Volume";
+import {Fluid} from "@/view/models/page/material/core/Fluid/Fluid";
 import {
     createBitmapMaps,
     createSurface,
@@ -1668,7 +1670,17 @@ export function materialEditorModel(props, emit) {
 
     const rebuildMaterialMesh = ({ preserveLayout = true } = {}) => {
         const mesh = createMesh(values.geometry);
-        values.mesh = mesh;
+        values.mesh = {
+            ...mesh,
+            volume: Volume.toPlain(values.geometry.volume || {}),
+            fluid: Fluid.toPlain(values.geometry.fluid || {}),
+            physics: clonePlain(values.physics || {}),
+            meta: {
+                ...(mesh.meta || {}),
+                volume_enabled: values.geometry.volume?.enabled === true,
+                fluid_enabled: values.geometry.volume?.enabled === true && values.geometry.fluid?.enabled === true,
+            },
+        };
 
         if (values.uv.view_mode === "unwrap" || values.uv.mode === "unwrap") {
             if (!preserveLayout) {
@@ -1684,7 +1696,12 @@ export function materialEditorModel(props, emit) {
         }
     };
 
-    const getPlainMesh = () => Mesh.toPlain(values.mesh || createMesh(values.geometry));
+    const getPlainMesh = () => ({
+        ...Mesh.toPlain(values.mesh || createMesh(values.geometry)),
+        volume: Volume.toPlain(values.geometry.volume || values.mesh?.volume || {}),
+        fluid: Fluid.toPlain(values.geometry.fluid || values.mesh?.fluid || {}),
+        physics: clonePlain(values.physics || values.mesh?.physics || {}),
+    });
 
     const getPreviewPlainMesh = () => {
         const mesh = getPlainMesh();
@@ -1723,7 +1740,11 @@ export function materialEditorModel(props, emit) {
         values.particle_system || createParticles(),
         {
             compact,
-            context: { mesh: values.mesh },
+            context: {
+                mesh: values.mesh,
+                volume: values.mesh?.volume || values.geometry?.volume,
+                physics: values.physics || values.mesh?.physics,
+            },
         }
     );
 
@@ -3945,6 +3966,8 @@ export function materialEditorModel(props, emit) {
         values.use_nodes = source.settings?.use_nodes ?? values.use_nodes;
 
         ensureCoreNodes();
+        syncGeometryVolumeShaderGraph();
+        syncParticleSystemGeometryVolumeBinding();
         syncSurfaceSlotFromUvCubeMap();
         syncAllSurfaceSlotsFromShaderGraph();
     };
@@ -4289,6 +4312,8 @@ export function materialEditorModel(props, emit) {
         try {
             ensureCoreNodes();
             rebuildMaterialMesh({ preserveLayout: true });
+            syncGeometryVolumeShaderGraph();
+            syncParticleSystemGeometryVolumeBinding();
 
             // Wichtig: Source-Layer als echte BaseColor-Map in den Contract schreiben.
             ensureBaseColorSourceTexture();
@@ -5897,12 +5922,12 @@ export function materialEditorModel(props, emit) {
     const particleEmitterMode = computed(() => {
         const system = values.particle_system || {};
 
-        if (system.use_mesh_reference === true || system.source === "mesh") {
-            return "mesh";
+        if (system.source === "volume" || (system.emitter === "volume" && values.geometry?.volume?.enabled === true)) {
+            return "volume";
         }
 
-        if (system.source === "volume") {
-            return "volume";
+        if (system.use_mesh_reference === true || system.source === "mesh") {
+            return "mesh";
         }
 
         return "off";
@@ -5932,20 +5957,27 @@ export function materialEditorModel(props, emit) {
         };
 
         if (nextMode === "mesh") {
+            next.mode = "mesh";
             next.use_mesh_reference = true;
             next.source = "mesh";
             next.emitter = "surface";
         } else if (nextMode === "volume") {
-            next.use_mesh_reference = false;
+            next.mode = "mesh";
+            next.use_mesh_reference = true;
             next.source = "volume";
             next.emitter = "volume";
         } else {
+            next.mode = "texture";
             next.use_mesh_reference = false;
             next.source = "texture";
             next.emitter = "volume";
         }
 
-        values.particle_system = ParticleSystem.update(next, { age: 0 }, { mesh: values.mesh });
+        values.particle_system = ParticleSystem.update(next, { age: 0 }, {
+            mesh: values.mesh,
+            volume: values.mesh?.volume || values.geometry?.volume,
+            physics: values.physics,
+        });
         requestPreviewDebounced();
     };
 
@@ -5963,7 +5995,11 @@ export function materialEditorModel(props, emit) {
             next[key] = value === true;
         }
 
-        values.particle_system = ParticleSystem.update(next, { age: 0 }, { mesh: values.mesh });
+        values.particle_system = ParticleSystem.update(next, { age: 0 }, {
+            mesh: values.mesh,
+            volume: values.mesh?.volume || values.geometry?.volume,
+            physics: values.physics,
+        });
         requestPreviewDebounced();
     };
 
@@ -5978,9 +6014,184 @@ export function materialEditorModel(props, emit) {
         }
     };
 
+    const removeGeneratedVolumeFluidNodes = () => {
+        const generatedIds = values.shader_graph.nodes
+            .filter(node => node.generated === true && ["geometry-volume", "geometry-fluid"].includes(node.system))
+            .map(node => node.id);
+
+        if (!generatedIds.length) {
+            return;
+        }
+
+        values.shader_graph.edges = values.shader_graph.edges.filter(edge => (
+            !generatedIds.includes(edge.from.node) &&
+            !generatedIds.includes(edge.to.node)
+        ));
+        values.shader_graph.nodes = values.shader_graph.nodes.filter(node => !generatedIds.includes(node.id));
+    };
+
+    const removeGeneratedFluidNodes = () => {
+        const generatedIds = values.shader_graph.nodes
+            .filter(node => node.generated === true && node.system === "geometry-fluid")
+            .map(node => node.id);
+
+        if (!generatedIds.length) {
+            return;
+        }
+
+        values.shader_graph.edges = values.shader_graph.edges.filter(edge => (
+            !generatedIds.includes(edge.from.node) &&
+            !generatedIds.includes(edge.to.node)
+        ));
+        values.shader_graph.nodes = values.shader_graph.nodes.filter(node => !generatedIds.includes(node.id));
+    };
+
+    const ensureGeneratedShaderNode = (nodeKey, id, position, settings = {}, system = "") => {
+        let node = getGraphNode(id);
+
+        if (node) {
+            node.settings = {
+                ...Node.normalizeSettings(node),
+                ...settings,
+                node_key: nodeKey,
+            };
+            return node;
+        }
+
+        node = Node.create(nodeKey, position, {
+            id,
+            generated: true,
+            system,
+            settings,
+        });
+
+        if (node) {
+            values.shader_graph.nodes.push(node);
+        }
+
+        return node;
+    };
+
+    const syncGeometryVolumeShaderGraph = () => {
+        ensureCoreNodes();
+
+        const volume = Volume.create(values.geometry.volume || {});
+        const fluid = Fluid.create(values.geometry.fluid || {});
+        const enabled = volume.enabled === true && volume.shader_bind !== false;
+
+        if (!enabled) {
+            removeGeneratedVolumeFluidNodes();
+            return;
+        }
+
+        const volumeNode = ensureGeneratedShaderNode(
+            "shader.volume",
+            "geometry-volume-node",
+            { x: 80, y: 520 },
+            Volume.shaderNodeSettings(volume),
+            "geometry-volume",
+        );
+
+        if (!volumeNode) {
+            return;
+        }
+
+        if (!fluid.enabled) {
+            removeGeneratedFluidNodes();
+        }
+
+        const targetNode = fluid.enabled
+            ? ensureGeneratedShaderNode(
+                "shader.fluid",
+                "geometry-fluid-node",
+                { x: 310, y: 520 },
+                Fluid.shaderNodeSettings(fluid),
+                "geometry-fluid",
+            )
+            : volumeNode;
+
+        if (fluid.enabled && targetNode) {
+            connectEdgeUnique(
+                { node: volumeNode.id, socket: "volume" },
+                { node: targetNode.id, socket: "volume" },
+                { generated: true, system: "geometry-fluid" },
+            );
+        }
+
+        values.shader_graph.edges = values.shader_graph.edges.filter(edge => !(
+            edge.generated === true &&
+            ["geometry-volume", "geometry-fluid"].includes(edge.system) &&
+            edge.to.node === "material-output" &&
+            edge.to.socket === "surface"
+        ));
+
+        connectEdgeUnique(
+            { node: targetNode.id, socket: "volume" },
+            { node: "material-output", socket: "volume" },
+            { generated: true, system: fluid.enabled ? "geometry-fluid" : "geometry-volume" },
+        );
+    };
+
+    const syncParticleSystemGeometryVolumeBinding = () => {
+        const volume = Volume.create(values.geometry.volume || {});
+        const fluid = Fluid.create(values.geometry.fluid || {});
+
+        if (volume.enabled && volume.particle_bind !== false) {
+            values.particle_system = ParticleSystem.update(
+                {
+                    ...(values.particle_system || createParticles()),
+                    mode: "mesh",
+                    source: "volume",
+                    emitter: fluid.enabled ? "volume" : volume.sample === "surface" ? "surface" : "volume",
+                    use_mesh_reference: true,
+                    mesh_influence: fluid.enabled ? fluid.particle_coupling : values.particle_system?.mesh_influence,
+                    turbulence: fluid.enabled ? Math.max(values.particle_system?.turbulence || 0, fluid.turbulence) : values.particle_system?.turbulence,
+                    gravity: values.particle_system?.gravity,
+                    meta: {
+                        ...(values.particle_system?.meta || {}),
+                        volume_binding: "geometry-volume",
+                        fluid_binding: fluid.enabled ? fluid.type : "none",
+                    },
+                },
+                { age: 0 },
+                {
+                    mesh: values.mesh,
+                    volume: values.mesh?.volume || volume,
+                    physics: values.physics,
+                },
+            );
+        } else if (values.particle_system?.meta?.volume_binding) {
+            values.particle_system = ParticleSystem.update(
+                {
+                    ...values.particle_system,
+                    mode: values.particle_system?.source === "volume" ? "texture" : values.particle_system?.mode,
+                    source: values.particle_system?.source === "volume" ? "texture" : values.particle_system?.source,
+                    use_mesh_reference: values.particle_system?.source === "volume" ? false : values.particle_system?.use_mesh_reference,
+                    meta: {
+                        ...(values.particle_system.meta || {}),
+                        volume_binding: "none",
+                        fluid_binding: "none",
+                    },
+                },
+                {},
+                {
+                    mesh: values.mesh,
+                    volume: values.mesh?.volume || volume,
+                    physics: values.physics,
+                },
+            );
+        }
+    };
+
     const handleGeometryChange = () => {
         rebuildMaterialMesh({ preserveLayout: false });
-        values.particle_system = ParticleSystem.update(values.particle_system, {}, { mesh: values.mesh });
+        syncGeometryVolumeShaderGraph();
+        syncParticleSystemGeometryVolumeBinding();
+        values.particle_system = ParticleSystem.update(values.particle_system, {}, {
+            mesh: values.mesh,
+            volume: values.mesh?.volume || values.geometry?.volume,
+            physics: values.physics,
+        });
         requestPreviewDebounced();
 
         if (ui.value.activeTab === "uv") {
@@ -5989,7 +6200,27 @@ export function materialEditorModel(props, emit) {
     };
 
     const handleParticleSystemChange = particleSystem => {
-        values.particle_system = ParticleSystem.fromPlain(particleSystem, { mesh: values.mesh });
+        values.particle_system = ParticleSystem.fromPlain(particleSystem, {
+            mesh: values.mesh,
+            volume: values.mesh?.volume || values.geometry?.volume,
+            physics: values.physics,
+        });
+        requestPreviewDebounced();
+    };
+
+    const handlePhysicsChange = () => {
+        if (values.mesh) {
+            values.mesh.physics = clonePlain(values.physics || {});
+        }
+
+        if (values.particle_system?.enabled === true) {
+            values.particle_system = ParticleSystem.update(values.particle_system, { age: 0 }, {
+                mesh: values.mesh,
+                volume: values.mesh?.volume || values.geometry?.volume,
+                physics: values.physics,
+            });
+        }
+
         requestPreviewDebounced();
     };
 
@@ -6282,6 +6513,7 @@ export function materialEditorModel(props, emit) {
         setActiveMaterialTab,
         handleGeometryChange,
         handleParticleSystemChange,
+        handlePhysicsChange,
 
         isUvFaceSelected,
         toggleUvFaceSelection,

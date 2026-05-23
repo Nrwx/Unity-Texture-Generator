@@ -69,6 +69,58 @@ export class Node {
         }),
 
         Node.define({
+            key: "shader.volume",
+            type: "Shader",
+            label: "Geometry Volume",
+            icon: "mdi-cube-scan",
+            fields: ["mode", "resolution", "density", "shell_thickness", "falloff", "sample"],
+            inputs: {
+                density: Node.socket("float", "Density"),
+                bounds: Node.socket("vector", "Bounds"),
+            },
+            outputs: {
+                density: Node.socket("float", "Density"),
+                volume: Node.socket("shader", "Volume"),
+                mask: Node.socket("float", "Mask"),
+            },
+            defaults: {
+                mode: "mesh",
+                resolution: 32,
+                density: 1,
+                shell_thickness: 0.08,
+                falloff: "smooth",
+                sample: "inside",
+            },
+        }),
+
+        Node.define({
+            key: "shader.fluid",
+            type: "Shader",
+            label: "Fluid Dynamics",
+            icon: "mdi-waves",
+            fields: ["type", "solver", "viscosity", "buoyancy", "vorticity", "turbulence", "diffusion", "particle_coupling"],
+            inputs: {
+                volume: Node.socket("shader", "Volume"),
+                velocity: Node.socket("vector", "Velocity"),
+            },
+            outputs: {
+                volume: Node.socket("shader", "Fluid Volume"),
+                velocity: Node.socket("vector", "Velocity"),
+                density: Node.socket("float", "Density"),
+            },
+            defaults: {
+                type: "smoke",
+                solver: "stable",
+                viscosity: 0.12,
+                buoyancy: 0.35,
+                vorticity: 0.28,
+                turbulence: 0.22,
+                diffusion: 0.08,
+                particle_coupling: 0.65,
+            },
+        }),
+
+        Node.define({
             key: "texture.bitmap",
             type: "Texture",
             label: "Bitmap/Image",
@@ -878,6 +930,26 @@ export class Node {
 
         if (nodeKey === "shader.displacement" && fieldKey === "space") {
             return ["Object Space", "World Space"];
+        }
+
+        if (nodeKey === "shader.volume" && fieldKey === "mode") {
+            return ["mesh", "bounds", "shell"];
+        }
+
+        if (nodeKey === "shader.volume" && fieldKey === "falloff") {
+            return ["linear", "smooth", "exponential"];
+        }
+
+        if (nodeKey === "shader.volume" && fieldKey === "sample") {
+            return ["inside", "surface", "shell"];
+        }
+
+        if (nodeKey === "shader.fluid" && fieldKey === "type") {
+            return ["smoke", "fire", "mist", "liquid", "plasma"];
+        }
+
+        if (nodeKey === "shader.fluid" && fieldKey === "solver") {
+            return ["stable", "flip", "vortex"];
         }
 
         if (fieldKey === "projection") {

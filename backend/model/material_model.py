@@ -108,6 +108,39 @@ SOURCE_TYPES = {
     "shader",
 }
 
+ALLOWED_VOLUME_MODES = {"mesh", "bounds", "shell"}
+ALLOWED_VOLUME_FALLOFFS = {"linear", "smooth", "exponential"}
+ALLOWED_VOLUME_SAMPLES = {"inside", "surface", "shell"}
+ALLOWED_FLUID_TYPES = {"smoke", "fire", "mist", "liquid", "plasma"}
+ALLOWED_FLUID_SOLVERS = {"stable", "flip", "vortex"}
+
+VOLUME_DEFAULTS = {
+    "enabled": False,
+    "mode": "mesh",
+    "resolution": 32,
+    "density": 1.0,
+    "shell_thickness": 0.08,
+    "falloff": "smooth",
+    "particle_bind": True,
+    "shader_bind": True,
+    "sample": "inside",
+}
+
+FLUID_DEFAULTS = {
+    "enabled": False,
+    "type": "smoke",
+    "solver": "stable",
+    "viscosity": 0.12,
+    "buoyancy": 0.35,
+    "vorticity": 0.28,
+    "turbulence": 0.22,
+    "diffusion": 0.08,
+    "pressure": 1.0,
+    "temperature": 0.5,
+    "particle_coupling": 0.65,
+    "advection": 0.72,
+}
+
 GEOMETRY_DEFAULTS = {
     "primitive": "cube",
 
@@ -142,6 +175,9 @@ GEOMETRY_DEFAULTS = {
     "scale_x": 1.0,
     "scale_y": 1.0,
     "scale_z": 1.0,
+
+    "volume": dict(VOLUME_DEFAULTS),
+    "fluid": dict(FLUID_DEFAULTS),
 }
 
 GEOMETRY_RANGES = {
@@ -1057,9 +1093,59 @@ class MaterialModel(BaseModel):
         }
 
     @classmethod
+    def normalize_volume(cls, volume):
+        data = json_loads(volume, {})
+
+        if not isinstance(data, dict):
+            data = {}
+
+        mode = str(data.get("mode", VOLUME_DEFAULTS["mode"]) or VOLUME_DEFAULTS["mode"])
+        falloff = str(data.get("falloff", VOLUME_DEFAULTS["falloff"]) or VOLUME_DEFAULTS["falloff"])
+        sample = str(data.get("sample", VOLUME_DEFAULTS["sample"]) or VOLUME_DEFAULTS["sample"])
+
+        return {
+            "enabled": cls.safe_bool(data.get("enabled", VOLUME_DEFAULTS["enabled"])),
+            "mode": mode if mode in ALLOWED_VOLUME_MODES else VOLUME_DEFAULTS["mode"],
+            "resolution": int(round(cls.clamp(data.get("resolution", VOLUME_DEFAULTS["resolution"]), 4, 256))),
+            "density": cls.clamp(data.get("density", VOLUME_DEFAULTS["density"]), 0.0, 10.0),
+            "shell_thickness": cls.clamp(data.get("shell_thickness", VOLUME_DEFAULTS["shell_thickness"]), 0.0, 2.0),
+            "falloff": falloff if falloff in ALLOWED_VOLUME_FALLOFFS else VOLUME_DEFAULTS["falloff"],
+            "particle_bind": cls.safe_bool(data.get("particle_bind", VOLUME_DEFAULTS["particle_bind"])),
+            "shader_bind": cls.safe_bool(data.get("shader_bind", VOLUME_DEFAULTS["shader_bind"])),
+            "sample": sample if sample in ALLOWED_VOLUME_SAMPLES else VOLUME_DEFAULTS["sample"],
+        }
+
+    @classmethod
+    def normalize_fluid(cls, fluid):
+        data = json_loads(fluid, {})
+
+        if not isinstance(data, dict):
+            data = {}
+
+        fluid_type = str(data.get("type", FLUID_DEFAULTS["type"]) or FLUID_DEFAULTS["type"])
+        solver = str(data.get("solver", FLUID_DEFAULTS["solver"]) or FLUID_DEFAULTS["solver"])
+
+        return {
+            "enabled": cls.safe_bool(data.get("enabled", FLUID_DEFAULTS["enabled"])),
+            "type": fluid_type if fluid_type in ALLOWED_FLUID_TYPES else FLUID_DEFAULTS["type"],
+            "solver": solver if solver in ALLOWED_FLUID_SOLVERS else FLUID_DEFAULTS["solver"],
+            "viscosity": cls.clamp(data.get("viscosity", FLUID_DEFAULTS["viscosity"]), 0.0, 1.0),
+            "buoyancy": cls.clamp(data.get("buoyancy", FLUID_DEFAULTS["buoyancy"]), -2.0, 2.0),
+            "vorticity": cls.clamp(data.get("vorticity", FLUID_DEFAULTS["vorticity"]), 0.0, 2.0),
+            "turbulence": cls.clamp(data.get("turbulence", FLUID_DEFAULTS["turbulence"]), 0.0, 4.0),
+            "diffusion": cls.clamp(data.get("diffusion", FLUID_DEFAULTS["diffusion"]), 0.0, 1.0),
+            "pressure": cls.clamp(data.get("pressure", FLUID_DEFAULTS["pressure"]), 0.0, 4.0),
+            "temperature": cls.clamp(data.get("temperature", FLUID_DEFAULTS["temperature"]), 0.0, 2.0),
+            "particle_coupling": cls.clamp(data.get("particle_coupling", FLUID_DEFAULTS["particle_coupling"]), 0.0, 1.0),
+            "advection": cls.clamp(data.get("advection", FLUID_DEFAULTS["advection"]), 0.0, 1.0),
+        }
+
+    @classmethod
     def normalize_geometry(cls, geometry):
         data = json_loads(geometry, {})
         normalized = dict(GEOMETRY_DEFAULTS)
+        normalized["volume"] = dict(VOLUME_DEFAULTS)
+        normalized["fluid"] = dict(FLUID_DEFAULTS)
 
         if not isinstance(data, dict):
             return normalized
@@ -1075,6 +1161,14 @@ class MaterialModel(BaseModel):
                 continue
 
             if key in {"primitive", "uv_fit"}:
+                continue
+
+            if key == "volume":
+                normalized["volume"] = cls.normalize_volume(value)
+                continue
+
+            if key == "fluid":
+                normalized["fluid"] = cls.normalize_fluid(value)
                 continue
 
             if key in {"shade_smooth", "displacement_enabled"}:
@@ -1285,6 +1379,8 @@ class MaterialModel(BaseModel):
             "position": {"x": 760, "y": 220},
             "inputs": {
                 "surface": {"type": "shader"},
+                "volume": {"type": "shader"},
+                "displacement": {"type": "vector"},
             },
             "outputs": {},
             "settings": {},
@@ -2419,6 +2515,8 @@ class MaterialModel(BaseModel):
                 {"name": "left", "indices": [0, 3, 7, 4], "normal": [-1, 0, 0]},
             ],
             "geometry": geometry,
+            "volume": cls.normalize_volume(geometry.get("volume", {})),
+            "fluid": cls.normalize_fluid(geometry.get("fluid", {})),
             "primitive": geometry.get("primitive", "cube"),
             "bevel": geometry.get("bevel", 0.0),
             "bevel_segments": geometry.get("bevel_segments", 1),
@@ -2490,6 +2588,8 @@ class MaterialModel(BaseModel):
             "parts": data.get("parts", []) if isinstance(data.get("parts", []), list) else [],
             "settings": data.get("settings", {}) if isinstance(data.get("settings", {}), dict) else {},
             "bounds": data.get("bounds", {}) if isinstance(data.get("bounds", {}), dict) else {},
+            "volume": cls.normalize_volume(data.get("volume", fallback.get("volume", {}))),
+            "fluid": cls.normalize_fluid(data.get("fluid", fallback.get("fluid", {}))),
             "meta": data.get("meta", {}) if isinstance(data.get("meta", {}), dict) else {},
         }
 
@@ -2686,9 +2786,12 @@ class MaterialModel(BaseModel):
             "id": str(data.get("id", "") or "particle-system"),
             "version": int(data.get("version", 1) or 1),
             "enabled": cls.safe_bool(data.get("enabled", False)),
-            "mode": str(data.get("mode", "texture") or "texture"),
-            "source": str(data.get("source", "texture") or "texture"),
-            "emitter": str(data.get("emitter", "volume") or "volume"),
+            "mode": str(data.get("mode", "texture") or "texture")
+            if str(data.get("mode", "texture") or "texture") in {"texture", "mesh"} else "texture",
+            "source": str(data.get("source", "texture") or "texture")
+            if str(data.get("source", "texture") or "texture") in {"texture", "mesh", "volume"} else "texture",
+            "emitter": str(data.get("emitter", "volume") or "volume")
+            if str(data.get("emitter", "volume") or "volume") in {"volume", "surface", "vertices", "sphere", "plane"} else "volume",
             "root_animation": str(data.get("root_animation", "inner") or "inner")
             if str(data.get("root_animation", "inner") or "inner") in {"point", "inner", "outer"} else "inner",
             "texture_slot": str(active_layer.get("texture_slot", data.get("texture_slot", "baseColor")) or "baseColor"),

@@ -80,6 +80,21 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   min-width: 0;
+
+  &.compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.mem-geometry-switch-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.14);
 }
 
 .mem-control-card,
@@ -168,6 +183,10 @@
   }
 
   .mem-geometry-vector {
+    grid-template-columns: 1fr;
+  }
+
+  .mem-geometry-switch-row {
     grid-template-columns: 1fr;
   }
 }

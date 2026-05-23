@@ -45,6 +45,116 @@ const sampleMeshPosition = (mesh, rand) => {
     ];
 };
 
+const getMeshBounds = mesh => {
+    const bounds = mesh?.bounds || {};
+
+    if (Array.isArray(bounds.min) && Array.isArray(bounds.max)) {
+        return {
+            min: bounds.min.map(Number),
+            max: bounds.max.map(Number),
+        };
+    }
+
+    const stride = Number(mesh?.stride || 11);
+    const vertices = mesh?.vertices || [];
+
+    if (!vertices.length || stride < 3) {
+        return null;
+    }
+
+    const min = [Infinity, Infinity, Infinity];
+    const max = [-Infinity, -Infinity, -Infinity];
+
+    for (let index = 0; index < vertices.length; index += stride) {
+        min[0] = Math.min(min[0], Number(vertices[index]) || 0);
+        min[1] = Math.min(min[1], Number(vertices[index + 1]) || 0);
+        min[2] = Math.min(min[2], Number(vertices[index + 2]) || 0);
+        max[0] = Math.max(max[0], Number(vertices[index]) || 0);
+        max[1] = Math.max(max[1], Number(vertices[index + 1]) || 0);
+        max[2] = Math.max(max[2], Number(vertices[index + 2]) || 0);
+    }
+
+    return min.every(Number.isFinite) && max.every(Number.isFinite)
+        ? { min, max }
+        : null;
+};
+
+const sampleMeshVolumePosition = (mesh, rand, volume = {}) => {
+    if (volume?.sample === "surface") {
+        return sampleMeshPosition(mesh, rand);
+    }
+
+    const bounds = getMeshBounds(mesh);
+
+    if (!bounds) {
+        return null;
+    }
+
+    const thickness = Math.max(0, Number(volume?.shell_thickness ?? 0.08) || 0);
+    const shell = volume?.sample === "shell";
+    const point = [0, 1, 2].map(axis => {
+        const min = bounds.min[axis];
+        const max = bounds.max[axis];
+        const span = max - min;
+
+        if (!Number.isFinite(span) || span <= 0) {
+            return min || 0;
+        }
+
+        if (!shell) {
+            return min + rand() * span;
+        }
+
+        const side = rand() > 0.5 ? 1 : -1;
+        const edge = side > 0 ? max : min;
+        const inset = Math.min(span * 0.5, span * thickness * rand());
+
+        return edge - side * inset;
+    });
+
+    return point;
+};
+
+const resolveVolumeCollision = (position, mesh, physics = {}) => {
+    if (
+        !physics?.enabled ||
+        !physics?.collision_enabled ||
+        !Array.isArray(position)
+    ) {
+        return position;
+    }
+
+    const bounds = getMeshBounds(mesh);
+
+    if (!bounds) {
+        return position;
+    }
+
+    const margin = Math.max(0, Number(physics.collision_margin) || 0);
+    const restitution = Math.min(Math.max(Number(physics.restitution) || 0, 0), 1);
+    const friction = Math.min(Math.max(Number(physics.friction) || 0, 0), 1);
+    const damping = 1 - restitution * (1 - friction * 0.5);
+
+    return position.map((value, axis) => {
+        const min = bounds.min[axis] + margin;
+        const max = bounds.max[axis] - margin;
+
+        if (!Number.isFinite(min) || !Number.isFinite(max) || min >= max) {
+            return value;
+        }
+
+        if (value < min) {
+            return min + (min - value) * damping * 0.05;
+        }
+
+        if (value > max) {
+            return max - (value - max) * damping * 0.05;
+        }
+
+        return value;
+    });
+};
+
 const normalizeColor = value => {
     if (Array.isArray(value)) {
         return [
@@ -310,7 +420,7 @@ export class ParticleSystem {
 
         return {
             enabled: source.enabled === true,
-            mode: ["texture", "mesh", "mixed"].includes(source.mode) ? source.mode : "texture",
+            mode: ["texture", "mesh"].includes(source.mode) ? source.mode : "texture",
             source: ["texture", "mesh", "volume"].includes(source.source) ? source.source : "texture",
             emitter: ["volume", "surface", "vertices", "sphere", "plane"].includes(source.emitter) ? source.emitter : "volume",
             root_animation: ["point", "inner", "outer"].includes(source.root_animation) ? source.root_animation : "inner",
@@ -508,8 +618,17 @@ export class ParticleSystem {
         const phases = [];
         const rotations = [];
         const mesh = context.mesh || null;
+        const volume = context.volume || config.volume || mesh?.volume || null;
+        const physics = context.physics || config.physics || mesh?.physics || null;
+        const physicsGravityScale = physics?.enabled
+            ? physics?.gravity_enabled !== false ? Number(physics.gravity_scale ?? 1) || 0 : 0
+            : 1;
         const pathEnabled = config.path_follow?.enabled === true;
-        const useMesh = !pathEnabled && (
+        const useVolume = !pathEnabled && volume?.enabled === true && (
+            config.source === "volume" ||
+            config.emitter === "volume"
+        );
+        const useMesh = !pathEnabled && !useVolume && (
             config.use_mesh_reference ||
             config.source === "mesh" ||
             ["surface", "vertices"].includes(config.emitter)
@@ -523,7 +642,7 @@ export class ParticleSystem {
             const sizeXValue = Math.max(0.001, ParticleSystem.evaluateInterpolation(config.interpolations, "size_x", lifeTime, config.size_x, config.lifetime));
             const sizeYValue = Math.max(0.001, ParticleSystem.evaluateInterpolation(config.interpolations, "size_y", lifeTime, config.size_y, config.lifetime));
             const alphaValue = Math.max(0, ParticleSystem.evaluateInterpolation(config.interpolations, "alpha", lifeTime, config.alpha, config.lifetime));
-            const gravityValue = ParticleSystem.evaluateInterpolation(config.interpolations, "gravity", lifeTime, config.gravity, config.lifetime);
+            const gravityValue = ParticleSystem.evaluateInterpolation(config.interpolations, "gravity", lifeTime, config.gravity, config.lifetime) * physicsGravityScale;
             const velocityValue = ParticleSystem.evaluateInterpolation(config.interpolations, "velocity", lifeTime, config.velocity, config.lifetime);
             const directionX = ParticleSystem.evaluateInterpolation(config.interpolations, "direction_x", lifeTime, config.direction_x, config.lifetime);
             const directionY = ParticleSystem.evaluateInterpolation(config.interpolations, "direction_y", lifeTime, config.direction_y || 1, config.lifetime);
@@ -539,7 +658,9 @@ export class ParticleSystem {
                 baseDirection.z
             );
             const pathPoint = ParticleSystem.evaluatePathFollow(config.path_follow, lifeTime);
-            const meshPosition = useMesh ? sampleMeshPosition(mesh, rand) : null;
+            const meshPosition = useVolume
+                ? sampleMeshVolumePosition(mesh, rand, volume)
+                : useMesh ? sampleMeshPosition(mesh, rand) : null;
             const theta = rand() * Math.PI * 2;
             const radius = Math.sqrt(rand());
             const sphereZ = rand() * 2 - 1;
@@ -577,11 +698,11 @@ export class ParticleSystem {
                 Math.sin((index + 1) * 39.425 + life * 7.31) * config.turbulence * 0.05,
             ];
             const pathTranslate = pathPoint.translate || { x: 0, y: 0, z: 0 };
-            const localPosition = [
+            const localPosition = resolveVolumeCollision([
                 root[0] * c - root[2] * s + vx * life + noise[0],
                 root[1] + vy * life + noise[1],
                 root[0] * s + root[2] * c + vz * life + noise[2],
-            ];
+            ], mesh, useVolume ? physics : null);
             const x = pathEnabled ? localPosition[0] + pathTranslate.x : localPosition[0];
             const y = pathEnabled ? localPosition[1] + pathTranslate.y : localPosition[1];
             const z = pathEnabled ? localPosition[2] + pathTranslate.z : localPosition[2];

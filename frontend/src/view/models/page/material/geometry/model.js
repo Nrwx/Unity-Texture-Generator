@@ -1,4 +1,6 @@
 import { reactive, watch } from "vue";
+import { Volume } from "@/view/models/page/material/core/Volume/Volume";
+import { Fluid } from "@/view/models/page/material/core/Fluid/Fluid";
 
 export const PRIMITIVE_OPTIONS = Object.freeze([
     "cube",
@@ -20,6 +22,11 @@ export const SUBDIVISION_TYPE_OPTIONS = Object.freeze([
     "simple",
     "catmull-clark",
 ]);
+
+export const VOLUME_MODE_OPTIONS = Volume.MODES;
+export const VOLUME_FALLOFF_OPTIONS = Volume.FALL_OFF;
+export const FLUID_TYPE_OPTIONS = Fluid.TYPES;
+export const FLUID_SOLVER_OPTIONS = Fluid.SOLVERS;
 
 export const createGeometry = () => ({
     primitive: "cube",
@@ -49,6 +56,9 @@ export const createGeometry = () => ({
     scale_x: 1,
     scale_y: 1,
     scale_z: 1,
+
+    volume: Volume.create(),
+    fluid: Fluid.create(),
 });
 
 const cloneData = value => {
@@ -62,6 +72,8 @@ const cloneData = value => {
 const normalizeGeometry = geometry => ({
     ...createGeometry(),
     ...(geometry || {}),
+    volume: Volume.create(geometry?.volume || {}),
+    fluid: Fluid.create(geometry?.fluid || {}),
 });
 
 const toNumber = value => {
@@ -116,15 +128,57 @@ export function geometryModel(props, emit) {
         emitGeometry();
     };
 
+    const setVolumeValue = (key, value) => {
+        state.geometry.volume = Volume.create({
+            ...(state.geometry.volume || {}),
+            [key]: value,
+        });
+        emitGeometry();
+    };
+
+    const setVolumeNumber = (key, value) => {
+        setVolumeValue(key, toNumber(value));
+    };
+
+    const setVolumeBoolean = (key, value) => {
+        setVolumeValue(key, value === true);
+    };
+
+    const setFluidValue = (key, value) => {
+        state.geometry.fluid = Fluid.create({
+            ...(state.geometry.fluid || {}),
+            [key]: value,
+        });
+        emitGeometry();
+    };
+
+    const setFluidNumber = (key, value) => {
+        setFluidValue(key, toNumber(value));
+    };
+
+    const setFluidBoolean = (key, value) => {
+        setFluidValue(key, value === true);
+    };
+
     return {
         state,
 
         primitiveOptions: PRIMITIVE_OPTIONS,
         uvFitOptions: UV_FIT_OPTIONS,
         subdivisionTypeOptions: SUBDIVISION_TYPE_OPTIONS,
+        volumeModeOptions: VOLUME_MODE_OPTIONS,
+        volumeFalloffOptions: VOLUME_FALLOFF_OPTIONS,
+        fluidTypeOptions: FLUID_TYPE_OPTIONS,
+        fluidSolverOptions: FLUID_SOLVER_OPTIONS,
 
         setGeometryValue,
         setGeometryNumber,
         setGeometryBoolean,
+        setVolumeValue,
+        setVolumeNumber,
+        setVolumeBoolean,
+        setFluidValue,
+        setFluidNumber,
+        setFluidBoolean,
     };
 }

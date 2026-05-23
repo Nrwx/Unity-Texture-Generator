@@ -1,7 +1,10 @@
 import { computed, reactive, watch } from "vue";
 import { ParticleSystem } from "@/view/models/page/material/core/ParticleSystem/ParticleSystem";
 
-export const PARTICLE_MODE_OPTIONS = Object.freeze(["texture", "mesh", "mixed"]);
+export const PARTICLE_MODE_OPTIONS = Object.freeze([
+    { title: "Standard", value: "texture" },
+    { title: "Mesh", value: "mesh" },
+]);
 export const PARTICLE_SOURCE_OPTIONS = Object.freeze(["texture", "mesh", "volume"]);
 export const PARTICLE_EMITTER_OPTIONS = Object.freeze(["volume", "surface", "vertices", "sphere", "plane"]);
 export const PARTICLE_ROOT_ANIMATION_OPTIONS = Object.freeze(["point", "inner", "outer"]);

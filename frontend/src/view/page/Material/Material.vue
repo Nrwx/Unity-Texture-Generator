@@ -230,7 +230,7 @@
             <Physics
                 v-else-if="ui.activeTab === 'physics'"
                 v-model:physics="values.physics"
-                @change="requestPreviewDebounced"
+                @change="handlePhysicsChange"
             />
 
             <!-- LIGHT -->
