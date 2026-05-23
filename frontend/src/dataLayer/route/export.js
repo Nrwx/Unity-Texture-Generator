@@ -18,6 +18,13 @@ export const updateExport = async (data) => {
         formData.append("margin", data.margin);
         formData.append("mipmap", data.mipmap);
         formData.append("ddsCompress", data.ddsCompress);
+        formData.append("useTimeline", data.useTimeline);
+        formData.append("timelineStart", data.timelineStart);
+        formData.append("timelineEnd", data.timelineEnd);
+        formData.append("timelineTime", data.timelineTime);
+        formData.append("exportStart", data.exportStart);
+        formData.append("exportEnd", data.exportEnd);
+        formData.append("timelineFps", data.timelineFps);
 
         const response = await api.post("/export", formData, {
             headers: { "Content-Type": "multipart/form-data" },

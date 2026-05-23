@@ -18,7 +18,7 @@
     "project_name": "unity-texture-generator"
   },
   "dependencies": {
-    "last_build": "2026-05-23T12:29:21.441968Z",
+    "last_build": "2026-05-23T12:59:38.347627Z",
     "config": {
       "library_policy": {
         "auto_update": true,
@@ -566,7 +566,14 @@
             "raster",
             "pdfFitMode",
             "mipmap",
-            "ddsCompress"
+            "ddsCompress",
+            "useTimeline",
+            "timelineStart",
+            "timelineEnd",
+            "timelineTime",
+            "exportStart",
+            "exportEnd",
+            "timelineFps"
           ],
           "function": "update"
         }

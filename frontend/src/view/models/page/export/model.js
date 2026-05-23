@@ -26,6 +26,9 @@ export function exportModel(props, emit) {
         ],
         2: [
             { title: '.pdf', value: 'PDF' }
+        ],
+        3: [
+            { title: '.mp4', value: 'MP4' }
         ]
     };
 
@@ -33,7 +36,7 @@ export function exportModel(props, emit) {
         get() {
             const allowed = exportTypes[exportData.value.mode] || [];
             const current = exportData.value.type;
-            return allowed.includes(current) ? current : allowed.find(x => x.value === current);
+            return allowed.find(x => x.value === current) || allowed[0];
         },
         set(val) {
             emitEvent('export:type', val);
@@ -61,6 +64,10 @@ export function exportModel(props, emit) {
         margin: exportData.value.margin,
         mipmap: exportData.value.mipmap,
         ddsCompress: exportData.value.ddsCompress,
+        useTimeline: exportData.value.useTimeline,
+        exportStart: exportData.value.exportStart,
+        exportEnd: exportData.value.exportEnd,
+        timelineFps: exportData.value.timelineFps,
     });
 
     const operation = computed(() =>({
@@ -76,6 +83,7 @@ export function exportModel(props, emit) {
                     { title: 'Bild', value: 0 },
                     { title: 'Vektor', value: 1 },
                     { title: 'Dokument', value: 2 },
+                    { title: 'Video', value: 3 },
                 ],
                 title: 'Dateityp',
                 subtitle: 'Bestimmen Sie einen Dateitypen, um verschiedene Ergebnisse zu erzielen.',
@@ -88,7 +96,7 @@ export function exportModel(props, emit) {
                 event: 'export:quality',
                 title: 'Qualität',
                 subtitle: 'Regelt die Qualität des finalen Exports.',
-                active: exportData.value.mode === 0 && exportData.value.type === 'JPEG' ||exportData.value.mode === 0 && exportData.value.type === 'PNG' ||exportData.value.mode === 2 && exportData.value.type === 'PDF',
+                active: (exportData.value.mode === 0 && exportData.value.type === 'JPEG') || (exportData.value.mode === 0 && exportData.value.type === 'PNG') || (exportData.value.mode === 2 && exportData.value.type === 'PDF'),
                 icon: 'mdi-star-half-full',
             },
             dpi: {
@@ -214,6 +222,51 @@ export function exportModel(props, emit) {
                 title: 'Dateityp',
                 subtitle: 'Bestimmen Sie einen Dateitypen, um verschiedene Ergebnisse zu erzielen.',
             },
+            useTimeline: {
+                type: 'select',
+                label: 'Zeitquelle',
+                prependIcon: 'mdi-timeline-clock',
+                event: 'export:useTimeline',
+                active: exportData.value.type === 'MP4',
+                options: [
+                    { title: 'Timeline verwenden', value: true },
+                    { title: 'Eigene Zeitspanne', value: false },
+                ],
+                title: 'MP4-Zeitquelle',
+                subtitle: 'Timeline nutzt den aktuellen Timeline-Bereich. Eigene Zeitspanne rendert den angegebenen Start- und Endwert.',
+            },
+            exportStart: {
+                type: 'number',
+                label: 'Start',
+                step: 1,
+                event: 'export:start',
+                active: exportData.value.type === 'MP4' && !exportData.value.useTimeline,
+                title: 'Export-Start',
+                subtitle: 'Startzeit fuer den MP4-Export. Layer-Keyframes bleiben unabhaengig davon aktiv.',
+                icon: 'mdi-ray-start',
+            },
+            exportEnd: {
+                type: 'number',
+                label: 'Ende',
+                step: 1,
+                event: 'export:end',
+                active: exportData.value.type === 'MP4' && !exportData.value.useTimeline,
+                title: 'Export-Ende',
+                subtitle: 'Endzeit fuer den MP4-Export. Layer-Keyframes werden pro Frame ausgewertet.',
+                icon: 'mdi-ray-end',
+            },
+            timelineFps: {
+                type: 'number',
+                label: 'FPS',
+                min: 1,
+                max: 240,
+                step: 1,
+                event: 'export:fps',
+                active: exportData.value.type === 'MP4',
+                title: 'Bildrate',
+                subtitle: 'Legt die Abspielgeschwindigkeit der gerenderten MP4-Datei fest.',
+                icon: 'mdi-video-outline',
+            },
             inlineCss: {
                 type: 'switch',
                 label: 'CSS',
@@ -257,7 +310,7 @@ export function exportModel(props, emit) {
                 event: 'export:compress',
                 title: 'Output komprimieren',
                 subtitle: 'Komprimiert die Datei (empfohlen für Web).',
-                active: exportData.value.type !== 'DDS',
+                active: exportData.value.type !== 'DDS' && exportData.value.type !== 'MP4',
                 icon: 'mdi-folder-zip'
             },
         },

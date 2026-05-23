@@ -16,6 +16,10 @@ export const exportData = ref({
         landscape: false,
         ddsCompress: "DXT3",
         margin: 10,
+        useTimeline: true,
+        exportStart: 0,
+        exportEnd: 100,
+        timelineFps: 30,
     }
 );
 

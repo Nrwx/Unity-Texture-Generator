@@ -5,13 +5,17 @@ import base64
 import html
 import re
 import math
+from copy import deepcopy
 from io import BytesIO
+from urllib.parse import urlparse, unquote
 
 from PIL import Image
 import cairosvg
+import cv2
+import numpy as np
 
 from model.base.main import BaseModel
-from generated.paths import PUBLIC_LAYER_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER
+from generated.paths import PUBLIC_LAYER_FOLDER, PUBLIC_MATERIAL_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER
 from config.data.constant import VIEWPORT_CONFIG, LAYERS
 from model.fonts_model import FontsModel
 from components import generate_pdf_map, generate_vector_pdf_map, generate_tga_map, generate_dds_map
@@ -55,6 +59,270 @@ class ExportModel(BaseModel):
             return value.strip().lower() in ("1", "true", "yes", "on", "y")
 
         return default
+
+    @staticmethod
+    def _to_float(value, default=0.0):
+        try:
+            if value is None or value == "":
+                return default
+
+            return float(value)
+        except Exception:
+            return default
+
+    @staticmethod
+    def _to_int(value, default=0):
+        try:
+            if value is None or value == "":
+                return default
+
+            return int(float(value))
+        except Exception:
+            return default
+
+    @staticmethod
+    def _safe_public_path(root, *parts):
+        try:
+            root_abs = os.path.abspath(root)
+            candidate = os.path.abspath(os.path.join(root_abs, *[str(p) for p in parts if p]))
+
+            if candidate == root_abs or candidate.startswith(root_abs + os.sep):
+                return candidate
+        except Exception:
+            pass
+
+        return ""
+
+    @classmethod
+    def _resolve_public_image_path(cls, value):
+        if not value:
+            return ""
+
+        raw = str(value).strip()
+
+        if not raw:
+            return ""
+
+        if os.path.isabs(raw) and os.path.exists(raw):
+            return raw
+
+        parsed = urlparse(raw)
+        clean_path = unquote(parsed.path or raw).strip()
+
+        if clean_path.startswith("/material/texture/"):
+            relative = clean_path[len("/material/texture/"):].lstrip("/")
+            return cls._safe_public_path(PUBLIC_MATERIAL_FOLDER, *relative.split("/"))
+
+        if clean_path.startswith("/material/package/"):
+            relative = clean_path[len("/material/package/"):].lstrip("/")
+            return cls._safe_public_path(PUBLIC_MATERIAL_FOLDER, *relative.split("/"))
+
+        if clean_path.startswith("/download/materials/"):
+            relative = clean_path[len("/download/materials/"):].lstrip("/")
+            return cls._safe_public_path(PUBLIC_MATERIAL_FOLDER, *relative.split("/"))
+
+        if clean_path.startswith("/download/"):
+            filename = os.path.basename(clean_path[len("/download/"):])
+            for folder in (PUBLIC_LAYER_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER):
+                candidate = cls._safe_public_path(folder, filename)
+
+                if candidate and os.path.exists(candidate):
+                    return candidate
+
+        if clean_path.startswith("/layer/"):
+            filename = os.path.basename(clean_path[len("/layer/"):])
+            return cls._safe_public_path(PUBLIC_LAYER_FOLDER, filename)
+
+        filename = os.path.basename(clean_path)
+
+        if filename:
+            for folder in (PUBLIC_LAYER_FOLDER, PUBLIC_TEMP_UPLOAD_FOLDER):
+                candidate = cls._safe_public_path(folder, filename)
+
+                if candidate and os.path.exists(candidate):
+                    return candidate
+
+        return ""
+
+    @classmethod
+    def _layer_raster_candidates(cls, layer):
+        layer_id = layer.get("id")
+        candidates = []
+
+        if layer.get("type") == 5:
+            texture = layer.get("texture", {}) or {}
+            material = layer.get("material", {}) or {}
+
+            for source in (
+                layer.get("url"),
+                layer.get("thumbnail"),
+                texture.get("url"),
+                texture.get("thumbnail"),
+                texture.get("lod_url"),
+                material.get("preview_url"),
+            ):
+                resolved = cls._resolve_public_image_path(source)
+
+                if resolved:
+                    candidates.append(resolved)
+
+        if layer_id:
+            candidates.append(os.path.join(PUBLIC_LAYER_FOLDER, f"{layer_id}.png"))
+
+        return candidates
+
+    @classmethod
+    def _load_raster_layer_image(cls, layer):
+        for path in cls._layer_raster_candidates(layer):
+            if path and os.path.exists(path):
+                try:
+                    return Image.open(path).convert("RGBA")
+                except Exception:
+                    continue
+
+        return None
+
+    # -------------------------------------------------------------------------
+    # Timeline Helpers
+    # -------------------------------------------------------------------------
+
+    @staticmethod
+    def _lerp(a, b, t):
+        return a + (b - a) * t
+
+    @classmethod
+    def _cubic_bezier_value(cls, t, p0, p1, p2, p3):
+        u = 1 - t
+
+        return (
+            u * u * u * p0
+            + 3 * u * u * t * p1
+            + 3 * u * t * t * p2
+            + t * t * t * p3
+        )
+
+    @classmethod
+    def _bezier_point_value(cls, point, default=0.0):
+        if isinstance(point, dict):
+            return cls._to_float(point.get("value"), default)
+
+        return cls._to_float(point, default)
+
+    @classmethod
+    def _apply_easing(cls, t, ease="linear", bezier=None):
+        ease_key = str(ease or "linear").strip()
+
+        if ease_key in ("easeIn", "ease-in"):
+            return t * t
+
+        if ease_key in ("easeOut", "ease-out"):
+            return t * (2 - t)
+
+        if ease_key in ("easeInOut", "ease-in-out"):
+            return 2 * t * t if t < 0.5 else -1 + (4 - 2 * t) * t
+
+        if ease_key in ("bezier", "cubicBezier", "cubic-bezier") and isinstance(bezier, list):
+            points = [0, *bezier, 1]
+
+            if len(points) >= 4:
+                return cls._cubic_bezier_value(
+                    t,
+                    cls._bezier_point_value(points[0], 0),
+                    cls._bezier_point_value(points[1], 0.25),
+                    cls._bezier_point_value(points[2], 0.75),
+                    cls._bezier_point_value(points[3], 1),
+                )
+
+        return t
+
+    @classmethod
+    def _lerp_number_field(cls, base, left, right, key, t):
+        if key not in left and key not in right:
+            return base.get(key)
+
+        left_value = cls._to_float(left.get(key, base.get(key)), cls._to_float(base.get(key), 0.0))
+        right_value = cls._to_float(right.get(key, base.get(key)), left_value)
+
+        return cls._lerp(left_value, right_value, t)
+
+    @classmethod
+    def _lerp_matrix(cls, base_matrix, left_matrix, right_matrix, t):
+        result = deepcopy(base_matrix or {})
+
+        for key, default in (
+            ("a", 1),
+            ("b", 0),
+            ("c", 0),
+            ("d", 1),
+            ("x", 0),
+            ("y", 0),
+            ("rotate", 0),
+        ):
+            left_value = cls._to_float((left_matrix or {}).get(key, result.get(key, default)), default)
+            right_value = cls._to_float((right_matrix or {}).get(key, result.get(key, default)), left_value)
+            result[key] = cls._lerp(left_value, right_value, t)
+
+        return result
+
+    @classmethod
+    def _apply_keyframes_to_layer(cls, layer, frame_time):
+        frames = [
+            frame for frame in (layer.get("keyframes") or [])
+            if isinstance(frame, dict) and frame.get("time") is not None
+        ]
+
+        if not frames:
+            return deepcopy(layer)
+
+        frames = sorted(frames, key=lambda item: cls._to_float(item.get("time"), 0.0))
+        animated = deepcopy(layer)
+
+        if frame_time <= cls._to_float(frames[0].get("time"), 0.0):
+            source = frames[0]
+            factor = 0
+            left = source
+            right = source
+        elif frame_time >= cls._to_float(frames[-1].get("time"), 0.0):
+            source = frames[-1]
+            factor = 0
+            left = source
+            right = source
+        else:
+            left = frames[0]
+            right = frames[-1]
+
+            for index in range(len(frames) - 1):
+                current = frames[index]
+                next_frame = frames[index + 1]
+                current_time = cls._to_float(current.get("time"), 0.0)
+                next_time = cls._to_float(next_frame.get("time"), current_time)
+
+                if current_time <= frame_time <= next_time:
+                    left = current
+                    right = next_frame
+                    break
+
+            left_time = cls._to_float(left.get("time"), 0.0)
+            right_time = cls._to_float(right.get("time"), left_time)
+            delta = right_time - left_time
+            factor = 0 if delta == 0 else (frame_time - left_time) / delta
+            factor = cls._apply_easing(factor, left.get("ease", "linear"), left.get("bezier"))
+
+        base_matrix = animated.get("matrix", {}) or {}
+        animated["matrix"] = cls._lerp_matrix(
+            base_matrix,
+            left.get("matrix", base_matrix),
+            right.get("matrix", base_matrix),
+            factor,
+        )
+
+        for key in ("opacity", "width", "height"):
+            value = cls._lerp_number_field(animated, left, right, key, factor)
+
+            if value is not None:
+                animated[key] = value
+
+        return animated
 
     # -------------------------------------------------------------------------
     # SVG Helpers
@@ -442,11 +710,11 @@ class ExportModel(BaseModel):
     # -------------------------------------------------------------------------
 
     @classmethod
-    def _render_composite(cls, width, height, dpi):
+    def _render_composite(cls, width, height, dpi, layers=None):
         composite = Image.new("RGBA", (width, height), (0, 0, 0, 0))
 
         sorted_layers = sorted(
-            LAYERS,
+            layers if layers is not None else LAYERS,
             key=lambda item: int(item.get("order", 0))
         )
 
@@ -482,14 +750,8 @@ class ExportModel(BaseModel):
                 if layer_img:
                     layer_img = layer_img.convert("RGBA")
 
-            else:  # Normal PNG Layer
-                path = os.path.join(
-                    PUBLIC_LAYER_FOLDER,
-                    f"{layer['id']}.png",
-                )
-
-                if os.path.exists(path):
-                    layer_img = Image.open(path).convert("RGBA")
+            else:  # Normal PNG/Material Layer
+                layer_img = cls._load_raster_layer_image(layer)
 
             if not layer_img:
                 continue
@@ -539,6 +801,71 @@ class ExportModel(BaseModel):
 
         return composite
 
+    @classmethod
+    def _timeline_layers_at_time(cls, frame_time):
+        return [
+            cls._apply_keyframes_to_layer(layer, frame_time)
+            for layer in LAYERS
+        ]
+
+    @classmethod
+    def _frame_times(cls, start_time, end_time):
+        start = cls._to_float(start_time, 0.0)
+        end = cls._to_float(end_time, start)
+        frame_count = max(1, int(abs(end - start)) + 1)
+
+        if frame_count == 1:
+            return [start]
+
+        step = (end - start) / (frame_count - 1)
+
+        return [start + step * index for index in range(frame_count)]
+
+    @classmethod
+    def _render_mp4_export(
+        cls,
+        output_path,
+        preview_path,
+        width,
+        height,
+        dpi,
+        start_time,
+        end_time,
+        fps=30,
+    ):
+        frame_times = cls._frame_times(start_time, end_time)
+        fps = max(1, min(cls._to_int(fps, 30), 240))
+        writer = cv2.VideoWriter(
+            output_path,
+            cv2.VideoWriter_fourcc(*"mp4v"),
+            fps,
+            (width, height),
+        )
+
+        if not writer.isOpened():
+            return {"error": "MP4 writer could not be initialized."}, 500
+
+        try:
+            for index, frame_time in enumerate(frame_times):
+                animated_layers = cls._timeline_layers_at_time(frame_time)
+                composite = cls._render_composite(
+                    width,
+                    height,
+                    dpi,
+                    layers=animated_layers,
+                )
+
+                if index == 0:
+                    composite.save(preview_path, format="PNG")
+
+                frame = alpha_as_bg(composite).convert("RGB")
+                writer.write(cv2.cvtColor(np.asarray(frame), cv2.COLOR_RGB2BGR))
+
+        finally:
+            writer.release()
+
+        return None
+
     # -------------------------------------------------------------------------
     # Export
     # -------------------------------------------------------------------------
@@ -560,6 +887,13 @@ class ExportModel(BaseModel):
         ddsCompress="DTX3",
         raster=True,
         pdfFitMode="contain",
+        useTimeline=False,
+        timelineStart=-100,
+        timelineEnd=100,
+        timelineTime=0,
+        exportStart=0,
+        exportEnd=100,
+        timelineFps=30,
     ):
         try:
             if not LAYERS:
@@ -592,8 +926,28 @@ class ExportModel(BaseModel):
             )
 
             try:
-                composite = cls._render_composite(width, height, dpi)
-                composite.save(preview_path, format="PNG")
+                use_timeline = cls._to_bool(useTimeline, default=False)
+
+                if export_ext == "mp4":
+                    start_time = timelineStart if use_timeline else exportStart
+                    end_time = timelineEnd if use_timeline else exportEnd
+                    error = cls._render_mp4_export(
+                        export_path,
+                        preview_path,
+                        width,
+                        height,
+                        dpi,
+                        start_time,
+                        end_time,
+                        timelineFps,
+                    )
+
+                    if error:
+                        return error
+
+                else:
+                    composite = cls._render_composite(width, height, dpi)
+                    composite.save(preview_path, format="PNG")
 
                 # Raster Export
                 if mode == 0 and export_ext in ["png", "jpeg", "jpg"]:
@@ -668,6 +1022,9 @@ class ExportModel(BaseModel):
                             viewport_height=height,
                             background="#ffffff",
                         )
+
+                elif export_ext == "mp4":
+                    pass
 
                 else:
                     return {

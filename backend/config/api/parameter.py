@@ -367,6 +367,14 @@ PARAMETERS = {
         "raster": {"type": bool, "default": True},
         "pdfFitMode": {"type": str, "default": "contain"},
         "margin": {"type": int, "default": 10},
+        # MP4 EXPORT
+        "useTimeline": {"type": bool, "default": False},
+        "timelineStart": {"type": float, "default": -100},
+        "timelineEnd": {"type": float, "default": 100},
+        "timelineTime": {"type": float, "default": 0},
+        "exportStart": {"type": float, "default": 0},
+        "exportEnd": {"type": float, "default": 100},
+        "timelineFps": {"type": int, "default": 30},
     },
     "render": {
         "method": {"type": str, "required": True},
