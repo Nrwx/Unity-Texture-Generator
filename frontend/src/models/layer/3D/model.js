@@ -1384,6 +1384,7 @@ export function layer3DModel(props, emit) {
                 resolveSurfaceForFace,
                 getTextureForFace,
                 getTextureForSlotFace,
+                getAlphaTextureForFace,
                 getParticleTextureForLayer,
             });
         } catch (error) {

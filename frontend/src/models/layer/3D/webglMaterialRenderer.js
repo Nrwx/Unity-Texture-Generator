@@ -126,6 +126,7 @@ uniform int uBaseInvert;
 uniform float uAlphaStrength;
 uniform float uAlphaOffset;
 uniform int uAlphaInvert;
+uniform int uAlphaMapSource;
 uniform float uRoughness;
 uniform float uRoughnessStrength;
 uniform float uRoughnessOffset;
@@ -384,12 +385,14 @@ void main() {
     float alpha = uAlpha * (uUseBaseMap == 1 ? tex.a : 1.0);
     if (uUseAlphaMap == 1) {
         vec4 alphaTex = texture(uAlphaMap, vUv);
-        alpha = hardMask(applySlotMath(
-            dot(alphaTex.rgb, vec3(0.299, 0.587, 0.114)) * alphaTex.a,
+        float alphaLuma = dot(alphaTex.rgb, vec3(0.299, 0.587, 0.114));
+        float alphaSource = uAlphaMapSource == 1 ? alphaTex.a : alphaLuma;
+        alpha *= applySlotMath(
+            alphaSource,
             uAlphaStrength,
             uAlphaOffset,
             uAlphaInvert
-        ));
+        );
     }
     alpha = saturate(alpha);
 
@@ -666,15 +669,11 @@ const createProgram = (gl, vertexSource, fragmentSource) => {
 
 const clamp01 = value => Math.min(Math.max(Number(value) || 0, 0), 1);
 const toNumber = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
-const shouldRevealParticlesThroughSurface = ({ surface, alphaMode, baseTexture, alphaTexture }) => {
-    if (alphaMode === 0) {
-        return false;
-    }
-
+const shouldRevealParticlesThroughSurface = ({ surface, baseTexture, alphaTexture }) => {
     return (
         clamp01(surface?.alpha ?? 1) < 0.999 ||
-        Boolean(alphaTexture) ||
-        Boolean(baseTexture)
+        hasTexture(alphaTexture) ||
+        hasTexture(baseTexture)
     );
 };
 const toColor3 = color => Array.isArray(color) ? [toNumber(color[0], 1), toNumber(color[1], 1), toNumber(color[2], 1)] : [1, 1, 1];
@@ -892,6 +891,7 @@ const createTexture = (gl, image, fallback = [255, 255, 255, 255]) => {
 
 const textureImage = entry => entry?.image || null;
 const hasTexture = entry => Boolean(textureImage(entry));
+const alphaSourceCache = new WeakMap();
 const shouldUseObjectTextures = previewOverlay => {
     return previewOverlay?.wireframe !== true;
 };
@@ -902,6 +902,48 @@ const mapEnabled = (useObjectTextures, texture) => {
 
 const resolvePreviewTexture = (useObjectTextures, resolver) => {
     return useObjectTextures ? resolver() : null;
+};
+const resolveAlphaMapSource = texture => {
+    const image = textureImage(texture);
+
+    if (!image) {
+        return 0;
+    }
+
+    if (alphaSourceCache.has(image)) {
+        return alphaSourceCache.get(image);
+    }
+
+    const width = Math.max(1, Math.min(32, image.naturalWidth || image.width || 1));
+    const height = Math.max(1, Math.min(32, image.naturalHeight || image.height || 1));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+
+    if (!ctx) {
+        alphaSourceCache.set(image, 0);
+        return 0;
+    }
+
+    try {
+        ctx.drawImage(image, 0, 0, width, height);
+        const data = ctx.getImageData(0, 0, width, height).data;
+
+        for (let index = 3; index < data.length; index += 4) {
+            if (data[index] < 250) {
+                alphaSourceCache.set(image, 1);
+                return 1;
+            }
+        }
+    } catch (_error) {
+        alphaSourceCache.set(image, 0);
+        return 0;
+    }
+
+    alphaSourceCache.set(image, 0);
+    return 0;
 };
 const getMeshPosition = (mesh, index) => {
     const offset = index * mesh.stride;
@@ -1115,6 +1157,7 @@ const INT_UNIFORMS = Object.freeze(new Set([
     "uUseSheenMap",
     "uUseClearcoatRoughnessMap",
     "uAlphaMode",
+    "uAlphaMapSource",
     "uLightType",
     "uScreenSpaceRefraction",
     "uSubsurfaceTranslucency",
@@ -1740,6 +1783,7 @@ export class WebGLMaterialRenderer {
             resolveSurfaceForFace,
             getTextureForFace,
             getTextureForSlotFace,
+            getAlphaTextureForFace,
             getParticleTextureForLayer,
         } = options;
         const gl = this.gl;
@@ -1783,7 +1827,6 @@ export class WebGLMaterialRenderer {
         );
         const showFluidMesh = materialLayer.preview?.fluid_mesh !== false && materialLayer.settings?.fluid_mesh_preview !== false;
         const showFluidParticles = materialLayer.preview?.fluid_particles !== false && materialLayer.settings?.fluid_particle_preview !== false;
-        let revealParticlesThroughVolumeAlpha = false;
 
         if (materialLayer.particle_system?.enabled === true && !volumeLayeredPreview) {
             return this.drawParticlePass({
@@ -1827,6 +1870,37 @@ export class WebGLMaterialRenderer {
                 count: 0,
             }));
 
+        const revealParticlesThroughVolumeAlpha = volumeLayeredPreview && showFluidParticles && drawEntries.some(entry => {
+            const faceName = entry.faceName;
+            const faceSurface = resolveSurfaceForFace(surface, materialLayer, faceName);
+            const baseTexture = resolvePreviewTexture(
+                useObjectTextures,
+                () => getTextureForFace(materialLayer, faceName)
+            );
+            const alphaTexture = resolvePreviewTexture(
+                useObjectTextures,
+                () => getAlphaTextureForFace?.(materialLayer, faceName) || getTextureForSlotFace("alpha", faceName)
+            );
+
+            return shouldRevealParticlesThroughSurface({
+                surface: faceSurface,
+                baseTexture,
+                alphaTexture,
+            });
+        });
+
+        if (revealParticlesThroughVolumeAlpha) {
+            this.drawParticlePass({
+                materialLayer,
+                matrices,
+                dpr,
+                getTextureForSlotFace,
+                getParticleTextureForLayer,
+                ignoreDepth: true,
+            });
+            gl.useProgram(this.program);
+        }
+
         drawEntries.forEach(entry => {
             const faceName = entry.faceName;
             const faceSurface = resolveSurfaceForFace(surface, materialLayer, faceName);
@@ -1840,16 +1914,16 @@ export class WebGLMaterialRenderer {
                 () => getTextureForFace(materialLayer, faceName)
             );
 
-            const alphaTexture = slotTexture("alpha");
+            const alphaTexture = resolvePreviewTexture(
+                useObjectTextures,
+                () => getAlphaTextureForFace?.(materialLayer, faceName) || getTextureForSlotFace("alpha", faceName)
+            );
 
-            if (volumeLayeredPreview && shouldRevealParticlesThroughSurface({
+            const revealFaceAlpha = volumeLayeredPreview && shouldRevealParticlesThroughSurface({
                 surface: faceSurface,
-                alphaMode,
                 baseTexture,
                 alphaTexture,
-            })) {
-                revealParticlesThroughVolumeAlpha = true;
-            }
+            });
 
             const normalTexture =
                 slotTexture("normal") ||
@@ -1894,8 +1968,17 @@ export class WebGLMaterialRenderer {
                     invert: slot.invert === true || texture.invert === true ? 1 : 0,
                 };
             };
+            const textureParams = (slotKey, texture) => {
+                const slot = materialLayer.bitmap_maps?.[slotKey] || {};
+
+                return {
+                    strength: Math.min(Math.max(toNumber(slot.strength ?? texture?.strength, 1), -4), 4),
+                    offset: Math.min(Math.max(toNumber(slot.offset ?? texture?.offset, 0), -1), 1),
+                    invert: slot.invert === true || texture?.invert === true ? 1 : 0,
+                };
+            };
             const baseParams = slotParams("baseColor", "base_color");
-            const alphaParams = slotParams("alpha");
+            const alphaParams = textureParams("alpha", alphaTexture);
             const roughnessParams = slotParams("roughness");
             const metallicParams = slotParams("metallic");
             const specularParams = slotParams("specular");
@@ -1970,7 +2053,7 @@ export class WebGLMaterialRenderer {
                 uSubsurfaceColor: toColor4(faceSurface.subsurfaceColor),
                 uEmissionColor: toColor4(faceSurface.emission),
                 uAlpha: (
-                    objectTextureSettings.alpha_mode === "OPAQUE"
+                    objectTextureSettings.alpha_mode === "OPAQUE" && !revealFaceAlpha
                         ? 1
                         : clamp01(faceSurface.alpha)
                 ) * wireframeMaterialAlpha,
@@ -1981,6 +2064,7 @@ export class WebGLMaterialRenderer {
                 uAlphaStrength: alphaParams.strength,
                 uAlphaOffset: alphaParams.offset,
                 uAlphaInvert: alphaParams.invert,
+                uAlphaMapSource: resolveAlphaMapSource(alphaTexture),
                 uRoughness: clamp01(faceSurface.roughness),
                 uRoughnessStrength: roughnessParams.strength,
                 uRoughnessOffset: roughnessParams.offset,
@@ -2103,7 +2187,7 @@ export class WebGLMaterialRenderer {
                 dpr,
                 getTextureForSlotFace,
                 getParticleTextureForLayer,
-                ignoreDepth: revealParticlesThroughVolumeAlpha,
+                ignoreDepth: false,
             });
         }
 
