@@ -158,7 +158,18 @@ const PRINCIPLED_NODE_INPUT_KEYS = PRINCIPLED_SURFACE_GROUPS.map(group => group.
 
 const NODE_TYPES = [
     { type: "principled", label: "Principled BSDF", group: "Shader", icon: "mdi-material-design" },
-    { type: "output", label: "Output", group: "Output", icon: "mdi-export" },
+
+    { type: "uv-map", label: "UV", group: "Texture", icon: "mdi-vector-square" },
+    { type: "bitmap", label: "Bitmap/Image", group: "Texture", icon: "mdi-image" },
+    { type: "multitexture", label: "Multi Texture", group: "Texture", icon: "mdi-image-multiple" },
+    { type: "filter", label: "Gradient", group: "Texture", icon: "mdi-gradient-horizontal" },
+    { type: "filter", label: "Noise", group: "Texture", icon: "mdi-blur" },
+    { type: "filter", label: "Wave", group: "Texture", icon: "mdi-sine-wave" },
+
+    { type: "math", label: "Clamp", group: "Math", icon: "mdi-lock-outline" },
+    { type: "math", label: "Float Curve", group: "Math", icon: "mdi-chart-bell-curve-cumulative" },
+    { type: "math", label: "Math", group: "Math", icon: "mdi-function" },
+    { type: "value", label: "Value", group: "Math", icon: "mdi-numeric" },
 
     { type: "modifier", label: "Combine XYZ", group: "Vector", icon: "mdi-vector-polyline" },
     { type: "blend", label: "Mix", group: "Vector", icon: "mdi-vector-combine" },
@@ -171,19 +182,265 @@ const NODE_TYPES = [
     { type: "filter", label: "Gamma", group: "Color", icon: "mdi-chart-bell-curve" },
     { type: "filter", label: "Hue/Saturation/Value", group: "Color", icon: "mdi-palette" },
     { type: "filter", label: "Invert Color", group: "Color", icon: "mdi-invert-colors" },
-    { type: "blend", label: "Mix Color", group: "Color", icon: "mdi-blender-software" },
+    { type: "blend", label: "Mix", group: "Color", icon: "mdi-blender-software" },
     { type: "modifier", label: "Combine Color", group: "Color", icon: "mdi-format-color-fill" },
     { type: "modifier", label: "Separate Color", group: "Color", icon: "mdi-format-color-highlight" },
     { type: "filter", label: "RGB to BW", group: "Color", icon: "mdi-circle-half-full" },
 
-    { type: "math", label: "Clamp", group: "Math", icon: "mdi-lock-outline" },
-    { type: "math", label: "Float Curve", group: "Math", icon: "mdi-chart-bell-curve-cumulative" },
-    { type: "math", label: "Math", group: "Math", icon: "mdi-function" },
-    { type: "blend", label: "Mix", group: "Math", icon: "mdi-set-merge" },
-
-    { type: "bitmap", label: "Bitmap", group: "Texture", icon: "mdi-image" },
-    { type: "multitexture", label: "MultiTexture", group: "Texture", icon: "mdi-image-multiple" },
+    { type: "output", label: "Output", group: "Output", icon: "mdi-export" },
 ];
+
+const nodeSocket = (type, label = "") => ({ type, label });
+
+const SHADER_NODE_DEFINITIONS = Object.freeze({
+    UV: {
+        fields: [],
+        inputs: {},
+        outputs: {
+            uv: nodeSocket("vector", "UV"),
+        },
+    },
+    "Bitmap/Image": {
+        fields: ["bitmap", "interpolation", "projection", "extension"],
+        inputs: {
+            uv: nodeSocket("vector"),
+        },
+        outputs: {
+            color: nodeSocket("color"),
+            alpha: nodeSocket("float"),
+        },
+    },
+    "Multi Texture": {
+        fields: ["bitmap", "interpolation", "projection", "extension"],
+        inputs: {
+            uv: nodeSocket("vector"),
+        },
+        outputs: {
+            color: nodeSocket("color"),
+            alpha: nodeSocket("float"),
+        },
+    },
+    Gradient: {
+        fields: ["type"],
+        inputs: {
+            vector: nodeSocket("vector"),
+        },
+        outputs: {
+            color: nodeSocket("color"),
+            factor: nodeSocket("float"),
+        },
+    },
+    Noise: {
+        fields: ["dimensions", "normalize", "type"],
+        inputs: {
+            vector: nodeSocket("vector"),
+            scale: nodeSocket("float"),
+            detail: nodeSocket("float"),
+            roughness: nodeSocket("float"),
+            lacunarity: nodeSocket("float"),
+            distortion: nodeSocket("float"),
+        },
+        outputs: {
+            factor: nodeSocket("float"),
+            color: nodeSocket("color"),
+        },
+    },
+    Wave: {
+        fields: ["type", "direction", "wave"],
+        inputs: {
+            vector: nodeSocket("vector"),
+            scale: nodeSocket("float"),
+            distortion: nodeSocket("float"),
+            detail: nodeSocket("float"),
+            "detail scale": nodeSocket("float"),
+            "detail roughness": nodeSocket("float"),
+            Phase: nodeSocket("float"),
+        },
+        outputs: {
+            color: nodeSocket("color"),
+            factor: nodeSocket("float"),
+        },
+    },
+    "Combine XYZ": {
+        fields: ["x", "y", "z"],
+        inputs: {
+            x: nodeSocket("float"),
+            y: nodeSocket("float"),
+            z: nodeSocket("float"),
+        },
+        outputs: {
+            vector: nodeSocket("vector"),
+        },
+    },
+    Mix: {
+        fields: ["type", "clamp", "factor", "a", "b", "x", "y", "z"],
+        inputs: {
+            factor: nodeSocket("float"),
+            a: nodeSocket("float"),
+            b: nodeSocket("float"),
+        },
+        outputs: {
+            Result: nodeSocket("float"),
+        },
+    },
+    "Separate XYZ": {
+        fields: ["x", "y", "z"],
+        inputs: {
+            vector: nodeSocket("vector"),
+        },
+        outputs: {
+            x: nodeSocket("float"),
+            y: nodeSocket("float"),
+            z: nodeSocket("float"),
+        },
+    },
+    Mapping: {
+        fields: ["type", "vector", "location", "rotation", "scale"],
+        inputs: {
+            vector: nodeSocket("vector"),
+            location: nodeSocket("vector"),
+            rotation: nodeSocket("vector"),
+            scale: nodeSocket("vector"),
+        },
+        outputs: {
+            vector: nodeSocket("vector"),
+        },
+    },
+    Blackbody: {
+        fields: ["temperature"],
+        inputs: {
+            temperature: nodeSocket("float"),
+        },
+        outputs: {
+            color: nodeSocket("color"),
+        },
+    },
+    "Brightness/Contrast": {
+        fields: ["bitmap", "brightness", "contrast"],
+        inputs: {
+            bitmap: nodeSocket("image"),
+            brightness: nodeSocket("float"),
+            contrast: nodeSocket("float"),
+        },
+        outputs: {
+            bitmap: nodeSocket("image"),
+        },
+    },
+    "Color Ramp": {
+        fields: ["color_mode", "color_interpolation", "active_color_stop", "position", "color", "factor"],
+        inputs: {
+            factor: nodeSocket("float"),
+        },
+        outputs: {
+            bitmap: nodeSocket("image"),
+            alpha: nodeSocket("float"),
+        },
+    },
+    Gamma: {
+        fields: ["color", "gamma"],
+        inputs: {
+            color: nodeSocket("color"),
+            gamma: nodeSocket("float"),
+        },
+        outputs: {
+            color: nodeSocket("color"),
+        },
+    },
+    "Hue/Saturation/Value": {
+        fields: ["bitmap", "hue", "saturation", "value", "factor"],
+        inputs: {
+            bitmap: nodeSocket("image"),
+            hue: nodeSocket("float"),
+            saturation: nodeSocket("float"),
+            value: nodeSocket("float"),
+            factor: nodeSocket("float"),
+        },
+        outputs: {
+            bitmap: nodeSocket("image"),
+        },
+    },
+    "Invert Color": {
+        fields: ["factor", "color"],
+        inputs: {
+            factor: nodeSocket("float"),
+            color: nodeSocket("color"),
+        },
+        outputs: {
+            color: nodeSocket("color"),
+        },
+    },
+    "Combine Color": {
+        fields: ["mode", "red", "green", "blue", "alpha"],
+        inputs: {
+            red: nodeSocket("float"),
+            green: nodeSocket("float"),
+            blue: nodeSocket("float"),
+            alpha: nodeSocket("float"),
+        },
+        outputs: {
+            color: nodeSocket("color"),
+        },
+    },
+    "Separate Color": {
+        fields: ["mode", "red", "green", "blue", "alpha"],
+        inputs: {
+            color: nodeSocket("color"),
+        },
+        outputs: {
+            red: nodeSocket("float"),
+            green: nodeSocket("float"),
+            blue: nodeSocket("float"),
+            alpha: nodeSocket("float"),
+        },
+    },
+    "RGB to BW": {
+        fields: ["bitmap"],
+        inputs: {
+            bitmap: nodeSocket("image"),
+        },
+        outputs: {
+            value: nodeSocket("float"),
+        },
+    },
+    Value: {
+        fields: ["value"],
+        inputs: {},
+        outputs: {
+            value: nodeSocket("float"),
+        },
+    },
+    Clamp: {
+        fields: ["type", "value", "min", "max"],
+        inputs: {
+            value: nodeSocket("float"),
+            min: nodeSocket("float"),
+            max: nodeSocket("float"),
+        },
+        outputs: {
+            result: nodeSocket("float"),
+        },
+    },
+    "Float Curve": {
+        fields: ["curve", "factor", "value"],
+        inputs: {
+            factor: nodeSocket("float"),
+            value: nodeSocket("float"),
+        },
+        outputs: {
+            value: nodeSocket("float"),
+        },
+    },
+    Math: {
+        fields: ["mode", "clamp", "a", "b"],
+        inputs: {
+            a: nodeSocket("float", "value"),
+            b: nodeSocket("float", "value"),
+        },
+        outputs: {
+            value: nodeSocket("float"),
+        },
+    },
+});
 
 const TEXTURE_CHANNEL_OPTIONS = ["rgba", "rgb"];
 const TEXTURE_COLOR_MODE_OPTIONS = ["color", "bw"];
@@ -468,6 +725,8 @@ const createOutputNode = () => ({
     position: { x: 940, y: 220 },
     inputs: {
         surface: { type: "shader" },
+        volume: { type: "shader" },
+        displacement: { type: "vector" },
     },
     outputs: {},
     settings: {},
@@ -551,6 +810,9 @@ export function materialEditorModel(props, emit) {
     const SNAP_EDGE_DISTANCE = 34;
     const pauseAutoSync = ref(false);
     const nodePositionMemory = reactive({});
+    const collapsedNodeIds = reactive({});
+    const nodeLayoutVersion = ref(0);
+    const socketOffsetMemory = {};
     const uvViewport = reactive({
         zoom: 1,
         panX: 0,
@@ -575,6 +837,7 @@ export function materialEditorModel(props, emit) {
 
     const ui = reactive({
         activeTab: "surface",
+        activeNodeCategory: "",
     });
 
     const values = reactive({
@@ -743,6 +1006,28 @@ export function materialEditorModel(props, emit) {
         return Number(props.layer?.type) === 5;
     });
 
+    const nodeTypeGroups = computed(() => {
+        const order = ["Shader", "Texture", "Math", "Vector", "Color", "Output"];
+        const groups = NODE_TYPES.reduce((acc, item) => {
+            const group = item.group || "Other";
+
+            if (!acc[group]) {
+                acc[group] = [];
+            }
+
+            acc[group].push(item);
+            return acc;
+        }, {});
+
+        return order
+            .filter(group => Array.isArray(groups[group]) && groups[group].length)
+            .map(group => ({
+                key: group,
+                label: group,
+                items: groups[group],
+            }));
+    });
+
     const materialModeLabel = computed(() => {
         if (isEditingMaterialLayer.value) {
             return "Material Update";
@@ -880,6 +1165,10 @@ export function materialEditorModel(props, emit) {
             clamp: true,
         },
 
+        value: {
+            value: 0,
+        },
+
         multitexture: {
             mode: "cubemap-url-group-composite",
             ...TEXTURE_SETTING_DEFAULTS,
@@ -899,10 +1188,98 @@ export function materialEditorModel(props, emit) {
             return {};
         }
 
-        return {
+        const settings = {
             ...(NODE_VALUE_DEFAULTS[node.type] || {}),
             ...(node.settings || {}),
         };
+
+        const nodeName = settings.node_name || node.label || "";
+
+        if (nodeName === "Bitmap/Image" || node.type === "bitmap") {
+            settings.node_name = "Bitmap/Image";
+            settings.group = "Texture";
+            settings.bitmap = settings.bitmap || settings.name || settings.url || settings.layer_id || "";
+        }
+
+        if (nodeName === "Multi Texture" || node.type === "multitexture") {
+            settings.node_name = "Multi Texture";
+            settings.group = "Texture";
+        }
+
+        return settings;
+    };
+
+    const getShaderNodeFieldItems = node => {
+        const definition = getShaderNodeDefinition(node);
+
+        if (!definition) {
+            return [];
+        }
+
+        return definition.fields.map(field => ({
+            key: field,
+            label: field === "a" ? "A" : field === "b" ? "B" : field.replace(/_/g, " "),
+        }));
+    };
+
+    const getShaderNodeFieldOptions = (node, fieldKey) => {
+        const nodeName = getShaderNodeName(node);
+
+        if (fieldKey === "interpolation") {
+            return ["Linear", "Cubic", "Closest", "Smart"];
+        }
+
+        if (fieldKey === "projection") {
+            return ["Flat", "Box", "Sphere", "Tube"];
+        }
+
+        if (fieldKey === "extension") {
+            return ["Repeat", "Extend", "Clip"];
+        }
+
+        if (nodeName === "Gradient" && fieldKey === "type") {
+            return ["Linear", "Quadratic", "Easing", "Diagonal", "Spherical", "Sphere", "Radial"];
+        }
+
+        if (nodeName === "Noise" && fieldKey === "dimensions") {
+            return ["1D", "2D", "3D", "4D"];
+        }
+
+        if (nodeName === "Noise" && fieldKey === "type") {
+            return ["fBM", "Multifractal", "Hybrid Multifractal", "Ridged Multifractal", "Hetero Terrain"];
+        }
+
+        if (nodeName === "Wave" && fieldKey === "type") {
+            return ["Bands", "Rings"];
+        }
+
+        if (nodeName === "Wave" && fieldKey === "direction") {
+            return ["X", "Y", "Z", "Diagonal", "Spherical"];
+        }
+
+        if (nodeName === "Wave" && fieldKey === "wave") {
+            return ["Sine", "Saw", "Triangle", "Rings"];
+        }
+
+        if (fieldKey === "type") {
+            return ["Float", "Vector", "Color", "Point", "Bitmap", "Min Max", "Range"];
+        }
+
+        if (fieldKey === "mode") {
+            return ["RGB", "RGBA", "Add", "Subtract", "Multiply", "Divide", "Mix"];
+        }
+
+        return [];
+    };
+
+    const getNodeSocketLabel = (nodeId, socket, direction) => {
+        const node = getGraphNode(nodeId);
+        const sockets = direction === "input"
+            ? node?.inputs || {}
+            : node?.outputs || {};
+        const definition = sockets[socket];
+
+        return definition?.label || socket;
     };
 
     const ensureNodeSettings = node => {
@@ -1508,6 +1885,66 @@ export function materialEditorModel(props, emit) {
         return "mdi-check-circle";
     };
 
+    const getFirstUvShaderNode = () => (
+        getGraphNode("uv-cubemap-layout") ||
+        values.shader_graph.nodes.find(node => (
+            node?.settings?.node_name === "UV" ||
+            (
+                node?.type === "uv-map" &&
+                node?.settings?.node_name !== "Mapping"
+            )
+        )) ||
+        null
+    );
+
+    const hasUvShaderNode = () => Boolean(getFirstUvShaderNode());
+
+    const connectMaterialSlotBitmapNodesToFirstUv = () => {
+        const uvNode = getFirstUvShaderNode();
+
+        if (!uvNode) {
+            return;
+        }
+
+        values.shader_graph.nodes.forEach(node => {
+            const settings = node.settings || {};
+            const isMaterialBitmap =
+                (node.type === "bitmap" || settings.node_name === "Bitmap/Image") &&
+                settings.slot &&
+                values.bitmap_maps[settings.slot] &&
+                node.inputs?.uv;
+
+            if (!isMaterialBitmap) {
+                return;
+            }
+
+            const exists = values.shader_graph.edges.some(edge => (
+                edge.from.node === uvNode.id &&
+                edge.from.socket === "uv" &&
+                edge.to.node === node.id &&
+                edge.to.socket === "uv"
+            ));
+
+            if (exists) {
+                return;
+            }
+
+            values.shader_graph.edges.push({
+                id: uuid("shader-node"),
+                from: {
+                    node: uvNode.id,
+                    socket: "uv",
+                },
+                to: {
+                    node: node.id,
+                    socket: "uv",
+                },
+                generated: true,
+                system: "uv-material-slot",
+            });
+        });
+    };
+
     const isSurfaceSlotConnected = key => {
         return values.bitmap_maps[key]?.enabled === true;
     };
@@ -1594,6 +2031,61 @@ export function materialEditorModel(props, emit) {
             return { x: 0, y: 0 };
         }
 
+        const cacheKey = `${nodeId}:${direction}:${socket}`;
+
+        if (socketOffsetMemory[cacheKey]) {
+            const offset = socketOffsetMemory[cacheKey];
+
+            return {
+                x: (node.position?.x || 0) + offset.x,
+                y: (node.position?.y || 0) + offset.y,
+            };
+        }
+
+        const escapedNodeId = typeof window !== "undefined" && window.CSS?.escape
+            ? window.CSS.escape(nodeId)
+            : String(nodeId).replace(/["\\]/g, "\\$&");
+        const escapedSocket = typeof window !== "undefined" && window.CSS?.escape
+            ? window.CSS.escape(socket)
+            : String(socket).replace(/["\\]/g, "\\$&");
+        const dot = nodeCanvasRef.value?.querySelector(
+            `[data-node-id="${escapedNodeId}"][data-socket-name="${escapedSocket}"][data-socket-direction="${direction}"] i`
+        );
+        const canvasRect = nodeCanvasRef.value?.getBoundingClientRect();
+
+        if (dot && canvasRect) {
+            const dotRect = dot.getBoundingClientRect();
+
+            return {
+                x: (() => {
+                    const value = (
+                    dotRect.left + dotRect.width / 2
+                    - canvasRect.left
+                    - nodeCanvas.panX
+                    + nodeCanvasRef.value.scrollLeft
+                    ) / nodeCanvas.zoom;
+                    socketOffsetMemory[cacheKey] = {
+                        ...(socketOffsetMemory[cacheKey] || {}),
+                        x: value - (node.position?.x || 0),
+                    };
+                    return value;
+                })(),
+                y: (() => {
+                    const value = (
+                    dotRect.top + dotRect.height / 2
+                    - canvasRect.top
+                    - nodeCanvas.panY
+                    + nodeCanvasRef.value.scrollTop
+                    ) / nodeCanvas.zoom;
+                    socketOffsetMemory[cacheKey] = {
+                        ...(socketOffsetMemory[cacheKey] || {}),
+                        y: value - (node.position?.y || 0),
+                    };
+                    return value;
+                })(),
+            };
+        }
+
         const nodeX = node.position?.x || 0;
         const nodeY = node.position?.y || 0;
 
@@ -1612,6 +2104,8 @@ export function materialEditorModel(props, emit) {
     };
 
     const graphEdges = computed(() => {
+        nodeLayoutVersion.value;
+
         return values.shader_graph.edges.map(edge => {
             const from = getNodeSocketPosition(edge.from.node, edge.from.socket, "output");
             const to = getNodeSocketPosition(edge.to.node, edge.to.socket, "input");
@@ -1859,7 +2353,7 @@ export function materialEditorModel(props, emit) {
 
         const settings = normalizeNodeSettings(node);
 
-        if (node.type === "bitmap") {
+        if (node.type === "bitmap" || settings.node_name === "Bitmap/Image") {
             return [
                 settings.name || settings.layer_id || "Bitmap",
                 settings.channel ? `ch:${settings.channel}` : "",
@@ -1890,7 +2384,11 @@ export function materialEditorModel(props, emit) {
             return `${settings.operation || "none"} · factor:${Number(settings.factor ?? settings.strength ?? 1).toFixed(2)} · off:${Number(settings.offset || 0).toFixed(2)}`;
         }
 
-        if (node.type === "multitexture") {
+        if (node.type === "value" || settings.node_name === "Value") {
+            return `value:${Number(settings.value ?? 0).toFixed(3)}`;
+        }
+
+        if (node.type === "multitexture" || settings.node_name === "Multi Texture") {
             const groups = settings.texture_groups || [];
             return `${groups.length} textures · str:${Number(settings.strength || 1).toFixed(2)} · off:${Number(settings.offset || 0).toFixed(2)}`;
         }
@@ -1920,6 +2418,75 @@ export function materialEditorModel(props, emit) {
         }
 
         return node.type;
+    };
+
+    const getNodeCategoryChip = node => {
+        if (!node) {
+            return "";
+        }
+
+        const settings = normalizeNodeSettings(node);
+        const nodeName = settings.node_name || node.label || "";
+
+        if (nodeName === "Bitmap/Image" || node.type === "bitmap") {
+            return "Texture";
+        }
+
+        if (nodeName === "Multi Texture" || node.type === "multitexture") {
+            return "Texture";
+        }
+
+        const descriptor = NODE_TYPES.find(item => item.label === nodeName)
+            || NODE_TYPES.find(item => item.label === node.label)
+            || NODE_TYPES.find(item => item.type === node.type && item.group === settings.group);
+
+        return settings.group || descriptor?.group || "";
+    };
+
+    const getNodeDisplayTitle = node => {
+        if (!node) {
+            return "";
+        }
+
+        const settings = normalizeNodeSettings(node);
+        return node.label || settings.node_name || node.type || "Node";
+    };
+
+    const isMiniShaderNode = node => {
+        if (!node) {
+            return false;
+        }
+
+        return collapsedNodeIds[node.id] === true;
+    };
+
+    const toggleShaderNodeCollapsed = node => {
+        if (!node?.id) {
+            return;
+        }
+
+        collapsedNodeIds[node.id] = collapsedNodeIds[node.id] !== true;
+        Object.keys(socketOffsetMemory).forEach(key => {
+            if (key.startsWith(`${node.id}:`)) {
+                delete socketOffsetMemory[key];
+            }
+        });
+        requestAnimationFrame(() => {
+            nodeLayoutVersion.value += 1;
+        });
+    };
+
+    const getNodeInlineFieldItems = node => {
+        if (!node || isMiniShaderNode(node)) {
+            return [];
+        }
+
+        const inputs = node.inputs || {};
+        const outputs = node.outputs || {};
+
+        return getShaderNodeFieldItems(node).filter(field => (
+            !inputs[field.key] && !outputs[field.key]
+        ));
     };
 
     const interpolateValue = (value, settings = {}) => {
@@ -2090,6 +2657,7 @@ export function materialEditorModel(props, emit) {
 
         node.position = nextPosition;
         nodePositionMemory[node.id] = cloneData(nextPosition);
+        nodeLayoutVersion.value += 1;
 
         const snapEdge = getClosestEdgeForNode(node);
         activeSnapEdgeId.value = snapEdge?.id || "";
@@ -2263,26 +2831,22 @@ export function materialEditorModel(props, emit) {
             node = {
                 id: nodeId,
                 type: "bitmap",
-                label: `${slotKey} Bitmap`,
+                label: `${slotKey} Bitmap/Image`,
                 locked: false,
                 position: {
                     x: 70,
                     y: 80 + SURFACE_FIELDS.findIndex(field => field.key === slotKey) * 44,
                 },
-                inputs: {
-                    uv: null,
-                },
-                outputs: {
-                    color: { type: "color" },
-                    value: { type: "float" },
-                    alpha: { type: "float" },
-                },
+                ...createShaderNodeIO("Bitmap/Image"),
                 settings: {
+                    node_name: "Bitmap/Image",
+                    group: "Texture",
                     slot: slotKey,
                     layer_id: slot.layer_id,
                     url: slot.url,
                     name: slot.name,
                     ...mergeTextureSettingsForSlot(slotKey, slot),
+                    bitmap: slot.name || slot.url || slot.layer_id || "",
                     strength: slot.strength,
                     offset: slot.offset,
                     invert: slot.invert,
@@ -2294,11 +2858,14 @@ export function materialEditorModel(props, emit) {
         } else {
             node.settings = {
                 ...node.settings,
+                node_name: node.settings?.node_name || "Bitmap/Image",
+                group: node.settings?.group || "Texture",
                 slot: slotKey,
                 layer_id: slot.layer_id,
                 url: slot.url,
                 name: slot.name,
                 ...mergeTextureSettingsForSlot(slotKey, slot),
+                bitmap: slot.name || slot.url || slot.layer_id || "",
                 strength: slot.strength,
                 offset: slot.offset,
                 invert: slot.invert,
@@ -2306,9 +2873,11 @@ export function materialEditorModel(props, emit) {
             };
         }
 
-        const outputSocket = Array.isArray(values.surface[slotKey])
-            ? "color"
-            : "value";
+        if (hasUvShaderNode()) {
+            connectUvNodeToBitmapNode(nodeId);
+        }
+
+        const outputSocket = slotKey === "alpha" ? "alpha" : "color";
 
         const exists = values.shader_graph.edges.some(edge => (
             edge.from.node === nodeId &&
@@ -2494,13 +3063,23 @@ export function materialEditorModel(props, emit) {
     const canConnectSockets = (from, to) => {
         const fromType = getSocketType(from.node, from.socket, "output");
         const toType = getSocketType(to.node, to.socket, "input");
+        const colorLikeTypes = ["color", "image"];
+        const numericTypes = ["float", "value"];
 
         if (!fromType || !toType) {
-            return true;
+            return false;
         }
 
         if (to.node === "material-output" && to.socket === "surface") {
             return fromType === "shader" && toType === "shader";
+        }
+
+        if (to.node === "material-output" && to.socket === "volume") {
+            return fromType === "shader" && toType === "shader";
+        }
+
+        if (to.node === "material-output" && to.socket === "displacement") {
+            return ["vector", "float", "value"].includes(fromType);
         }
 
         if (to.node === "principled-bsdf") {
@@ -2508,11 +3087,11 @@ export function materialEditorModel(props, emit) {
                 return fromType === "shader";
             }
 
-            if (["color", "image"].includes(fromType) && ["color", "float"].includes(toType)) {
+            if (colorLikeTypes.includes(fromType) && ["color", "float"].includes(toType)) {
                 return true;
             }
 
-            if (["float", "value"].includes(fromType) && ["float", "color"].includes(toType)) {
+            if (numericTypes.includes(fromType) && numericTypes.includes(toType)) {
                 return true;
             }
         }
@@ -2521,8 +3100,75 @@ export function materialEditorModel(props, emit) {
             return true;
         }
 
-        return ["color", "image", "float", "value", "vector"].includes(fromType) &&
-            ["color", "image", "float", "value", "vector"].includes(toType);
+        if (colorLikeTypes.includes(fromType) && colorLikeTypes.includes(toType)) {
+            return true;
+        }
+
+        if (colorLikeTypes.includes(fromType) && numericTypes.includes(toType)) {
+            return true;
+        }
+
+        if (numericTypes.includes(fromType) && numericTypes.includes(toType)) {
+            return true;
+        }
+
+        return fromType === "vector" && toType === "vector";
+    };
+
+    const getNodeSocketVisualType = (nodeId, socket, direction) => {
+        const type = getSocketType(nodeId, socket, direction);
+
+        if (type === "image") {
+            return "color";
+        }
+
+        if (type === "value") {
+            return "float";
+        }
+
+        return type || "generic";
+    };
+
+    const inferShaderNodeMeta = node => {
+        if (!node) {
+            return { node_name: "", group: "" };
+        }
+
+        if (node.id === "uv-cubemap-layout" || node.type === "uv-map") {
+            const label = node.label === "Mapping" ? "Mapping" : "UV";
+            return {
+                node_name: node.settings?.node_name || label,
+                group: label === "UV" ? "Texture" : "Vector",
+            };
+        }
+
+        if (node.type === "bitmap") {
+            return {
+                node_name: "Bitmap/Image",
+                group: "Texture",
+            };
+        }
+
+        if (node.type === "multitexture") {
+            return {
+                node_name: "Multi Texture",
+                group: "Texture",
+            };
+        }
+
+        const byLabel = NODE_TYPES.find(item => item.label === node.label);
+
+        if (byLabel) {
+            return {
+                node_name: byLabel.label,
+                group: byLabel.group,
+            };
+        }
+
+        return {
+            node_name: node.settings?.node_name || node.label || "",
+            group: node.settings?.group || "",
+        };
     };
 
     const reconcileShaderGraph = () => {
@@ -2578,10 +3224,27 @@ export function materialEditorModel(props, emit) {
                 };
             }
 
+            const meta = inferShaderNodeMeta(node);
+            const settings = {
+                ...(node.settings || {}),
+                node_name: meta.node_name || node.settings?.node_name || node.label || "",
+                group: meta.group || node.settings?.group || "",
+            };
+            const nodeIO = node.type === "multitexture"
+                ? {
+                    inputs: node.inputs || {},
+                    outputs: node.outputs && Object.keys(node.outputs).length
+                        ? node.outputs
+                        : createShaderNodeIO("Multi Texture").outputs,
+                }
+                : createShaderNodeIO(settings.node_name);
+
             return {
                 ...node,
                 locked: node.locked === true,
                 position: getNodePosition(node, node.position || { x: 280, y: 140 }),
+                ...nodeIO,
+                settings,
             };
         });
 
@@ -2610,6 +3273,8 @@ export function materialEditorModel(props, emit) {
             core: isMaterialOutputEdge(edge),
         }));
 
+        connectMaterialSlotBitmapNodesToFirstUv();
+
         if (!pauseAutoSync.value) {
             SURFACE_FIELDS.forEach(field => {
                 syncSurfaceSlotFromShaderGraph(field.key);
@@ -2626,64 +3291,53 @@ export function materialEditorModel(props, emit) {
             return nodeType;
         }
 
+        const legacy = {
+            modifier: { type: "modifier", label: "Modifier", group: "Utility" },
+            filter: { type: "filter", label: "Filter", group: "Utility" },
+            falloff: { type: "falloff", label: "Falloff", group: "Utility" },
+            blend: { type: "blend", label: "Blend", group: "Utility" },
+            math: { type: "math", label: "Math", group: "Math" },
+            bitmap: { type: "bitmap", label: "Bitmap/Image", group: "Texture" },
+            multitexture: { type: "multitexture", label: "Multi Texture", group: "Texture" },
+        };
+
+        if (legacy[nodeType]) {
+            return legacy[nodeType];
+        }
+
         return NODE_TYPES.find(item => item.type === nodeType) || { type: nodeType, label: "Shader Node" };
     };
 
+    const getShaderNodeName = node => node?.settings?.node_name || node?.label || "";
+
+    const getShaderNodeDefinition = nodeOrLabel => {
+        const name = typeof nodeOrLabel === "string"
+            ? nodeOrLabel
+            : getShaderNodeName(nodeOrLabel);
+
+        return SHADER_NODE_DEFINITIONS[name] || null;
+    };
+
     const createShaderNodeIO = label => {
-        const lowerLabel = String(label || "").toLowerCase();
+        const definition = getShaderNodeDefinition(label);
 
-        if (lowerLabel === "combine xyz") {
+        if (definition) {
             return {
-                inputs: { x: { type: "float" }, y: { type: "float" }, z: { type: "float" } },
-                outputs: { vector: { type: "vector" }, value: { type: "float" } },
-            };
-        }
-
-        if (lowerLabel === "separate xyz") {
-            return {
-                inputs: { vector: { type: "vector" } },
-                outputs: { x: { type: "float" }, y: { type: "float" }, z: { type: "float" } },
-            };
-        }
-
-        if (lowerLabel === "combine color") {
-            return {
-                inputs: { red: { type: "float" }, green: { type: "float" }, blue: { type: "float" }, alpha: { type: "float" } },
-                outputs: { color: { type: "color" }, value: { type: "float" } },
-            };
-        }
-
-        if (lowerLabel === "separate color") {
-            return {
-                inputs: { color: { type: "color" } },
-                outputs: { red: { type: "float" }, green: { type: "float" }, blue: { type: "float" }, alpha: { type: "float" } },
-            };
-        }
-
-        if (lowerLabel === "mapping") {
-            return {
-                inputs: { vector: { type: "vector" } },
-                outputs: { vector: { type: "vector" }, image: { type: "image" } },
-            };
-        }
-
-        if (["blackbody", "rgb to bw"].includes(lowerLabel)) {
-            return {
-                inputs: lowerLabel === "blackbody" ? { temperature: { type: "float" } } : { bitmap: { type: "image" } },
-                outputs: { color: { type: "color" }, value: { type: "float" } },
+                inputs: cloneData(definition.inputs),
+                outputs: cloneData(definition.outputs),
             };
         }
 
         return {
             inputs: {
-                image: { type: "image" },
-                value: { type: "float" },
-                factor: { type: "float" },
+                image: nodeSocket("image"),
+                value: nodeSocket("float"),
+                factor: nodeSocket("float"),
             },
             outputs: {
-                image: { type: "image" },
-                value: { type: "float" },
-                color: { type: "color" },
+                image: nodeSocket("image"),
+                value: nodeSocket("float"),
+                color: nodeSocket("color"),
             },
         };
     };
@@ -2750,6 +3404,9 @@ export function materialEditorModel(props, emit) {
         };
 
         values.shader_graph.nodes.push(node);
+        if (["Bitmap/Image", "Multi Texture"].includes(node.settings.node_name) && hasUvShaderNode()) {
+            connectUvNodeToBitmapNode(id);
+        }
         activeShaderNodeId.value = id;
         requestPreviewDebounced();
     };
@@ -2782,6 +3439,30 @@ export function materialEditorModel(props, emit) {
         activeShaderNodeId.value = "principled-bsdf";
         reconcileShaderGraph();
         requestPreviewDebounced();
+    };
+
+    const connectUvNodeToBitmapNode = bitmapNodeId => {
+        const uvNode = getFirstUvShaderNode();
+        const bitmapNode = getGraphNode(bitmapNodeId);
+
+        if (!uvNode || !bitmapNode || !bitmapNode.inputs?.uv) {
+            return;
+        }
+
+        connectEdgeUnique(
+            {
+                node: uvNode.id,
+                socket: "uv",
+            },
+            {
+                node: bitmapNode.id,
+                socket: "uv",
+            },
+            {
+                generated: true,
+                system: "uv-cubemap",
+            },
+        );
     };
 
     const insertNodeBetweenSurfaceSlot = (slotKey, type = "modifier") => {
@@ -3456,7 +4137,7 @@ export function materialEditorModel(props, emit) {
         const uvNode = {
             id: uvNodeId,
             type: "uv-map",
-            label: "CubeMap UV Coordinates",
+            label: "UV",
             locked: false,
             generated: true,
             system: "uv-cubemap",
@@ -3468,11 +4149,10 @@ export function materialEditorModel(props, emit) {
                     { x: 70, y: 430 }
                 ),
             ),
-            inputs: {},
-            outputs: {
-                uv: { type: "uv" },
-            },
+            ...createShaderNodeIO("UV"),
             settings: {
+                node_name: "UV",
+                group: "Texture",
                 mode: values.uv.mode,
                 view_mode: values.uv.view_mode,
                 active_face: values.uv.active_face,
@@ -3529,7 +4209,7 @@ export function materialEditorModel(props, emit) {
             values.shader_graph.nodes.push({
                 id: bitmapNodeId,
                 type: "bitmap",
-                label: bitmap.name || "Cube SingleTexture",
+                label: bitmap.name || "Bitmap/Image",
                 locked: false,
                 generated: true,
                 system: "uv-cubemap",
@@ -3541,14 +4221,10 @@ export function materialEditorModel(props, emit) {
                         { x: 350, y: 430 }
                     ),
                 ),
-                inputs: {
-                    uv: { type: "uv" },
-                },
-                outputs: {
-                    color: { type: "color" },
-                    alpha: { type: "float" },
-                },
+                ...createShaderNodeIO("Bitmap/Image"),
                 settings: {
+                    node_name: "Bitmap/Image",
+                    group: "Texture",
                     mode: "single-texture-cubemap-uv",
                     slot: primarySlotKey,
                     target_slot: primarySlotKey,
@@ -3590,7 +4266,7 @@ export function materialEditorModel(props, emit) {
         const multiTextureNode = {
             id: multiTextureNodeId,
             type: "multitexture",
-            label: "Cube MultiTexture",
+            label: "Multi Texture",
             locked: false,
             generated: true,
             system: "uv-cubemap",
@@ -3611,6 +4287,8 @@ export function materialEditorModel(props, emit) {
                 alpha: { type: "float" },
             },
             settings: {
+                node_name: "Multi Texture",
+                group: "Texture",
                 mode: "cubemap-url-group-composite",
                 slot: primarySlotKey,
                 target_slot: primarySlotKey,
@@ -3640,7 +4318,7 @@ export function materialEditorModel(props, emit) {
             values.shader_graph.nodes.push({
                 id: bitmapNodeId,
                 type: "bitmap",
-                label: bitmap.name || `Texture Group ${index + 1}`,
+                label: bitmap.name || `Bitmap/Image ${index + 1}`,
                 locked: false,
                 generated: true,
                 system: "uv-cubemap",
@@ -3652,14 +4330,10 @@ export function materialEditorModel(props, emit) {
                         { x: 350, y: 350 + index * 92 }
                     ),
                 ),
-                inputs: {
-                    uv: { type: "uv" },
-                },
-                outputs: {
-                    color: { type: "color" },
-                    alpha: { type: "float" },
-                },
+                ...createShaderNodeIO("Bitmap/Image"),
                 settings: {
+                    node_name: "Bitmap/Image",
+                    group: "Texture",
                     mode: "texture-group-cubemap-uv",
                     group_index: index,
                     target_slot: primarySlotKey,
@@ -4327,6 +5001,9 @@ export function materialEditorModel(props, emit) {
 
     onMounted(() => {
         ensureCoreNodes();
+        requestAnimationFrame(() => {
+            nodeLayoutVersion.value += 1;
+        });
         requestPreviewDebounced();
     });
 
@@ -4355,6 +5032,7 @@ export function materialEditorModel(props, emit) {
         surfaceFields: SURFACE_FIELDS,
         surfaceGroups: PRINCIPLED_SURFACE_GROUPS,
         nodeTypes: NODE_TYPES,
+        nodeTypeGroups,
         textureChannelOptions: TEXTURE_CHANNEL_OPTIONS,
         textureColorModeOptions: TEXTURE_COLOR_MODE_OPTIONS,
         textureSizeOptions: TEXTURE_SIZE_OPTIONS,
@@ -4422,6 +5100,15 @@ export function materialEditorModel(props, emit) {
         getNodeValueSummary,
         getNodeConnectionSummary,
         getNodeBadge,
+        getNodeCategoryChip,
+        getNodeDisplayTitle,
+        isMiniShaderNode,
+        toggleShaderNodeCollapsed,
+        getNodeInlineFieldItems,
+        getNodeSocketVisualType,
+        getNodeSocketLabel,
+        getShaderNodeFieldItems,
+        getShaderNodeFieldOptions,
         resolveNodeDisplayValue,
         getNodeResolvedValueText,
         interpolateValue,

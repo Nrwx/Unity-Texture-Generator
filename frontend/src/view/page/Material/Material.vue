@@ -1382,16 +1382,39 @@
                 </div>
 
                 <div class="mem-node-actions">
-                  <button
-                      v-for="nodeType in nodeTypes"
-                      :key="`${nodeType.group}-${nodeType.label}-${nodeType.type}`"
-                      type="button"
-                      class="mem-ghost-btn"
-                      @click="addShaderNode(nodeType)"
+                  <div
+                      v-for="group in nodeTypeGroups"
+                      :key="group.key"
+                      class="mem-node-action-group"
+                      :class="{ open: ui.activeNodeCategory === group.key }"
                   >
-                    <v-icon size="14">{{ nodeType.icon }}</v-icon>
-                    {{ nodeType.label }}
-                  </button>
+                    <button
+                        type="button"
+                        class="mem-node-category-btn"
+                        @click="ui.activeNodeCategory = ui.activeNodeCategory === group.key ? '' : group.key"
+                    >
+                      <strong>{{ group.label }}</strong>
+                      <v-icon size="14">
+                        {{ ui.activeNodeCategory === group.key ? 'mdi-chevron-up' : 'mdi-chevron-down' }}
+                      </v-icon>
+                    </button>
+
+                    <div
+                        v-if="ui.activeNodeCategory === group.key"
+                        class="mem-node-category-menu"
+                    >
+                      <button
+                          v-for="nodeType in group.items"
+                          :key="`${nodeType.group}-${nodeType.label}-${nodeType.type}`"
+                          type="button"
+                          class="mem-node-menu-item"
+                          @click="addShaderNode(nodeType); ui.activeNodeCategory = ''"
+                      >
+                        <v-icon size="14">{{ nodeType.icon }}</v-icon>
+                        {{ nodeType.label }}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -1464,7 +1487,14 @@
                         v-for="node in values.shader_graph.nodes"
                         :key="node.id"
                         class="mem-shader-graph-node"
-                        :class="[node.type, { active: activeShaderNodeId === node.id, locked: node.locked }]"
+                        :class="[
+                          node.type,
+                          {
+                            active: activeShaderNodeId === node.id,
+                            locked: node.locked,
+                            mini: isMiniShaderNode(node)
+                          }
+                        ]"
                         :style="{
           left: `${node.position?.x || 0}px`,
           top: `${node.position?.y || 0}px`
@@ -1495,11 +1525,25 @@
                           }}
                         </v-icon>
 
-                        <strong>{{ node.label }}</strong>
+                        <span class="mem-node-title">
+                          <strong>{{ getNodeDisplayTitle(node) }}</strong>
+                        </span>
 
-                        <i class="mem-node-type-badge">
-                          {{ getNodeBadge(node) }}
+                        <i class="mem-node-category-chip">
+                          {{ getNodeCategoryChip(node) || getNodeBadge(node) }}
                         </i>
+
+                        <button
+                            type="button"
+                            class="mem-node-collapse"
+                            :title="isMiniShaderNode(node) ? 'Node ausklappen' : 'Node einklappen'"
+                            @mousedown.stop
+                            @click.stop="toggleShaderNodeCollapsed(node)"
+                        >
+                          <v-icon size="13">
+                            {{ isMiniShaderNode(node) ? 'mdi-chevron-down' : 'mdi-chevron-up' }}
+                          </v-icon>
+                        </button>
 
                         <button
                             v-if="!node.locked"
@@ -1520,12 +1564,16 @@
                           v-for="(_socket, socketName) in node.inputs"
                           :key="`input-${socketName}`"
                           class="mem-node-socket input"
+                          :class="getNodeSocketVisualType(node.id, socketName, 'input')"
                           data-socket
+                          :data-node-id="node.id"
+                          :data-socket-name="socketName"
+                          data-socket-direction="input"
                           @mousedown.stop="startConnection($event, node, socketName, 'input')"
                           @mouseup.stop="completeConnection($event, node, socketName, 'input')"
           >
             <i />
-            {{ socketName }}
+            {{ getNodeSocketLabel(node.id, socketName, 'input') }}
           </span>
                         </div>
 
@@ -1534,11 +1582,15 @@
               v-for="(_socket, socketName) in node.outputs"
               :key="`output-${socketName}`"
               class="mem-node-socket output"
+              :class="getNodeSocketVisualType(node.id, socketName, 'output')"
               data-socket
+              :data-node-id="node.id"
+              :data-socket-name="socketName"
+              data-socket-direction="output"
               @mousedown.stop="startConnection($event, node, socketName, 'output')"
               @mouseup.stop="completeConnection($event, node, socketName, 'output')"
           >
-            {{ socketName }}
+            {{ getNodeSocketLabel(node.id, socketName, 'output') }}
             <i />
           </span>
                         </div>
@@ -1546,6 +1598,56 @@
 
                       <div class="mem-node-value-strip">
                         <span>{{ getNodeValueSummary(node) }}</span>
+                      </div>
+
+                      <div
+                          v-if="getNodeInlineFieldItems(node).length"
+                          class="mem-node-inline-fields"
+                          @mousedown.stop
+                      >
+                        <template
+                            v-for="field in getNodeInlineFieldItems(node)"
+                            :key="`${node.id}-${field.key}`"
+                        >
+                          <label class="mem-node-inline-field">
+                            <span>{{ field.label }}</span>
+
+                            <select
+                                v-if="getShaderNodeFieldOptions(node, field.key).length"
+                                :value="normalizeNodeSettings(node)[field.key] || getShaderNodeFieldOptions(node, field.key)[0]"
+                                @change="updateNodeSetting(node, field.key, $event.target.value)"
+                            >
+                              <option
+                                  v-for="option in getShaderNodeFieldOptions(node, field.key)"
+                                  :key="option"
+                                  :value="option"
+                              >
+                                {{ option }}
+                              </option>
+                            </select>
+
+                            <input
+                                v-else-if="['clamp', 'normalize'].includes(field.key)"
+                                type="checkbox"
+                                :checked="normalizeNodeSettings(node)[field.key] === true"
+                                @change="updateNodeSetting(node, field.key, $event.target.checked)"
+                            />
+
+                            <input
+                                v-else-if="['color', 'bitmap', 'curve', 'color_mode', 'color_interpolation'].includes(field.key)"
+                                type="text"
+                                :value="normalizeNodeSettings(node)[field.key] || ''"
+                                @input="updateNodeSetting(node, field.key, $event.target.value)"
+                            />
+
+                            <input
+                                v-else
+                                type="number"
+                                :value="normalizeNodeSettings(node)[field.key] ?? 0"
+                                @input="updateNodeSetting(node, field.key, Number($event.target.value))"
+                            />
+                          </label>
+                        </template>
                       </div>
 
                       <small class="mem-node-meta">
@@ -1702,7 +1804,7 @@
                       />
                     </template>
 
-                    <template v-if="['blend', 'math', 'modifier'].includes(activeShaderNode.type)">
+                    <template v-if="['blend', 'math', 'modifier'].includes(activeShaderNode.type) && !getShaderNodeFieldItems(activeShaderNode).length">
                       <v-select
                           :model-value="normalizeNodeSettings(activeShaderNode).operation"
                           :items="['none', 'multiply', 'add', 'subtract', 'divide', 'mix', 'screen', 'overlay', 'difference', 'clamp', 'invert']"
@@ -1713,7 +1815,62 @@
                       />
                     </template>
 
-                    <div class="mem-control-card">
+                    <div
+                        v-if="getShaderNodeFieldItems(activeShaderNode).length"
+                        class="mem-control-card"
+                    >
+                      <header>
+                        <strong>Input Fields</strong>
+                        <small>{{ normalizeNodeSettings(activeShaderNode).node_name || activeShaderNode.label }}</small>
+                      </header>
+
+                      <template
+                          v-for="field in getShaderNodeFieldItems(activeShaderNode)"
+                          :key="field.key"
+                      >
+                        <v-select
+                            v-if="getShaderNodeFieldOptions(activeShaderNode, field.key).length"
+                            :model-value="normalizeNodeSettings(activeShaderNode)[field.key] || 'Float'"
+                            :items="getShaderNodeFieldOptions(activeShaderNode, field.key)"
+                            :label="field.label"
+                            density="compact"
+                            hide-details
+                            @update:model-value="updateNodeSetting(activeShaderNode, field.key, $event)"
+                        />
+
+                        <v-switch
+                            v-else-if="['clamp', 'normalize'].includes(field.key)"
+                            :model-value="normalizeNodeSettings(activeShaderNode)[field.key] === true"
+                            :label="field.label"
+                            hide-details
+                            @update:model-value="updateNodeSetting(activeShaderNode, field.key, $event)"
+                        />
+
+                        <v-text-field
+                            v-else-if="['color', 'bitmap', 'curve', 'color_mode', 'color_interpolation'].includes(field.key)"
+                            :model-value="normalizeNodeSettings(activeShaderNode)[field.key] || ''"
+                            :label="field.label"
+                            density="compact"
+                            hide-details
+                            @update:model-value="updateNodeSetting(activeShaderNode, field.key, $event)"
+                        />
+
+                        <v-text-field
+                            v-else
+                            :model-value="normalizeNodeSettings(activeShaderNode)[field.key] ?? 0"
+                            :label="field.label"
+                            type="number"
+                            density="compact"
+                            hide-details
+                            @update:model-value="updateNodeSetting(activeShaderNode, field.key, Number($event))"
+                        />
+                      </template>
+                    </div>
+
+                    <div
+                        v-if="false"
+                        class="mem-control-card"
+                    >
                       <header>
                         <strong>Strength</strong>
                         <small>{{ normalizeNodeSettings(activeShaderNode).strength }}</small>
@@ -1731,7 +1888,7 @@
                     </div>
 
                     <div
-                        v-if="!['bitmap', 'multitexture'].includes(activeShaderNode.type)"
+                        v-if="false"
                         class="mem-control-card"
                     >
                       <header>
@@ -1751,6 +1908,7 @@
                     </div>
 
                     <label
+                        v-if="false"
                         class="mem-toggle-card"
                         :class="{ active: normalizeNodeSettings(activeShaderNode).clamp }"
                     >
