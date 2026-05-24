@@ -83,6 +83,66 @@
       />
     </label>
 
+    <label
+        class="mem-toggle-card"
+        :class="{ active: state.settings.wireframe_preview }"
+    >
+  <span class="mem-toggle-icon">
+    <v-icon>mdi-vector-polyline</v-icon>
+  </span>
+
+      <span class="mem-toggle-text">
+    <strong>Wireframe Render</strong>
+    <small>Zeigt Mesh-Kanten in der 3D-Vorschau.</small>
+  </span>
+
+      <v-switch
+          :model-value="state.settings.wireframe_preview"
+          hide-details
+          @update:model-value="setBooleanSetting('wireframe_preview', $event)"
+      />
+    </label>
+
+    <label
+        class="mem-toggle-card"
+        :class="{ active: state.settings.faces_preview }"
+    >
+  <span class="mem-toggle-icon">
+    <v-icon>mdi-grid-large</v-icon>
+  </span>
+
+      <span class="mem-toggle-text">
+    <strong>Show Faces</strong>
+    <small>Hebt sichtbare Flächen in der Preview hervor.</small>
+  </span>
+
+      <v-switch
+          :model-value="state.settings.faces_preview"
+          hide-details
+          @update:model-value="setBooleanSetting('faces_preview', $event)"
+      />
+    </label>
+
+    <label
+        class="mem-toggle-card"
+        :class="{ active: state.settings.vertices_preview }"
+    >
+  <span class="mem-toggle-icon">
+    <v-icon>mdi-vector-point</v-icon>
+  </span>
+
+      <span class="mem-toggle-text">
+    <strong>Show Vertices</strong>
+    <small>Markiert Eckpunkte des Preview-Meshes.</small>
+  </span>
+
+      <v-switch
+          :model-value="state.settings.vertices_preview"
+          hide-details
+          @update:model-value="setBooleanSetting('vertices_preview', $event)"
+      />
+    </label>
+
     <div class="mem-select-card">
       <strong>Blend Mode</strong>
 

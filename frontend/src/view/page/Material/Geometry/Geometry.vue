@@ -2,7 +2,7 @@
   <div class="mem-view-head">
     <div>
       <strong>Geometry</strong>
-      <span>Form, Proportionen, Bevel, Subdivision, Displacement und UV-Dichte.</span>
+      <span>Form, Proportionen, Bevel, Subdivision, UV-Dichte und Transform.</span>
     </div>
   </div>
 
@@ -92,6 +92,15 @@
         />
       </div>
 
+      <v-select
+          :model-value="state.geometry.subdivision_type"
+          :items="subdivisionTypeOptions"
+          label="Subdivision Type"
+          density="compact"
+          hide-details
+          @update:model-value="setGeometryValue('subdivision_type', $event)"
+      />
+
       <div class="mem-control-card">
         <header>
           <strong>Subdivision</strong>
@@ -128,104 +137,6 @@
             @update:model-value="setGeometryBoolean('shade_smooth', $event)"
         />
       </label>
-    </section>
-
-    <section
-        v-if="showDisplacement"
-        class="mem-geometry-card"
-    >
-      <header>
-        <strong>Displacement & Normal</strong>
-        <small>Geometrische Tiefe und Oberflächenstruktur.</small>
-      </header>
-
-      <label
-          class="mem-toggle-card"
-          :class="{ active: state.geometry.displacement_enabled }"
-      >
-        <span class="mem-toggle-icon">
-          <v-icon>mdi-terrain</v-icon>
-        </span>
-
-        <span class="mem-toggle-text">
-          <strong>Displacement</strong>
-          <small>Aktiviert Höhenversatz über Materialdaten.</small>
-        </span>
-
-        <v-switch
-            :model-value="state.geometry.displacement_enabled"
-            hide-details
-            @update:model-value="setGeometryBoolean('displacement_enabled', $event)"
-        />
-      </label>
-
-      <div class="mem-control-card">
-        <header>
-          <strong>Displacement Strength</strong>
-          <small>{{ state.geometry.displacement_strength }}</small>
-        </header>
-
-        <v-slider
-            :model-value="state.geometry.displacement_strength"
-            :min="0"
-            :max="2"
-            :step="0.001"
-            thumb-label
-            hide-details
-            @update:model-value="setGeometryNumber('displacement_strength', $event)"
-        />
-      </div>
-
-      <div class="mem-control-card">
-        <header>
-          <strong>Midlevel</strong>
-          <small>{{ state.geometry.displacement_midlevel }}</small>
-        </header>
-
-        <v-slider
-            :model-value="state.geometry.displacement_midlevel"
-            :min="0"
-            :max="1"
-            :step="0.001"
-            thumb-label
-            hide-details
-            @update:model-value="setGeometryNumber('displacement_midlevel', $event)"
-        />
-      </div>
-
-      <div class="mem-control-card">
-        <header>
-          <strong>Normal Strength</strong>
-          <small>{{ state.geometry.normal_strength }}</small>
-        </header>
-
-        <v-slider
-            :model-value="state.geometry.normal_strength"
-            :min="0"
-            :max="4"
-            :step="0.001"
-            thumb-label
-            hide-details
-            @update:model-value="setGeometryNumber('normal_strength', $event)"
-        />
-      </div>
-
-      <div class="mem-control-card">
-        <header>
-          <strong>Bump Strength</strong>
-          <small>{{ state.geometry.bump_strength }}</small>
-        </header>
-
-        <v-slider
-            :model-value="state.geometry.bump_strength"
-            :min="0"
-            :max="2"
-            :step="0.001"
-            thumb-label
-            hide-details
-            @update:model-value="setGeometryNumber('bump_strength', $event)"
-        />
-      </div>
     </section>
 
     <section class="mem-geometry-card">
@@ -360,20 +271,20 @@
 <script>
 import { defineComponent } from "vue";
 import {
-    geometryModel,
-    geometryModelEmits,
-    geometryModelProps,
+  geometryModel,
+  geometryModelEmits,
+  geometryModelProps,
 } from "@/view/models/page/material/geometry/model";
 
 export default defineComponent({
-    name: "GeometryEditor",
-    props: geometryModelProps,
-    emits: geometryModelEmits,
-    setup(props, { emit }) {
-        return {
-            ...geometryModel(props, emit),
-        };
-    },
+  name: "GeometryEditor",
+  props: geometryModelProps,
+  emits: geometryModelEmits,
+  setup(props, { emit }) {
+    return {
+      ...geometryModel(props, emit),
+    };
+  },
 });
 </script>
 

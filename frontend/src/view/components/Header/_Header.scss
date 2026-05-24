@@ -1,0 +1,48 @@
+@use "../../scss/_Var" as v;
+
+.header-chip-status {
+  section:first-child {
+    i, v-icon {
+      color: v.$app_color_emerald;
+      filter: drop-shadow(0 0 12px rgba(112, 223, 180, 0.36));
+    }
+    div {
+      strong {
+        font-size: 0.92rem;
+        font-weight: 780;
+        line-height: 1.1;
+      }
+      span {
+        max-width: 520px;
+        margin-top: 3px;
+        color: v.$app_color_muted;
+        font-size: 0.72rem;
+      }
+    }
+  }
+  section:last-child {
+    min-width: max-content;
+    padding: 6px 10px;
+    border: 1px solid rgba(255, 123, 123, 0.36);
+    border-radius: 999px;
+    background: v.$app_color_surface_00;
+    color: v.$app_color_danger;
+    font-size: 0.7rem;
+    font-weight: 760;
+    white-space: nowrap;
+    box-shadow: 0 0 18px rgba(255, 123, 123, 0.08);
+    > span {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: currentColor;
+      box-shadow: 0 0 12px currentColor;
+    }
+
+    &.active {
+      color: v.$app_color_cyan;
+      border-color: rgba(97, 230, 255, 0.34);
+      box-shadow: 0 0 18px rgba(97, 230, 255, 0.10);
+    }
+  }
+}

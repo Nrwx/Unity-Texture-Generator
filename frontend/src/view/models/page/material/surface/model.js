@@ -1,4 +1,4 @@
-import { computed, reactive, watch } from "vue";
+import {computed, reactive, ref, watch} from "vue";
 import { colorArrayToHex, hexToRgbaArray } from "@/utils/color";
 import { Node } from "@/view/models/page/material/core/Node/Node";
 
@@ -248,6 +248,21 @@ const normalizeBitmapMaps = bitmapMaps => ({
     ...(bitmapMaps || {}),
 });
 
+const isBitmapSlotConnected = slot => {
+    return Boolean(
+        slot?.enabled ||
+        slot?.url ||
+        slot?.layer_id ||
+        slot?.node_id ||
+        slot?.source_type === "shader" ||
+        slot?.source_type === "multitexture"
+    );
+};
+
+const isSameSurfaceValue = (a, b) => {
+    return JSON.stringify(a) === JSON.stringify(b);
+};
+
 export const surfaceEditorProps = {
     name: {
         type: String,
@@ -280,6 +295,7 @@ export const surfaceEditorEmits = [
 ];
 
 export function surfaceEditorModel(props, emit) {
+
     const state = reactive({
         name: props.name || "",
         surface: normalizeSurface(props.surface),
@@ -289,6 +305,170 @@ export function surfaceEditorModel(props, emit) {
     const surfaceGroups = computed(() => PRINCIPLED_SURFACE_GROUPS);
     const textureChannelOptions = computed(() => TEXTURE_CHANNEL_OPTIONS);
     const textureColorModeOptions = computed(() => TEXTURE_COLOR_MODE_OPTIONS);
+
+    const visibleSurfaceSlotKeys = computed(() => {
+        return surfaceGroups.value.map(group => group.key);
+    });
+
+    const totalSurfaceSlots = computed(() => {
+        return visibleSurfaceSlotKeys.value.length;
+    });
+
+    const connectedSurfaceSlotKeys = computed(() => {
+        return visibleSurfaceSlotKeys.value.filter(key => {
+            return isBitmapSlotConnected(state.bitmapMaps[key]);
+        });
+    });
+
+    const connectedSurfaceSlots = computed(() => {
+        return connectedSurfaceSlotKeys.value.length;
+    });
+
+    const availableTextureLayers = computed(() => {
+        return props.textureLayers?.length || 0;
+    });
+
+    const colorSlotKeys = computed(() => {
+        return surfaceGroups.value
+            .filter(group => group.field?.type === "color")
+            .map(group => group.key);
+    });
+
+    const connectedColorSlots = computed(() => {
+        return colorSlotKeys.value.filter(key => {
+            return isBitmapSlotConnected(state.bitmapMaps[key]);
+        }).length;
+    });
+
+    const factorSlotKeys = computed(() => {
+        return surfaceGroups.value
+            .filter(group => group.field?.type === "number")
+            .map(group => group.key);
+    });
+
+    const connectedFactorSlots = computed(() => {
+        return factorSlotKeys.value.filter(key => {
+            return isBitmapSlotConnected(state.bitmapMaps[key]);
+        }).length;
+    });
+
+    const nodeTextureSlots = computed(() => {
+        return visibleSurfaceSlotKeys.value.filter(key => {
+            const slot = state.bitmapMaps[key];
+
+            return (
+                slot?.source_type === "shader" ||
+                slot?.source_type === "multitexture"
+            );
+        }).length;
+    });
+
+    const changedSurfaceValues = computed(() => {
+        const defaults = createSurface();
+
+        return visibleSurfaceSlotKeys.value.filter(key => {
+            return !isSameSurfaceValue(state.surface[key], defaults[key]);
+        }).length;
+    });
+
+    const ui = ref({
+        header: computed(() => [
+            {
+                title: "Surface",
+                subtitle: "Belegte Surface-Slots",
+                type: "radial",
+                label: "Slots",
+                value: connectedSurfaceSlots.value,
+                max: totalSurfaceSlots.value,
+                active: connectedSurfaceSlots.value > 0,
+                diashow: true,
+                slider: true,
+                duration: 7,
+            },
+            {
+                title: "Surface",
+                subtitle: "Textur-Abdeckung",
+                type: "linear",
+                label: "Coverage",
+                value: connectedSurfaceSlots.value,
+                max: totalSurfaceSlots.value,
+                active: connectedSurfaceSlots.value > 0,
+                diashow: true,
+                slider: true,
+                duration: 7,
+            },
+            {
+                title: "Surface",
+                subtitle: "Verfügbare Bitmap-Layer",
+                type: "counter",
+                label: "Layer",
+                value: availableTextureLayers.value,
+                active: availableTextureLayers.value > 0,
+                diashow: true,
+                slider: true,
+                duration: 7,
+            },
+            {
+                title: "Surface",
+                subtitle: "Farb-Slots mit Textur",
+                type: "linear",
+                label: "Color",
+                value: connectedColorSlots.value,
+                max: colorSlotKeys.value.length,
+                active: connectedColorSlots.value > 0,
+                diashow: true,
+                slider: true,
+                duration: 7,
+            },
+            {
+                title: "Surface",
+                subtitle: "Factor- und Masken-Slots",
+                type: "linear",
+                label: "Factor",
+                value: connectedFactorSlots.value,
+                max: factorSlotKeys.value.length,
+                active: connectedFactorSlots.value > 0,
+                diashow: true,
+                slider: true,
+                duration: 7,
+            },
+            {
+                title: "Surface",
+                subtitle: "Angepasste Materialwerte",
+                type: "radial",
+                label: "Custom",
+                value: changedSurfaceValues.value,
+                max: totalSurfaceSlots.value,
+                active: changedSurfaceValues.value > 0,
+                diashow: true,
+                slider: true,
+                duration: 7,
+            },
+            {
+                title: "Surface",
+                subtitle: "Node- und Multi-Texture-Slots",
+                type: "counter",
+                label: "Nodes",
+                value: nodeTextureSlots.value,
+                active: nodeTextureSlots.value > 0,
+                diashow: true,
+                slider: true,
+                duration: 7,
+            },
+            {
+                title: "Surface",
+                subtitle: connectedSurfaceSlots.value
+                    ? "Surface-Setup aktiv"
+                    : "Noch keine Texturen verbunden",
+                type: "text",
+                label: connectedSurfaceSlots.value ? "Aktiv" : "Bereit",
+                active: connectedSurfaceSlots.value > 0,
+                diashow: true,
+                slider: true,
+                duration: 7,
+            },
+        ]),
+    });
 
     watch(
         () => props.name,
@@ -505,6 +685,7 @@ export function surfaceEditorModel(props, emit) {
     };
 
     return {
+        ui,
         state,
 
         surfaceGroups,

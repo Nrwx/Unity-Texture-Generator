@@ -1,0 +1,157 @@
+@use "../../../scss/_Var" as v;
+
+.preview {
+  display: grid;
+  place-items: center;
+  width: min(320px, 86%);
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 16px;
+  background-color: #20232f;
+  background-image: linear-gradient(45deg, rgba(255, 255, 255, 0.045) 25%, transparent 25%), linear-gradient(-45deg, rgba(255, 255, 255, 0.045) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgba(255, 255, 255, 0.045) 75%), linear-gradient(-45deg, transparent 75%, rgba(255, 255, 255, 0.045) 75%);
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+  background-size: 20px 20px;
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.28), 0 0 34px rgba(112, 223, 180, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.055);
+
+  .layer {
+    z-index: 2;
+    border-radius: 12px;
+    filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.42)) drop-shadow(0 0 18px rgba(112, 223, 180, 0.12));
+
+    :deep(.canvas-material-layer) {
+      position: relative !important;
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    :deep(.canvas-material-canvas) {
+      width: 100% !important;
+      height: 100% !important;
+    }
+  }
+
+  .state {
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    gap: 8px;
+    max-width: 240px;
+    color: v.$app_color_muted;
+
+    i, .v-icon {
+      color: v.$app_color_danger;
+      filter: drop-shadow(0 0 12px rgba(255, 123, 123, 0.28));
+    }
+
+    strong {
+      color: v.$app_color_text;
+      font-size: 0.86rem;
+      font-weight: 820;
+    }
+
+    span {
+      color: v.$app_color_muted;
+      font-size: 0.68rem;
+      line-height: 1.4;
+    }
+  }
+
+  .glow {
+    inset: 18%;
+    z-index: 1;
+    pointer-events: none;
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(97, 230, 255, 0.12), transparent 62%);
+    filter: blur(18px);
+  }
+
+  .loading {
+    z-index: 4;
+    display: grid;
+    place-items: center;
+    border-radius: 16px;
+    background:
+            radial-gradient(circle at 50% 22%, rgba(97, 230, 255, 0.16), transparent 42%),
+            radial-gradient(circle at 72% 74%, rgba(181, 138, 255, 0.12), transparent 44%),
+            rgba(0, 0, 0, 0.44);
+    backdrop-filter: blur(5px);
+    color: rgba(255, 255, 255, 0.92);
+
+    &::before {
+      position: absolute;
+      inset: 10px;
+      pointer-events: none;
+      border: 1px solid rgba(255, 255, 255, 0.075);
+      border-radius: 13px;
+      background:
+              linear-gradient(135deg, rgba(255, 255, 255, 0.06), transparent 38%),
+              rgba(255, 255, 255, 0.018);
+      box-shadow:
+              inset 0 1px 0 rgba(255, 255, 255, 0.06),
+              0 0 28px rgba(97, 230, 255, 0.08);
+      content: "";
+    }
+
+    .loading-card {
+      position: relative;
+      z-index: 2;
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      max-width: min(240px, 82%);
+      padding: 10px 13px 10px 10px;
+      border: 1px solid rgba(97, 230, 255, 0.24);
+      border-radius: 999px;
+      background:
+              linear-gradient(135deg, rgba(97, 230, 255, 0.12), rgba(181, 138, 255, 0.08)),
+              rgba(255, 255, 255, 0.055);
+      box-shadow:
+              0 12px 28px rgba(0, 0, 0, 0.24),
+              0 0 24px rgba(97, 230, 255, 0.10),
+              inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    .loading-orb {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      border: 1px solid rgba(97, 230, 255, 0.28);
+      border-radius: 999px;
+      background: rgba(97, 230, 255, 0.09);
+      color: #61e6ff;
+      box-shadow:
+              inset 0 1px 0 rgba(255, 255, 255, 0.08),
+              0 0 18px rgba(97, 230, 255, 0.18);
+
+      :deep(.v-progress-circular) {
+        color: #61e6ff;
+        filter: drop-shadow(0 0 8px rgba(97, 230, 255, 0.55));
+      }
+    }
+
+    .loading-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+      text-align: left;
+
+      strong {
+        overflow: hidden;
+        color: rgba(255, 255, 255, 0.94);
+        font-size: 0.74rem;
+        font-weight: 800;
+        line-height: 1.1;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      span {
+        color: rgba(255, 255, 255, 0.52);
+        font-size: 0.64rem;
+        font-weight: 720;
+        line-height: 1.15;
+      }
+    }
+  }
+}

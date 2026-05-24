@@ -43,6 +43,9 @@ export const createSettings = () => ({
 
     cube_size: 256,
     rotate_preview: true,
+    wireframe_preview: false,
+    faces_preview: false,
+    vertices_preview: false,
 
     blend_mode: "BLEND",
     alpha_clip: 0.5,
@@ -86,6 +89,11 @@ const normalizeSettings = (settings = {}) => ({
     cube_size: Number.isFinite(Number(settings.cube_size)) ? Number(settings.cube_size) : 256,
     alpha_clip: Number.isFinite(Number(settings.alpha_clip)) ? Number(settings.alpha_clip) : 0.5,
     refraction_depth: Number.isFinite(Number(settings.refraction_depth)) ? Number(settings.refraction_depth) : 0,
+
+    rotate_preview: settings.rotate_preview === true,
+    wireframe_preview: settings.wireframe_preview === true,
+    faces_preview: settings.faces_preview === true,
+    vertices_preview: settings.vertices_preview === true,
 });
 
 /**

@@ -12,12 +12,14 @@ import {
 import {createGeometry} from "@/view/models/page/material/geometry/model";
 import {createLight} from "@/view/models/page/material/light/model";
 import {createSettings, normalizeTextureSize, TEXTURE_SIZE_OPTIONS} from "@/view/models/page/material/settings/model";
+import {createPhysics} from "@/view/models/page/material/physics/model";
 
 const PREVIEW_DEBOUNCE_MS = 220;
 
 const TABS = [
     { key: "surface", title: "Surface", icon: "mdi-tune-variant" },
     { key: "geometry", title: "Geometry", icon: "mdi-cube-outline" },
+    { key: "physics", title: "Physics", icon: "mdi-atom" },
     { key: "light", title: "Light", icon: "mdi-lightbulb-spot" },
     { key: "uv", title: "UV", icon: "mdi-vector-square" },
     { key: "shader", title: "Shader", icon: "mdi-graph-outline" },
@@ -188,27 +190,11 @@ export function materialEditorModel(props, emit) {
         origin: { x: 0, y: 0 },
     });
 
-    const uvCanvasStyle = computed(() => ({
-        transform: `translate(${uvViewport.panX}px, ${uvViewport.panY}px) scale(${uvViewport.zoom})`,
-    }));
-
-    const ui = reactive({
-        activeTab: "surface",
-        activeNodeCategory: "",
-        nodeContextMenu: {
-            open: false,
-            x: 0,
-            y: 0,
-            worldX: 0,
-            worldY: 0,
-            category: "Math",
-        },
-    });
-
     const values = reactive({
         name: "Cube Material",
         surface: createSurface(),
         geometry: createGeometry(),
+        physics: createPhysics(),
         light: createLight(),
         bitmap_maps: createBitmapMaps(),
         uv: createUv(),
@@ -216,6 +202,9 @@ export function materialEditorModel(props, emit) {
 
         cube_size: 256,
         rotate_preview: true,
+        wireframe_preview: false,
+        faces_preview: false,
+        vertices_preview: false,
         render_backend: "WEBGL2",
         texture_size: "Original",
         texture_preload: TEXTURE_SIZE_OPTIONS,
@@ -228,6 +217,337 @@ export function materialEditorModel(props, emit) {
         refraction_depth: 0,
         subsurface_translucency: false,
         use_nodes: true,
+    });
+
+    const uvCanvasStyle = computed(() => ({
+        transform: `translate(${uvViewport.panX}px, ${uvViewport.panY}px) scale(${uvViewport.zoom})`,
+    }));
+
+    const isEditingMaterialLayer = computed(() => {
+        return Number(props.layer?.type) === 5;
+    });
+
+    const materialModeLabel = computed(() => {
+        if (isEditingMaterialLayer.value) {
+            return "Material Update";
+        }
+
+        if (props.layer?.id) {
+            return "Single Layer";
+        }
+
+        return "Layer Auswahl";
+    });
+
+    const textureLayers = computed(() => {
+        return (props.layers || []).filter(isUsableTextureLayer);
+    });
+
+    const sourceLayerThumbnail = computed(() => {
+        return resolveLayerThumbnailUrl(selectedSourceLayer.value);
+    });
+
+    const sourceLayerTextureUrl = computed(() => {
+        return resolveLayerTextureUrl(selectedSourceLayer.value);
+    });
+
+    const isUsableTextureLayer = layer => {
+        if (!layer || layer.hidden === 1) {
+            return false;
+        }
+
+        return [0, 2, 5].includes(Number(layer.type));
+    };
+
+    const fallbackSourceLayer = computed(() => {
+        if (props.layer?.id && isUsableTextureLayer(props.layer)) {
+            return props.layer;
+        }
+
+        return textureLayers.value[0] || null;
+    });
+
+    const imageSizeLabel = computed(() => {
+        const width = Number(selectedSourceLayer.value?.width || 0);
+        const height = Number(selectedSourceLayer.value?.height || 0);
+
+        if (!width || !height) {
+            return "Keine Textur";
+        }
+
+        return `${width} × ${height}`;
+    });
+
+    const selectedSourceLayer = computed(() => {
+        if (materialSourceLayerId.value) {
+            const found = textureLayers.value.find(
+                item => item.id === materialSourceLayerId.value
+            );
+
+            if (found) {
+                return found;
+            }
+        }
+
+        return fallbackSourceLayer.value;
+    });
+
+    const sourceLayerName = computed(() => {
+        return selectedSourceLayer.value?.name || selectedSourceLayer.value?.id || "Keine Textur";
+    });
+
+    const materialConnected = computed(() => {
+        return values.shader_graph.edges.some(edge => (
+            edge.from.node === "principled-bsdf" &&
+            edge.from.socket === "bsdf" &&
+            edge.to.node === "material-output" &&
+            edge.to.socket === "surface"
+        ));
+    });
+
+    const previewLayer = computed(() => {
+        const normalized = normalizeValues();
+        const backendLayer = getBackendPreviewLayer(normalized);
+
+        if (backendLayer) {
+            const previewLight = {
+                ...normalized.light,
+                editing: ui.value.activeTab === "light",
+            };
+
+            return {
+                ...backendLayer,
+                id: `preview-${props.layer?.id || selectedSourceLayer.value?.id || "material"}`,
+                source: selectedSourceLayer.value?.id || props.layer?.id || backendLayer.source || "",
+                source_layer_id: selectedSourceLayer.value?.id || props.layer?.id || backendLayer.source_layer_id || "",
+                light: previewLight,
+                shader: {
+                    ...(backendLayer.shader || {}),
+                    light: previewLight,
+                },
+                settings: {
+                    ...(backendLayer.settings || {}),
+                    blend_mode: normalized.blend_mode,
+                    alpha_clip: normalized.alpha_clip,
+                    shadow_method: normalized.shadow_method,
+                    backface_culling: normalized.backface_culling,
+                    show_backface: normalized.show_backface,
+                    screen_space_refraction: normalized.screen_space_refraction,
+                    refraction_depth: normalized.refraction_depth,
+                    subsurface_translucency: normalized.subsurface_translucency,
+                    render_backend: normalized.render_backend,
+                    cube_size: normalized.cube_size,
+                    rotate_preview: normalized.rotate_preview,
+                    wireframe_preview: normalized.wireframe_preview,
+                    faces_preview: normalized.faces_preview,
+                    vertices_preview: normalized.vertices_preview,
+                    light: previewLight,
+                    light_editing: ui.value.activeTab === "light",
+                },
+                render_backend: normalized.render_backend,
+                time: backendLayer.time || previewStableTime.value,
+            };
+        }
+
+        const previewLight = {
+            ...normalized.light,
+            editing: ui.value.activeTab === "light",
+        };
+
+        return {
+            id: `preview-${props.layer?.id || selectedSourceLayer.value?.id || "material"}`,
+            source: selectedSourceLayer.value?.id || props.layer?.id || "",
+            source_layer_id: selectedSourceLayer.value?.id || props.layer?.id || "",
+
+            name: normalized.name,
+            type: 5,
+
+            renderer: "canvas-cube",
+            render_backend: normalized.render_backend,
+            engine: "material",
+
+            width: 512,
+            height: 512,
+
+            url: sourceLayerTextureUrl.value,
+            thumbnail: sourceLayerThumbnail.value,
+
+            surface: normalized.surface,
+            geometry: normalized.geometry,
+            physics: normalized.physics,
+            light: previewLight,
+            bitmap_maps: normalized.bitmap_maps,
+            uv: normalized.uv,
+            shader_graph: normalized.shader_graph,
+
+            material: {
+                surface: normalized.surface,
+                geometry: normalized.geometry,
+                physics: normalized.physics,
+                light: previewLight,
+                bitmap_maps: normalized.bitmap_maps,
+                shader_graph: normalized.shader_graph,
+                texture_size: normalized.texture_size,
+                texture_preload: normalized.texture_preload,
+                render_backend: normalized.render_backend,
+            },
+
+            shader: {
+                shader: "canvas-principled-node-graph",
+                version: 4,
+                material_connected: materialConnected.value,
+                inputs: normalized.surface,
+                surface: normalized.surface,
+                geometry: normalized.geometry,
+                physics: normalized.physics,
+                light: previewLight,
+                bitmap_maps: normalized.bitmap_maps,
+                uv: normalized.uv,
+                graph: normalized.shader_graph,
+                texture_size: normalized.texture_size,
+                texture_preload: normalized.texture_preload,
+                render_backend: normalized.render_backend,
+            },
+
+            texture: {
+                url: getPreviewTextureUrl(normalized),
+                thumbnail: getPreviewTextureUrl(normalized),
+                texture_size: normalized.texture_size,
+                texture_lod_key: normalized.texture_size === "Original"
+                    ? "original"
+                    : String(normalized.texture_size),
+            },
+
+            preview: {
+                rotate: normalized.rotate_preview,
+                wireframe: normalized.wireframe_preview,
+                faces: normalized.faces_preview,
+                vertices: normalized.vertices_preview,
+                idle_rotation: {
+                    enabled: normalized.rotate_preview,
+                    speed: 0.006,
+                    tilt: 0.42,
+                },
+            },
+
+            settings: {
+                blend_mode: normalized.blend_mode,
+                alpha_clip: normalized.alpha_clip,
+                shadow_method: normalized.shadow_method,
+                backface_culling: normalized.backface_culling,
+                show_backface: normalized.show_backface,
+                screen_space_refraction: normalized.screen_space_refraction,
+                refraction_depth: normalized.refraction_depth,
+                subsurface_translucency: normalized.subsurface_translucency,
+                use_nodes: normalized.use_nodes,
+                render_backend: normalized.render_backend,
+                cube_size: normalized.cube_size,
+                light: {
+                    ...previewLight,
+                },
+                light_editing: ui.value.activeTab === "light",
+                texture_size: normalized.texture_size,
+                texture_preload: normalized.texture_preload,
+            },
+
+            texture_size: normalized.texture_size,
+            texture_preload: normalized.texture_preload,
+            time: previewStableTime.value,
+        };
+    });
+
+    const getBackendPreviewLayer = normalized => {
+        const layer = props.materialPreview;
+
+        if (!layer || !normalized) {
+            return null;
+        }
+
+        const previewTextureSize = normalizeTextureSize(
+            layer?.settings?.texture_size ??
+            layer?.texture_size ??
+            layer?.texture?.texture_size ??
+            "Original"
+        );
+
+        if (previewTextureSize !== normalized.texture_size) {
+            return null;
+        }
+
+        if (
+            layer.material_preview_request_id &&
+            layer.material_preview_request_id !== previewRequestId.value
+        ) {
+            return null;
+        }
+
+        return layer;
+    };
+
+    const getPreviewTextureUrl = normalized => {
+        const backendLayer = getBackendPreviewLayer(normalized);
+
+        return (
+            backendLayer?.texture?.url ||
+            backendLayer?.url ||
+            sourceLayerTextureUrl.value
+        );
+    };
+
+    const loading3DState = computed(() => {
+        return props.loadingPreview;
+    });
+
+    const ui = ref({
+        activeTab: "surface",
+        activeNodeCategory: "",
+        nodeContextMenu: {
+            open: false,
+            x: 0,
+            y: 0,
+            worldX: 0,
+            worldY: 0,
+            category: "Math",
+        },
+        material: {
+            header: {
+                title: 'Material Editor',
+                icon: 'mdi-cube-scan',
+                subtitle: `${materialModeLabel.value} · ${sourceLayerName.value}`,
+                chip: {
+                    state: materialConnected,
+                    message: {
+                        true: 'Material Connected',
+                        false: 'Material Disconnected'
+                    }
+                }
+            },
+            preview: {
+                header: {
+                    eyebrow: 'Surface',
+                    title: imageSizeLabel,
+                    type: 'button',
+                    label: 'Aktualisieren',
+                    disabled: loading3DState
+                },
+                layer3D: {
+                    state: materialConnected,
+                    layer: {
+                        ref: previewLayer,
+                        idle: values.rotate_preview
+                    },
+                    loading: {
+                        state: loading3DState,
+                        message: ['Material wird vorbereitet…', '3D-Vorschau wird geladen…']
+                    },
+                    disconnect: {
+                        icon: 'mdi-vector-link',
+                        title: 'Material Output getrennt',
+                        subtitle: 'Verbinde Shader → Output, um das Material wieder anzuzeigen.'
+                    }
+                }
+            }
+        }
     });
 
     const config = computed(() => ({
@@ -251,6 +571,9 @@ export function materialEditorModel(props, emit) {
 
             cube_size: values.cube_size,
             rotate_preview: values.rotate_preview,
+            wireframe_preview: values.wireframe_preview,
+            faces_preview: values.faces_preview,
+            vertices_preview: values.vertices_preview,
 
             blend_mode: values.blend_mode,
             alpha_clip: values.alpha_clip,
@@ -278,6 +601,10 @@ export function materialEditorModel(props, emit) {
 
             values.cube_size = normalized.cube_size;
             values.rotate_preview = normalized.rotate_preview;
+            values.wireframe_preview = normalized.wireframe_preview;
+            values.faces_preview = normalized.faces_preview;
+            values.vertices_preview = normalized.vertices_preview;
+
 
             values.blend_mode = normalized.blend_mode;
             values.alpha_clip = normalized.alpha_clip;
@@ -309,7 +636,7 @@ export function materialEditorModel(props, emit) {
     };
 
     const isFullWorkspaceTab = computed(() => {
-        return ["shader", "uv"].includes(ui.activeTab);
+        return ["shader", "uv"].includes(ui.value.activeTab);
     });
 
     const nodeWorldStyle = computed(() => ({
@@ -319,14 +646,6 @@ export function materialEditorModel(props, emit) {
 
     const emitEvent = (event, payload) => {
         emit("component-event", event, payload);
-    };
-
-    const isUsableTextureLayer = layer => {
-        if (!layer || layer.hidden === 1) {
-            return false;
-        }
-
-        return [0, 2, 5].includes(Number(layer.type));
     };
 
     const getNodePosition = (node, fallback = { x: 0, y: 0 }) => {
@@ -393,48 +712,6 @@ export function materialEditorModel(props, emit) {
         );
     };
 
-    const textureLayers = computed(() => {
-        return (props.layers || []).filter(isUsableTextureLayer);
-    });
-
-    const fallbackSourceLayer = computed(() => {
-        if (props.layer?.id && isUsableTextureLayer(props.layer)) {
-            return props.layer;
-        }
-
-        return textureLayers.value[0] || null;
-    });
-
-    const selectedSourceLayer = computed(() => {
-        if (materialSourceLayerId.value) {
-            const found = textureLayers.value.find(
-                item => item.id === materialSourceLayerId.value
-            );
-
-            if (found) {
-                return found;
-            }
-        }
-
-        return fallbackSourceLayer.value;
-    });
-
-    const sourceLayerName = computed(() => {
-        return selectedSourceLayer.value?.name || selectedSourceLayer.value?.id || "Keine Textur";
-    });
-
-    const sourceLayerThumbnail = computed(() => {
-        return resolveLayerThumbnailUrl(selectedSourceLayer.value);
-    });
-
-    const sourceLayerTextureUrl = computed(() => {
-        return resolveLayerTextureUrl(selectedSourceLayer.value);
-    });
-
-    const isEditingMaterialLayer = computed(() => {
-        return Number(props.layer?.type) === 5;
-    });
-
     const nodeTypeGroups = computed(() => {
         const groups = Node.TYPES.reduce((acc, item) => {
             const group = item.group;
@@ -454,29 +731,6 @@ export function materialEditorModel(props, emit) {
                 label: group,
                 items: groups[group],
             }));
-    });
-
-    const materialModeLabel = computed(() => {
-        if (isEditingMaterialLayer.value) {
-            return "Material Update";
-        }
-
-        if (props.layer?.id) {
-            return "Single Layer";
-        }
-
-        return "Layer Auswahl";
-    });
-
-    const imageSizeLabel = computed(() => {
-        const width = Number(selectedSourceLayer.value?.width || 0);
-        const height = Number(selectedSourceLayer.value?.height || 0);
-
-        if (!width || !height) {
-            return "Keine Textur";
-        }
-
-        return `${width} × ${height}`;
     });
 
     const activeUvFace = computed(() => {
@@ -1330,15 +1584,6 @@ export function materialEditorModel(props, emit) {
         return values.shader_graph.edges.filter(edge => edge.from.node === nodeId);
     };
 
-    const materialConnected = computed(() => {
-        return values.shader_graph.edges.some(edge => (
-            edge.from.node === "principled-bsdf" &&
-            edge.from.socket === "bsdf" &&
-            edge.to.node === "material-output" &&
-            edge.to.socket === "surface"
-        ));
-    });
-
     const sanitizeSurfaceBitmapMaps = bitmapMaps => {
         const maps = clonePlain(bitmapMaps);
 
@@ -1367,6 +1612,7 @@ export function materialEditorModel(props, emit) {
 
         surface: clonePlain(values.surface),
         geometry: clonePlain(values.geometry),
+        physics: clonePlain(values.physics),
         light: clonePlain(values.light),
         bitmap_maps: sanitizeSurfaceBitmapMaps(values.bitmap_maps),
         uv: clonePlain(values.uv),
@@ -1376,7 +1622,10 @@ export function materialEditorModel(props, emit) {
         },
 
         cube_size: clamp(Number(values.cube_size || 256), 64, 4096),
-        rotate_preview: values.rotate_preview === true,
+        rotate_preview: values.rotate_preview,
+        wireframe_preview: values.wireframe_preview,
+        faces_preview: values.faces_preview,
+        vertices_preview: values.vertices_preview,
         render_backend: ["CANVAS2D", "WEBGL2"].includes(String(values.render_backend || "").toUpperCase())
             ? String(values.render_backend).toUpperCase()
             : "WEBGL2",
@@ -1393,183 +1642,6 @@ export function materialEditorModel(props, emit) {
         refraction_depth: clamp(Number(values.refraction_depth ?? 0), 0, 100),
         subsurface_translucency: values.subsurface_translucency === true,
         use_nodes: values.use_nodes !== false,
-    });
-
-    const getBackendPreviewLayer = normalized => {
-        const layer = props.materialPreview;
-
-        if (!layer || !normalized) {
-            return null;
-        }
-
-        const previewTextureSize = normalizeTextureSize(
-            layer?.settings?.texture_size ??
-            layer?.texture_size ??
-            layer?.texture?.texture_size ??
-            "Original"
-        );
-
-        if (previewTextureSize !== normalized.texture_size) {
-            return null;
-        }
-
-        if (
-            layer.material_preview_request_id &&
-            layer.material_preview_request_id !== previewRequestId.value
-        ) {
-            return null;
-        }
-
-        return layer;
-    };
-
-    const getPreviewTextureUrl = normalized => {
-        const backendLayer = getBackendPreviewLayer(normalized);
-
-        return (
-            backendLayer?.texture?.url ||
-            backendLayer?.url ||
-            sourceLayerTextureUrl.value
-        );
-    };
-
-    const previewLayer = computed(() => {
-        const normalized = normalizeValues();
-        const backendLayer = getBackendPreviewLayer(normalized);
-
-        if (backendLayer) {
-            const previewLight = {
-                ...normalized.light,
-                editing: ui.activeTab === "light",
-            };
-
-            return {
-                ...backendLayer,
-                id: `preview-${props.layer?.id || selectedSourceLayer.value?.id || "material"}`,
-                source: selectedSourceLayer.value?.id || props.layer?.id || backendLayer.source || "",
-                source_layer_id: selectedSourceLayer.value?.id || props.layer?.id || backendLayer.source_layer_id || "",
-                light: previewLight,
-                shader: {
-                    ...(backendLayer.shader || {}),
-                    light: previewLight,
-                },
-                settings: {
-                    ...(backendLayer.settings || {}),
-                    blend_mode: normalized.blend_mode,
-                    alpha_clip: normalized.alpha_clip,
-                    shadow_method: normalized.shadow_method,
-                    backface_culling: normalized.backface_culling,
-                    show_backface: normalized.show_backface,
-                    screen_space_refraction: normalized.screen_space_refraction,
-                    refraction_depth: normalized.refraction_depth,
-                    subsurface_translucency: normalized.subsurface_translucency,
-                    light: previewLight,
-                    light_editing: ui.activeTab === "light",
-                    render_backend: normalized.render_backend,
-                },
-                render_backend: normalized.render_backend,
-                time: backendLayer.time || previewStableTime.value,
-            };
-        }
-
-        const previewLight = {
-            ...normalized.light,
-            editing: ui.activeTab === "light",
-        };
-
-        return {
-            id: `preview-${props.layer?.id || selectedSourceLayer.value?.id || "material"}`,
-            source: selectedSourceLayer.value?.id || props.layer?.id || "",
-            source_layer_id: selectedSourceLayer.value?.id || props.layer?.id || "",
-
-            name: normalized.name,
-            type: 5,
-
-            renderer: "canvas-cube",
-            render_backend: normalized.render_backend,
-            engine: "material",
-
-            width: 512,
-            height: 512,
-
-            url: sourceLayerTextureUrl.value,
-            thumbnail: sourceLayerThumbnail.value,
-
-            surface: normalized.surface,
-            geometry: normalized.geometry,
-            light: previewLight,
-            bitmap_maps: normalized.bitmap_maps,
-            uv: normalized.uv,
-            shader_graph: normalized.shader_graph,
-
-            material: {
-                surface: normalized.surface,
-                light: previewLight,
-                bitmap_maps: normalized.bitmap_maps,
-                shader_graph: normalized.shader_graph,
-                texture_size: normalized.texture_size,
-                texture_preload: normalized.texture_preload,
-                render_backend: normalized.render_backend,
-            },
-
-            shader: {
-                shader: "canvas-principled-node-graph",
-                version: 4,
-                material_connected: materialConnected.value,
-                inputs: normalized.surface,
-                surface: normalized.surface,
-                geometry: normalized.geometry,
-                light: previewLight,
-                bitmap_maps: normalized.bitmap_maps,
-                uv: normalized.uv,
-                graph: normalized.shader_graph,
-                texture_size: normalized.texture_size,
-                texture_preload: normalized.texture_preload,
-                render_backend: normalized.render_backend,
-            },
-
-            texture: {
-                url: getPreviewTextureUrl(normalized),
-                thumbnail: getPreviewTextureUrl(normalized),
-                texture_size: normalized.texture_size,
-                texture_lod_key: normalized.texture_size === "Original"
-                    ? "original"
-                    : String(normalized.texture_size),
-            },
-
-            preview: {
-                rotate: normalized.rotate_preview,
-                idle_rotation: {
-                    enabled: normalized.rotate_preview,
-                    speed: 0.006,
-                    tilt: 0.42,
-                },
-            },
-
-            settings: {
-                blend_mode: normalized.blend_mode,
-                alpha_clip: normalized.alpha_clip,
-                shadow_method: normalized.shadow_method,
-                backface_culling: normalized.backface_culling,
-                show_backface: normalized.show_backface,
-                screen_space_refraction: normalized.screen_space_refraction,
-                refraction_depth: normalized.refraction_depth,
-                subsurface_translucency: normalized.subsurface_translucency,
-                use_nodes: normalized.use_nodes,
-                render_backend: normalized.render_backend,
-                cube_size: normalized.cube_size,
-                light: {
-                    ...previewLight,
-                },
-                light_editing: ui.activeTab === "light",
-                texture_size: normalized.texture_size,
-                texture_preload: normalized.texture_preload,
-            },
-
-            texture_size: normalized.texture_size,
-            texture_preload: normalized.texture_preload,
-            time: previewStableTime.value,
-        };
     });
 
     const getSurfaceColor = key => {
@@ -1935,7 +2007,7 @@ export function materialEditorModel(props, emit) {
     };
 
     const handleCanvasWheel = event => {
-        if (ui.nodeContextMenu.open) {
+        if (ui.value.nodeContextMenu.open) {
             return;
         }
 
@@ -1961,7 +2033,7 @@ export function materialEditorModel(props, emit) {
     };
 
     const closeNodeContextMenu = () => {
-        ui.nodeContextMenu.open = false;
+        ui.value.nodeContextMenu.open = false;
     };
 
     const openNodeContextMenu = event => {
@@ -1975,19 +2047,19 @@ export function materialEditorModel(props, emit) {
 
         const point = getCanvasPoint(event);
 
-        ui.activeNodeCategory = "";
-        ui.nodeContextMenu.open = true;
-        ui.nodeContextMenu.x = point.x;
-        ui.nodeContextMenu.y = point.y;
-        ui.nodeContextMenu.worldX = point.x;
-        ui.nodeContextMenu.worldY = point.y;
-        ui.nodeContextMenu.category = ui.nodeContextMenu.category || "Math";
+        ui.value.activeNodeCategory = "";
+        ui.value.nodeContextMenu.open = true;
+        ui.value.nodeContextMenu.x = point.x;
+        ui.value.nodeContextMenu.y = point.y;
+        ui.value.nodeContextMenu.worldX = point.x;
+        ui.value.nodeContextMenu.worldY = point.y;
+        ui.value.nodeContextMenu.category = ui.value.nodeContextMenu.category || "Math";
     };
 
     const addShaderNodeFromContext = nodeType => {
         addShaderNode(nodeType, {
-            x: ui.nodeContextMenu.worldX,
-            y: ui.nodeContextMenu.worldY,
+            x: ui.value.nodeContextMenu.worldX,
+            y: ui.value.nodeContextMenu.worldY,
         });
         closeNodeContextMenu();
     };
@@ -3665,11 +3737,14 @@ export function materialEditorModel(props, emit) {
         values.texture_size = normalizeTextureSize(
             source?.settings?.texture_size ??
             source?.texture_size ??
-            source?.material?.material_settings?.texture_size ??
+            source?.material?.texture_size ??
             "Original"
         );
         values.texture_preload = TEXTURE_SIZE_OPTIONS;
         values.rotate_preview = source.preview?.rotate ?? source.preview?.idle_rotation?.enabled ?? values.rotate_preview;
+        values.wireframe_preview = source.preview?.wireframe ?? values.wireframe_preview;
+        values.faces_preview = source.preview?.faces ?? values.faces_preview;
+        values.vertices_preview = source.preview?.vertices ?? values.vertices_preview;
         values.render_backend = String(
             source.settings?.render_backend ??
             source.render_backend ??
@@ -5073,6 +5148,11 @@ export function materialEditorModel(props, emit) {
         });
     };
 
+    const setPreviewSetting = (key, value) => {
+        values[key] = value === true;
+        requestPreviewDebounced();
+    };
+
     const requestPreviewDebounced = () => {
         if (previewTimer.value) {
             clearTimeout(previewTimer.value);
@@ -5163,6 +5243,9 @@ export function materialEditorModel(props, emit) {
         shader_graph: values.shader_graph,
         cube_size: values.cube_size,
         rotate_preview: values.rotate_preview,
+        wireframe_preview: values.wireframe_preview,
+        faces_preview: values.faces_preview,
+        vertices_preview: values.vertices_preview,
         render_backend: values.render_backend,
         texture_size: values.texture_size,
         blend_mode: values.blend_mode,
@@ -5190,7 +5273,7 @@ export function materialEditorModel(props, emit) {
 
     watch(
         () => [
-            ui.activeTab,
+            ui.value.activeTab,
             values.uv.view_mode,
             values.uv.active_face,
             JSON.stringify(values.uv.faces),
@@ -5200,7 +5283,7 @@ export function materialEditorModel(props, emit) {
                 return;
             }
 
-            if (ui.activeTab === "uv") {
+            if (ui.value.activeTab === "uv") {
                 await drawUvCanvas();
             }
         },
@@ -5293,9 +5376,9 @@ export function materialEditorModel(props, emit) {
 
         textureLayers,
         selectedSourceLayer,
+        materialModeLabel,
         sourceLayerName,
         sourceLayerThumbnail,
-        materialModeLabel,
         imageSizeLabel,
         isEditingMaterialLayer,
 
@@ -5312,6 +5395,7 @@ export function materialEditorModel(props, emit) {
         activeSnapEdgeId,
         syncUvCubeMapToShaderGraph,
         syncUvAndPreview,
+        setPreviewSetting,
 
         isUvFaceSelected,
         toggleUvFaceSelection,

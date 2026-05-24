@@ -523,6 +523,41 @@ void main() {
     fragColor = vec4(color, alpha);
 }`;
 
+const OVERLAY_VERTEX_SHADER = `#version 300 es
+precision highp float;
+
+layout(location = 0) in vec3 aPosition;
+
+uniform mat4 uModel;
+uniform mat4 uViewProj;
+uniform float uPointSize;
+
+void main() {
+    gl_Position = uViewProj * uModel * vec4(aPosition, 1.0);
+    gl_PointSize = uPointSize;
+}`;
+
+const OVERLAY_FRAGMENT_SHADER = `#version 300 es
+precision highp float;
+
+uniform vec4 uColor;
+uniform int uPointMode;
+
+out vec4 fragColor;
+
+void main() {
+    if (uPointMode == 1) {
+        vec2 p = gl_PointCoord * 2.0 - 1.0;
+        float d = dot(p, p);
+
+        if (d > 1.0) {
+            discard;
+        }
+    }
+
+    fragColor = uColor;
+}`;
+
 const compileShader = (gl, type, source) => {
     const shader = gl.createShader(type);
     gl.shaderSource(shader, source);
@@ -744,6 +779,12 @@ const buildFaceMesh = (faceName, divisions = 48) => {
     };
 };
 
+const buildFaceQuadMesh = faceName => buildFaceMesh(faceName, 1);
+
+const buildCoarseFaceMesh = (faceName, divisions = 8) => {
+    return buildFaceMesh(faceName, Math.max(1, Math.min(32, Math.trunc(divisions))));
+};
+
 const createTexture = (gl, image, fallback = [255, 255, 255, 255]) => {
     const texture = gl.createTexture();
 
@@ -768,6 +809,66 @@ const createTexture = (gl, image, fallback = [255, 255, 255, 255]) => {
 
 const textureImage = entry => entry?.image || null;
 const hasTexture = entry => Boolean(textureImage(entry));
+const shouldUseObjectTextures = previewOverlay => {
+    return previewOverlay?.wireframe !== true;
+};
+
+const mapEnabled = (useObjectTextures, texture) => {
+    return useObjectTextures && hasTexture(texture) ? 1 : 0;
+};
+
+const resolvePreviewTexture = (useObjectTextures, resolver) => {
+    return useObjectTextures ? resolver() : null;
+};
+const getMeshPosition = (mesh, index) => {
+    const offset = index * mesh.stride;
+
+    return [
+        mesh.vertices[offset],
+        mesh.vertices[offset + 1],
+        mesh.vertices[offset + 2],
+    ];
+};
+
+const buildOverlayGeometry = mesh => {
+    const linePositions = [];
+    const pointPositions = [];
+
+    const seenPoints = new Set();
+
+    for (let i = 0; i < mesh.indices.length; i += 3) {
+        const a = mesh.indices[i];
+        const b = mesh.indices[i + 1];
+        const c = mesh.indices[i + 2];
+
+        [
+            [a, b],
+            [b, c],
+            [c, a],
+        ].forEach(([from, to]) => {
+            linePositions.push(
+                ...getMeshPosition(mesh, from),
+                ...getMeshPosition(mesh, to)
+            );
+        });
+
+        [a, b, c].forEach(index => {
+            if (seenPoints.has(index)) {
+                return;
+            }
+
+            seenPoints.add(index);
+            pointPositions.push(...getMeshPosition(mesh, index));
+        });
+    }
+
+    return {
+        linePositions: new Float32Array(linePositions),
+        pointPositions: new Float32Array(pointPositions),
+        lineCount: linePositions.length / 3,
+        pointCount: pointPositions.length / 3,
+    };
+};
 
 const INT_UNIFORMS = Object.freeze(new Set([
     "uUseBaseMap",
@@ -789,6 +890,8 @@ const INT_UNIFORMS = Object.freeze(new Set([
     "uLightType",
     "uScreenSpaceRefraction",
     "uSubsurfaceTranslucency",
+
+    "uPointMode",
     "uNormalInvert",
     "uBaseInvert",
     "uAlphaInvert",
@@ -815,7 +918,11 @@ export class WebGLMaterialRenderer {
         });
         this.ready = false;
         this.program = null;
+        this.overlayProgram = null;
+
         this.meshes = new Map();
+        this.overlayMeshes = new Map();
+
         this.textures = new WeakMap();
         this.fallbackTextures = {};
 
@@ -824,6 +931,7 @@ export class WebGLMaterialRenderer {
         }
 
         this.program = createProgram(this.gl, VERTEX_SHADER, FRAGMENT_SHADER);
+        this.overlayProgram = createProgram(this.gl, OVERLAY_VERTEX_SHADER, OVERLAY_FRAGMENT_SHADER);
         this.initState();
         this.ready = true;
     }
@@ -874,6 +982,70 @@ export class WebGLMaterialRenderer {
         return this.meshes.get(faceName);
     }
 
+    getOverlayMesh(faceName) {
+        if (!this.overlayMeshes.has(faceName)) {
+            const gl = this.gl;
+
+            // Faces sollen echte Face-Flächen zeigen, nicht das feine Render-Mesh.
+            const faceMesh = buildFaceQuadMesh(faceName);
+
+            // Wireframe bekommt ein eigenes gröberes Grid.
+            const lineMesh = buildCoarseFaceMesh(faceName, 8);
+
+            // Vertices bleiben ebenfalls am gröberen Grid, nicht am 48er Render-Mesh.
+            const pointMesh = lineMesh;
+
+            const lineOverlay = buildOverlayGeometry(lineMesh);
+            const pointOverlay = buildOverlayGeometry(pointMesh);
+
+            const overlay = {
+                faceMesh,
+
+                linePositions: lineOverlay.linePositions,
+                lineCount: lineOverlay.lineCount,
+
+                pointPositions: pointOverlay.pointPositions,
+                pointCount: pointOverlay.pointCount,
+            };
+
+            overlay.faceVao = gl.createVertexArray();
+            overlay.faceVbo = gl.createBuffer();
+            overlay.faceIbo = gl.createBuffer();
+
+            gl.bindVertexArray(overlay.faceVao);
+            gl.bindBuffer(gl.ARRAY_BUFFER, overlay.faceVbo);
+            gl.bufferData(gl.ARRAY_BUFFER, faceMesh.vertices, gl.STATIC_DRAW);
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, overlay.faceIbo);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, faceMesh.indices, gl.STATIC_DRAW);
+            gl.enableVertexAttribArray(0);
+            gl.vertexAttribPointer(0, 3, gl.FLOAT, false, faceMesh.stride * 4, 0);
+
+            overlay.lineVao = gl.createVertexArray();
+            overlay.lineVbo = gl.createBuffer();
+
+            gl.bindVertexArray(overlay.lineVao);
+            gl.bindBuffer(gl.ARRAY_BUFFER, overlay.lineVbo);
+            gl.bufferData(gl.ARRAY_BUFFER, overlay.linePositions, gl.STATIC_DRAW);
+            gl.enableVertexAttribArray(0);
+            gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 3 * 4, 0);
+
+            overlay.pointVao = gl.createVertexArray();
+            overlay.pointVbo = gl.createBuffer();
+
+            gl.bindVertexArray(overlay.pointVao);
+            gl.bindBuffer(gl.ARRAY_BUFFER, overlay.pointVbo);
+            gl.bufferData(gl.ARRAY_BUFFER, overlay.pointPositions, gl.STATIC_DRAW);
+            gl.enableVertexAttribArray(0);
+            gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 3 * 4, 0);
+
+            gl.bindVertexArray(null);
+
+            this.overlayMeshes.set(faceName, overlay);
+        }
+
+        return this.overlayMeshes.get(faceName);
+    }
+
     getImageTexture(entry, fallbackName = "white") {
         const image = textureImage(entry);
 
@@ -892,7 +1064,7 @@ export class WebGLMaterialRenderer {
         const gl = this.gl;
         const location = gl.getUniformLocation(program, name);
 
-        if (!location) {
+        if (location === null) {
             return;
         }
 
@@ -907,22 +1079,72 @@ export class WebGLMaterialRenderer {
         Object.entries(values).forEach(([name, value]) => {
             const location = gl.getUniformLocation(program, name);
 
-            if (!location) {
+            if (location === null) {
                 return;
             }
 
-            if (value instanceof Float32Array && value.length === 16) {
-                gl.uniformMatrix4fv(location, false, value);
-            } else if (value instanceof Float32Array && value.length === 9) {
-                gl.uniformMatrix3fv(location, false, value);
-            } else if (Array.isArray(value) && value.length === 4) {
-                gl.uniform4fv(location, value);
-            } else if (Array.isArray(value) && value.length === 3) {
-                gl.uniform3fv(location, value);
-            } else if (INT_UNIFORMS.has(name)) {
-                gl.uniform1i(location, Math.trunc(Number(value) || 0));
-            } else {
-                gl.uniform1f(location, Number(value) || 0);
+            const isTypedArray =
+                value instanceof Float32Array ||
+                value instanceof Float64Array ||
+                value instanceof Int32Array ||
+                value instanceof Uint32Array ||
+                value instanceof Uint16Array ||
+                value instanceof Int16Array ||
+                value instanceof Uint8Array ||
+                value instanceof Int8Array;
+
+            const isArrayLike = Array.isArray(value) || isTypedArray;
+
+            try {
+                if (value instanceof Float32Array && value.length === 16) {
+                    gl.uniformMatrix4fv(location, false, value);
+                    return;
+                }
+
+                if (value instanceof Float32Array && value.length === 9) {
+                    gl.uniformMatrix3fv(location, false, value);
+                    return;
+                }
+
+                if (isArrayLike && value.length === 4) {
+                    gl.uniform4fv(location, value);
+                    return;
+                }
+
+                if (isArrayLike && value.length === 3) {
+                    gl.uniform3fv(location, value);
+                    return;
+                }
+
+                if (isArrayLike && value.length === 2) {
+                    gl.uniform2fv(location, value);
+                    return;
+                }
+
+                if (INT_UNIFORMS.has(name)) {
+                    gl.uniform1i(location, Math.trunc(Number(value) || 0));
+                    return;
+                }
+
+                if (typeof value === "boolean") {
+                    gl.uniform1f(location, value ? 1 : 0);
+                    return;
+                }
+
+                if (typeof value === "number" || typeof value === "string") {
+                    gl.uniform1f(location, Number(value) || 0);
+                    return;
+                }
+
+                console.warn("Skipped unsupported uniform value:", name, value);
+            } catch (error) {
+                console.warn("Uniform upload failed:", {
+                    name,
+                    value,
+                    valueType: value?.constructor?.name,
+                    valueLength: value?.length,
+                    error,
+                });
             }
         });
     }
@@ -950,6 +1172,100 @@ export class WebGLMaterialRenderer {
         };
     }
 
+    drawOverlayPass({ previewOverlay, matrices }) {
+        if (!previewOverlay || !this.overlayProgram) {
+            return;
+        }
+
+        const showFaces = previewOverlay.faces === true;
+        const showWireframe = previewOverlay.wireframe === true;
+        const showVertices = previewOverlay.vertices === true;
+
+        if (!showFaces && !showWireframe && !showVertices) {
+            return;
+        }
+
+        const gl = this.gl;
+
+        gl.useProgram(this.overlayProgram);
+
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+        gl.disable(gl.CULL_FACE);
+
+        // Overlay soll sichtbar bleiben, aber nicht die Tiefe kaputt schreiben.
+        gl.depthMask(false);
+        gl.enable(gl.DEPTH_TEST);
+        gl.depthFunc(gl.LEQUAL);
+        gl.enable(gl.POLYGON_OFFSET_FILL);
+        gl.polygonOffset(-1, -1);
+
+        this.setUniforms(this.overlayProgram, {
+            uModel: matrices.model,
+            uViewProj: matrices.viewProj,
+            uPointSize: 4.5,
+            uPointMode: 0,
+            uColor: [1, 1, 1, 1],
+        });
+
+        Object.keys(FACE_DEFS).forEach((faceName, index) => {
+            const overlay = this.getOverlayMesh(faceName);
+
+            if (showFaces) {
+                this.setUniforms(this.overlayProgram, {
+                    uPointMode: 0,
+                    uColor: index % 2 === 0
+                        ? [0.38, 0.90, 1.0, 0.22]
+                        : [0.72, 0.54, 1.0, 0.18],
+                });
+
+                gl.bindVertexArray(overlay.faceVao);
+                gl.drawElements(
+                    gl.TRIANGLES,
+                    overlay.faceMesh.count,
+                    gl.UNSIGNED_SHORT,
+                    0
+                );
+            }
+
+            if (showWireframe) {
+                this.setUniforms(this.overlayProgram, {
+                    uPointMode: 0,
+                    uColor: [0.38, 0.90, 1.0, 0.86],
+                });
+
+                gl.bindVertexArray(overlay.lineVao);
+                gl.drawArrays(gl.LINES, 0, overlay.lineCount);
+            }
+
+            if (showVertices) {
+                this.setUniforms(this.overlayProgram, {
+                    uPointMode: 1,
+                    uPointSize: 5.5,
+                    uColor: [1.0, 1.0, 1.0, 0.96],
+                });
+
+                gl.bindVertexArray(overlay.pointVao);
+                gl.drawArrays(gl.POINTS, 0, overlay.pointCount);
+
+                this.setUniforms(this.overlayProgram, {
+                    uPointMode: 1,
+                    uPointSize: 8.5,
+                    uColor: [0.38, 0.90, 1.0, 0.28],
+                });
+
+                gl.drawArrays(gl.POINTS, 0, overlay.pointCount);
+            }
+        });
+
+        gl.bindVertexArray(null);
+        gl.disable(gl.POLYGON_OFFSET_FILL);
+
+        gl.depthMask(true);
+        gl.depthFunc(gl.LEQUAL);
+    }
+
     render(options) {
         if (!this.ready) {
             return false;
@@ -964,12 +1280,14 @@ export class WebGLMaterialRenderer {
             light,
             objectTextureSettings,
             rotation,
+            previewOverlay = {},
             resolveSurfaceForFace,
             getTextureForFace,
             getTextureForSlotFace,
         } = options;
         const gl = this.gl;
-
+        const useObjectTextures = shouldUseObjectTextures(previewOverlay);
+        const wireframeMaterialAlpha = previewOverlay?.wireframe === true ? 0.2 : 1;
         this.canvas.width = Math.round(width * dpr);
         this.canvas.height = Math.round(height * dpr);
         this.canvas.style.width = `${width}px`;
@@ -1004,23 +1322,50 @@ export class WebGLMaterialRenderer {
 
         Object.keys(FACE_DEFS).forEach(faceName => {
             const faceSurface = resolveSurfaceForFace(surface, materialLayer, faceName);
-            const baseTexture = getTextureForFace(materialLayer, faceName);
-            const slotTexture = slot => getTextureForSlotFace(slot, faceName);
+            const slotTexture = slot => resolvePreviewTexture(
+                useObjectTextures,
+                () => getTextureForSlotFace(slot, faceName)
+            );
+
+            const baseTexture = resolvePreviewTexture(
+                useObjectTextures,
+                () => getTextureForFace(materialLayer, faceName)
+            );
+
             const alphaTexture = slotTexture("alpha");
-            const normalTexture = slotTexture("normal") || slotTexture("clearcoatNormal");
-            const displacementTexture = slotTexture("displacementStrength") || slotTexture("displacement_strength");
-            const bumpTexture = slotTexture("bumpStrength") || slotTexture("bump_strength") || displacementTexture;
+
+            const normalTexture =
+                slotTexture("normal") ||
+                slotTexture("clearcoatNormal");
+
+            const displacementTexture =
+                slotTexture("displacementStrength") ||
+                slotTexture("displacement_strength");
+
+            const bumpTexture =
+                slotTexture("bumpStrength") ||
+                slotTexture("bump_strength") ||
+                displacementTexture;
+
             const roughnessTexture = slotTexture("roughness");
             const metallicTexture = slotTexture("metallic");
             const specularTexture = slotTexture("specular");
-            const emissionTexture = slotTexture("emission") || slotTexture("emission_color");
-            const clearcoatTexture = slotTexture("clearcoat") || slotTexture("clearcoatRoughness");
+
+            const emissionTexture =
+                slotTexture("emission") ||
+                slotTexture("emission_color");
+
+            const clearcoatTexture =
+                slotTexture("clearcoat") ||
+                slotTexture("clearcoatRoughness");
+
             const subsurfaceTexture = slotTexture("subsurface");
             const transmissionTexture = slotTexture("transmission");
             const transmissionRoughnessTexture = slotTexture("transmissionRoughness");
             const iorTexture = slotTexture("ior");
             const sheenTexture = slotTexture("sheen");
             const clearcoatRoughnessTexture = slotTexture("clearcoatRoughness");
+
             const slotParams = (...slotKeys) => {
                 const slotKey = slotKeys.find(key => materialLayer.bitmap_maps?.[key]) || slotKeys[0];
                 const slot = materialLayer.bitmap_maps?.[slotKey] || {};
@@ -1047,7 +1392,10 @@ export class WebGLMaterialRenderer {
             const normalParams = slotParams("normal", "clearcoatNormal");
             const bumpParams = slotParams("bumpStrength", "bump_strength");
             const displacementParams = slotParams("displacementStrength", "displacement_strength");
-            const heightParams = hasTexture(displacementTexture) && !hasTexture(slotTexture("bumpStrength"))
+            const hasDisplacementTexture = mapEnabled(useObjectTextures, displacementTexture) === 1;
+            const hasBumpTexture = mapEnabled(useObjectTextures, slotTexture("bumpStrength")) === 1;
+
+            const heightParams = hasDisplacementTexture && !hasBumpTexture
                 ? displacementParams
                 : bumpParams;
             const lightType = String(light.lightType || light.light_type || light.mode || "sun").toLowerCase();
@@ -1085,26 +1433,30 @@ export class WebGLMaterialRenderer {
                 uModel: matrices.model,
                 uViewProj: matrices.viewProj,
                 uNormalMatrix: matrices.normalMatrix,
-                uUseBaseMap: hasTexture(baseTexture) ? 1 : 0,
-                uUseAlphaMap: hasTexture(alphaTexture) ? 1 : 0,
-                uUseNormalMap: hasTexture(normalTexture) ? 1 : 0,
-                uUseBumpMap: hasTexture(bumpTexture) ? 1 : 0,
-                uUseRoughnessMap: hasTexture(roughnessTexture) ? 1 : 0,
-                uUseMetallicMap: hasTexture(metallicTexture) ? 1 : 0,
-                uUseSpecularMap: hasTexture(specularTexture) ? 1 : 0,
-                uUseEmissionMap: hasTexture(emissionTexture) ? 1 : 0,
-                uUseClearcoatMap: hasTexture(clearcoatTexture) ? 1 : 0,
-                uUseSubsurfaceMap: hasTexture(subsurfaceTexture) ? 1 : 0,
-                uUseTransmissionMap: hasTexture(transmissionTexture) ? 1 : 0,
-                uUseTransmissionRoughnessMap: hasTexture(transmissionRoughnessTexture) ? 1 : 0,
-                uUseIorMap: hasTexture(iorTexture) ? 1 : 0,
-                uUseSheenMap: hasTexture(sheenTexture) ? 1 : 0,
-                uUseClearcoatRoughnessMap: hasTexture(clearcoatRoughnessTexture) ? 1 : 0,
+                uUseBaseMap: mapEnabled(useObjectTextures, baseTexture),
+                uUseAlphaMap: mapEnabled(useObjectTextures, alphaTexture),
+                uUseNormalMap: mapEnabled(useObjectTextures, normalTexture),
+                uUseBumpMap: mapEnabled(useObjectTextures, bumpTexture),
+                uUseRoughnessMap: mapEnabled(useObjectTextures, roughnessTexture),
+                uUseMetallicMap: mapEnabled(useObjectTextures, metallicTexture),
+                uUseSpecularMap: mapEnabled(useObjectTextures, specularTexture),
+                uUseEmissionMap: mapEnabled(useObjectTextures, emissionTexture),
+                uUseClearcoatMap: mapEnabled(useObjectTextures, clearcoatTexture),
+                uUseSubsurfaceMap: mapEnabled(useObjectTextures, subsurfaceTexture),
+                uUseTransmissionMap: mapEnabled(useObjectTextures, transmissionTexture),
+                uUseTransmissionRoughnessMap: mapEnabled(useObjectTextures, transmissionRoughnessTexture),
+                uUseIorMap: mapEnabled(useObjectTextures, iorTexture),
+                uUseSheenMap: mapEnabled(useObjectTextures, sheenTexture),
+                uUseClearcoatRoughnessMap: mapEnabled(useObjectTextures, clearcoatRoughnessTexture),
                 uAlphaMode: alphaMode,
                 uBaseColor: toColor4(faceSurface.baseColor),
                 uSubsurfaceColor: toColor4(faceSurface.subsurfaceColor),
                 uEmissionColor: toColor4(faceSurface.emission),
-                uAlpha: objectTextureSettings.alpha_mode === "OPAQUE" ? 1 : clamp01(faceSurface.alpha),
+                uAlpha: (
+                    objectTextureSettings.alpha_mode === "OPAQUE"
+                        ? 1
+                        : clamp01(faceSurface.alpha)
+                ) * wireframeMaterialAlpha,
                 uAlphaClip: toNumber(objectTextureSettings.alpha_clip, 0.5),
                 uBaseStrength: baseParams.strength,
                 uBaseOffset: baseParams.offset,
@@ -1155,12 +1507,12 @@ export class WebGLMaterialRenderer {
                 uClearcoatRoughnessOffset: clearcoatRoughnessParams.offset,
                 uClearcoatRoughnessInvert: clearcoatRoughnessParams.invert,
                 uEmissionStrength: Math.min(Math.max(toNumber(faceSurface.emissionStrength, 0), 0), 10),
-                uNormalStrength: hasTexture(normalTexture)
+                uNormalStrength: mapEnabled(useObjectTextures, normalTexture)
                     ? Math.min(Math.max(Math.abs(normalParams.strength), 0), 2)
                     : Math.max(clamp01(faceSurface.normal), clamp01(faceSurface.clearcoatNormal)),
                 uNormalStrengthInput: normalParams.strength,
                 uNormalInvert: normalParams.invert,
-                uBumpStrength: hasTexture(bumpTexture)
+                uBumpStrength: mapEnabled(useObjectTextures, bumpTexture)
                     ? Math.min(Math.max(Math.abs(heightParams.strength), 0), 2) * 0.28
                     : clamp01(faceSurface.bumpStrength) * 0.2,
                 uBumpStrengthInput: heightParams.strength,
@@ -1214,7 +1566,13 @@ export class WebGLMaterialRenderer {
             gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_SHORT, 0);
         });
 
+        this.drawOverlayPass({
+            previewOverlay,
+            matrices,
+        });
+
         gl.bindVertexArray(null);
+
         return true;
     }
 
@@ -1226,13 +1584,41 @@ export class WebGLMaterialRenderer {
         }
 
         this.meshes.forEach(mesh => {
-            gl.deleteBuffer(mesh.vbo);
-            gl.deleteBuffer(mesh.ibo);
-            gl.deleteVertexArray(mesh.vao);
+            if (mesh.vao) gl.deleteVertexArray(mesh.vao);
+            if (mesh.vbo) gl.deleteBuffer(mesh.vbo);
+            if (mesh.ibo) gl.deleteBuffer(mesh.ibo);
         });
-        Object.values(this.fallbackTextures).forEach(texture => gl.deleteTexture(texture));
+
+        this.overlayMeshes.forEach(mesh => {
+            if (mesh.faceVao) gl.deleteVertexArray(mesh.faceVao);
+            if (mesh.faceVbo) gl.deleteBuffer(mesh.faceVbo);
+            if (mesh.faceIbo) gl.deleteBuffer(mesh.faceIbo);
+
+            if (mesh.lineVao) gl.deleteVertexArray(mesh.lineVao);
+            if (mesh.lineVbo) gl.deleteBuffer(mesh.lineVbo);
+            if (mesh.pointVao) gl.deleteVertexArray(mesh.pointVao);
+            if (mesh.pointVbo) gl.deleteBuffer(mesh.pointVbo);
+        });
+
+        Object.values(this.fallbackTextures || {}).forEach(texture => {
+            if (texture) {
+                gl.deleteTexture(texture);
+            }
+        });
+
         if (this.program) {
             gl.deleteProgram(this.program);
         }
+
+        if (this.overlayProgram) {
+            gl.deleteProgram(this.overlayProgram);
+        }
+
+        this.meshes.clear();
+        this.overlayMeshes.clear();
+
+        this.program = null;
+        this.overlayProgram = null;
+        this.ready = false;
     }
 }

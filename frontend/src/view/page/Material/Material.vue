@@ -7,110 +7,94 @@
       @update:component-event="emitEvent"
   >
     <template #header>
-      <div class="mem-header">
-        <div class="mem-title">
-          <v-icon size="18">mdi-cube-scan</v-icon>
-
-          <div>
-            <strong>Material Editor</strong>
-            <span>{{ materialModeLabel }} · {{ sourceLayerName }}</span>
-          </div>
-        </div>
-
-        <div
-            class="mem-status"
-            :class="{ active: materialConnected }"
-        >
-          <span />
-          {{ materialConnected ? "Material Connected" : "Material Disconnected" }}
-        </div>
-      </div>
+      <HeaderStatusChip :config="ui.material.header"/>
     </template>
 
     <template #content>
-      <div
-          class="mem-content"
-          :class="{ 'workspace-full': isFullWorkspaceTab }"
-      >
-        <section
-            v-if="!isFullWorkspaceTab"
-            class="mem-preview"
-        >
-          <div class="mem-preview-head">
-            <div>
-              <span>Canvas Material Preview</span>
-              <strong>{{ imageSizeLabel }}</strong>
-            </div>
+      <div class="mem-content" :class="{ 'workspace-full': isFullWorkspaceTab }">
+        <section v-if="!isFullWorkspaceTab" class="mem-preview">
 
-            <button
-                type="button"
-                class="mem-ghost-btn"
-                :disabled="loadingPreview"
-                @click="requestPreviewNow"
-            >
-              Aktualisieren
-            </button>
-          </div>
+          <HeaderStatusMetric :config="ui.material.preview.header" @click="requestPreviewNow"/>
 
           <div class="mem-stage">
-            <div class="mem-cube-shell">
-              <Layer3D
-                  v-if="materialConnected"
-                  :layer="previewLayer"
-                  :rotate="values.rotate_preview"
-                  :selected="false"
-                  class="mem-preview-cube"
-              />
-
-              <div
-                  v-else
-                  class="mem-disconnected-preview"
-              >
-                <v-icon size="34">mdi-vector-link-off</v-icon>
-                <strong>Material Output getrennt</strong>
-                <span>Verbinde Shader → Output, um das Material wieder anzuzeigen.</span>
-              </div>
-
-              <div class="mem-cube-glow" />
-
-              <div
-                  v-if="loadingPreview"
-                  class="mem-preview-loading"
-              >
-                <v-progress-circular
-                    indeterminate
-                    size="28"
-                />
-
-                <span>Material wird vorbereitet…</span>
-              </div>
-            </div>
+            <Preview :config="ui.material.preview.layer3D"/>
           </div>
 
-          <div
-              class="mem-material-slot"
-              :class="{ active: sourceLayerThumbnail }"
-              @dragover.prevent
-              @drop="handleMapDrop($event, 'baseColor')"
-          >
-            <div class="mem-slot-preview">
-              <v-img
-                  v-if="sourceLayerThumbnail"
-                  :src="sourceLayerThumbnail"
-                  :alt="sourceLayerName"
-                  cover
-              />
+          <div class="mem-canvas-controls">
+            <header>
+              <div>
+                <strong>Canvas Controls</strong>
+                <span>Preview-Hilfen für Orbit, Mesh und Topologie.</span>
+              </div>
 
-              <v-icon v-else size="28">mdi-image-off-outline</v-icon>
+              <v-icon size="18">mdi-cube-scan</v-icon>
+            </header>
+
+            <div class="mem-canvas-control-grid">
+              <button
+                  type="button"
+                  class="mem-canvas-control"
+                  :class="{ active: values.rotate_preview }"
+                  @click="setPreviewSetting('rotate_preview', !values.rotate_preview)"
+              >
+                <span class="mem-canvas-control-icon">
+                  <v-icon size="18">mdi-orbit</v-icon>
+                </span>
+
+                <span class="mem-canvas-control-text">
+                  <strong>World Orbit</strong>
+                  <small>{{ values.rotate_preview ? 'Aktiv' : 'Aus' }}</small>
+                </span>
+              </button>
+
+              <button
+                  type="button"
+                  class="mem-canvas-control"
+                  :class="{ active: values.wireframe_preview }"
+                  @click="setPreviewSetting('wireframe_preview', !values.wireframe_preview)"
+              >
+                <span class="mem-canvas-control-icon">
+                  <v-icon size="18">mdi-vector-polyline</v-icon>
+                </span>
+
+                <span class="mem-canvas-control-text">
+                  <strong>Wireframe</strong>
+                  <small>{{ values.wireframe_preview ? 'Mesh Linien sichtbar' : 'Solid Render' }}</small>
+                </span>
+              </button>
+
+              <button
+                  type="button"
+                  class="mem-canvas-control"
+                  :class="{ active: values.faces_preview }"
+                  @click="setPreviewSetting('faces_preview', !values.faces_preview)"
+              >
+                <span class="mem-canvas-control-icon">
+                  <v-icon size="18">mdi-grid-large</v-icon>
+                </span>
+
+                <span class="mem-canvas-control-text">
+                  <strong>Faces</strong>
+                  <small>{{ values.faces_preview ? 'Flächen markiert' : 'Nicht markiert' }}</small>
+                </span>
+              </button>
+
+              <button
+                  type="button"
+                  class="mem-canvas-control"
+                  :class="{ active: values.vertices_preview }"
+                  @click="setPreviewSetting('vertices_preview', !values.vertices_preview)"
+              >
+                <span class="mem-canvas-control-icon">
+                  <v-icon size="18">mdi-vector-point</v-icon>
+                </span>
+
+                          <span class="mem-canvas-control-text">
+                  <strong>Vertices</strong>
+                  <small>{{ values.vertices_preview ? 'Punkte sichtbar' : 'Ausgeblendet' }}</small>
+                </span>
+              </button>
             </div>
-
-            <div class="mem-slot-text">
-              <strong>Base Texture Slot</strong>
-              <span>{{ sourceLayerName }}</span>
-              <small>Layer hineinziehen oder im Surface/Shader zuweisen.</small>
-            </div>
-
-            <v-icon size="20">mdi-tray-arrow-down</v-icon>
           </div>
 
           <div class="mem-meta">
@@ -162,6 +146,13 @@
             <Geometry
                 v-else-if="ui.activeTab === 'geometry'"
                 v-model:geometry="values.geometry"
+                @change="requestPreviewDebounced"
+            />
+
+            <!-- PHYSICS -->
+            <Physics
+                v-else-if="ui.activeTab === 'physics'"
+                v-model:physics="values.physics"
                 @change="requestPreviewDebounced"
             />
 
@@ -1097,21 +1088,27 @@
 <script>
 import { defineComponent } from "vue";
 import Dialog from "@/components/Dialog/Dialog.vue";
-import Layer3D from "@/components/Layer/Layer3D/Layer3D";
+import HeaderStatusChip from "@/view/components/Header/Header";
+import HeaderStatusMetric from "@/view/components/Header/Metric/Metric";
+import Preview from "@/view/page/Material/Preview/Preview";
 import {materialEditorModel, materialEditorProps} from "@/view/models/page/material/model";
 import Surface from "@/view/page/Material/Surface/Surface";
 import Geometry from "@/view/page/Material/Geometry/Geometry";
 import Light from "@/view/page/Material/Light/Light";
 import Export from "@/view/page/Material/Export/Export";
 import Settings from "@/view/page/Material/Settings/Settings";
+import Physics from "@/view/page/Material/Physics/Physics";
 
 export default defineComponent({
   name: "MaterialEditor",
   components: {
     Dialog,
-    Layer3D,
+    HeaderStatusChip,
+    HeaderStatusMetric,
+    Preview,
     Surface,
     Geometry,
+    Physics,
     Light,
     Export,
     Settings

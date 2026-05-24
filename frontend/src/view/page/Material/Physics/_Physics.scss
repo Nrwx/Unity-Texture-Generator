@@ -1,0 +1,162 @@
+.mem-view-head {
+  position: relative;
+  z-index: 30;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  overflow: visible;
+
+  div {
+    min-width: 0;
+  }
+
+  span {
+    color: var(--mem-soft);
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+  }
+
+  strong {
+    display: block;
+    font-size: 0.92rem;
+    font-weight: 790;
+  }
+
+  small {
+    color: var(--mem-muted);
+  }
+}
+
+.mem-physics-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.mem-physics-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--mem-border);
+  border-radius: 18px;
+  background:
+          radial-gradient(circle at top left, rgba(112, 223, 180, 0.08), transparent 44%),
+          var(--mem-surface);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+
+  &.wide {
+    grid-column: 1 / -1;
+  }
+
+  > header {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+
+    strong {
+      color: var(--mem-text);
+      font-size: 0.82rem;
+      font-weight: 820;
+    }
+
+    small {
+      color: var(--mem-muted);
+      font-size: 0.66rem;
+      line-height: 1.3;
+    }
+  }
+}
+
+.mem-control-card,
+.mem-toggle-card {
+  width: 100%;
+  border: 1px solid var(--mem-border);
+  border-radius: 16px;
+  background:
+          radial-gradient(circle at top left, rgba(112, 223, 180, 0.10), transparent 46%),
+          var(--mem-surface);
+  color: var(--mem-text);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+}
+
+.mem-control-card {
+  display: grid;
+  gap: 12px;
+  padding: 13px;
+
+  > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+
+    strong {
+      font-size: 0.82rem;
+      font-weight: 790;
+    }
+
+    small {
+      color: var(--mem-muted);
+      font-size: 0.68rem;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+}
+
+.mem-toggle-card {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  align-items: center;
+  gap: 11px;
+  padding: 12px;
+
+  &.active {
+    border-color: rgba(112, 223, 180, 0.44);
+    background:
+            radial-gradient(circle at top left, rgba(112, 223, 180, 0.20), transparent 46%),
+            rgba(112, 223, 180, 0.08);
+  }
+}
+
+.mem-toggle-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(112, 223, 180, 0.25);
+  border-radius: 14px;
+  background: rgba(112, 223, 180, 0.09);
+  color: var(--mem-emerald);
+}
+
+.mem-toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+
+  strong {
+    font-size: 0.84rem;
+    font-weight: 790;
+  }
+
+  small {
+    color: var(--mem-muted);
+    font-size: 0.7rem;
+    line-height: 1.35;
+  }
+}
+
+@media (max-width: 860px) {
+  .mem-physics-layout {
+    grid-template-columns: 1fr;
+  }
+}

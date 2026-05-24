@@ -16,6 +16,11 @@ export const UV_FIT_OPTIONS = Object.freeze([
     "world",
 ]);
 
+export const SUBDIVISION_TYPE_OPTIONS = Object.freeze([
+    "simple",
+    "catmull-clark",
+]);
+
 export const createGeometry = () => ({
     primitive: "cube",
 
@@ -27,14 +32,8 @@ export const createGeometry = () => ({
     bevel_segments: 1,
 
     subdivision: 0,
+    subdivision_type: "simple",
     shade_smooth: true,
-
-    displacement_enabled: false,
-    displacement_strength: 0,
-    displacement_midlevel: 0.5,
-
-    normal_strength: 1,
-    bump_strength: 0,
 
     uv_fit: "stretch",
     uv_density: 1,
@@ -74,11 +73,6 @@ export const geometryModelProps = {
     geometry: {
         type: Object,
         default: () => createGeometry(),
-    },
-
-    showDisplacement: {
-        type: Boolean,
-        default: false,
     },
 };
 
@@ -127,6 +121,7 @@ export function geometryModel(props, emit) {
 
         primitiveOptions: PRIMITIVE_OPTIONS,
         uvFitOptions: UV_FIT_OPTIONS,
+        subdivisionTypeOptions: SUBDIVISION_TYPE_OPTIONS,
 
         setGeometryValue,
         setGeometryNumber,

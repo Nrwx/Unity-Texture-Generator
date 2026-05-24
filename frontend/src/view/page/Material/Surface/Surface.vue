@@ -1,10 +1,5 @@
 <template>
-  <div class="mem-view-head">
-    <div>
-      <strong>Surface</strong>
-      <span>Alle Principled-BSDF-Werte mit Bitmap-Slot, signed Factor und Node-Insertion.</span>
-    </div>
-  </div>
+  <HeaderStatusMetric :config="ui.header"/>
 
   <div class="mem-section">
     <div class="mem-name-card">
@@ -120,28 +115,30 @@
         />
       </template>
 
-      <div class="mem-surface-map-slot">
-        <button
-            type="button"
-            class="mem-map-pill"
-            :class="{
+      <div class="mem-surface-map-slot d-flex ga-2 align-center">
+        <div class="w-70 d-flex ga-2 flex-wrap align-center">
+          <button
+              type="button"
+              class="mem-map-pill w-100"
+              :class="{
               active: isSurfaceSlotConnected(group.key),
               multitexture: getMapSlot(group.key)?.source_type === 'multitexture',
               shader: getMapSlot(group.key)?.source_type === 'shader'
             }"
-            @click="clearMapSlot(group.key)"
-        >
-          <v-icon size="15">
-            {{ getSurfaceSlotIcon(group.key) }}
-          </v-icon>
+              @click="clearMapSlot(group.key)"
+          >
+            <v-icon size="15">
+              {{ getSurfaceSlotIcon(group.key) }}
+            </v-icon>
 
-          <span class="mem-map-pill-text">
+            <span class="mem-map-pill-text">
             <strong>{{ getSurfaceSlotLabel(group.key) }}</strong>
             <small>{{ getSurfaceSlotDetail(group.key) }}</small>
           </span>
-        </button>
+          </button>
+        </div>
 
-        <div class="mem-surface-offset-sync">
+        <div class="w-30 mem-surface-offset-sync d-flex ga-2 align-center flex-wrap">
           <v-select
               :model-value="getMapSlot(group.key)?.channel || 'rgba'"
               :items="textureChannelOptions"
@@ -168,9 +165,11 @@
 <script>
 import { defineComponent } from "vue";
 import {surfaceEditorEmits, surfaceEditorModel, surfaceEditorProps} from "@/view/models/page/material/surface/model";
+import HeaderStatusMetric from "@/view/components/Header/Metric/Metric";
 
 export default defineComponent({
   name: "SurfaceEditor",
+  components: {HeaderStatusMetric},
   props: surfaceEditorProps,
   emits: surfaceEditorEmits,
   setup(props, { emit }) {

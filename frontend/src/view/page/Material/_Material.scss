@@ -19,82 +19,9 @@
   color: var(--mem-text);
 }
 
-.mem-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  width: 100%;
-  min-width: 0;
-}
-
-.mem-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-
-  .v-icon {
-    color: var(--mem-emerald);
-    filter: drop-shadow(0 0 12px rgba(112, 223, 180, 0.36));
-  }
-
-  div {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-  }
-
-  strong {
-    font-size: 0.92rem;
-    font-weight: 780;
-    line-height: 1.1;
-  }
-
-  span {
-    max-width: 520px;
-    margin-top: 3px;
-    overflow: hidden;
-    color: var(--mem-muted);
-    font-size: 0.72rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-}
-
-.mem-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  min-width: max-content;
-  padding: 6px 10px;
-  border: 1px solid rgba(255, 123, 123, 0.36);
-  border-radius: 999px;
-  background: var(--mem-surface);
-  color: var(--mem-danger);
-  font-size: 0.7rem;
-  font-weight: 760;
-  white-space: nowrap;
-  box-shadow: 0 0 18px rgba(255, 123, 123, 0.08);
-
-  > span {
-    width: 7px;
-    height: 7px;
-    border-radius: 999px;
-    background: currentColor;
-    box-shadow: 0 0 12px currentColor;
-  }
-
-  &.active {
-    color: var(--mem-cyan);
-    border-color: rgba(97, 230, 255, 0.34);
-    box-shadow: 0 0 18px rgba(97, 230, 255, 0.10);
-  }
-}
-
 .mem-content {
   display: grid;
-  grid-template-columns: minmax(240px, 0.8fr) minmax(0, 1.4fr);
+  grid-template-columns: minmax(200px, .6fr) minmax(0, 1.4fr);
   gap: 14px;
   min-height: 0;
   max-height: 640px;
@@ -489,129 +416,169 @@
           rgba(0, 0, 0, 0.12);
 }
 
-.mem-cube-shell {
-  position: relative;
+.mem-canvas-controls {
   display: grid;
-  place-items: center;
-  width: min(320px, 86%);
-  aspect-ratio: 1 / 1;
-  border: 1px solid rgba(255, 255, 255, 0.075);
-  border-radius: 16px;
-  background-color: #20232f;
-  background-image:
-          linear-gradient(45deg, rgba(255, 255, 255, 0.045) 25%, transparent 25%),
-          linear-gradient(-45deg, rgba(255, 255, 255, 0.045) 25%, transparent 25%),
-          linear-gradient(45deg, transparent 75%, rgba(255, 255, 255, 0.045) 75%),
-          linear-gradient(-45deg, transparent 75%, rgba(255, 255, 255, 0.045) 75%);
-  background-position: 0 0, 0 10px, 10px -10px, -10px 0;
-  background-size: 20px 20px;
-  box-shadow:
-          0 18px 34px rgba(0, 0, 0, 0.28),
-          0 0 34px rgba(112, 223, 180, 0.10),
-          inset 0 1px 0 rgba(255, 255, 255, 0.055);
-}
-
-.mem-preview-cube {
-  position: relative !important;
-  z-index: 2;
-  width: 100% !important;
-  height: 100% !important;
-  border-radius: 12px;
-  filter:
-          drop-shadow(0 18px 24px rgba(0, 0, 0, 0.42))
-          drop-shadow(0 0 18px rgba(112, 223, 180, 0.12));
-
-  :deep(.canvas-material-layer) {
-    position: relative !important;
-    width: 100% !important;
-    height: 100% !important;
-  }
-
-  :deep(.canvas-material-canvas) {
-    width: 100% !important;
-    height: 100% !important;
-  }
-}
-
-.mem-disconnected-preview {
-  position: relative;
-  z-index: 2;
-  display: grid;
-  place-items: center;
-  gap: 8px;
-  max-width: 240px;
-  padding: 22px;
-  text-align: center;
-  color: var(--mem-muted);
-
-  .v-icon {
-    color: var(--mem-danger);
-    filter: drop-shadow(0 0 12px rgba(255, 123, 123, 0.28));
-  }
-
-  strong {
-    color: var(--mem-text);
-    font-size: 0.86rem;
-    font-weight: 820;
-  }
-
-  span {
-    color: var(--mem-muted);
-    font-size: 0.68rem;
-    line-height: 1.4;
-  }
-}
-
-.mem-cube-glow {
-  position: absolute;
-  inset: 18%;
-  z-index: 1;
-  pointer-events: none;
-  border-radius: 999px;
-  background:
-          radial-gradient(circle, rgba(97, 230, 255, 0.12), transparent 62%);
-  filter: blur(18px);
-}
-
-.mem-preview-loading {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  display: grid;
-  place-content: center;
-  gap: 10px;
-  border-radius: 16px;
-  background: rgba(0, 0, 0, 0.38);
-  backdrop-filter: blur(3px);
-  color: var(--mem-text);
-  font-size: 0.72rem;
-  font-weight: 760;
-}
-
-.mem-material-slot {
-  display: grid;
-  grid-template-columns: 46px 1fr 24px;
-  align-items: center;
   gap: 10px;
   min-width: 0;
   padding: 10px;
-  border: 1px dashed rgba(112, 223, 180, 0.32);
-  border-radius: 15px;
+  border: 1px solid var(--mem-border);
+  border-radius: 16px;
   background:
-          radial-gradient(circle at top left, rgba(112, 223, 180, 0.12), transparent 44%),
+          radial-gradient(circle at top left, rgba(97, 230, 255, 0.10), transparent 46%),
+          radial-gradient(circle at bottom right, rgba(181, 138, 255, 0.08), transparent 42%),
           rgba(255, 255, 255, 0.035);
-  color: var(--mem-muted);
+  color: var(--mem-text);
+  box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.045),
+          0 0 22px rgba(97, 230, 255, 0.045);
 
-  &.active {
-    border-style: solid;
-    border-color: rgba(112, 223, 180, 0.48);
+  > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+
+    div {
+      min-width: 0;
+    }
+
+    strong {
+      display: block;
+      overflow: hidden;
+      color: var(--mem-text);
+      font-size: 0.78rem;
+      font-weight: 820;
+      line-height: 1.35;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    span {
+      display: block;
+      overflow: hidden;
+      color: var(--mem-muted);
+      font-size: 0.64rem;
+      font-weight: 700;
+      line-height: 1.35;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .v-icon {
+      color: var(--mem-cyan);
+      filter: drop-shadow(0 0 10px rgba(97, 230, 255, 0.28));
+    }
+  }
+}
+
+.mem-canvas-control-grid {
+  display: flex;
+  gap: 8px;
+  overflow: hidden;
+  overflow-x: scroll;
+  max-width: 100%;
+}
+
+.mem-canvas-control {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-width: 100px;
+  min-height: 46px;
+  padding: 7px;
+  border: 1px solid var(--mem-border);
+  border-radius: 13px;
+  background:
+          linear-gradient(135deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015));
+  color: var(--mem-muted);
+  text-align: left;
+  cursor: pointer;
+  transition:
+          background 150ms ease,
+          border-color 150ms ease,
+          color 150ms ease,
+          transform 150ms ease,
+          box-shadow 150ms ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    border-color: rgba(97, 230, 255, 0.28);
     background:
-            radial-gradient(circle at top left, rgba(112, 223, 180, 0.18), transparent 44%),
-            rgba(112, 223, 180, 0.07);
+            radial-gradient(circle at top left, rgba(97, 230, 255, 0.10), transparent 48%),
+            rgba(255, 255, 255, 0.05);
     color: var(--mem-text);
     box-shadow:
-            0 0 22px rgba(112, 223, 180, 0.10),
-            inset 0 1px 0 rgba(255, 255, 255, 0.06);
+            0 10px 20px rgba(0, 0, 0, 0.16),
+            0 0 18px rgba(97, 230, 255, 0.07);
+  }
+
+  &.active {
+    border-color: rgba(97, 230, 255, 0.42);
+    background:
+            linear-gradient(135deg, rgba(97, 230, 255, 0.16), rgba(181, 138, 255, 0.09));
+    color: #fff;
+    box-shadow:
+            0 0 22px rgba(97, 230, 255, 0.10),
+            inset 0 1px 0 rgba(255, 255, 255, 0.075);
+
+    .mem-canvas-control-icon {
+      border-color: rgba(97, 230, 255, 0.34);
+      background: rgba(97, 230, 255, 0.12);
+      color: var(--mem-cyan);
+      box-shadow:
+              0 0 14px rgba(97, 230, 255, 0.14),
+              inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    }
+
+    small {
+      color: rgba(255, 255, 255, 0.66);
+    }
+  }
+}
+
+.mem-canvas-control-icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.095);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--mem-muted);
+  transition:
+          background 150ms ease,
+          border-color 150ms ease,
+          color 150ms ease,
+          box-shadow 150ms ease;
+}
+
+.mem-canvas-control-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+
+  strong,
+  small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  strong {
+    color: currentColor;
+    font-size: 0.7rem;
+    font-weight: 800;
+    line-height: 1.35;
+  }
+
+  small {
+    color: var(--mem-soft);
+    font-size: 0.59rem;
+    font-weight: 700;
+    line-height: 1.35;
   }
 }
 

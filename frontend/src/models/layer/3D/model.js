@@ -199,6 +199,11 @@ const MATERIAL_TEXTURE_SLOTS = Object.freeze([
     "subsurface_color",
 ]);
 
+const CANVAS2D_TEXTURE_SLOTS = Object.freeze([
+    "baseColor",
+    "base_color",
+]);
+
 const FACE_NORMALS = Object.freeze({
     front: [0, 0, 1],
     back: [0, 0, -1],
@@ -297,21 +302,119 @@ const applyAdditiveSurfaceColor = (ctx, points, surface, slotKey) => {
 
 const applyCanvasColorShader = (ctx, points, surface, shade = 1) => {
     const baseColor = surface.baseColor || [1, 1, 1, 1];
-    const subColor = surface.subsurfaceColor || [1, 1, 1, 1];
-    const subMix = clamp01(surface.subsurface ?? 0);
     const alpha = clamp01(surface.alpha ?? 1);
-    const color = [
-        clamp01(baseColor[0] * (1 - subMix) + subColor[0] * subMix),
-        clamp01(baseColor[1] * (1 - subMix) + subColor[1] * subMix),
-        clamp01(baseColor[2] * (1 - subMix) + subColor[2] * subMix),
+    const specular = clamp01(surface.specular ?? 0);
+    const diffuse = [
+        clamp01(baseColor[0] * shade),
+        clamp01(baseColor[1] * shade),
+        clamp01(baseColor[2] * shade),
     ];
-    const lit = color.map(channel => clamp01(channel * shade));
+    const highlight = Math.max(0, shade - 1) * specular;
+
+    const lit = diffuse.map(channel => clamp01(
+        channel * (1 - highlight) + highlight
+    ));
 
     ctx.save();
     drawFacePath(ctx, points);
     ctx.fillStyle = `rgba(${Math.round(lit[0] * 255)}, ${Math.round(lit[1] * 255)}, ${Math.round(lit[2] * 255)}, ${alpha})`;
     ctx.fill();
     ctx.restore();
+};
+
+const resolvePreviewOverlaySettings = materialLayer => {
+    const settings = materialLayer?.settings || {};
+    const preview = materialLayer?.preview || {};
+
+    return {
+        wireframe:
+            settings.wireframe_preview === true ||
+            preview.wireframe === true ||
+            preview.wireframe_preview === true,
+
+        faces:
+            settings.faces_preview === true ||
+            preview.faces === true ||
+            preview.faces_preview === true,
+
+        vertices:
+            settings.vertices_preview === true ||
+            preview.vertices === true ||
+            preview.vertices_preview === true,
+    };
+};
+
+const drawCanvasFaceOverlay = (ctx, points, faceName, index = 0) => {
+    ctx.save();
+
+    drawFacePath(ctx, points);
+    ctx.fillStyle = index % 2 === 0
+        ? "rgba(97, 230, 255, 0.105)"
+        : "rgba(181, 138, 255, 0.09)";
+    ctx.fill();
+
+    const center = points.reduce(
+        (acc, point) => ({
+            x: acc.x + point.x / points.length,
+            y: acc.y + point.y / points.length,
+        }),
+        { x: 0, y: 0 }
+    );
+
+    ctx.fillStyle = "rgba(255,255,255,0.72)";
+    ctx.font = "800 9px Inter, system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(faceName || "").toUpperCase(), center.x, center.y);
+
+    ctx.restore();
+};
+
+const drawCanvasWireframeOverlay = (ctx, points) => {
+    ctx.save();
+
+    drawFacePath(ctx, points);
+    ctx.strokeStyle = "rgba(97, 230, 255, 0.82)";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([]);
+    ctx.shadowColor = "rgba(97, 230, 255, 0.44)";
+    ctx.shadowBlur = 5;
+    ctx.stroke();
+
+    ctx.restore();
+};
+
+const drawCanvasVertexOverlay = (ctx, points) => {
+    ctx.save();
+
+    points.forEach(point => {
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 2.35, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255,255,255,0.92)";
+        ctx.fill();
+
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = "rgba(97, 230, 255, 0.88)";
+        ctx.shadowColor = "rgba(97, 230, 255, 0.55)";
+        ctx.shadowBlur = 5;
+        ctx.stroke();
+    });
+
+    ctx.restore();
+};
+
+const drawCanvasTopologyOverlay = (ctx, points, faceName, overlaySettings, index) => {
+    if (overlaySettings.faces) {
+        drawCanvasFaceOverlay(ctx, points, faceName, index);
+    }
+
+    if (overlaySettings.wireframe) {
+        drawCanvasWireframeOverlay(ctx, points);
+    }
+
+    if (overlaySettings.vertices) {
+        drawCanvasVertexOverlay(ctx, points);
+    }
 };
 
 const resolveObjectTextureSettings = materialLayer => {
@@ -538,10 +641,10 @@ export function layer3DModel(props, emit) {
             }
 
             const mapped = slot.enabled
-                || Number(slot.strength ?? 1) !== 1
-                || Number(slot.offset ?? 0) !== 0
-                || Number(strength) < 0
-                || slot.invert === true
+            || Number(slot.strength ?? 1) !== 1
+            || Number(slot.offset ?? 0) !== 0
+            || Number(strength) < 0
+            || slot.invert === true
                 ? applySignedSlotValue(number, strength, offset)
                 : number;
 
@@ -551,6 +654,27 @@ export function layer3DModel(props, emit) {
         });
 
         return resolved;
+    };
+
+    const resolveCanvas2DSurface = (surface, { wireframe = false } = {}) => {
+        const baseColor = Array.isArray(surface.baseColor)
+            ? surface.baseColor.slice(0, 4)
+            : SURFACE_DEFAULTS.baseColor.slice();
+
+        while (baseColor.length < 4) {
+            baseColor.push(1);
+        }
+
+        return {
+            baseColor: [
+                clamp01(baseColor[0]),
+                clamp01(baseColor[1]),
+                clamp01(baseColor[2]),
+                clamp01(baseColor[3] ?? 1),
+            ],
+            alpha: clamp01(surface.alpha ?? 1) * (wireframe ? 0.2 : 1),
+            specular: clamp01(surface.specular ?? SURFACE_DEFAULTS.specular),
+        };
     };
 
     const resolveLight = materialLayer => {
@@ -955,9 +1079,14 @@ export function layer3DModel(props, emit) {
         }
 
         const materialLayer = resolveMaterialLayer(props.layer);
-        const surface = normalizeSurface(materialLayer);
+        const overlaySettings = resolvePreviewOverlaySettings(materialLayer);
+        const surface = resolveCanvas2DSurface(
+            normalizeSurface(materialLayer),
+            { wireframe: overlaySettings.wireframe === true }
+        );
         const light = resolveLight(materialLayer);
         const objectTextureSettings = resolveObjectTextureSettings(materialLayer);
+        const useObjectTextures = overlaySettings.wireframe !== true;
 
         const uv = materialLayer.uv || {};
 
@@ -974,8 +1103,11 @@ export function layer3DModel(props, emit) {
 
         ctx.save();
 
-        faces.forEach(face => {
-            const faceSurface = resolveSurfaceForFace(surface, materialLayer, face.name);
+        faces.forEach((face, index) => {
+            const faceSurface = resolveCanvas2DSurface(
+                resolveSurfaceForFace(surface, materialLayer, face.name),
+                { wireframe: overlaySettings.wireframe === true }
+            );
             const points = applyDisplacementToPoints(face.points);
             const faceShade = resolveFaceShade(face, faceSurface, light);
             const faceAlpha = objectTextureSettings.alpha_mode === "OPAQUE"
@@ -1001,7 +1133,9 @@ export function layer3DModel(props, emit) {
                 alpha: faceAlpha,
             }, faceShade);
 
-            const faceTexture = getTextureForFace(materialLayer, face.name);
+            const faceTexture = useObjectTextures
+                ? getCanvas2DTextureForFace(materialLayer, face.name)
+                : null;
 
             if (faceTexture?.image) {
                 drawTextureFace(
@@ -1017,10 +1151,17 @@ export function layer3DModel(props, emit) {
                     }
                 );
 
-                applyAdditiveSurfaceColor(faceCtx, points, faceSurface, faceTexture.slot || "baseColor");
+                applyAdditiveSurfaceColor(
+                    faceCtx,
+                    points,
+                    faceSurface,
+                    faceTexture.slot || "baseColor"
+                );
             }
 
-            const alphaTexture = getAlphaTextureForFace(materialLayer, face.name);
+            const alphaTexture = useObjectTextures
+                ? getAlphaTextureForFace(materialLayer, face.name)
+                : null;
 
             if (alphaTexture?.image) {
                 drawTextureFace(
@@ -1056,6 +1197,14 @@ export function layer3DModel(props, emit) {
             }
 
             ctx.drawImage(faceCanvas, 0, 0, width, height);
+
+            drawCanvasTopologyOverlay(
+                ctx,
+                points,
+                face.name,
+                overlaySettings,
+                index
+            );
         });
 
         ctx.restore();
@@ -1113,6 +1262,7 @@ export function layer3DModel(props, emit) {
                 light,
                 objectTextureSettings,
                 rotation,
+                previewOverlay: resolvePreviewOverlaySettings(materialLayer),
                 resolveSurfaceForFace,
                 getTextureForFace,
                 getTextureForSlotFace,
@@ -1247,6 +1397,30 @@ export function layer3DModel(props, emit) {
         return loaded;
     };
 
+    const getCanvas2DTextureForFace = (layer, faceName) => {
+        const faceUv = layer?.uv?.faces?.[faceName];
+
+        if (
+            faceUv?.bitmap?.url &&
+            textureImages[faceUv.bitmap.url]?.image &&
+            CANVAS2D_TEXTURE_SLOTS.includes(textureImages[faceUv.bitmap.url].slot)
+        ) {
+            return {
+                ...textureImages[faceUv.bitmap.url],
+                ...normalizeTextureSettings(textureImages[faceUv.bitmap.url], faceUv.bitmap),
+            };
+        }
+
+        const mapped = Object.values(textureImages).find(item => (
+            item.image &&
+            CANVAS2D_TEXTURE_SLOTS.includes(item.slot) &&
+            Array.isArray(item.faces) &&
+            item.faces.includes(faceName)
+        ));
+
+        return mapped || Object.values(textureImages).find(item => item.image && CANVAS2D_TEXTURE_SLOTS.includes(item.slot)) || null;
+    };
+
     const getTextureForFace = (layer, faceName) => {
         const faceUv = layer?.uv?.faces?.[faceName];
 
@@ -1285,7 +1459,6 @@ export function layer3DModel(props, emit) {
         }
 
         const shouldAnimate =
-            props.rotate ||
             resolveMaterialLayer(props.layer)?.preview?.idle_rotation?.enabled ||
             resolveMaterialLayer(props.layer)?.preview?.rotate;
 
@@ -1327,7 +1500,6 @@ export function layer3DModel(props, emit) {
         draw();
 
         const shouldAnimate =
-            props.rotate ||
             resolveMaterialLayer(props.layer)?.preview?.idle_rotation?.enabled ||
             resolveMaterialLayer(props.layer)?.preview?.rotate;
 
@@ -1350,8 +1522,7 @@ export function layer3DModel(props, emit) {
     };
 
     watch(
-        () => [
-            props.layer?.id,
+        () => [props.layer?.id,
             props.layer?.time,
             props.layer?.url,
             props.layer?.texture?.url,
@@ -1375,10 +1546,11 @@ export function layer3DModel(props, emit) {
             props.layer?.bitmap_maps && JSON.stringify(props.layer.bitmap_maps),
             props.layer?.shader_graph && JSON.stringify(props.layer.shader_graph),
             props.layer?.bitmap_maps?.baseColor?.url,
-            props.rotate,
             props.layer?.preview?.idle_rotation?.enabled,
             props.layer?.preview?.rotate,
-        ].join("|"),
+            props.layer?.preview?.wireframe,
+            props.layer?.preview?.faces,
+            props.layer?.preview?.vertices].join("|"),
         () => {
             requestInit();
         }
@@ -1427,10 +1599,5 @@ export const layer3DProps = {
         type: Boolean,
         required: false,
         default: false,
-    },
-    rotate: {
-        type: Boolean,
-        required: false,
-        default: false,
-    },
+    }
 };

@@ -337,13 +337,6 @@ button {
   gap: 8px;
 }
 
-.mem-surface-map-slot {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 90px;
-  gap: 8px;
-  align-items: center;
-}
-
 .mem-map-pill {
   justify-content: flex-start;
   min-height: 38px;
@@ -435,14 +428,6 @@ button {
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
   }
-}
-
-.mem-surface-offset-sync {
-  display: grid;
-  grid-template-columns: minmax(120px, 1fr) 92px;
-  gap: 8px;
-  align-items: center;
-  min-width: 0;
 }
 
 .mem-ghost-btn {

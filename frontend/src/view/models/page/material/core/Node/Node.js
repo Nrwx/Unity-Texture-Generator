@@ -1,5 +1,5 @@
 import { uuid } from "@/utils/uuid";
-import {clone} from "@/utils/tools";
+import { clone } from "@/utils/tools";
 
 export class Node {
     static TYPE_ORDER = ["Shader", "Texture", "UV", "Math", "Vector", "Color", "Output"];
@@ -42,6 +42,30 @@ export class Node {
             type: "Shader",
             label: "Principled BSDF",
             icon: "mdi-material-design",
+        }),
+
+        Node.define({
+            key: "shader.displacement",
+            type: "Shader",
+            label: "Displacement",
+            icon: "mdi-terrain",
+            fields: ["space", "height", "midlevel", "scale"],
+            inputs: {
+                height: Node.socket("float", "Height"),
+                midlevel: Node.socket("float", "Midlevel"),
+                scale: Node.socket("float", "Scale"),
+                normal: Node.socket("vector", "Normal"),
+            },
+            outputs: {
+                displacement: Node.socket("vector", "Displacement"),
+            },
+            defaults: {
+                space: "Object Space",
+                height: 0,
+                midlevel: 0.5,
+                scale: 1,
+                normal: [0, 0, 1],
+            },
         }),
 
         Node.define({
@@ -834,6 +858,10 @@ export class Node {
 
         if (fieldKey === "interpolation") {
             return ["Linear", "Cubic", "Closest", "Smart"];
+        }
+
+        if (nodeKey === "shader.displacement" && fieldKey === "space") {
+            return ["Object Space", "World Space"];
         }
 
         if (fieldKey === "projection") {

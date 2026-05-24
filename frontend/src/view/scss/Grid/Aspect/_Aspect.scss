@@ -1,0 +1,25 @@
+$aspect-ratios: (
+  "1-1": 1 / 1,
+  "4-3": 4 / 3,
+  "3-4": 3 / 4,
+  "16-9": 16 / 9,
+  "9-16": 9 / 16,
+  "21-9": 21 / 9,
+  "9-21": 9 / 21,
+  "3-2": 3 / 2,
+  "2-3": 2 / 3,
+  "5-4": 5 / 4,
+  "4-5": 4 / 5,
+  "2-1": 2 / 1,
+  "1-2": 1 / 2
+);
+
+@each $name, $ratio in $aspect-ratios {
+  .aspect-#{$name} {
+    aspect-ratio: #{$ratio} !important;
+  }
+}
+
+.aspect-auto {
+  aspect-ratio: auto !important;
+}
