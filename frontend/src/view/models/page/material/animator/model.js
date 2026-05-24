@@ -17,6 +17,8 @@ import {DEG, isFiniteNumber, number} from "@/utils/math";
 
 const WORLD_PIVOT = Object.freeze({ x: 0, y: 0, z: 0 });
 const TAU = Math.PI * 2;
+const SCULPT_GPU_FLUSH_VERTEX_VALUE_LIMIT = 160000;
+const SCULPT_GPU_FLUSH_STROKE_LIMIT = 48;
 
 const normalizeAngleRad = value => {
     const n = number(value, 0);
@@ -106,7 +108,10 @@ export function animatorModel(props, emit) {
         sculpt: {
             session: null,
             lastPoint: null,
-            lastHit: null
+            lastHit: null,
+            dirty: false,
+            strokeCount: 0,
+            dirtyVertexValues: 0
         },
         commands: {
             selectedLayersSignature: "",
@@ -527,6 +532,40 @@ export function animatorModel(props, emit) {
     };
 
 
+    const createAnimatorSculptPayload = layer => {
+        if (!layer?.id || !layer?.mesh) {
+            return null;
+        }
+
+        const geometry = normalizeMeshSettings(
+            layer.geometry ||
+            layer.mesh?.settings ||
+            {}
+        );
+        const mesh = {
+            ...(layer.mesh || {}),
+            settings: {
+                ...(layer.mesh?.settings || {}),
+                ...geometry,
+            },
+        };
+
+        // Sculpt persistence only needs the vertex buffer/indices. Large UV helper
+        // arrays are kept in the local draft and preserved by the backend when not
+        // sent, otherwise they make `/mesh` exceed the request queue limit.
+        delete mesh.uv;
+
+        return clone({
+            id: layer.id,
+            geometry,
+            mesh,
+            settings: {
+                ...(layer.settings || {}),
+                sculpt_edit: true,
+            },
+        }, "json");
+    };
+
     const createAnimatorMeshPayload = layer => {
         if (!layer?.id) {
             return null;
@@ -673,12 +712,38 @@ export function animatorModel(props, emit) {
         temp.value.edit.layer = null;
     };
 
+    const resetSculptFlushQueue = () => {
+        temp.value.sculpt.dirty = false;
+        temp.value.sculpt.strokeCount = 0;
+        temp.value.sculpt.dirtyVertexValues = 0;
+    };
+
+    const markSculptFlushQueueDirty = mesh => {
+        const ranges = Array.isArray(mesh?.meta?.geometryDirtyRanges)
+            ? mesh.meta.geometryDirtyRanges
+            : [];
+        const dirtyValues = ranges.reduce((total, range) => total + Math.max(0, Math.trunc(Number(range?.count || 0))), 0);
+
+        temp.value.sculpt.dirty = true;
+        temp.value.sculpt.strokeCount = Math.max(0, Math.trunc(Number(temp.value.sculpt.strokeCount || 0))) + 1;
+        temp.value.sculpt.dirtyVertexValues = Math.max(0, Math.trunc(Number(temp.value.sculpt.dirtyVertexValues || 0))) + dirtyValues;
+    };
+
+    const shouldFlushSculptForGpuPressure = () => (
+        temp.value.sculpt.dirty === true && (
+            Math.max(0, Math.trunc(Number(temp.value.sculpt.strokeCount || 0))) >= SCULPT_GPU_FLUSH_STROKE_LIMIT ||
+            Math.max(0, Math.trunc(Number(temp.value.sculpt.dirtyVertexValues || 0))) >= SCULPT_GPU_FLUSH_VERTEX_VALUE_LIMIT
+        )
+    );
+
     const commitDraftLayerWithEvent = (eventName = "mesh:update") => {
         if (!temp.value.edit.layer?.id) {
             return false;
         }
 
-        const payload = createAnimatorMeshPayload(temp.value.edit.layer);
+        const payload = eventName.startsWith("sculpt:")
+            ? createAnimatorSculptPayload(temp.value.edit.layer)
+            : createAnimatorMeshPayload(temp.value.edit.layer);
 
         if (!payload) {
             return false;
@@ -689,11 +754,38 @@ export function animatorModel(props, emit) {
         cameraDirty = false;
         clearMeshEditDraftLayer();
 
+        if (eventName.startsWith("sculpt:")) {
+            resetSculptFlushQueue();
+        }
+
         return true;
     };
 
     const commitMeshEditDraftLayer = () => commitDraftLayerWithEvent("mesh-edit:commit");
-    const commitSculptDraftLayer = () => commitDraftLayerWithEvent("sculpt:commit");
+    const commitSculptDraftLayer = ({ force = false } = {}) => {
+        if (!force && temp.value.sculpt.dirty !== true && localTransformDirty !== true) {
+            return false;
+        }
+
+        return commitDraftLayerWithEvent("sculpt:commit");
+    };
+
+    const leaveSculptForPersistentBoundary = () => {
+        if (!isSculptStateActive()) {
+            return false;
+        }
+
+        endSculptStroke({ flush: false });
+        commitSculptDraftLayer({ force: true });
+        setSculptStateActive(false);
+        props.editorConfig.tool = isMeshEditStateActive() ? "mesh-edit" : (props.gizmoConfig.tool || "translate");
+        emitEvent("sculpt:brush", {
+            ...resolveSculptBrush(),
+            enabled: false,
+        });
+
+        return true;
+    };
 
     const meshEditActive = () => isMeshEditStateActive() && Boolean((temp.value.edit.layer || activeLayer.value)?.mesh);
 
@@ -707,6 +799,10 @@ export function animatorModel(props, emit) {
     };
 
     const setMeshEditEnabled = enabled => {
+        if (enabled === true && isSculptStateActive()) {
+            leaveSculptForPersistentBoundary();
+        }
+
         setMeshEditStateActive(enabled);
 
         if (isMeshEditStateActive()) {
@@ -734,6 +830,10 @@ export function animatorModel(props, emit) {
     };
 
     const toggleMeshEditMode = () => {
+        if (!isMeshEditStateActive() && isSculptStateActive()) {
+            leaveSculptForPersistentBoundary();
+        }
+
         const next = nextMeshEditTabState(props.editConfig);
         const leavingEditMode = isMeshEditStateActive() && next.enabled !== true;
 
@@ -760,6 +860,10 @@ export function animatorModel(props, emit) {
     };
 
     const setMeshEditMode = mode => {
+        if (isSculptStateActive()) {
+            leaveSculptForPersistentBoundary();
+        }
+
         setMeshEditStateActive(true);
         ensureMeshEditDraftLayer();
         props.editConfig.mode = normalizeMeshEditMode(mode);
@@ -1239,8 +1343,8 @@ export function animatorModel(props, emit) {
             props.editorConfig.axis = 'free';
             props.gizmoConfig.axis = 'free';
         } else {
-            endSculptStroke();
-            commitSculptDraftLayer();
+            endSculptStroke({ flush: false });
+            commitSculptDraftLayer({ force: true });
             setEditorViewMode(isMeshEditStateActive() ? props.editConfig.viewMode || 'wireframe' : 'world');
             props.editorConfig.tool = isMeshEditStateActive() ? 'mesh-edit' : (props.gizmoConfig.tool || 'translate');
         }
@@ -1312,7 +1416,13 @@ export function animatorModel(props, emit) {
 
         temp.value.sculpt.lastPoint = currentPoint.slice();
         markLocalTransformDirty();
+        markSculptFlushQueueDirty(layer.mesh);
         syncEditorVisualState(layer);
+
+        if (shouldFlushSculptForGpuPressure()) {
+            commitSculptDraftLayer({ force: true });
+        }
+
         return true;
     };
 
@@ -1337,7 +1447,7 @@ export function animatorModel(props, emit) {
         temp.value.sculpt.session.changed = applySculptStroke(event) || temp.value.sculpt.session.changed;
     };
 
-    const endSculptStroke = () => {
+    const endSculptStroke = ({ flush = false } = {}) => {
         const changed = temp.value.sculpt.session?.changed === true;
         temp.value.sculpt.session = null;
         temp.value.sculpt.lastPoint = null;
@@ -1347,6 +1457,21 @@ export function animatorModel(props, emit) {
 
         if (changed || localTransformDirty) {
             markLocalTransformDirty();
+
+            if (flush === true) {
+                commitSculptDraftLayer({ force: true });
+            }
+
+            return;
+        }
+
+        if (flush === true && temp.value.sculpt.dirty === true) {
+            commitSculptDraftLayer({ force: true });
+            return;
+        }
+
+        if (temp.value.edit.layer?.mesh?.meta?.localEditDraft === true && temp.value.sculpt.dirty !== true) {
+            clearMeshEditDraftLayer();
         }
     };
 
@@ -2394,7 +2519,10 @@ export function animatorModel(props, emit) {
 
         if (event.code === "Escape" || key === "escape") {
             stopNativeEvent(event);
-            if (isMeshEditStateActive()) {
+            if (isSculptStateActive()) {
+                leaveSculptForPersistentBoundary();
+                setEditorViewMode(isMeshEditStateActive() ? props.editConfig.viewMode || "wireframe" : "world");
+            } else if (isMeshEditStateActive()) {
                 commitMeshEditDraftLayer();
             } else {
                 commitActiveLayerState({ force: true });

@@ -1,5 +1,6 @@
 import os
 import json
+import copy
 import uuid
 import shutil
 from PIL import Image
@@ -7,6 +8,7 @@ from PIL import Image
 from config.data.constant import LAYERS
 from model.base.main import BaseModel
 from model.layer_model import LayerModel
+from model.mesh_model import MeshModel
 from generated.paths import PUBLIC_LAYER_FOLDER, PUBLIC_MATERIAL_FOLDER
 from utils import time
 
@@ -2610,11 +2612,18 @@ class MaterialModel(BaseModel):
         }
 
     @classmethod
-    def normalize_mesh(cls, mesh, fallback):
+    def normalize_mesh(cls, mesh, fallback, geometry_payload=None, existing_mesh=None):
         data = json_loads(mesh, {})
 
         if not isinstance(data, dict):
             return fallback
+
+        payload = geometry_payload or data.get("geometry_payload") or {}
+        data = MeshModel.compile_mesh_for_storage(
+            data,
+            existing_mesh=existing_mesh or fallback,
+            geometry_payload=payload,
+        )
 
         vertices = data.get("vertices", [])
         indices = data.get("indices", [])
@@ -2634,6 +2643,12 @@ class MaterialModel(BaseModel):
             return fallback
 
         max_index = max(flat_indices) if flat_indices else 0
+        geometry_manifest = MeshModel.geometry_manifest_for_mesh({
+            **data,
+            "vertices": flat_vertices,
+            "indices": flat_indices,
+            "stride": stride,
+        })
 
         return {
             **data,
@@ -2650,7 +2665,107 @@ class MaterialModel(BaseModel):
             "volume": cls.normalize_volume(data.get("volume", fallback.get("volume", {}))),
             "fluid": cls.normalize_fluid(data.get("fluid", fallback.get("fluid", {}))),
             "meta": data.get("meta", {}) if isinstance(data.get("meta", {}), dict) else {},
+            "geometry_manifest": geometry_manifest,
+            "mesh_manifest": geometry_manifest,
         }
+
+    @classmethod
+    def compact_uv_for_contract(cls, uv):
+        data = uv if isinstance(uv, dict) else {}
+        compact = dict(data)
+
+        # Vertex-loop payloads are the large CPU-side UV authoring data. Keep
+        # texture routing, faces and counts in nested contracts, but store the
+        # full arrays only once at package["uv"].
+        vertex_count = len(data.get("vertices", [])) if isinstance(data.get("vertices", []), list) else 0
+        edge_count = len(data.get("edges", [])) if isinstance(data.get("edges", []), list) else 0
+        triangle_count = len(data.get("triangles", [])) if isinstance(data.get("triangles", []), list) else 0
+        seam_count = len(data.get("seams", [])) if isinstance(data.get("seams", []), list) else 0
+
+        compact["vertices"] = []
+        compact["edges"] = []
+        compact["triangles"] = []
+        compact["seams"] = []
+        compact["islands"] = [
+            {
+                **island,
+                "vertex_ids": [],
+                "edge_ids": [],
+                "triangle_ids": [],
+            }
+            for island in data.get("islands", [])
+            if isinstance(island, dict)
+        ]
+        compact["layout_counts"] = {
+            "vertices": vertex_count,
+            "edges": edge_count,
+            "triangles": triangle_count,
+            "seams": seam_count,
+        }
+
+        return compact
+
+    @classmethod
+    def compact_mesh_for_contract(cls, mesh):
+        data = mesh if isinstance(mesh, dict) else {}
+        vertices = data.get("vertices", [])
+        indices = data.get("indices", [])
+        stride = int(data.get("stride", 11) or 11)
+        vertex_count = int(len(vertices) / stride) if isinstance(vertices, list) and stride > 0 else 0
+        index_count = len(indices) if isinstance(indices, list) else 0
+
+        return {
+            "id": data.get("id", ""),
+            "primitive": data.get("primitive", "mesh"),
+            "stride": stride,
+            "indexType": data.get("indexType", "uint16"),
+            "count": data.get("count", index_count),
+            "vertex_count": vertex_count,
+            "index_count": index_count,
+            "triangle_count": int(index_count / 3),
+            "part_count": len(data.get("parts", [])) if isinstance(data.get("parts", []), list) else 0,
+            "bounds": data.get("bounds", {}) if isinstance(data.get("bounds", {}), dict) else {},
+            "settings": data.get("settings", {}) if isinstance(data.get("settings", {}), dict) else {},
+            "meta": data.get("meta", {}) if isinstance(data.get("meta", {}), dict) else {},
+        }
+
+    @classmethod
+    def compact_package_for_disk(cls, package):
+        mesh = package.get("mesh", {}) if isinstance(package, dict) else {}
+        manifest = MeshModel.geometry_manifest_for_mesh(mesh)
+        disk = {
+            key: copy.deepcopy(value)
+            for key, value in package.items()
+            if key not in {"mesh", "uv", "material", "shader"}
+        }
+
+        disk["mesh"] = MeshModel.strip_mesh_heavy(mesh) if isinstance(mesh, dict) else mesh
+        disk["uv"] = cls.compact_uv_for_contract(package.get("uv", {})) if isinstance(package.get("uv"), dict) else package.get("uv")
+        disk["geometry_manifest"] = manifest
+        disk["mesh_manifest"] = manifest
+
+        for key in ("material", "shader"):
+            source = package.get(key, {})
+            if not isinstance(source, dict):
+                disk[key] = source
+                continue
+
+            compact = {
+                item_key: copy.deepcopy(item_value)
+                for item_key, item_value in source.items()
+                if item_key not in {"mesh", "uv"}
+            }
+            compact["mesh_manifest"] = manifest
+
+            if isinstance(source.get("mesh"), dict):
+                compact["mesh"] = MeshModel.strip_mesh_heavy(source["mesh"])
+
+            if isinstance(source.get("uv"), dict):
+                compact["uv"] = cls.compact_uv_for_contract(source["uv"])
+
+            disk[key] = compact
+
+        return disk
 
     @classmethod
     def normalize_particle_system(cls, particle_system):
@@ -3085,6 +3200,7 @@ class MaterialModel(BaseModel):
         uv_data = raw_values.get("uv", uv)
         shader_graph_data = raw_values.get("shader_graph", shader_graph)
         mesh_data = raw_values.get("mesh", fallbacks.get("mesh", {}))
+        geometry_payload_data = raw_values.get("geometry_payload", fallbacks.get("geometry_payload", {}))
         particle_system_data = raw_values.get("particle_system", fallbacks.get("particle_system", {}))
         light_data = raw_values.get("light", fallbacks.get("light", {}))
         physics_data = raw_values.get("physics", fallbacks.get("physics", {}))
@@ -3108,6 +3224,9 @@ class MaterialModel(BaseModel):
 
         if not isinstance(mesh_data, dict):
             mesh_data = json_loads(mesh_data, {})
+
+        if not isinstance(geometry_payload_data, dict):
+            geometry_payload_data = json_loads(geometry_payload_data, {})
 
         if not isinstance(particle_system_data, dict):
             particle_system_data = json_loads(particle_system_data, {})
@@ -3149,6 +3268,7 @@ class MaterialModel(BaseModel):
             "uv": uv_data if isinstance(uv_data, dict) else {},
             "shader_graph": shader_graph_data if isinstance(shader_graph_data, dict) else {},
             "mesh": mesh_data if isinstance(mesh_data, dict) else {},
+            "geometry_payload": geometry_payload_data if isinstance(geometry_payload_data, dict) else {},
             "particle_system": particle_system_data if isinstance(particle_system_data, dict) else {},
             "light": light_data if isinstance(light_data, dict) else {},
             "physics": physics_data if isinstance(physics_data, dict) else {},
@@ -3291,21 +3411,32 @@ class MaterialModel(BaseModel):
             cube_size=payload["cube_size"],
             geometry=normalized_geometry,
         )
-        mesh = cls.normalize_mesh(payload.get("mesh", {}), fallback_mesh)
+        mesh = cls.normalize_mesh(
+            payload.get("mesh", {}),
+            fallback_mesh,
+            geometry_payload=payload.get("geometry_payload", {}),
+            existing_mesh=existing_package.get("mesh", {}) if isinstance(existing_package, dict) else {},
+        )
         particle_system = cls.normalize_particle_system(payload.get("particle_system", {}))
         light = payload.get("light", {}) if isinstance(payload.get("light", {}), dict) else {}
         physics = payload.get("physics", {}) if isinstance(payload.get("physics", {}), dict) else {}
         preview_rotate = bool(payload["rotate_preview"])
 
+        contract_uv = cls.compact_uv_for_contract(normalized_uv)
+        mesh_manifest = cls.compact_mesh_for_contract(mesh)
+        geometry_manifest = MeshModel.geometry_manifest_for_mesh(mesh)
+        geometry_payload = MeshModel.geometry_payload_for_mesh(mesh)
+
         shader = cls.build_shader_payload(
             surface=normalized_surface,
             geometry=normalized_geometry,
             bitmap_maps=normalized_maps,
-            uv=normalized_uv,
+            uv=contract_uv,
             shader_graph=normalized_graph,
         )
         shader["particle_system"] = particle_system
         shader["light"] = light
+        shader["mesh_manifest"] = mesh_manifest
 
         primary_url = cls.resolve_primary_preview_url({
             "bitmap_maps": normalized_maps,
@@ -3331,7 +3462,7 @@ class MaterialModel(BaseModel):
             surface=normalized_surface,
             geometry=normalized_geometry,
             bitmap_maps=normalized_maps,
-            uv=normalized_uv,
+            uv=contract_uv,
             shader_graph=normalized_graph,
             texture=texture,
             blend_mode=payload["blend_mode"],
@@ -3340,6 +3471,7 @@ class MaterialModel(BaseModel):
             texture_size=texture_size,
         )
         material["particle_system"] = particle_system
+        material["mesh_manifest"] = mesh_manifest
 
         package = {
             "id": material_id,
@@ -3367,6 +3499,8 @@ class MaterialModel(BaseModel):
             "texture": texture,
             "material": material,
             "mesh": mesh,
+            "mesh_manifest": mesh_manifest,
+            "geometry_manifest": geometry_manifest,
             "shader": shader,
 
             "preview": {
@@ -3411,14 +3545,34 @@ class MaterialModel(BaseModel):
         folder = cls.material_folder(material_id)
         package_path = os.path.join(folder, filename)
 
+        geometry_manifest_filename = "geometry.manifest.json"
+        geometry_payload_filename = "geometry.payload.json"
+        geometry_manifest_path = os.path.join(folder, geometry_manifest_filename)
+        geometry_payload_path = os.path.join(folder, geometry_payload_filename)
+
         package["package"] = {
             "filename": filename,
             "path": package_path,
             "url": cls.make_material_package_url(material_id, filename),
         }
+        package["geometry_storage"] = {
+            "manifest_filename": geometry_manifest_filename,
+            "manifest_path": geometry_manifest_path,
+            "manifest_url": cls.make_material_package_url(material_id, geometry_manifest_filename),
+            "payload_filename": geometry_payload_filename,
+            "payload_path": geometry_payload_path,
+            "payload_url": cls.make_material_package_url(material_id, geometry_payload_filename),
+            "mode": geometry_payload.get("mode", "replace"),
+        }
+
+        with open(geometry_manifest_path, "w", encoding="utf-8") as handle:
+            json.dump(geometry_manifest, handle, indent=2, ensure_ascii=False)
+
+        with open(geometry_payload_path, "w", encoding="utf-8") as handle:
+            json.dump(geometry_payload, handle, ensure_ascii=False)
 
         with open(package_path, "w", encoding="utf-8") as handle:
-            json.dump(package, handle, indent=2, ensure_ascii=False)
+            json.dump(cls.compact_package_for_disk(package), handle, indent=2, ensure_ascii=False)
 
         return package
 
@@ -3556,6 +3710,9 @@ class MaterialModel(BaseModel):
 
             "material": package["material"],
             "mesh": package["mesh"],
+            "mesh_manifest": package.get("mesh_manifest", {}),
+            "geometry_manifest": package.get("geometry_manifest", {}),
+            "geometry_storage": package.get("geometry_storage", {}),
             "shader": package["shader"],
             "texture": {
                 **package.get("texture", {}),
@@ -3622,6 +3779,9 @@ class MaterialModel(BaseModel):
 
             "material": package["material"],
             "mesh": package["mesh"],
+            "mesh_manifest": package.get("mesh_manifest", {}),
+            "geometry_manifest": package.get("geometry_manifest", {}),
+            "geometry_storage": package.get("geometry_storage", {}),
             "shader": package["shader"],
             "texture": {
                 **package.get("texture", {}),

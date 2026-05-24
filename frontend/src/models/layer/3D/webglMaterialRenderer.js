@@ -623,6 +623,55 @@ void main() {
     fragColor = vec4(texel.rgb * particleColor.rgb, alpha);
 }`;
 
+const PARTICLE_MESH_VERTEX_SHADER = `#version 300 es
+precision highp float;
+
+layout(location = 0) in vec3 aPosition;
+layout(location = 1) in vec3 aNormal;
+layout(location = 2) in vec2 aUv;
+layout(location = 10) in vec4 iModel0;
+layout(location = 11) in vec4 iModel1;
+layout(location = 12) in vec4 iModel2;
+layout(location = 13) in vec4 iModel3;
+
+uniform mat4 uViewProj;
+
+out vec2 vUv;
+out vec3 vNormal;
+
+void main() {
+    mat4 model = mat4(iModel0, iModel1, iModel2, iModel3);
+    vec4 world = model * vec4(aPosition, 1.0);
+
+    vUv = aUv;
+    vNormal = normalize(mat3(model) * aNormal);
+    gl_Position = uViewProj * world;
+}`;
+
+const PARTICLE_MESH_FRAGMENT_SHADER = `#version 300 es
+precision highp float;
+
+uniform sampler2D uParticleMap;
+uniform int uUseParticleMap;
+uniform vec4 uColor;
+uniform float uAlpha;
+
+in vec2 vUv;
+in vec3 vNormal;
+out vec4 fragColor;
+
+void main() {
+    vec4 texel = uUseParticleMap == 1 ? texture(uParticleMap, vUv) : vec4(1.0);
+    float alpha = texel.a * uColor.a * uAlpha;
+
+    if (alpha <= 0.01) {
+        discard;
+    }
+
+    float shade = 0.62 + 0.38 * max(normalize(vNormal).z, 0.0);
+    fragColor = vec4(texel.rgb * uColor.rgb * shade, alpha);
+}`;
+
 const OVERLAY_VERTEX_SHADER = `#version 300 es
 precision highp float;
 
@@ -940,12 +989,6 @@ const buildCameraMatrices = ({
     };
 };
 
-const mat3FromMat4 = matrix => new Float32Array([
-    matrix[0], matrix[1], matrix[2],
-    matrix[4], matrix[5], matrix[6],
-    matrix[8], matrix[9], matrix[10],
-]);
-
 const pushVec3 = (target, value) => {
     target.push(value[0], value[1], value[2]);
 };
@@ -1156,25 +1199,54 @@ const getArrayValues = value => {
 
 const arrayLikeLength = value => Number(value?.length || 0);
 
-const makeRenderMeshSignature = mesh => {
+const makeArraySampleSignature = value => {
+    if (!value || !Number.isInteger(Number(value.length)) || value.length <= 0) {
+        return "";
+    }
+
+    const length = Number(value.length);
+    const sample = [];
+    const front = Math.min(4, length);
+
+    for (let index = 0; index < front; index += 1) {
+        sample.push(Number(value[index]) || 0);
+    }
+
+    const backStart = Math.max(front, length - 4);
+    for (let index = backStart; index < length; index += 1) {
+        sample.push(Number(value[index]) || 0);
+    }
+
+    return `${length}:${sample.join(",")}`;
+};
+
+const makeRenderMeshIdentityKey = mesh => ([
+    mesh?.id || mesh?.meta?.rootKey || mesh?.label || "material-mesh",
+    mesh?.primitive || mesh?.settings?.primitive || "mesh",
+    mesh?.stride || 11,
+].join(":"));
+
+const makeRenderMeshDataSignature = mesh => {
     const vertices = mesh?.vertices;
     const indices = mesh?.indices;
     const parts = mesh?.parts;
 
     return [
-        mesh?.meta?.renderCacheKey || mesh?.meta?.cacheKey || "",
+        mesh?.meta?.renderCacheKey || "",
+        mesh?.meta?.cacheKey || "",
         mesh?.meta?.version || mesh?.meta?.updatedAt || mesh?.version || mesh?.updatedAt || "",
         mesh?.meta?.editRevision || "",
         mesh?.meta?.brushRevision || "",
         mesh?.meta?.uvRevision || "",
         mesh?.meta?.uvLayoutVersion || "",
         mesh?.meta?.sculpted === true ? "sculpted" : "",
-        mesh?.id || "",
-        mesh?.primitive || mesh?.settings?.primitive || "mesh",
-        mesh?.stride || 11,
         arrayLikeLength(vertices),
         arrayLikeLength(indices),
-        Array.isArray(parts) ? parts.length : 0,
+        Array.isArray(parts) ? parts.map(part => [
+            part?.faceName || part?.materialSlot || part?.name || "",
+            Math.trunc(Number(part?.start || 0)),
+            Math.trunc(Number(part?.count || 0)),
+        ].join("@")).join("|") : 0,
         mesh?.indexType || "",
     ].join(":");
 };
@@ -1228,27 +1300,45 @@ const toIndexValues = (value, indexType = "") => {
     return new TargetArray(normalized);
 };
 
-const getInstancedParts = (mesh, count) => (
-    Array.isArray(mesh?.parts) && mesh.parts.length
-        ? mesh.parts.map(part => ({
-            ...part,
-            start: Math.max(0, Math.trunc(Number(part.start || 0))),
-            count: Math.max(0, Math.trunc(Number(part.count || count))),
-        }))
-        : [{
-            name: "mesh",
-            faceName: "front",
-            start: 0,
-            count,
-        }]
-);
+const alignTriangleCount = count => {
+    const safeCount = Math.max(0, Math.trunc(Number(count || 0)));
+    return safeCount - (safeCount % 3);
+};
+
+const getInstancedParts = (mesh, count) => {
+    const total = alignTriangleCount(count);
+    const sourceParts = Array.isArray(mesh?.parts) && mesh.parts.length
+        ? mesh.parts
+        : [{ name: "mesh", faceName: "front", start: 0, count: total }];
+
+    return sourceParts
+        .map(part => {
+            const start = Math.max(0, Math.trunc(Number(part.start || 0)));
+            const available = Math.max(0, total - start);
+            const requested = part.count === undefined || part.count === null
+                ? available
+                : Math.max(0, Math.trunc(Number(part.count || 0)));
+            const partCount = alignTriangleCount(Math.min(requested, available));
+
+            if (!partCount) {
+                return null;
+            }
+
+            return {
+                ...part,
+                start,
+                count: partCount,
+            };
+        })
+        .filter(Boolean);
+};
 
 const normalizeRenderMesh = mesh => {
     if (!mesh || !mesh.stride || !mesh.vertices || !mesh.indices) {
         return null;
     }
 
-    const signature = makeRenderMeshSignature(mesh);
+    const signature = makeRenderMeshDataSignature(mesh);
     const cached = renderMeshInstanceCache.get(mesh);
 
     if (cached?.signature === signature) {
@@ -1272,7 +1362,9 @@ const normalizeRenderMesh = mesh => {
         count: indices.length,
         indexType: indices instanceof Uint32Array ? "uint32" : "uint16",
         parts: getInstancedParts(mesh, indices.length),
-        cacheKey: mesh.meta?.renderCacheKey || mesh.meta?.cacheKey || signature,
+        meta: mesh.meta || {},
+        cacheKey: makeRenderMeshIdentityKey(mesh),
+        dataKey: signature,
         instanceKey: signature,
     };
 
@@ -1300,7 +1392,9 @@ const makeParticleSignature = system => {
         particles.sourceCount || "",
         particles.stride || 12,
         arrayLikeLength(data),
+        makeArraySampleSignature(data),
         arrayLikeLength(positions),
+        makeArraySampleSignature(positions),
         system?.texture_slot || "baseColor",
         system?.blend || "alpha",
         system?.alpha ?? 1,
@@ -1378,6 +1472,7 @@ const normalizeParticleSystem = system => {
         alpha: clamp01(system.alpha ?? 1),
         blend: system.blend || "alpha",
         depthWrite: system.depth_write === true,
+        dynamic: particles.dynamic !== false && system.dynamic !== false && particles.static !== true && system.static !== true,
         cacheKey: signature,
     };
 
@@ -1454,6 +1549,239 @@ const INT_UNIFORMS = Object.freeze(new Set([
     "uBumpInvert",
 ]));
 
+const PROGRAM_UNIFORM_CACHE = new WeakMap();
+const EPSILON = 1e-7;
+
+const getProgramUniformCache = program => {
+    let cache = PROGRAM_UNIFORM_CACHE.get(program);
+
+    if (!cache) {
+        cache = new Map();
+        PROGRAM_UNIFORM_CACHE.set(program, cache);
+    }
+
+    return cache;
+};
+
+const isTypedUniformArray = value => (
+    value instanceof Float32Array ||
+    value instanceof Float64Array ||
+    value instanceof Int32Array ||
+    value instanceof Uint32Array ||
+    value instanceof Uint16Array ||
+    value instanceof Int16Array ||
+    value instanceof Uint8Array ||
+    value instanceof Int8Array
+);
+
+const isUniformArrayLike = value => Array.isArray(value) || isTypedUniformArray(value);
+
+const uniformValuesEqual = (previous, value) => {
+    if (previous === undefined) {
+        return false;
+    }
+
+    if (isUniformArrayLike(value)) {
+        if (!isUniformArrayLike(previous) || previous.length !== value.length) {
+            return false;
+        }
+
+        for (let index = 0; index < value.length; index += 1) {
+            if (Math.abs(Number(previous[index]) - Number(value[index])) > EPSILON) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    if (typeof value === "number" || typeof value === "string" || typeof value === "boolean") {
+        return Math.abs(Number(previous) - Number(value)) <= EPSILON;
+    }
+
+    return previous === value;
+};
+
+const cloneUniformValue = value => {
+    if (value instanceof Float32Array) {
+        return new Float32Array(value);
+    }
+
+    if (isTypedUniformArray(value)) {
+        return Array.from(value, item => Number(item) || 0);
+    }
+
+    if (Array.isArray(value)) {
+        return value.map(item => Number(item) || 0);
+    }
+
+    if (typeof value === "boolean") {
+        return value ? 1 : 0;
+    }
+
+    if (typeof value === "number" || typeof value === "string") {
+        return Number(value) || 0;
+    }
+
+    return value;
+};
+
+const mat3FromMat4 = (matrix, target = new Float32Array(9)) => {
+    target[0] = matrix[0];
+    target[1] = matrix[1];
+    target[2] = matrix[2];
+    target[3] = matrix[4];
+    target[4] = matrix[5];
+    target[5] = matrix[6];
+    target[6] = matrix[8];
+    target[7] = matrix[9];
+    target[8] = matrix[10];
+
+    return target;
+};
+
+const matrixPrefixValuesEqual = (left, right, length) => {
+    if (!left || !right || left.length < length || right.length < length) {
+        return false;
+    }
+
+    for (let index = 0; index < length; index += 1) {
+        if (Math.abs(Number(left[index]) - Number(right[index])) > EPSILON) {
+            return false;
+        }
+    }
+
+    return true;
+};
+
+const multiplyMat4Into = (a, b, out, offset = 0) => {
+    for (let column = 0; column < 4; column += 1) {
+        for (let row = 0; row < 4; row += 1) {
+            out[offset + column * 4 + row] =
+                a[0 * 4 + row] * b[column * 4 + 0] +
+                a[1 * 4 + row] * b[column * 4 + 1] +
+                a[2 * 4 + row] * b[column * 4 + 2] +
+                a[3 * 4 + row] * b[column * 4 + 3];
+        }
+    }
+
+    return out;
+};
+
+const writeTransformMatrix = (source = {}, target, offset = 0) => {
+    const position = Array.isArray(source.position) || ArrayBuffer.isView(source.position)
+        ? source.position
+        : [
+            source.x ?? source.position_x ?? source.translate_x ?? source.tx ?? 0,
+            source.y ?? source.position_y ?? source.translate_y ?? source.ty ?? 0,
+            source.z ?? source.position_z ?? source.translate_z ?? source.tz ?? 0,
+        ];
+    const scale = Array.isArray(source.scale) || ArrayBuffer.isView(source.scale)
+        ? source.scale
+        : [
+            source.scale_x ?? source.sx ?? source.size_x ?? source.size ?? 1,
+            source.scale_y ?? source.sy ?? source.size_y ?? source.size ?? 1,
+            source.scale_z ?? source.sz ?? source.size_z ?? source.size ?? 1,
+        ];
+    const rotation = Array.isArray(source.rotation) || ArrayBuffer.isView(source.rotation)
+        ? source.rotation
+        : [
+            source.rotation_x ?? source.rx ?? 0,
+            source.rotation_y ?? source.ry ?? 0,
+            source.rotation_z ?? source.rz ?? source.rotation ?? 0,
+        ];
+    const rx = toNumber(rotation[0], 0) * Math.PI / 180;
+    const ry = toNumber(rotation[1], 0) * Math.PI / 180;
+    const rz = toNumber(rotation[2], 0) * Math.PI / 180;
+    const sx = toNumber(scale[0], 1);
+    const sy = toNumber(scale[1], 1);
+    const sz = toNumber(scale[2], 1);
+    const cx = Math.cos(rx);
+    const sxr = Math.sin(rx);
+    const cy = Math.cos(ry);
+    const syr = Math.sin(ry);
+    const cz = Math.cos(rz);
+    const szr = Math.sin(rz);
+
+    target[offset] = cy * cz * sx;
+    target[offset + 1] = (sxr * syr * cz + cx * szr) * sx;
+    target[offset + 2] = (-cx * syr * cz + sxr * szr) * sx;
+    target[offset + 3] = 0;
+    target[offset + 4] = -cy * szr * sy;
+    target[offset + 5] = (-sxr * syr * szr + cx * cz) * sy;
+    target[offset + 6] = (cx * syr * szr + sxr * cz) * sy;
+    target[offset + 7] = 0;
+    target[offset + 8] = syr * sz;
+    target[offset + 9] = -sxr * cy * sz;
+    target[offset + 10] = cx * cy * sz;
+    target[offset + 11] = 0;
+    target[offset + 12] = toNumber(position[0], 0);
+    target[offset + 13] = toNumber(position[1], 0);
+    target[offset + 14] = toNumber(position[2], 0);
+    target[offset + 15] = 1;
+
+    return target;
+};
+
+const getMeshInstanceSource = materialLayer => (
+    materialLayer?.mesh?.instances ||
+    materialLayer?.mesh?.instance_matrices ||
+    materialLayer?.geometry?.instances ||
+    materialLayer?.geometry?.instance_matrices ||
+    materialLayer?.instances ||
+    null
+);
+
+const normalizeInstanceList = source => {
+    if (!source) {
+        return [];
+    }
+
+    if (Array.isArray(source)) {
+        return source;
+    }
+
+    if (ArrayBuffer.isView(source)) {
+        return source;
+    }
+
+    if (Array.isArray(source.items)) {
+        return source.items;
+    }
+
+    if (Array.isArray(source.transforms)) {
+        return source.transforms;
+    }
+
+    if (Array.isArray(source.matrices)) {
+        return source.matrices;
+    }
+
+    if (ArrayBuffer.isView(source.data)) {
+        return source.data;
+    }
+
+    return [];
+};
+
+const resolveInstanceCount = source => {
+    const list = normalizeInstanceList(source);
+
+    if (ArrayBuffer.isView(list)) {
+        return Math.max(0, Math.floor(list.length / 16));
+    }
+
+    return Array.isArray(list) ? list.length : 0;
+};
+
+const shouldUseMeshParticleInstancing = system => (
+    system?.mode === "mesh" ||
+    system?.source === "mesh" ||
+    system?.emitter === "mesh" ||
+    system?.render_mode === "mesh" ||
+    system?.particle_shape === "mesh"
+);
+
 export class WebGLMaterialRenderer {
     constructor(canvas) {
         this.canvas = canvas;
@@ -1468,11 +1796,14 @@ export class WebGLMaterialRenderer {
         this.overlayProgram = null;
         this.editorInstancedProgram = null;
         this.particleProgram = null;
+        this.particleMeshProgram = null;
 
         this.meshes = new Map();
         this.overlayMeshes = new Map();
         this.particleBuffers = new Map();
         this.meshInstanceScratch = new Float32Array(16);
+        this.meshInstancesScratch = new Float32Array(16);
+        this.particleMeshInstanceScratch = new Float32Array(16 * 256);
         this.editorBuffers = new Map();
         this.editorInstancedBuffers = new Map();
         this.editorInstanceScratch = {
@@ -1480,6 +1811,19 @@ export class WebGLMaterialRenderer {
             point: new Float32Array(12 * 512),
         };
         this.uniformLocations = new WeakMap();
+        this.programTextureUniforms = new WeakMap();
+        this.boundTextureUnits = new Map();
+        this.meshInstanceUploads = new WeakMap();
+        this.particleMeshInstanceUploads = new WeakMap();
+        this.localMatrixScratch = new Float32Array(16);
+        this.normalMatrixScratch = new Float32Array(9);
+        this.viewportScratch = new Float32Array(2);
+        this.canvasSize = {
+            pixelWidth: 0,
+            pixelHeight: 0,
+            cssWidth: "",
+            cssHeight: "",
+        };
 
         this.textures = new WeakMap();
         this.fallbackTextures = {};
@@ -1492,6 +1836,7 @@ export class WebGLMaterialRenderer {
         this.overlayProgram = createProgram(this.gl, OVERLAY_VERTEX_SHADER, OVERLAY_FRAGMENT_SHADER);
         this.editorInstancedProgram = createProgram(this.gl, EDITOR_INSTANCED_VERTEX_SHADER, EDITOR_INSTANCED_FRAGMENT_SHADER);
         this.particleProgram = createProgram(this.gl, PARTICLE_VERTEX_SHADER, PARTICLE_FRAGMENT_SHADER);
+        this.particleMeshProgram = createProgram(this.gl, PARTICLE_MESH_VERTEX_SHADER, PARTICLE_MESH_FRAGMENT_SHADER);
         this.initState();
         this.ready = true;
     }
@@ -1508,6 +1853,42 @@ export class WebGLMaterialRenderer {
         this.fallbackTextures.white = createTexture(gl, null, [255, 255, 255, 255]);
         this.fallbackTextures.black = createTexture(gl, null, [0, 0, 0, 255]);
         this.fallbackTextures.normal = createTexture(gl, null, [128, 128, 255, 255]);
+    }
+
+    resizeCanvas(width, height, dpr) {
+        const pixelWidth = Math.max(1, Math.round(toNumber(width, 1) * toNumber(dpr, 1)));
+        const pixelHeight = Math.max(1, Math.round(toNumber(height, 1) * toNumber(dpr, 1)));
+        const cssWidth = `${Math.max(1, toNumber(width, 1))}px`;
+        const cssHeight = `${Math.max(1, toNumber(height, 1))}px`;
+        const size = this.canvasSize;
+
+        if (size.pixelWidth !== pixelWidth || this.canvas.width !== pixelWidth) {
+            this.canvas.width = pixelWidth;
+            size.pixelWidth = pixelWidth;
+        }
+
+        if (size.pixelHeight !== pixelHeight || this.canvas.height !== pixelHeight) {
+            this.canvas.height = pixelHeight;
+            size.pixelHeight = pixelHeight;
+        }
+
+        if (size.cssWidth !== cssWidth || this.canvas.style.width !== cssWidth) {
+            this.canvas.style.width = cssWidth;
+            size.cssWidth = cssWidth;
+        }
+
+        if (size.cssHeight !== cssHeight || this.canvas.style.height !== cssHeight) {
+            this.canvas.style.height = cssHeight;
+            size.cssHeight = cssHeight;
+        }
+
+        this.viewportScratch[0] = pixelWidth;
+        this.viewportScratch[1] = pixelHeight;
+
+        return {
+            pixelWidth,
+            pixelHeight,
+        };
     }
 
     getMesh(faceName) {
@@ -1575,19 +1956,40 @@ export class WebGLMaterialRenderer {
         const key = `mesh:${normalized.cacheKey}`;
         const cached = this.meshes.get(key);
 
-        if (cached?.buffer && cached.instanceKey === normalized.instanceKey) {
-            return cached;
-        }
-
         if (cached?.buffer) {
-            cached.buffer.destroy?.();
-            this.meshes.delete(key);
+            if (cached.dataKey !== normalized.dataKey || cached.vertices !== normalized.vertices) {
+                const dirtyRanges = Array.isArray(normalized.meta?.geometryDirtyRanges)
+                    ? normalized.meta.geometryDirtyRanges
+                    : [];
+
+                if (
+                    dirtyRanges.length > 0 &&
+                    cached.vertices?.length === normalized.vertices.length &&
+                    typeof cached.buffer.updateVertexRanges === "function"
+                ) {
+                    cached.buffer.updateVertexRanges(normalized.vertices, dirtyRanges, this.gl.DYNAMIC_DRAW);
+                } else {
+                    cached.buffer.updateVertices(normalized.vertices, this.gl.DYNAMIC_DRAW);
+                }
+            }
+
+            if (cached.dataKey !== normalized.dataKey || cached.indices !== normalized.indices) {
+                cached.buffer.updateIndices(normalized.indices, normalized.indexType, this.gl.DYNAMIC_DRAW);
+            }
+
+            Object.assign(cached, {
+                ...normalized,
+                buffer: cached.buffer,
+            });
+
+            return cached;
         }
 
         const mesh = {
             ...normalized,
             buffer: Buffer.materialMesh(this.gl, normalized, {
                 label: key,
+                usage: this.gl.DYNAMIC_DRAW,
                 instanceStride: 16 * 4,
                 instanceUsage: this.gl.DYNAMIC_DRAW,
                 instanceAttributes: [
@@ -1669,7 +2071,7 @@ export class WebGLMaterialRenderer {
             return buffer;
         }
 
-        if (buffer.cacheKey !== normalized.cacheKey || buffer.data !== normalized.data || buffer.count !== normalized.count) {
+        if (buffer.cacheKey !== normalized.cacheKey || buffer.data !== normalized.data || buffer.count !== normalized.count || normalized.dynamic) {
             Object.assign(buffer, {
                 ...normalized,
                 buffer: buffer.buffer,
@@ -1685,27 +2087,214 @@ export class WebGLMaterialRenderer {
         return buffer;
     }
 
-    updateMeshInstance(mesh, matrices) {
-        if (!mesh?.buffer || !matrices?.model) {
-            return;
+    ensureMeshInstanceScratch(floatLength = 16) {
+        if (this.meshInstancesScratch.length < floatLength) {
+            let capacity = Math.max(16, this.meshInstancesScratch.length || 16);
+
+            while (capacity < floatLength) {
+                capacity *= 2;
+            }
+
+            this.meshInstancesScratch = new Float32Array(capacity);
         }
 
-        const source = matrices.model;
-        const target = this.meshInstanceScratch;
+        return this.meshInstancesScratch;
+    }
 
+    ensureParticleMeshInstanceScratch(floatLength = 16) {
+        if (this.particleMeshInstanceScratch.length < floatLength) {
+            let capacity = Math.max(16, this.particleMeshInstanceScratch.length || 16);
+
+            while (capacity < floatLength) {
+                capacity *= 2;
+            }
+
+            this.particleMeshInstanceScratch = new Float32Array(capacity);
+        }
+
+        return this.particleMeshInstanceScratch;
+    }
+
+    copyMatrix(source, target, offset = 0) {
         for (let index = 0; index < 16; index += 1) {
-            target[index] = Number(source[index]) || 0;
+            target[offset + index] = Number(source?.[index]) || 0;
         }
+
+        return target;
+    }
+
+    resolveMeshInstances(materialLayer, matrices) {
+        const source = getMeshInstanceSource(materialLayer);
+        const sourceCount = resolveInstanceCount(source);
+
+        if (!sourceCount) {
+            this.copyMatrix(matrices.model, this.meshInstanceScratch, 0);
+            return {
+                data: this.meshInstanceScratch,
+                count: 1,
+                role: "mesh-object",
+            };
+        }
+
+        const sourceList = normalizeInstanceList(source);
+        const count = Math.max(1, sourceCount);
+        const data = this.ensureMeshInstanceScratch(count * 16);
+        const baseModel = matrices.model;
+
+        if (ArrayBuffer.isView(sourceList)) {
+            for (let index = 0; index < count; index += 1) {
+                const sourceOffset = index * 16;
+                const targetOffset = index * 16;
+
+                if (source?.space === "world" || source?.world === true) {
+                    this.copyMatrix(sourceList.subarray(sourceOffset, sourceOffset + 16), data, targetOffset);
+                } else {
+                    multiplyMat4Into(baseModel, sourceList.subarray(sourceOffset, sourceOffset + 16), data, targetOffset);
+                }
+            }
+
+            return {
+                data,
+                count,
+                role: "mesh-object",
+            };
+        }
+
+        for (let index = 0; index < count; index += 1) {
+            const item = sourceList[index] || {};
+            const targetOffset = index * 16;
+            const matrix = item.matrix || item.modelMatrix || item.model || item.transform;
+
+            if ((Array.isArray(matrix) || ArrayBuffer.isView(matrix)) && matrix.length >= 16) {
+                if (item.space === "world" || item.world === true) {
+                    this.copyMatrix(matrix, data, targetOffset);
+                } else {
+                    multiplyMat4Into(baseModel, matrix, data, targetOffset);
+                }
+                continue;
+            }
+
+            writeTransformMatrix(item, this.localMatrixScratch, 0);
+            multiplyMat4Into(baseModel, this.localMatrixScratch, data, targetOffset);
+        }
+
+        return {
+            data,
+            count,
+            role: "mesh-object",
+        };
+    }
+
+    resolveParticleMeshInstances(particles, matrices, particleSystem = {}) {
+        if (!particles?.data || !particles.count) {
+            return null;
+        }
+
+        const count = Math.max(0, Math.trunc(Number(particles.count) || 0));
+
+        if (!count) {
+            return null;
+        }
+
+        const stride = Math.max(12, Math.trunc(Number(particles.stride || 12)));
+        const source = particles.data;
+        const data = this.ensureParticleMeshInstanceScratch(count * 16);
+        const baseModel = matrices.model;
+        const meshScale = Math.max(0.0001, toNumber(
+            particleSystem.mesh_scale ?? particleSystem.meshScale ?? particleSystem.geometry_scale,
+            0.01
+        ));
+
+        for (let index = 0; index < count; index += 1) {
+            const sourceOffset = index * stride;
+            const size = Math.max(0.001, Number(source[sourceOffset + 3]) || 1) * meshScale;
+            const scaleX = Math.max(0.001, Number(source[sourceOffset + 6]) || 1) * size;
+            const scaleY = Math.max(0.001, Number(source[sourceOffset + 7]) || 1) * size;
+            const scaleZ = Math.max(0.001, toNumber(particleSystem.mesh_depth_scale ?? particleSystem.meshDepthScale, 1)) * size;
+
+            writeTransformMatrix({
+                position: [
+                    source[sourceOffset],
+                    source[sourceOffset + 1],
+                    source[sourceOffset + 2],
+                ],
+                rotation: [0, 0, (Number(source[sourceOffset + 5]) || 0) * 180 / Math.PI],
+                scale: [scaleX, scaleY, scaleZ],
+            }, this.localMatrixScratch, 0);
+            multiplyMat4Into(baseModel, this.localMatrixScratch, data, index * 16);
+        }
+
+        return {
+            data,
+            count,
+            role: `particle-mesh:${particles.id || particleSystem.id || "particles"}`,
+        };
+    }
+
+    updateMeshInstances(mesh, batch, role = "mesh-object") {
+        if (!mesh?.buffer || !batch?.data || !batch.count) {
+            return 0;
+        }
+
+        const count = Math.max(0, Math.trunc(Number(batch.count) || 0));
+        const requiredLength = count * 16;
+
+        if (!count || batch.data.length < requiredLength) {
+            return 0;
+        }
+
+        let cached = this.meshInstanceUploads.get(mesh);
+
+        const requiredInstanceBytes = requiredLength * Float32Array.BYTES_PER_ELEMENT;
+        const bufferHasUploadedInstances = Boolean(
+            mesh.buffer?.instanceVbo &&
+            Math.trunc(Number(mesh.buffer.instanceCount || 0)) >= count &&
+            Math.trunc(Number(mesh.buffer.instanceByteLength || 0)) >= requiredInstanceBytes &&
+            Math.trunc(Number(mesh.buffer.instanceAllocatedByteLength || 0)) >= requiredInstanceBytes
+        );
+
+        if (
+            cached?.role === role &&
+            cached.count === count &&
+            cached.matrix?.length >= requiredLength &&
+            bufferHasUploadedInstances &&
+            matrixPrefixValuesEqual(cached.matrix, batch.data, requiredLength)
+        ) {
+            return count;
+        }
+
+        if (!cached || cached.matrix.length < requiredLength) {
+            cached = {
+                role,
+                count: 0,
+                matrix: new Float32Array(requiredLength),
+            };
+            this.meshInstanceUploads.set(mesh, cached);
+        }
+
+        cached.role = role;
+        cached.count = count;
+        cached.matrix.set(batch.data.subarray(0, requiredLength));
 
         if (!mesh.buffer.instanceVbo) {
             mesh.buffer.createInstanceBuffer({
                 stride: 16 * 4,
-                capacity: 1,
+                capacity: count,
                 usage: this.gl.DYNAMIC_DRAW,
             });
         }
 
-        mesh.buffer.updateInstances(target, 1, this.gl.DYNAMIC_DRAW);
+        mesh.buffer.updateInstances(batch.data, count, this.gl.DYNAMIC_DRAW);
+
+        return count;
+    }
+
+    updateMeshInstance(mesh, matrices) {
+        return this.updateMeshInstances(mesh, {
+            data: matrices?.model || this.meshInstanceScratch,
+            count: 1,
+            role: "mesh-object",
+        });
     }
 
     getRenderOverlayMesh(sourceMesh) {
@@ -1716,31 +2305,48 @@ export class WebGLMaterialRenderer {
         }
 
         const key = `overlay:${mesh.cacheKey}`;
+        const cached = this.overlayMeshes.get(key);
 
-        if (!this.overlayMeshes.has(key)) {
-            const lineOverlay = buildOverlayGeometry(mesh);
-
-            const overlay = {
-                faceMesh: mesh,
-                lineCount: lineOverlay.lineCount,
-                pointCount: lineOverlay.pointCount,
-
-                // Face nutzt denselben Render-Mesh-Buffer.
-                faceBuffer: mesh.buffer,
-
-                lineBuffer: Buffer.positions(this.gl, lineOverlay.linePositions, {
-                    label: `${key}:lines`,
-                }),
-
-                pointBuffer: Buffer.positions(this.gl, lineOverlay.pointPositions, {
-                    label: `${key}:points`,
-                }),
-            };
-
-            this.overlayMeshes.set(key, overlay);
+        if (cached && cached.dataKey === mesh.dataKey) {
+            return cached;
         }
 
-        return this.overlayMeshes.get(key);
+        const lineOverlay = buildOverlayGeometry(mesh);
+
+        if (cached) {
+            cached.faceMesh = mesh;
+            cached.faceBuffer = mesh.buffer;
+            cached.lineCount = lineOverlay.lineCount;
+            cached.pointCount = lineOverlay.pointCount;
+            cached.dataKey = mesh.dataKey;
+            cached.lineBuffer?.updateVertices(lineOverlay.linePositions, this.gl.DYNAMIC_DRAW);
+            cached.pointBuffer?.updateVertices(lineOverlay.pointPositions, this.gl.DYNAMIC_DRAW);
+            return cached;
+        }
+
+        const overlay = {
+            dataKey: mesh.dataKey,
+            faceMesh: mesh,
+            lineCount: lineOverlay.lineCount,
+            pointCount: lineOverlay.pointCount,
+
+            // Face nutzt denselben Render-Mesh-Buffer. Lines/points werden bei
+            // DynTopo-Revisionen oben per bufferSubData synchronisiert.
+            faceBuffer: mesh.buffer,
+
+            lineBuffer: Buffer.positions(this.gl, lineOverlay.linePositions, {
+                label: `${key}:lines`,
+                usage: this.gl.DYNAMIC_DRAW,
+            }),
+
+            pointBuffer: Buffer.positions(this.gl, lineOverlay.pointPositions, {
+                label: `${key}:points`,
+                usage: this.gl.DYNAMIC_DRAW,
+            }),
+        };
+
+        this.overlayMeshes.set(key, overlay);
+        return overlay;
     }
 
     getUniformLocation(program, name) {
@@ -1776,6 +2382,17 @@ export class WebGLMaterialRenderer {
         return this.textures.get(image);
     }
 
+    getTextureUniformCache(program) {
+        let cache = this.programTextureUniforms.get(program);
+
+        if (!cache) {
+            cache = new Map();
+            this.programTextureUniforms.set(program, cache);
+        }
+
+        return cache;
+    }
+
     setTexture(program, name, unit, entry, fallbackName = "white") {
         const gl = this.gl;
         const location = this.getUniformLocation(program, name);
@@ -1784,72 +2401,93 @@ export class WebGLMaterialRenderer {
             return;
         }
 
-        gl.activeTexture(gl.TEXTURE0 + unit);
-        gl.bindTexture(gl.TEXTURE_2D, this.getImageTexture(entry, fallbackName));
-        gl.uniform1i(location, unit);
+        const texture = this.getImageTexture(entry, fallbackName);
+
+        if (this.boundTextureUnits.get(unit) !== texture) {
+            gl.activeTexture(gl.TEXTURE0 + unit);
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            this.boundTextureUnits.set(unit, texture);
+        }
+
+        const textureUniforms = this.getTextureUniformCache(program);
+
+        if (textureUniforms.get(name) !== unit) {
+            gl.uniform1i(location, unit);
+            textureUniforms.set(name, unit);
+        }
     }
 
     setUniforms(program, values) {
         const gl = this.gl;
+        const cache = getProgramUniformCache(program);
 
-        Object.entries(values).forEach(([name, value]) => {
+        for (const name in values) {
+            if (!Object.prototype.hasOwnProperty.call(values, name)) {
+                continue;
+            }
+
+            const value = values[name];
+
+            if (uniformValuesEqual(cache.get(name), value)) {
+                continue;
+            }
+
             const location = this.getUniformLocation(program, name);
 
             if (location === null) {
-                return;
+                continue;
             }
 
-            const isTypedArray =
-                value instanceof Float32Array ||
-                value instanceof Float64Array ||
-                value instanceof Int32Array ||
-                value instanceof Uint32Array ||
-                value instanceof Uint16Array ||
-                value instanceof Int16Array ||
-                value instanceof Uint8Array ||
-                value instanceof Int8Array;
-
+            const isTypedArray = isTypedUniformArray(value);
             const isArrayLike = Array.isArray(value) || isTypedArray;
 
             try {
                 if (value instanceof Float32Array && value.length === 16) {
                     gl.uniformMatrix4fv(location, false, value);
-                    return;
+                    cache.set(name, cloneUniformValue(value));
+                    continue;
                 }
 
                 if (value instanceof Float32Array && value.length === 9) {
                     gl.uniformMatrix3fv(location, false, value);
-                    return;
+                    cache.set(name, cloneUniformValue(value));
+                    continue;
                 }
 
                 if (isArrayLike && value.length === 4) {
                     gl.uniform4fv(location, value);
-                    return;
+                    cache.set(name, cloneUniformValue(value));
+                    continue;
                 }
 
                 if (isArrayLike && value.length === 3) {
                     gl.uniform3fv(location, value);
-                    return;
+                    cache.set(name, cloneUniformValue(value));
+                    continue;
                 }
 
                 if (isArrayLike && value.length === 2) {
                     gl.uniform2fv(location, value);
-                    return;
+                    cache.set(name, cloneUniformValue(value));
+                    continue;
                 }
 
                 if (INT_UNIFORMS.has(name)) {
                     gl.uniform1i(location, Math.trunc(Number(value) || 0));
-                    return;
+                    cache.set(name, cloneUniformValue(value));
+                    continue;
                 }
 
                 if (typeof value === "boolean") {
                     gl.uniform1f(location, value ? 1 : 0);
-                    return;
+                    cache.set(name, cloneUniformValue(value));
+                    continue;
                 }
 
                 if (typeof value === "number" || typeof value === "string") {
                     gl.uniform1f(location, Number(value) || 0);
-                    return;
+                    cache.set(name, cloneUniformValue(value));
+                    continue;
                 }
 
                 console.warn("Skipped unsupported uniform value:", name, value);
@@ -1862,7 +2500,7 @@ export class WebGLMaterialRenderer {
                     error,
                 });
             }
-        });
+        }
     }
 
     buildMatrices(width, height, geometry, rotation = 0, materialLayer = null, viewportCamera = null) {
@@ -1939,7 +2577,7 @@ export class WebGLMaterialRenderer {
         return {
             model,
             viewProj: cameraMatrices.viewProj,
-            normalMatrix: mat3FromMat4(model),
+            normalMatrix: mat3FromMat4(model, this.normalMatrixScratch),
 
             // Wichtig:
             // Bestehende Render-Pfade nutzen teils "camera",
@@ -1951,7 +2589,57 @@ export class WebGLMaterialRenderer {
         };
     }
 
-    drawParticlePass({ materialLayer, matrices, dpr, getTextureForSlotFace, getParticleTextureForLayer, ignoreDepth = false }) {
+    drawParticleMeshLayer({ renderMesh, layerParticles, particleSystem, particleTexture, matrices }) {
+        if (!renderMesh?.buffer || !layerParticles || layerParticles.count <= 0 || !this.particleMeshProgram) {
+            return false;
+        }
+
+        const gl = this.gl;
+        const batch = this.resolveParticleMeshInstances(layerParticles, matrices, particleSystem);
+        const instanceCount = this.updateMeshInstances(
+            renderMesh,
+            batch,
+            batch?.role || "particle-mesh"
+        );
+
+        if (!instanceCount) {
+            return false;
+        }
+
+        gl.useProgram(this.particleMeshProgram);
+        this.setTexture(this.particleMeshProgram, "uParticleMap", 0, particleTexture, "white");
+        this.setUniforms(this.particleMeshProgram, {
+            uViewProj: matrices.viewProj,
+            uColor: layerParticles.color || particleSystem.color || [1, 1, 1, 1],
+            uAlpha: layerParticles.alpha ?? particleSystem.alpha ?? 1,
+            uUseParticleMap: mapEnabled(true, particleTexture),
+        });
+
+        const parts = Array.isArray(renderMesh.parts) && renderMesh.parts.length
+            ? renderMesh.parts
+            : [{ start: 0, count: renderMesh.count }];
+        const indexType = renderMesh.buffer.indexType;
+        const indexBytes = indexType === gl.UNSIGNED_INT ? 4 : 2;
+
+        parts.forEach(part => {
+            const count = Math.max(0, Math.trunc(Number(part.count || renderMesh.count)));
+
+            if (!count) {
+                return;
+            }
+
+            renderMesh.buffer.drawElementsInstanced(
+                gl.TRIANGLES,
+                count,
+                Math.max(0, Math.trunc(Number(part.start || 0))) * indexBytes,
+                instanceCount
+            );
+        });
+
+        return true;
+    }
+
+    drawParticlePass({ materialLayer, matrices, dpr, getTextureForSlotFace, getParticleTextureForLayer, ignoreDepth = false, renderMesh = null }) {
         const particles = this.getParticleBuffer(materialLayer.particle_system);
 
         if (!particles) {
@@ -1959,16 +2647,17 @@ export class WebGLMaterialRenderer {
         }
 
         const gl = this.gl;
+        const particleSystem = materialLayer.particle_system || {};
         const slotKey = particles.textureSlot || "baseColor";
         const fallbackTexture =
             getTextureForSlotFace?.(slotKey, "front") ||
             getTextureForSlotFace?.("baseColor", "front") ||
             null;
-        const renderLayers = Array.isArray(materialLayer.particle_system?.layers) && materialLayer.particle_system.layers.length
-            ? materialLayer.particle_system.layers
+        const renderLayers = Array.isArray(particleSystem.layers) && particleSystem.layers.length
+            ? particleSystem.layers
             : [null];
+        const useMeshParticles = shouldUseMeshParticleInstancing(particleSystem) && renderMesh?.buffer;
 
-        gl.useProgram(this.particleProgram);
         gl.disable(gl.CULL_FACE);
         if (ignoreDepth) {
             gl.disable(gl.DEPTH_TEST);
@@ -1981,18 +2670,21 @@ export class WebGLMaterialRenderer {
             gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         }
 
-        this.setUniforms(this.particleProgram, {
-            uModel: matrices.model,
-            uViewProj: matrices.viewProj,
-            uDpr: dpr,
-            uViewport: [this.canvas.width || 1, this.canvas.height || 1],
-            uColor: particles.color,
-            uAlpha: particles.alpha,
-            uSoft: 1,
-        });
+        if (!useMeshParticles) {
+            gl.useProgram(this.particleProgram);
+            this.setUniforms(this.particleProgram, {
+                uModel: matrices.model,
+                uViewProj: matrices.viewProj,
+                uDpr: dpr,
+                uViewport: this.viewportScratch,
+                uColor: particles.color,
+                uAlpha: particles.alpha,
+                uSoft: 1,
+            });
+        }
 
         renderLayers.forEach((layer, index) => {
-            const layerSystem = createParticleLayerSystem(materialLayer.particle_system, layer, index);
+            const layerSystem = createParticleLayerSystem(particleSystem, layer, index);
             const layerParticles = layerSystem
                 ? this.getParticleBuffer(layerSystem)
                 : particles;
@@ -2003,6 +2695,18 @@ export class WebGLMaterialRenderer {
 
             const particleTexture = getParticleTextureForLayer?.(layer) || fallbackTexture;
 
+            if (useMeshParticles) {
+                this.drawParticleMeshLayer({
+                    renderMesh,
+                    layerParticles,
+                    particleSystem: layerSystem || particleSystem,
+                    particleTexture,
+                    matrices,
+                });
+                return;
+            }
+
+            gl.useProgram(this.particleProgram);
             this.setTexture(this.particleProgram, "uParticleMap", 0, particleTexture, "white");
             this.setUniforms(this.particleProgram, {
                 uColor: layerParticles.color || particles.color,
@@ -2647,12 +3351,9 @@ export class WebGLMaterialRenderer {
         const useObjectTextures = shouldUseObjectTextures(previewOverlay, editor);
         const wireframeMaterialAlpha = editorViewMode === "wireframe" ? 0.08 : previewOverlay?.wireframe === true ? 0.2 : 1;
 
-        this.canvas.width = Math.round(width * dpr);
-        this.canvas.height = Math.round(height * dpr);
-        this.canvas.style.width = `${width}px`;
-        this.canvas.style.height = `${height}px`;
+        const canvasSize = this.resizeCanvas(width, height, dpr);
 
-        gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        gl.viewport(0, 0, canvasSize.pixelWidth, canvasSize.pixelHeight);
         gl.clearColor(0, 0, 0, 0);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -2703,6 +3404,8 @@ export class WebGLMaterialRenderer {
             materialLayer.preview?.fluid_particles !== false &&
             materialLayer.settings?.fluid_particle_preview !== false;
 
+        const materialMesh = this.getRenderMesh(materialLayer.mesh);
+
         if (materialLayer.particle_system?.enabled === true && !volumeLayeredPreview) {
             return this.drawParticlePass({
                 materialLayer,
@@ -2710,6 +3413,7 @@ export class WebGLMaterialRenderer {
                 dpr,
                 getTextureForSlotFace,
                 getParticleTextureForLayer,
+                renderMesh: materialMesh,
             });
         }
 
@@ -2722,6 +3426,7 @@ export class WebGLMaterialRenderer {
                     getTextureForSlotFace,
                     getParticleTextureForLayer,
                     ignoreDepth: true,
+                    renderMesh: materialMesh,
                 });
             }
 
@@ -2729,8 +3434,6 @@ export class WebGLMaterialRenderer {
         }
 
         gl.useProgram(this.program);
-
-        const materialMesh = this.getRenderMesh(materialLayer.mesh);
 
         const drawEntries = materialMesh
             ? materialMesh.parts.map(part => ({
@@ -2775,19 +3478,32 @@ export class WebGLMaterialRenderer {
                 getTextureForSlotFace,
                 getParticleTextureForLayer,
                 ignoreDepth: true,
+                renderMesh: materialMesh,
             });
 
             gl.useProgram(this.program);
         }
 
+        const meshInstanceBatch = this.resolveMeshInstances(materialLayer, matrices);
+
         drawEntries.forEach(entry => {
             const faceName = entry.faceName;
             const faceSurface = resolveSurfaceForFace(surface, materialLayer, faceName);
 
-            const slotTexture = slot => resolvePreviewTexture(
-                useObjectTextures,
-                () => getTextureForSlotFace(slot, faceName)
-            );
+            const faceTextureCache = new Map();
+            const slotTexture = slot => {
+                if (!faceTextureCache.has(slot)) {
+                    faceTextureCache.set(
+                        slot,
+                        resolvePreviewTexture(
+                            useObjectTextures,
+                            () => getTextureForSlotFace(slot, faceName)
+                        )
+                    );
+                }
+
+                return faceTextureCache.get(slot);
+            };
 
             const baseTexture = resolvePreviewTexture(
                 useObjectTextures,
@@ -2840,7 +3556,16 @@ export class WebGLMaterialRenderer {
             const slotParams = (...slotKeys) => {
                 const slotKey = slotKeys.find(key => materialLayer.bitmap_maps?.[key]) || slotKeys[0];
                 const slot = materialLayer.bitmap_maps?.[slotKey] || {};
-                const texture = slotKeys.map(key => slotTexture(key)).find(Boolean) || {};
+                let texture = {};
+
+                for (const key of slotKeys) {
+                    const candidate = slotTexture(key);
+
+                    if (candidate) {
+                        texture = candidate;
+                        break;
+                    }
+                }
 
                 return {
                     strength: Math.min(Math.max(toNumber(slot.strength ?? texture.strength, 1), -4), 4),
@@ -3134,10 +3859,14 @@ export class WebGLMaterialRenderer {
             const count = entry.count || mesh.count;
             const offset = entry.start * indexBytes;
 
-            this.updateMeshInstance(mesh, matrices);
+            const instanceCount = this.updateMeshInstances(
+                mesh,
+                meshInstanceBatch,
+                meshInstanceBatch.role
+            );
 
-            if (mesh.buffer.drawElementsInstanced) {
-                mesh.buffer.drawElementsInstanced(gl.TRIANGLES, count, offset, 1);
+            if (mesh.buffer.drawElementsInstanced && instanceCount > 0) {
+                mesh.buffer.drawElementsInstanced(gl.TRIANGLES, count, offset, instanceCount);
             } else {
                 mesh.buffer.drawElements(gl.TRIANGLES, count, offset);
             }
@@ -3165,6 +3894,7 @@ export class WebGLMaterialRenderer {
                 getTextureForSlotFace,
                 getParticleTextureForLayer,
                 ignoreDepth: false,
+                renderMesh: materialMesh,
             });
         }
 
@@ -3233,6 +3963,10 @@ export class WebGLMaterialRenderer {
             gl.deleteProgram(this.particleProgram);
         }
 
+        if (this.particleMeshProgram) {
+            gl.deleteProgram(this.particleMeshProgram);
+        }
+
         this.meshes.clear();
         this.overlayMeshes.clear();
         this.particleBuffers.clear();
@@ -3243,6 +3977,7 @@ export class WebGLMaterialRenderer {
         this.overlayProgram = null;
         this.editorInstancedProgram = null;
         this.particleProgram = null;
+        this.particleMeshProgram = null;
         this.ready = false;
     }
 }

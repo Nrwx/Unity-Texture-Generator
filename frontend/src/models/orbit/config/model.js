@@ -70,7 +70,7 @@ export const engineData = {
         projection: "perspective",
         fov: 50,
         near: 0.01,
-        far: 1000,
+        far: 10000,
         orthographicScale: 5,
         minOrthographicScale: 0.05,
         maxOrthographicScale: 250,

@@ -21,6 +21,7 @@ import {normalizeTextureSize} from "@/view/models/page/material/settings/model";
 import {timelineStates} from "@/dataLayer/state";
 import {timelineData} from "@/models/timeline/config/model";
 import {isFiniteNumber} from "@/utils/math";
+import {restoreHeavyGeometry} from "@/view/models/page/material/geometry/model";
 
 
 const normalizeNodeSettings = node => Node.normalizeSettings(node);
@@ -4005,15 +4006,13 @@ export function materialEditorModel(props, emit) {
         return defaults;
     };
 
-    const loadMaterialPackage = async layer => {
-        const packageUrl = layer?.package?.url;
-
-        if (!packageUrl) {
+    const fetchJsonNoStore = async url => {
+        if (!url) {
             return null;
         }
 
         try {
-            const response = await fetch(packageUrl, {
+            const response = await fetch(url, {
                 cache: "no-store",
             });
 
@@ -4025,6 +4024,54 @@ export function materialEditorModel(props, emit) {
         } catch (_error) {
             return null;
         }
+    };
+
+    const hydrateMaterialPackageGeometry = async packageData => {
+        if (!packageData || typeof packageData !== "object") {
+            return packageData;
+        }
+
+        const geometryPayload = packageData.geometry_payload || await fetchJsonNoStore(packageData.geometry_storage?.payload_url);
+
+        if (!geometryPayload?.chunks) {
+            return packageData;
+        }
+
+        const restoredMesh = restoreHeavyGeometry(packageData.mesh || packageData.material?.mesh || {}, geometryPayload);
+        const geometryManifest = geometryPayload.manifest || restoredMesh.geometry_manifest || packageData.geometry_manifest;
+
+        return {
+            ...packageData,
+            geometry_payload: geometryPayload,
+            geometry_manifest: geometryManifest,
+            mesh_manifest: geometryManifest || packageData.mesh_manifest,
+            mesh: restoredMesh,
+            material: packageData.material
+                ? {
+                    ...packageData.material,
+                    mesh: restoredMesh,
+                    mesh_manifest: geometryManifest || packageData.material.mesh_manifest,
+                }
+                : packageData.material,
+            shader: packageData.shader
+                ? {
+                    ...packageData.shader,
+                    mesh: restoredMesh,
+                    mesh_manifest: geometryManifest || packageData.shader.mesh_manifest,
+                }
+                : packageData.shader,
+        };
+    };
+
+    const loadMaterialPackage = async layer => {
+        const packageUrl = layer?.package?.url;
+
+        if (!packageUrl) {
+            return null;
+        }
+
+        const packageData = await fetchJsonNoStore(packageUrl);
+        return hydrateMaterialPackageGeometry(packageData);
     };
 
     const resolveMaterialEditSource = (layer, materialPackage = null) => {

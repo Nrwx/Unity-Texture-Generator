@@ -2,6 +2,7 @@ import { BRUSH_MODIFIERS, resolveBrushModifier } from "./modifier";
 import { Mesh } from "@/view/models/page/material/core/Mesh/Mesh";
 import { Vector } from "@/view/models/page/material/core/Math/Vector/Vector";
 import { UV } from "@/view/models/page/material/core/UV/UV";
+import { Topology } from "@/view/models/page/material/core/Topology/Topology";
 import { clamp } from "@/utils/tools";
 import { number } from "@/utils/math";
 
@@ -28,235 +29,68 @@ const triangleUv = (uvA, uvB, uvC, barycentric = null) => {
 /**
  * Normalizes brush config.
  */
-const normalizeBrush = (brush) => ({
-    enabled: brush?.enabled === true,
-    mode: String(brush?.tool || brush?.mode || "draw"),
-    radius: Math.max(0.001, number(brush?.radius, 0.18)),
-    strength: Math.max(0, number(brush?.strength, 0.04)),
-    sharpness: clamp(brush?.sharpness ?? 0.35, 0, 1),
-    hardness: clamp(brush?.hardness ?? brush?.sharpness ?? 0.35, 0, 1),
-    spacing: clamp(brush?.spacing ?? 0.18, 0.02, 1),
-    softness: clamp(brush?.softness ?? brush?.smoothness ?? 0.68, 0, 1),
-    falloffOffset: clamp(brush?.falloffOffset ?? brush?.offset ?? 0, 0, 0.95),
-    invert: brush?.invert === true,
-    detailEnabled: brush?.detail?.enabled === true || brush?.dynamicTopology === true,
-    detailPercent: clamp(
-        brush?.detail?.detailPercent ??
-        brush?.detail?.percent ??
-        brush?.detailPercent ??
-        0,
-        0,
-        200
-    ),
-    detailTolerance: clamp(brush?.detail?.tolerance ?? brush?.detailTolerance ?? 0.42, 0.01, 1),
-    detailMaxTriangles: Math.max(128, Math.trunc(number(
+const normalizeBrush = (brush) => {
+    const maxTriangles = Math.max(128, Math.trunc(number(
         brush?.detail?.maxTriangles ??
         brush?.detail?.maxSubdivisionsPerStroke ??
         brush?.detailMaxTriangles ??
         brush?.maxSubdivisionsPerStroke,
         4096
-    ))),
-    texture: brush?.texture || "",
-    opacity: clamp(brush?.opacity ?? brush?.strength ?? 1, 0, 1),
-    textureMode: brush?.textureMode || "alpha",
-});
-
-/**
- * Subdivision inside brush radius.
- */
-const refineMeshInBrush = ({ vertices, indices, stride, hit, brush, parts = [] }) => {
-    if (!brush.detailEnabled || brush.detailPercent <= 0 || indices.length >= brush.detailMaxTriangles * 3) {
-        return { vertices, indices, changed: false };
-    }
-
-    const radius = brush.radius;
-    const detailFactor = clamp(brush.detailPercent / 100, 0, 2);
-    const targetEdge = Math.max(0.003, radius * (0.78 - detailFactor * 0.34) * brush.detailTolerance);
-    const maxIndexCount = brush.detailMaxTriangles * 3;
-    const splitEdges = new Set();
-    const midpointCache = new Map();
-    const sourceParts = Array.isArray(parts) && parts.length
-        ? parts
-            .filter(part => Math.trunc(number(part?.count, 0)) > 0)
-            .map(part => ({ ...part }))
-        : [{
-            name: "mesh",
-            faceName: "front",
-            materialSlot: "front",
-            start: 0,
-            count: indices.length,
-        }];
-
-    const edgeLength = (a, b) => Vector.from(
-        Mesh.read3(vertices, stride, a, POSITION_OFFSET)
-    ).distance(Mesh.read3(vertices, stride, b, POSITION_OFFSET));
-
-    const shouldTouchTriangle = (a, b, c) => {
-        const pa = Mesh.read3(vertices, stride, a, POSITION_OFFSET);
-        const pb = Mesh.read3(vertices, stride, b, POSITION_OFFSET);
-        const pc = Mesh.read3(vertices, stride, c, POSITION_OFFSET);
-        const centroid = [
-            (pa[0] + pb[0] + pc[0]) / 3,
-            (pa[1] + pb[1] + pc[1]) / 3,
-            (pa[2] + pb[2] + pc[2]) / 3,
-        ];
-
-        return Vector.from(centroid).distance(hit.point) <= radius ||
-            Math.min(
-                Vector.from(pa).distance(hit.point),
-                Vector.from(pb).distance(hit.point),
-                Vector.from(pc).distance(hit.point),
-            ) <= radius;
-    };
-
-    for (let i = 0; i < indices.length; i += 3) {
-        const a = indices[i];
-        const b = indices[i + 1];
-        const c = indices[i + 2];
-
-        if (!shouldTouchTriangle(a, b, c)) {
-            continue;
-        }
-
-        if (edgeLength(a, b) > targetEdge) splitEdges.add(Mesh.edgeKey(a, b));
-        if (edgeLength(b, c) > targetEdge) splitEdges.add(Mesh.edgeKey(b, c));
-        if (edgeLength(c, a) > targetEdge) splitEdges.add(Mesh.edgeKey(c, a));
-    }
-
-    if (!splitEdges.size) {
-        return { vertices, indices, changed: false };
-    }
-
-    const getMidpoint = (a, b) => {
-        const key = Mesh.edgeKey(a, b);
-
-        if (!midpointCache.has(key)) {
-            const midpoint = Mesh.midpointVertex(vertices, stride, a, b);
-            const index = Mesh.vertexCount(vertices, stride);
-            Mesh.pushVertexArray(vertices, stride, midpoint);
-            midpointCache.set(key, index);
-        }
-
-        return midpointCache.get(key);
-    };
-
-    const nextParts = [];
-    let sourcePartIndex = 0;
-
-    const resolvePartForOffset = (offset) => {
-        while (sourcePartIndex < sourceParts.length - 1) {
-            const part = sourceParts[sourcePartIndex];
-            const start = Math.max(0, Math.trunc(number(part?.start, 0)));
-            const end = start + Math.max(0, Math.trunc(number(part?.count, 0)));
-
-            if (offset < end) {
-                break;
-            }
-
-            sourcePartIndex += 1;
-        }
-
-        return sourceParts[sourcePartIndex] || sourceParts[0];
-    };
-
-    const appendTriangles = (target, triangles, part = null) => {
-        const start = target.length;
-
-        triangles.forEach(triangle => target.push(...triangle));
-
-        const added = target.length - start;
-
-        if (added <= 0) {
-            return;
-        }
-
-        const sourcePart = part || sourceParts[0];
-        const sourceKey = [
-            sourcePart?.faceName || "",
-            sourcePart?.name || "",
-            sourcePart?.materialSlot || "",
-        ].join(":");
-        const previous = nextParts[nextParts.length - 1];
-
-        if (!previous || previous.__sourceKey !== sourceKey || previous.start + previous.count !== start) {
-            nextParts.push({
-                ...sourcePart,
-                start,
-                count: 0,
-                __sourceKey: sourceKey,
-            });
-        }
-
-        nextParts[nextParts.length - 1].count += added;
-    };
-
-    const splitTriangle = (target, a, b, c, part) => {
-        const original = [[a, b, c]];
-        const hasAB = splitEdges.has(Mesh.edgeKey(a, b));
-        const hasBC = splitEdges.has(Mesh.edgeKey(b, c));
-        const hasCA = splitEdges.has(Mesh.edgeKey(c, a));
-        const count = Number(hasAB) + Number(hasBC) + Number(hasCA);
-
-        if (count === 0) {
-            appendTriangles(target, original, part);
-            return;
-        }
-
-        const ab = hasAB ? getMidpoint(a, b) : null;
-        const bc = hasBC ? getMidpoint(b, c) : null;
-        const ca = hasCA ? getMidpoint(c, a) : null;
-        let proposed;
-
-        if (count === 3) {
-            proposed = [
-                [a, ab, ca],
-                [ab, b, bc],
-                [ca, bc, c],
-                [ab, bc, ca],
-            ];
-        } else if (count === 1) {
-            if (hasAB) {
-                proposed = [[a, ab, c], [ab, b, c]];
-            } else if (hasBC) {
-                proposed = [[b, bc, a], [bc, c, a]];
-            } else {
-                proposed = [[c, ca, b], [ca, a, b]];
-            }
-        } else if (hasAB && hasBC) {
-            proposed = [[b, bc, ab], [a, ab, c], [ab, bc, c]];
-        } else if (hasBC && hasCA) {
-            proposed = [[c, ca, bc], [b, bc, a], [bc, ca, a]];
-        } else {
-            proposed = [[a, ab, ca], [b, c, ab], [ab, c, ca]];
-        }
-
-        const proposedIndexCount = proposed.length * 3;
-
-        // Das Triangle-Limit darf Topologie verfeinern begrenzen, aber niemals
-        // bestehende Geometrie wegschneiden. Wenn kein Budget mehr da ist,
-        // bleibt das Original-Dreieck vollständig erhalten.
-        appendTriangles(
-            target,
-            target.length + proposedIndexCount <= maxIndexCount ? proposed : original,
-            part,
-        );
-    };
-
-    const nextIndices = [];
-
-    for (let i = 0; i < indices.length; i += 3) {
-        splitTriangle(nextIndices, indices[i], indices[i + 1], indices[i + 2], resolvePartForOffset(i));
-    }
+    )));
+    const maxNewVerticesPerStep = Math.max(1, Math.trunc(number(
+        brush?.detail?.maxNewVerticesPerStep ??
+        brush?.detail?.maxVerticesPerStep ??
+        brush?.detail?.batchSize ??
+        brush?.detailBatchSize,
+        Math.min(96, Math.max(16, Math.ceil(maxTriangles * 0.018)))
+    )));
+    const maxTriangleSplitsPerStep = Math.max(1, Math.trunc(number(
+        brush?.detail?.maxTriangleSplitsPerStep ??
+        brush?.detail?.maxSplitsPerStep ??
+        brush?.detailTriangleBatchSize,
+        Math.min(128, Math.max(24, Math.ceil(maxTriangles * 0.024)))
+    )));
 
     return {
-        vertices,
-        indices: nextIndices.length ? nextIndices : indices,
-        parts: nextParts.length
-            ? nextParts.map(({ __sourceKey, ...part }) => { if(!__sourceKey) console.log(__sourceKey, part, 'KEY IS MISSING'); return part})
-            : sourceParts,
-        changed: nextIndices.length !== indices.length || midpointCache.size > 0,
+        enabled: brush?.enabled === true,
+        mode: String(brush?.tool || brush?.mode || "draw"),
+        radius: Math.max(0.001, number(brush?.radius, 0.18)),
+        strength: Math.max(0, number(brush?.strength, 0.04)),
+        sharpness: clamp(brush?.sharpness ?? 0.35, 0, 1),
+        hardness: clamp(brush?.hardness ?? brush?.sharpness ?? 0.35, 0, 1),
+        spacing: clamp(brush?.spacing ?? 0.18, 0.02, 1),
+        softness: clamp(brush?.softness ?? brush?.smoothness ?? 0.68, 0, 1),
+        falloffOffset: clamp(brush?.falloffOffset ?? brush?.offset ?? 0, 0, 0.95),
+        invert: brush?.invert === true,
+        detailEnabled: brush?.detail?.enabled === true || brush?.dynamicTopology === true,
+        detailPercent: clamp(
+            brush?.detail?.detailPercent ??
+            brush?.detail?.percent ??
+            brush?.detailPercent ??
+            0,
+            0,
+            200
+        ),
+        detailTolerance: clamp(brush?.detail?.tolerance ?? brush?.detailTolerance ?? 0.42, 0.01, 1),
+        detailMaxTriangles: maxTriangles,
+        detailMaxVertices: Math.max(64, Math.trunc(number(
+            brush?.detail?.maxVertices ??
+            brush?.detailMaxVertices,
+            Math.max(maxTriangles + 1, maxTriangles * 2)
+        ))),
+        detailMaxNewVerticesPerStep: maxNewVerticesPerStep,
+        detailMaxTriangleSplitsPerStep: maxTriangleSplitsPerStep,
+        detailMinEdge: Math.max(0.0005, number(brush?.detail?.minEdge ?? brush?.detailMinEdge, 0.003)),
+        texture: brush?.texture || "",
+        opacity: clamp(brush?.opacity ?? brush?.strength ?? 1, 0, 1),
+        textureMode: brush?.textureMode || "alpha",
     };
 };
+
+/**
+ * Brush-local topology work lives in the core Topology class so sculpt input,
+ * DynTopo subdivision and renderer dirty ranges share one implementation path.
+ */
 
 /**
  * UV at hit triangle using UV class.
@@ -279,6 +113,12 @@ const createHitUv = (vertices, indices, stride, hit) => {
     );
 };
 
+
+
+
+
+
+
 export const createDefaultSculptBrush = () => ({
     enabled: false,
     mode: "draw",
@@ -299,6 +139,10 @@ export const createDefaultSculptBrush = () => ({
         tolerance: 0.42,
         maxTriangles: 4096,
         maxSubdivisionsPerStroke: 4096,
+        maxVertices: 8192,
+        maxNewVerticesPerStep: 96,
+        maxTriangleSplitsPerStep: 128,
+        minEdge: 0.003,
     },
     texture: "",
     opacity: 1,
@@ -359,11 +203,17 @@ export const applySculptBrushToMesh = ({ mesh, hit, brush: rawBrush, uv = null, 
     const stride = editable.stride;
     const hitUv = createHitUv(vertices, indices, stride, hit);
 
-    const refine = refineMeshInBrush({ vertices, indices, stride, hit, brush, parts: mesh.parts || [] });
+    const refine = Topology.refineBrush({ vertices, indices, stride, hit, brush, parts: mesh.parts || [] });
     indices = refine.indices;
 
-    const neighbors = Mesh.buildNeighbors(indices, vertices, stride);
     const modifier = resolveBrushModifier(brush.mode);
+    const stampMode = brush.mode === "stamp" || brush.mode === "textureStamp";
+    const influence = stampMode
+        ? { vertices: [], triangleOffsets: [] }
+        : Topology.collectBrushInfluence({ vertices, indices, stride, hit, brush });
+    const neighbors = brush.mode === "smooth"
+        ? Topology.buildScopedNeighbors(indices, vertices, stride, influence.vertices)
+        : new Map();
 
     const nextMesh = {
         ...mesh,
@@ -377,21 +227,48 @@ export const applySculptBrushToMesh = ({ mesh, hit, brush: rawBrush, uv = null, 
     };
 
     let deformed = false;
+    const dirtyVertexIndices = [];
 
-    for (let index = 0; index < Mesh.vertexCount(vertices, stride); index++) {
-        const position = Mesh.read3(vertices, stride, index, POSITION_OFFSET);
-        const distance = Vector.from(position).distance(hitContext.point);
+    const radiusSq = brush.radius * brush.radius;
+    const hitPoint = hitContext.point || [0, 0, 0];
 
-        if (distance > brush.radius && brush.mode !== "stamp" && brush.mode !== "textureStamp") {
+    if (stampMode) {
+        modifier.apply({
+            mesh: nextMesh,
+            vertex: {
+                index: -1,
+                original: hitPoint,
+                position: hitPoint.slice(),
+                normal: hitContext.normal,
+                distance: 0,
+            },
+            brush,
+            hit: hitContext,
+            neighbors,
+        });
+    }
+
+    for (const index of influence.vertices) {
+        const base = index * stride + POSITION_OFFSET;
+        const px = vertices[base];
+        const py = vertices[base + 1];
+        const pz = vertices[base + 2];
+        const dx = px - hitPoint[0];
+        const dy = py - hitPoint[1];
+        const dz = pz - hitPoint[2];
+        const distanceSq = dx * dx + dy * dy + dz * dz;
+
+        if (distanceSq > radiusSq) {
             continue;
         }
 
+        const position = [px, py, pz];
         const vertex = {
             index,
             original: position,
             position: position.slice(),
             normal: Mesh.read3(vertices, stride, index, NORMAL_OFFSET),
-            distance,
+            distance: Math.sqrt(distanceSq),
         };
 
         modifier.apply({
@@ -403,12 +280,12 @@ export const applySculptBrushToMesh = ({ mesh, hit, brush: rawBrush, uv = null, 
         });
 
         if (
-            distance <= brush.radius &&
-            (vertex.position[0] !== position[0] ||
-                vertex.position[1] !== position[1] ||
-                vertex.position[2] !== position[2])
+            vertex.position[0] !== position[0] ||
+            vertex.position[1] !== position[1] ||
+            vertex.position[2] !== position[2]
         ) {
             Mesh.write3(vertices, stride, index, vertex.position, POSITION_OFFSET);
+            dirtyVertexIndices.push(index);
             deformed = true;
         }
     }
@@ -432,6 +309,14 @@ export const applySculptBrushToMesh = ({ mesh, hit, brush: rawBrush, uv = null, 
             sculptStrength: brush.strength,
             brushRadius: brush.radius,
             brushRevision: Math.trunc(number(mesh.meta?.brushRevision, 0)) + 1,
+            dynamicTopology: refine.changed === true || mesh.meta?.dynamicTopology === true,
+            dynTopoLimited: refine.limited === true,
+            dynTopoAddedVertices: Math.max(0, Math.trunc(number(refine.addedVertices, 0))),
+            dynTopoSplitTriangles: Math.max(0, Math.trunc(number(refine.splitTriangles, 0))),
+            dynTopoMaxTriangles: brush.detailMaxTriangles,
+            dynTopoMaxVertices: brush.detailMaxVertices,
+            topologyRuntime: Topology.describeBrushRuntime(brush, refine, influence),
+            geometryDirtyRanges: refine.changed === true ? [] : Topology.buildVertexDirtyRanges(dirtyVertexIndices, stride),
         },
     });
 
@@ -439,7 +324,19 @@ export const applySculptBrushToMesh = ({ mesh, hit, brush: rawBrush, uv = null, 
         finalized.parts = refine.parts.map(part => ({ ...part }));
     }
 
-    const nextUv = resolveSculptUv(finalized, uv, { brush, bitmap: uvBitmap, hit });
+    const sourceUv = uv || finalized.uv || null;
+    const uvNeedsSync = refine.changed === true || (
+        sourceUv && (
+            !Array.isArray(sourceUv.vertices) ||
+            !Array.isArray(sourceUv.triangles) ||
+            sourceUv.vertices.length === 0 ||
+            sourceUv.triangles.length === 0 ||
+            Math.trunc(number(sourceUv?.meta?.meshEditRevision, 0)) !== Math.trunc(number(finalized?.meta?.editRevision, 0))
+        )
+    );
+    const nextUv = uvNeedsSync
+        ? resolveSculptUv(finalized, sourceUv, { brush, bitmap: uvBitmap, hit })
+        : sourceUv;
 
     if (nextUv) {
         finalized.uv = nextUv;

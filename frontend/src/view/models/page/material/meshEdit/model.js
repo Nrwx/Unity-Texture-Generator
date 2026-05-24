@@ -357,7 +357,7 @@ const addEditEdge = (layer, mesh, a, b) => {
             ...(mesh.meta || {}),
             editEdges: Array.from(editEdges),
             editRevision: Math.trunc(toNumber(mesh.meta?.editRevision, 0)) + 1,
-            renderCacheKey: `${mesh.id || "mesh"}:geometry-edit:edge:${Date.now()}:${key}`,
+            renderCacheKey: `${mesh.id || "mesh"}:geometry-edit:edge:${Math.trunc(toNumber(mesh.meta?.editRevision, 0)) + 1}:${key}`,
         },
     };
 
@@ -529,7 +529,7 @@ export const applyMeshEditOperation = ({ state, layer, action = "", payload = {}
                 editEdges: Array.from(editEdges),
                 editPaths: [...(mesh.meta?.editPaths || []), values],
                 editRevision: Math.trunc(toNumber(mesh.meta?.editRevision, 0)) + 1,
-                renderCacheKey: `${mesh.id || "mesh"}:geometry-edit:path:${Date.now()}`,
+                renderCacheKey: `${mesh.id || "mesh"}:geometry-edit:path:${Math.trunc(toNumber(mesh.meta?.editRevision, 0)) + 1}`,
             },
         };
 

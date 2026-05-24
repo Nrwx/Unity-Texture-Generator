@@ -1,4 +1,5 @@
 import api from "@/dataLayer/api";
+import { compileMaterialValues } from "@/view/models/page/material/geometry/model";
 
 const toPlain = value => {
     if (value === null || value === undefined) {
@@ -42,13 +43,20 @@ const appendIfPresent = (formData, key, value, serialize = value => String(value
 };
 
 export const appendMaterialForm = (formData, values = {}) => {
-    const plain = toPlain(values);
+    const compiled = compileMaterialValues(values);
+    const geometryPayload = compiled?.geometry_payload || null;
+    const plain = toPlain({
+        ...(compiled || {}),
+        geometry_payload: null,
+    });
 
     appendIfPresent(formData, "name", plain.name);
 
     appendIfPresent(formData, "surface", plain.surface, stringify);
     appendIfPresent(formData, "geometry", plain.geometry, stringify);
     appendIfPresent(formData, "mesh", plain.mesh, stringify);
+    appendIfPresent(formData, "geometry_manifest", plain.geometry_manifest, stringify);
+    appendIfPresent(formData, "geometry_payload", geometryPayload, stringify);
     appendIfPresent(formData, "light", plain.light, stringify);
     appendIfPresent(formData, "physics", plain.physics, stringify);
     appendIfPresent(formData, "bitmap_maps", plain.bitmap_maps, stringify);
@@ -76,7 +84,9 @@ export const appendMaterialForm = (formData, values = {}) => {
     appendIfPresent(formData, "subsurface_translucency", plain.subsurface_translucency);
     appendIfPresent(formData, "use_nodes", plain.use_nodes);
 
-    formData.append("values", stringify(plain));
+    const valuesContract = { ...plain };
+    delete valuesContract.geometry_payload;
+    formData.append("values", stringify(valuesContract));
 };
 
 const assertPayload = payload => {

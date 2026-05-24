@@ -17,6 +17,8 @@ export class Buffer {
         this.instanceCount = 0;
         this.instanceCapacity = 0;
         this.indexType = gl.UNSIGNED_SHORT;
+        this.indexArray = null;
+        this.maxIndex = -1;
         this.stride = Number(options.stride || 0);
         this.instanceStride = Number(options.instanceStride || 0);
         this.vertexByteLength = 0;
@@ -108,6 +110,8 @@ export class Buffer {
             this.indexCount = 0;
             this.vertexByteLength = 0;
             this.indexByteLength = 0;
+            this.indexArray = null;
+            this.maxIndex = -1;
             return this;
         }
 
@@ -134,12 +138,16 @@ export class Buffer {
             this.indexType = indexArray instanceof Uint32Array
                 ? gl.UNSIGNED_INT
                 : gl.UNSIGNED_SHORT;
+            this.indexArray = indexArray;
+            this.maxIndex = this.resolveMaxIndex(indexArray);
 
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ibo);
             gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indexArray, this.usage);
         } else {
             this.indexCount = 0;
             this.indexByteLength = 0;
+            this.indexArray = null;
+            this.maxIndex = -1;
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
         }
 
@@ -177,6 +185,135 @@ export class Buffer {
         }
 
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+        return this;
+    }
+
+    updateVertexRanges(vertices, ranges = [], usage = this.gl.DYNAMIC_DRAW) {
+        if (this.destroyed || !this.vbo) {
+            return this;
+        }
+
+        const vertexArray = this.toFloat32Array(vertices);
+        const normalizedRanges = this.normalizeVertexRanges(ranges, vertexArray.length);
+
+        this.vertexCount = this.stride > 0
+            ? vertexArray.byteLength / this.stride
+            : 0;
+        this.usage = usage;
+
+        if (
+            !normalizedRanges.length ||
+            this.vertexByteLength !== vertexArray.byteLength ||
+            this.vertexByteLength <= 0
+        ) {
+            return this.updateVertices(vertexArray, usage);
+        }
+
+        const patchedValues = normalizedRanges.reduce((total, range) => total + range.count, 0);
+
+        if (patchedValues >= vertexArray.length * 0.65 || normalizedRanges.length > 96) {
+            return this.updateVertices(vertexArray, usage);
+        }
+
+        const gl = this.gl;
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
+
+        normalizedRanges.forEach(range => {
+            const patch = vertexArray.subarray(range.start, range.start + range.count);
+
+            if (patch.length > 0) {
+                gl.bufferSubData(
+                    gl.ARRAY_BUFFER,
+                    range.start * Float32Array.BYTES_PER_ELEMENT,
+                    patch
+                );
+            }
+        });
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+        return this;
+    }
+
+    normalizeVertexRanges(ranges = [], valueLength = 0) {
+        if (!Array.isArray(ranges) || !ranges.length || valueLength <= 0) {
+            return [];
+        }
+
+        const normalized = ranges
+            .map(range => {
+                const start = Math.max(0, Math.trunc(Number(
+                    range?.start ??
+                    (Number(range?.vertexStart || 0) * (this.stride / Float32Array.BYTES_PER_ELEMENT))
+                ) || 0));
+                const count = Math.max(0, Math.trunc(Number(
+                    range?.count ??
+                    (Number(range?.vertexCount || 0) * (this.stride / Float32Array.BYTES_PER_ELEMENT))
+                ) || 0));
+
+                if (count <= 0 || start >= valueLength) {
+                    return null;
+                }
+
+                return {
+                    start,
+                    count: Math.min(count, valueLength - start),
+                };
+            })
+            .filter(Boolean)
+            .sort((a, b) => a.start - b.start);
+
+        const merged = [];
+
+        normalized.forEach(range => {
+            const previous = merged[merged.length - 1];
+            const previousEnd = previous ? previous.start + previous.count : -1;
+
+            if (previous && range.start <= previousEnd) {
+                previous.count = Math.max(previousEnd, range.start + range.count) - previous.start;
+                return;
+            }
+
+            merged.push({ ...range });
+        });
+
+        return merged;
+    }
+
+    updateIndices(indices, indexType = this.indexType, usage = this.gl.DYNAMIC_DRAW) {
+        if (this.destroyed || !this.ibo) {
+            return this;
+        }
+
+        const gl = this.gl;
+        const indexArray = this.toIndexArray(indices, indexType);
+
+        const previousByteLength = this.indexByteLength;
+
+        this.indexCount = indexArray.length;
+        this.indexType = indexArray instanceof Uint32Array
+            ? gl.UNSIGNED_INT
+            : gl.UNSIGNED_SHORT;
+        this.indexArray = indexArray;
+        this.maxIndex = this.resolveMaxIndex(indexArray);
+
+        gl.bindVertexArray?.(this.vao);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ibo);
+
+        if (previousByteLength === indexArray.byteLength) {
+            gl.bufferSubData(gl.ELEMENT_ARRAY_BUFFER, 0, indexArray);
+        } else {
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indexArray, usage);
+        }
+
+        this.indexByteLength = indexArray.byteLength;
+
+        gl.bindVertexArray?.(null);
+
+        if (!this.vao) {
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+        }
 
         return this;
     }
@@ -251,11 +388,19 @@ export class Buffer {
             ? (this.instanceStride > 0 ? Math.floor(instanceArray.byteLength / this.instanceStride) : 0)
             : Math.max(0, Math.trunc(Number(count) || 0));
 
+        const uploadByteLength = this.instanceStride > 0
+            ? Math.min(instanceArray.byteLength, resolvedCount * this.instanceStride)
+            : instanceArray.byteLength;
+        const uploadLength = Math.max(0, Math.floor(uploadByteLength / Float32Array.BYTES_PER_ELEMENT));
+        const uploadArray = uploadLength < instanceArray.length
+            ? instanceArray.subarray(0, uploadLength)
+            : instanceArray;
+
         this.instanceCount = resolvedCount;
-        this.instanceByteLength = instanceArray.byteLength;
+        this.instanceByteLength = uploadByteLength;
         this.instanceUsage = usage;
 
-        if (!instanceArray.length || !resolvedCount) {
+        if (!uploadArray.length || !resolvedCount) {
             return this;
         }
 
@@ -264,17 +409,19 @@ export class Buffer {
         gl.bindVertexArray?.(this.vao);
         gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceVbo);
 
-        if (this.instanceAllocatedByteLength >= instanceArray.byteLength) {
-            gl.bufferSubData(gl.ARRAY_BUFFER, 0, instanceArray);
+        if (this.instanceAllocatedByteLength >= uploadByteLength) {
+            gl.bufferSubData(gl.ARRAY_BUFFER, 0, uploadArray);
         } else {
-            gl.bufferData(gl.ARRAY_BUFFER, instanceArray, usage);
-            this.instanceAllocatedByteLength = instanceArray.byteLength;
+            gl.bufferData(gl.ARRAY_BUFFER, uploadArray, usage);
+            this.instanceAllocatedByteLength = uploadByteLength;
             this.instanceCapacity = this.instanceStride > 0
-                ? Math.floor(instanceArray.byteLength / this.instanceStride)
+                ? Math.floor(uploadByteLength / this.instanceStride)
                 : resolvedCount;
         }
 
-        this.enableInstanceAttributes();
+        // Instance attribute pointers are VAO state and are configured by createInstanceBuffer().
+        // Without VAO support bind() re-establishes them before drawing, so updating dynamic
+        // data should not pay that setup cost every frame.
         gl.bindVertexArray?.(null);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
@@ -382,7 +529,11 @@ export class Buffer {
         this.bind();
 
         if (this.ibo && this.indexCount > 0) {
-            gl.drawElements(mode, this.indexCount, this.indexType, 0);
+            const drawRange = this.resolveElementDrawRange(this.indexCount, 0);
+
+            if (drawRange.count > 0) {
+                gl.drawElements(mode, drawRange.count, this.indexType, drawRange.offset);
+            }
         } else if (this.vertexCount > 0) {
             gl.drawArrays(mode, 0, this.vertexCount);
         }
@@ -393,10 +544,16 @@ export class Buffer {
             return;
         }
 
+        const drawRange = this.resolveElementDrawRange(count, offset);
+
+        if (drawRange.count <= 0) {
+            return;
+        }
+
         const gl = this.gl;
 
         this.bind();
-        gl.drawElements(mode, count, this.indexType, offset);
+        gl.drawElements(mode, drawRange.count, this.indexType, drawRange.offset);
     }
 
     drawArrays(mode = this.gl.TRIANGLES, count = this.vertexCount, first = 0) {
@@ -405,9 +562,18 @@ export class Buffer {
         }
 
         const gl = this.gl;
+        const safeFirst = Math.max(0, Math.trunc(Number(first || 0)));
+        const safeCount = Math.min(
+            Math.max(0, Math.trunc(Number(count || 0))),
+            Math.max(0, Math.floor(this.vertexCount) - safeFirst)
+        );
+
+        if (safeCount <= 0) {
+            return;
+        }
 
         this.bind();
-        gl.drawArrays(mode, first, count);
+        gl.drawArrays(mode, safeFirst, safeCount);
     }
 
     drawElementsInstanced(mode = this.gl.TRIANGLES, count = this.indexCount, offset = 0, instanceCount = this.instanceCount || 1) {
@@ -415,10 +581,17 @@ export class Buffer {
             return;
         }
 
+        const drawRange = this.resolveElementDrawRange(count, offset);
+        const safeInstanceCount = this.resolveInstanceDrawCount(instanceCount);
+
+        if (drawRange.count <= 0 || safeInstanceCount <= 0) {
+            return;
+        }
+
         const gl = this.gl;
 
         this.bind();
-        gl.drawElementsInstanced(mode, count, this.indexType, offset, instanceCount);
+        gl.drawElementsInstanced(mode, drawRange.count, this.indexType, drawRange.offset, safeInstanceCount);
     }
 
     drawArraysInstanced(mode = this.gl.TRIANGLES, count = this.vertexCount, first = 0, instanceCount = this.instanceCount || 1) {
@@ -426,10 +599,21 @@ export class Buffer {
             return;
         }
 
+        const safeFirst = Math.max(0, Math.trunc(Number(first || 0)));
+        const safeCount = Math.min(
+            Math.max(0, Math.trunc(Number(count || 0))),
+            Math.max(0, Math.floor(this.vertexCount) - safeFirst)
+        );
+        const safeInstanceCount = this.resolveInstanceDrawCount(instanceCount);
+
+        if (safeCount <= 0 || safeInstanceCount <= 0) {
+            return;
+        }
+
         const gl = this.gl;
 
         this.bind();
-        gl.drawArraysInstanced(mode, first, count, instanceCount);
+        gl.drawArraysInstanced(mode, safeFirst, safeCount, safeInstanceCount);
     }
 
     destroy() {
@@ -464,11 +648,103 @@ export class Buffer {
         this.indexCount = 0;
         this.instanceCount = 0;
         this.instanceCapacity = 0;
+        this.indexArray = null;
+        this.maxIndex = -1;
         this.vertexByteLength = 0;
         this.indexByteLength = 0;
         this.instanceByteLength = 0;
         this.instanceAllocatedByteLength = 0;
         this.destroyed = true;
+    }
+
+    resolveMaxIndex(indexArray) {
+        if (!indexArray?.length) {
+            return -1;
+        }
+
+        let max = -1;
+
+        for (let index = 0; index < indexArray.length; index += 1) {
+            const value = Math.trunc(Number(indexArray[index]) || 0);
+
+            if (value > max) {
+                max = value;
+            }
+        }
+
+        return max;
+    }
+
+    resolveIndexByteSize() {
+        return this.indexType === this.gl.UNSIGNED_INT
+            ? Uint32Array.BYTES_PER_ELEMENT
+            : Uint16Array.BYTES_PER_ELEMENT;
+    }
+
+    resolveElementDrawRange(count = this.indexCount, offset = 0) {
+        const byteSize = this.resolveIndexByteSize();
+        const requestedOffset = Math.max(0, Math.trunc(Number(offset || 0)));
+        const alignedOffset = requestedOffset - (requestedOffset % byteSize);
+        const startIndex = Math.max(0, Math.floor(alignedOffset / byteSize));
+        const available = Math.max(0, this.indexCount - startIndex);
+        let safeCount = Math.min(
+            Math.max(0, Math.trunc(Number(count || 0))),
+            available
+        );
+
+        if (safeCount <= 0 || this.vertexCount <= 0) {
+            return { count: 0, offset: alignedOffset };
+        }
+
+        // Keep triangle draws aligned. A stale part range from a previous topology
+        // revision must not ask WebGL to consume past the uploaded index buffer.
+        safeCount -= safeCount % 3;
+
+        if (safeCount <= 0) {
+            return { count: 0, offset: alignedOffset };
+        }
+
+        if (this.maxIndex >= Math.floor(this.vertexCount)) {
+            if (!this.indexArray?.length) {
+                return { count: 0, offset: alignedOffset };
+            }
+
+            const maxVertexIndex = Math.floor(this.vertexCount) - 1;
+            const endIndex = Math.min(this.indexArray.length, startIndex + safeCount);
+
+            for (let index = startIndex; index < endIndex; index += 1) {
+                const value = Math.trunc(Number(this.indexArray[index]) || 0);
+
+                if (value < 0 || value > maxVertexIndex) {
+                    return { count: 0, offset: alignedOffset };
+                }
+            }
+        }
+
+        return {
+            count: safeCount,
+            offset: alignedOffset,
+        };
+    }
+
+    resolveInstanceDrawCount(instanceCount = this.instanceCount || 1) {
+        const requested = Math.max(0, Math.trunc(Number(instanceCount || 0)));
+
+        if (!requested || !this.instanceStride) {
+            return requested;
+        }
+
+        const uploaded = Math.min(
+            Math.max(0, Math.trunc(Number(this.instanceCount || 0))),
+            this.instanceStride > 0
+                ? Math.floor(Math.max(0, Number(this.instanceByteLength || 0)) / this.instanceStride)
+                : requested,
+            this.instanceStride > 0
+                ? Math.floor(Math.max(0, Number(this.instanceAllocatedByteLength || 0)) / this.instanceStride)
+                : requested
+        );
+
+        return Math.min(requested, uploaded);
     }
 
     toFloat32Array(value) {

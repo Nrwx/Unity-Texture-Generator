@@ -396,6 +396,7 @@ export class Mesh {
         const safeStride = Math.max(Mesh.STRIDE, Math.trunc(Mesh.toNumber(stride, Mesh.STRIDE)));
         const sourceVertices = Mesh.upgradeVertexLayout(vertices || [], safeStride);
         const sourceIndices = Mesh.sanitizeTriangleIndices(indices || [], Mesh.vertexCount(sourceVertices, safeStride), sourceVertices, safeStride);
+        const editRevision = Math.trunc(Mesh.toNumber(mesh?.meta?.editRevision, 0)) + 1;
         const nextMesh = {
             ...(mesh || {}),
             stride: safeStride,
@@ -403,8 +404,11 @@ export class Mesh {
                 ...(mesh?.meta || {}),
                 ...meta,
                 source,
-                editRevision: Math.trunc(Mesh.toNumber(mesh?.meta?.editRevision, 0)) + 1,
-                renderCacheKey: `${mesh?.id || "mesh"}:${source}:${Date.now()}:${sourceVertices.length}:${sourceIndices.length}`,
+                editRevision,
+                // Keep this deterministic. The WebGL renderer now keeps one GPU buffer per
+                // mesh identity and updates its VBO/IBO with bufferSubData; Date.now() here
+                // used to create one cache entry per brush tick.
+                renderCacheKey: `${mesh?.id || "mesh"}:${source}:${editRevision}:${sourceVertices.length}:${sourceIndices.length}`,
             },
         };
 
@@ -422,13 +426,13 @@ export class Mesh {
 
     static recomputeNormalsAndBounds(mesh, vertices, indices, stride) {
         const count = Mesh.vertexCount(vertices, stride);
-        const normals = Array.from({ length: count }, () => [0, 0, 0]);
+        const normals = new Float32Array(Math.max(0, count * 3));
         const bounds = {
             min: [Infinity, Infinity, Infinity],
             max: [-Infinity, -Infinity, -Infinity],
         };
 
-        for (let offset = 0; offset < indices.length; offset += 3) {
+        for (let offset = 0; offset + 2 < indices.length; offset += 3) {
             const aIndex = indices[offset];
             const bIndex = indices[offset + 1];
             const cIndex = indices[offset + 2];
@@ -437,29 +441,72 @@ export class Mesh {
                 continue;
             }
 
-            const normal = Mesh.triangleNormal(
-                Mesh.read3(vertices, stride, aIndex),
-                Mesh.read3(vertices, stride, bIndex),
-                Mesh.read3(vertices, stride, cIndex),
-            );
+            const ab = aIndex * stride;
+            const bb = bIndex * stride;
+            const cb = cIndex * stride;
 
-            normals[aIndex] = Mesh.add3(normals[aIndex], normal);
-            normals[bIndex] = Mesh.add3(normals[bIndex], normal);
-            normals[cIndex] = Mesh.add3(normals[cIndex], normal);
+            const abx = vertices[bb] - vertices[ab];
+            const aby = vertices[bb + 1] - vertices[ab + 1];
+            const abz = vertices[bb + 2] - vertices[ab + 2];
+            const acx = vertices[cb] - vertices[ab];
+            const acy = vertices[cb + 1] - vertices[ab + 1];
+            const acz = vertices[cb + 2] - vertices[ab + 2];
+
+            let nx = aby * acz - abz * acy;
+            let ny = abz * acx - abx * acz;
+            let nz = abx * acy - aby * acx;
+            const length = Math.hypot(nx, ny, nz);
+
+            if (!Number.isFinite(length) || length <= 0.00000001) {
+                continue;
+            }
+
+            nx /= length;
+            ny /= length;
+            nz /= length;
+
+            const an = aIndex * 3;
+            const bn = bIndex * 3;
+            const cn = cIndex * 3;
+            normals[an] += nx;
+            normals[an + 1] += ny;
+            normals[an + 2] += nz;
+            normals[bn] += nx;
+            normals[bn + 1] += ny;
+            normals[bn + 2] += nz;
+            normals[cn] += nx;
+            normals[cn + 1] += ny;
+            normals[cn + 2] += nz;
         }
 
         for (let index = 0; index < count; index += 1) {
-            const point = Mesh.read3(vertices, stride, index);
-            const normal = Mesh.normalize3(normals[index], Mesh.read3(vertices, stride, index, Mesh.NORMAL_OFFSET));
+            const base = index * stride;
+            const normalBase = index * 3;
+            const px = Mesh.toNumber(vertices[base], 0);
+            const py = Mesh.toNumber(vertices[base + 1], 0);
+            const pz = Mesh.toNumber(vertices[base + 2], 0);
+            let nx = normals[normalBase];
+            let ny = normals[normalBase + 1];
+            let nz = normals[normalBase + 2];
+            let normalLength = Math.hypot(nx, ny, nz);
 
-            Mesh.write3(vertices, stride, index, normal, Mesh.NORMAL_OFFSET);
+            if (!Number.isFinite(normalLength) || normalLength <= 0.00000001) {
+                nx = Mesh.toNumber(vertices[base + Mesh.NORMAL_OFFSET], 0);
+                ny = Mesh.toNumber(vertices[base + Mesh.NORMAL_OFFSET + 1], 0);
+                nz = Mesh.toNumber(vertices[base + Mesh.NORMAL_OFFSET + 2], 1);
+                normalLength = Math.hypot(nx, ny, nz) || 1;
+            }
 
-            bounds.min[0] = Math.min(bounds.min[0], point[0]);
-            bounds.min[1] = Math.min(bounds.min[1], point[1]);
-            bounds.min[2] = Math.min(bounds.min[2], point[2]);
-            bounds.max[0] = Math.max(bounds.max[0], point[0]);
-            bounds.max[1] = Math.max(bounds.max[1], point[1]);
-            bounds.max[2] = Math.max(bounds.max[2], point[2]);
+            vertices[base + Mesh.NORMAL_OFFSET] = nx / normalLength;
+            vertices[base + Mesh.NORMAL_OFFSET + 1] = ny / normalLength;
+            vertices[base + Mesh.NORMAL_OFFSET + 2] = nz / normalLength;
+
+            bounds.min[0] = Math.min(bounds.min[0], px);
+            bounds.min[1] = Math.min(bounds.min[1], py);
+            bounds.min[2] = Math.min(bounds.min[2], pz);
+            bounds.max[0] = Math.max(bounds.max[0], px);
+            bounds.max[1] = Math.max(bounds.max[1], py);
+            bounds.max[2] = Math.max(bounds.max[2], pz);
         }
 
         if (bounds.min.every(Number.isFinite) && bounds.max.every(Number.isFinite)) {
@@ -720,6 +767,8 @@ export class Mesh {
             stride: Mesh.STRIDE,
             indexType: mesh.indexType || (maxIndex > 65535 ? "uint32" : "uint16"),
             count: indices.length,
+            instances: clone(mesh.instances || mesh.instance_matrices || []),
+            instance_matrices: clone(mesh.instance_matrices || mesh.instances || []),
             parts: JSON.parse(JSON.stringify(mesh.parts || [])),
             bounds: JSON.parse(JSON.stringify(mesh.bounds || {})),
             settings,
@@ -728,16 +777,38 @@ export class Mesh {
     }
 
     static fromPlain(mesh = null, fallbackSettings = {}) {
+        const fallback = mesh?.settings || mesh?.geometry || fallbackSettings || {};
+
         if (!mesh || !mesh.vertices || !mesh.indices) {
-            return Mesh.create(fallbackSettings);
+            return Mesh.create(fallback, {
+                id: mesh?.id,
+                source: "geometry-fallback",
+            });
         }
 
         const sourceStride = Math.max(3, Math.trunc(Mesh.toNumber(mesh.stride, Mesh.STRIDE)));
-        const vertexArray = Mesh.upgradeVertexLayout(Mesh.toPlainArray(mesh.vertices), sourceStride);
+        const sourceVertices = Mesh.toPlainArray(mesh.vertices);
+        const sourceIndices = Mesh.toPlainArray(mesh.indices);
+
+        if (sourceVertices.length < sourceStride * 3 || sourceIndices.length < 3) {
+            return Mesh.create(fallback, {
+                id: mesh?.id,
+                source: mesh?.meta?.geometryExternalized ? "external-geometry-fallback" : "geometry-fallback",
+            });
+        }
+
+        const vertexArray = Mesh.upgradeVertexLayout(sourceVertices, sourceStride);
         const indexArray = Mesh.sanitizeTriangleIndices(
-            Mesh.toPlainArray(mesh.indices),
+            sourceIndices,
             Mesh.vertexCount(vertexArray, Mesh.STRIDE),
         );
+
+        if (vertexArray.length < Mesh.STRIDE * 3 || indexArray.length < 3) {
+            return Mesh.create(fallback, {
+                id: mesh?.id,
+                source: "invalid-geometry-fallback",
+            });
+        }
         const maxIndex = indexArray.reduce((max, index) => Math.max(max, Number(index) || 0), 0);
         const indices = (mesh.indexType === "uint32" || maxIndex > 65535)
             ? new Uint32Array(indexArray)
@@ -756,6 +827,8 @@ export class Mesh {
             indices,
             indexType: indices instanceof Uint32Array ? "uint32" : "uint16",
             count: indices.length,
+            instances: clone(mesh.instances || mesh.instance_matrices || []),
+            instance_matrices: clone(mesh.instance_matrices || mesh.instances || []),
             parts: clone(mesh.parts || []),
             bounds: mesh.bounds || Mesh.computeBounds(vertices),
             meta: {
@@ -1587,9 +1660,18 @@ export class Mesh {
         }
 
         const sourceStride = Math.max(3, Math.trunc(Mesh.toNumber(mesh.stride, Mesh.STRIDE)));
-        const vertices = Mesh.upgradeVertexLayout(Mesh.toPlainArray(mesh.vertices), sourceStride);
+        const sourceVertices = Mesh.toPlainArray(mesh.vertices);
+        const sourceIndices = Mesh.toPlainArray(mesh.indices);
+        const runtimeMesh = sourceVertices.length >= sourceStride * 3 && sourceIndices.length >= 3
+            ? mesh
+            : Mesh.create(mesh.settings || mesh.geometry || mesh, {
+                id: mesh.id,
+                source: mesh?.meta?.geometryExternalized ? "external-geometry-fallback" : "geometry-fallback",
+            });
+        const runtimeStride = Math.max(3, Math.trunc(Mesh.toNumber(runtimeMesh.stride, Mesh.STRIDE)));
+        const vertices = Mesh.upgradeVertexLayout(Mesh.toPlainArray(runtimeMesh.vertices), runtimeStride);
         const stride = Mesh.STRIDE;
-        const indices = Mesh.sanitizeTriangleIndices(Mesh.toPlainArray(mesh.indices), Mesh.vertexCount(vertices, stride));
+        const indices = Mesh.sanitizeTriangleIndices(Mesh.toPlainArray(runtimeMesh.indices), Mesh.vertexCount(vertices, stride));
         const vertexCount = Mesh.vertexCount(vertices, stride);
 
         if (vertexCount <= 0 || indices.length < 3) {

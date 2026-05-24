@@ -1,45 +1,38 @@
-import { Mesh } from "@/view/models/page/material/core/Mesh/Mesh";
+import { compileGeometryPayload } from "@/view/models/page/material/geometry/model";
 
 const asArray = payload => Array.isArray(payload) ? payload : [payload].filter(Boolean);
 
-const normalizeMeshPayload = payload => {
-    if (!payload || typeof payload !== "object") {
-        return payload;
-    }
+const normalizeMeshPayload = (payload, options = {}) => compileGeometryPayload(payload, options);
 
-    if (!payload.mesh) {
-        return payload;
-    }
-
-    const mesh = Mesh.toPlain(payload.mesh);
-
-    return {
-        ...payload,
-        mesh,
-        shader: payload.shader
-            ? {
-                ...payload.shader,
-                mesh,
-            }
-            : payload.shader,
-        material: payload.material
-            ? {
-                ...payload.material,
-                mesh,
-            }
-            : payload.material,
-    };
-};
+const compactMeshPayload = (payload = {}, settings = {}) => ({
+    id: payload?.id,
+    geometry: payload?.geometry || payload?.mesh?.settings || {},
+    mesh: payload?.mesh || {},
+    geometry_manifest: payload?.geometry_manifest || payload?.mesh?.geometry_manifest || payload?.mesh?.mesh_manifest || {},
+    mesh_manifest: payload?.mesh_manifest || payload?.mesh?.mesh_manifest || payload?.mesh?.geometry_manifest || {},
+    settings,
+});
 
 
 const updateMeshLikePayload = async (route, payload, options = {}) => {
-    const response = await route.api.updateMesh(normalizeMeshPayload({
-        ...(payload || {}),
-        settings: {
-            ...(payload?.settings || {}),
-            ...(options.settings || {}),
+    const settings = {
+        ...(payload?.settings || {}),
+        ...(options.settings || {}),
+    };
+    const sourcePayload = options.compact === true
+        ? compactMeshPayload(payload, settings)
+        : {
+            ...(payload || {}),
+            settings,
+        };
+    const geometryOptions = options.geometry || {};
+    const response = await route.api.updateMesh(
+        normalizeMeshPayload(sourcePayload, geometryOptions),
+        {
+            geometry: geometryOptions,
+            geometryTransport: options.geometryTransport || {},
         },
-    }));
+    );
 
     if (response && options.fetchLayer !== false) {
         await route.emit("fetch-layer");
@@ -94,12 +87,21 @@ export const meshEvent = (route) => ({
 
     "sculpt:update": async (payload) => {
         return await updateMeshLikePayload(route, payload, {
+            compact: true,
+            geometry: { allowPatch: true, mode: "patch" },
             settings: { sculpt_edit: true },
         });
     },
 
     "sculpt:commit": async (payload) => {
         return await updateMeshLikePayload(route, payload, {
+            compact: true,
+            geometry: { allowPatch: true, mode: "patch" },
+            geometryTransport: {
+                split: true,
+                maxRequestBytes: 12000,
+                maxChunkValues: 384,
+            },
             settings: { sculpt_edit: true, sculpt_committed: true },
         });
     },

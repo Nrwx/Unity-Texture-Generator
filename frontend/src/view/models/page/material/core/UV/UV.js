@@ -422,6 +422,20 @@ export class UV {
         }
     }
 
+    static createIndexArray(indices = [], preferredType = "") {
+        const source = ArrayBuffer.isView(indices)
+            ? Array.from(indices)
+            : Array.isArray(indices)
+                ? indices
+                : [];
+        const sanitized = source.map(value => Math.max(0, Math.trunc(Number(value) || 0)));
+        const maxIndex = sanitized.reduce((max, value) => Math.max(max, value), 0);
+
+        return preferredType === "uint32" || maxIndex > 65535
+            ? new Uint32Array(sanitized)
+            : new Uint16Array(sanitized);
+    }
+
     static cloneMesh(mesh) {
         return {
             ...mesh,
@@ -429,11 +443,7 @@ export class UV {
             vertices: mesh.vertices instanceof Float32Array
                 ? new Float32Array(mesh.vertices)
                 : new Float32Array(mesh.vertices || []),
-            indices: mesh.indices instanceof Uint32Array
-                ? new Uint32Array(mesh.indices)
-                : mesh.indices instanceof Uint16Array
-                    ? new Uint16Array(mesh.indices)
-                    : new Uint16Array(mesh.indices || []),
+            indices: UV.createIndexArray(mesh.indices || [], mesh.indexType),
             parts: UV.clonePlain(mesh.parts || []),
             bounds: UV.clonePlain(mesh.bounds || {}),
             meta: UV.clonePlain(mesh.meta || {}),
@@ -958,16 +968,35 @@ export class UV {
                                        mapLocalUv = null,
                                        mapPosition = null,
                                    }) {
-        const start = Number(part.start || 0);
-        const count = Number(part.count || 0);
+        const start = Math.max(0, Math.trunc(Number(part?.start || 0)));
+        const count = Math.max(0, Math.trunc(Number(part?.count || 0)));
         const end = Math.min(start + count, mesh.indices.length);
+        const vertexCount = Math.floor((mesh.vertices?.length || 0) / Math.max(1, Number(mesh.stride || 11)));
+        const isValidIndex = index => Number.isInteger(index) && index >= 0 && index < vertexCount;
 
-        for (let i = start; i < end; i += 3) {
-            const corners = [
-                UV.createUvLoopVertex(mesh, mesh.indices[i], island, mapLocalUv, mapPosition),
-                UV.createUvLoopVertex(mesh, mesh.indices[i + 1], island, mapLocalUv, mapPosition),
-                UV.createUvLoopVertex(mesh, mesh.indices[i + 2], island, mapLocalUv, mapPosition),
+        for (let i = start; i + 2 < end; i += 3) {
+            const sourceIndices = [
+                Math.trunc(Number(mesh.indices[i])),
+                Math.trunc(Number(mesh.indices[i + 1])),
+                Math.trunc(Number(mesh.indices[i + 2])),
             ];
+
+            if (
+                !sourceIndices.every(isValidIndex) ||
+                sourceIndices[0] === sourceIndices[1] ||
+                sourceIndices[1] === sourceIndices[2] ||
+                sourceIndices[2] === sourceIndices[0]
+            ) {
+                continue;
+            }
+
+            const corners = sourceIndices.map(index => (
+                UV.createUvLoopVertex(mesh, index, island, mapLocalUv, mapPosition)
+            ));
+
+            if (!corners.every(Boolean)) {
+                continue;
+            }
 
             corners.forEach(vertex => {
                 layout.vertices.push(vertex);
@@ -978,11 +1007,7 @@ export class UV {
                 id: uuid("uv-triangle"),
                 island_id: island.id,
                 vertex_ids: corners.map(vertex => vertex.id),
-                source_indices: [
-                    Number(mesh.indices[i]),
-                    Number(mesh.indices[i + 1]),
-                    Number(mesh.indices[i + 2]),
-                ],
+                source_indices: sourceIndices,
             };
 
             layout.triangles.push(triangle);
@@ -1001,13 +1026,16 @@ export class UV {
             : mapPosition
                 ? mapPosition(position, normal, localUv)
                 : localUv;
+        const safeMapped = Array.isArray(mapped) && mapped.length >= 2
+            ? mapped
+            : localUv;
 
         return {
             id: uuid("uv-vertex"),
             island_id: island.id,
             source_index: Number(sourceIndex),
-            x: UV.clamp01(mapped[0]),
-            y: UV.clamp01(mapped[1]),
+            x: UV.clamp01(safeMapped[0]),
+            y: UV.clamp01(safeMapped[1]),
             selected: false,
 
             position,
@@ -1523,14 +1551,23 @@ export class UV {
         const min = [Infinity, Infinity, Infinity];
         const max = [-Infinity, -Infinity, -Infinity];
 
-        for (let i = 0; i < vertices.length; i += stride) {
-            min[0] = Math.min(min[0], vertices[i]);
-            min[1] = Math.min(min[1], vertices[i + 1]);
-            min[2] = Math.min(min[2], vertices[i + 2]);
+        for (let i = 0; i + 2 < vertices.length; i += stride) {
+            min[0] = Math.min(min[0], Number(vertices[i]) || 0);
+            min[1] = Math.min(min[1], Number(vertices[i + 1]) || 0);
+            min[2] = Math.min(min[2], Number(vertices[i + 2]) || 0);
 
-            max[0] = Math.max(max[0], vertices[i]);
-            max[1] = Math.max(max[1], vertices[i + 1]);
-            max[2] = Math.max(max[2], vertices[i + 2]);
+            max[0] = Math.max(max[0], Number(vertices[i]) || 0);
+            max[1] = Math.max(max[1], Number(vertices[i + 1]) || 0);
+            max[2] = Math.max(max[2], Number(vertices[i + 2]) || 0);
+        }
+
+        if (!min.every(Number.isFinite) || !max.every(Number.isFinite)) {
+            return {
+                min: [0, 0, 0],
+                max: [0, 0, 0],
+                size: [0, 0, 0],
+                center: [0, 0, 0],
+            };
         }
 
         return {

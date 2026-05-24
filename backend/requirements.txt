@@ -343,6 +343,7 @@ Rtree @ file:///C:/Users/dev-admin/perseverance-python-buildout/croot/rtree_1729
 ruamel.yaml @ file:///C:/b/abs_0dn1nhdq75/croot/ruamel.yaml_1745960327187/work
 ruamel.yaml.clib @ file:///C:/b/abs_475flulhy_/croot/ruamel.yaml.clib_1745937166245/work
 ruamel_yaml_conda @ file:///C:/Users/dev-admin/perseverance-python-buildout/croot/ruamel_yaml_1729063591675/work
+ruff==0.15.17
 s3fs @ file:///C:/b/abs_130adxrjmm/croot/s3fs_1747146760526/work
 safetensors==0.8.0rc0
 scikit-image @ file:///C:/b/abs_081xgoymhl/croot/scikit-image_1737473383970/work

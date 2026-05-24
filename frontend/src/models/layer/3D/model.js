@@ -231,6 +231,88 @@ const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 
 const canonicalSlotKey = slot => SLOT_CANONICAL_KEYS[slot] || slot;
 const isBwTextureSlot = slot => SCALAR_TEXTURE_SLOT_KEYS.includes(slot) || slot === "alpha";
+const textureFaceKey = (slot, faceName) => `${slot}::${faceName || ""}`;
+const particleTextureKey = (layerId, url) => `${layerId || ""}::${url || ""}`;
+
+const createTextureLookup = textureList => {
+    const lookup = {
+        bySlot: new Map(),
+        bySlotFace: new Map(),
+        byParticleLayerUrl: new Map(),
+        canvasByFace: new Map(),
+        materialByFace: new Map(),
+        alphaByFace: new Map(),
+        canvasDefault: null,
+        materialDefault: null,
+        alphaDefault: null,
+    };
+
+    for (const item of textureList) {
+        if (!item?.image) {
+            continue;
+        }
+
+        const slot = canonicalSlotKey(item.slot);
+        const faces = Array.isArray(item.faces) ? item.faces : [];
+
+        if (!lookup.bySlot.has(slot)) {
+            lookup.bySlot.set(slot, item);
+        }
+
+        for (const faceName of faces) {
+            const key = textureFaceKey(slot, faceName);
+
+            if (!lookup.bySlotFace.has(key)) {
+                lookup.bySlotFace.set(key, item);
+            }
+        }
+
+        if (CANVAS2D_TEXTURE_SLOTS.includes(item.slot)) {
+            if (!lookup.canvasDefault) {
+                lookup.canvasDefault = item;
+            }
+
+            for (const faceName of faces) {
+                if (!lookup.canvasByFace.has(faceName)) {
+                    lookup.canvasByFace.set(faceName, item);
+                }
+            }
+        }
+
+        if (MATERIAL_TEXTURE_SLOTS.includes(item.slot)) {
+            if (!lookup.materialDefault) {
+                lookup.materialDefault = item;
+            }
+
+            for (const faceName of faces) {
+                if (!lookup.materialByFace.has(faceName)) {
+                    lookup.materialByFace.set(faceName, item);
+                }
+            }
+        }
+
+        if (ALPHA_TEXTURE_SLOTS.includes(item.slot)) {
+            if (!lookup.alphaDefault) {
+                lookup.alphaDefault = item;
+            }
+
+            for (const faceName of faces) {
+                if (!lookup.alphaByFace.has(faceName)) {
+                    lookup.alphaByFace.set(faceName, item);
+                }
+            }
+        }
+
+        if (item.kind === "particle" && item.particleLayerId && item.url) {
+            lookup.byParticleLayerUrl.set(
+                particleTextureKey(item.particleLayerId, item.url),
+                item
+            );
+        }
+    }
+
+    return lookup;
+};
 
 const parsePlainObject = value => {
     if (!value) {
@@ -268,6 +350,8 @@ export function layer3DModel(props, emit) {
 
     let frameId = null;
     let textureImages = {};
+    let textureImageList = [];
+    let textureLookup = createTextureLookup(textureImageList);
     let textureSampleCache = {};
     let materialPackage = null;
     let webglRenderer = null;
@@ -735,7 +819,8 @@ export function layer3DModel(props, emit) {
             ...rest
         } = system;
 
-        if(!_particles) console.log(_particles, _meta);
+        if(!_particles) console.log('__sourceKey or part missing', _meta);
+
         return JSON.stringify(rest);
     };
 
@@ -1169,14 +1254,11 @@ export function layer3DModel(props, emit) {
 
     const getTextureForSlotFace = (slotKey, faceName) => {
         const canonical = canonicalSlotKey(slotKey);
-        const mapped = Object.values(textureImages).find(item => (
-            item.image &&
-            canonicalSlotKey(item.slot) === canonical &&
-            Array.isArray(item.faces) &&
-            item.faces.includes(faceName)
-        ));
-
-        return mapped || Object.values(textureImages).find(item => item.image && canonicalSlotKey(item.slot) === canonical) || null;
+        return (
+            textureLookup.bySlotFace.get(textureFaceKey(canonical, faceName)) ||
+            textureLookup.bySlot.get(canonical) ||
+            null
+        );
     };
 
     const seededSequenceRandom = (seed, step) => {
@@ -1210,12 +1292,9 @@ export function layer3DModel(props, emit) {
             return null;
         }
 
-        return Object.values(textureImages).find(item => (
-            item.image &&
-            item.kind === "particle" &&
-            item.particleLayerId === layer.id &&
-            item.url === url
-        )) || null;
+        return textureLookup.byParticleLayerUrl.get(
+            particleTextureKey(layer.id, url)
+        ) || null;
     };
 
     const resolveSurfaceForFace = (surface, materialLayer, faceName) => {
@@ -1760,14 +1839,7 @@ export function layer3DModel(props, emit) {
             };
         }
 
-        const mapped = Object.values(textureImages).find(item => (
-            item.image &&
-            CANVAS2D_TEXTURE_SLOTS.includes(item.slot) &&
-            Array.isArray(item.faces) &&
-            item.faces.includes(faceName)
-        ));
-
-        return mapped || Object.values(textureImages).find(item => item.image && CANVAS2D_TEXTURE_SLOTS.includes(item.slot)) || null;
+        return textureLookup.canvasByFace.get(faceName) || textureLookup.canvasDefault || null;
     };
 
     const getTextureForFace = (layer, faceName) => {
@@ -1780,25 +1852,11 @@ export function layer3DModel(props, emit) {
             };
         }
 
-        const mapped = Object.values(textureImages).find(item => (
-            item.image &&
-            MATERIAL_TEXTURE_SLOTS.includes(item.slot) &&
-            Array.isArray(item.faces) &&
-            item.faces.includes(faceName)
-        ));
-
-        return mapped || Object.values(textureImages).find(item => item.image && MATERIAL_TEXTURE_SLOTS.includes(item.slot)) || null;
+        return textureLookup.materialByFace.get(faceName) || textureLookup.materialDefault || null;
     };
 
     const getAlphaTextureForFace = (_layer, faceName) => {
-        const mapped = Object.values(textureImages).find(item => (
-            item.image &&
-            ALPHA_TEXTURE_SLOTS.includes(item.slot) &&
-            Array.isArray(item.faces) &&
-            item.faces.includes(faceName)
-        ));
-
-        return mapped || Object.values(textureImages).find(item => item.image && ALPHA_TEXTURE_SLOTS.includes(item.slot)) || null;
+        return textureLookup.alphaByFace.get(faceName) || textureLookup.alphaDefault || null;
     };
 
     const loop = (frameTime = performance.now()) => {
@@ -1869,6 +1927,8 @@ export function layer3DModel(props, emit) {
         }
 
         textureImages = await resolveLayerTextureImages(props.layer);
+        textureImageList = Object.values(textureImages);
+        textureLookup = createTextureLookup(textureImageList);
         textureSampleCache = {};
 
         if (token !== initToken) {
@@ -1935,43 +1995,47 @@ export function layer3DModel(props, emit) {
     );
 
     watch(
-        () => [props.layer?.id,
-            props.layer?.url,
-            props.exportState,
-            props.pauseWebgl,
-            props.layer?.settings?.animator_viewport,
-            props.layer?.viewport_camera?.mode,
-            props.layer?.settings?.viewport_camera?.mode,
-            props.layer?.preview?.viewport_camera?.mode,
-            props.layer?.texture?.url,
-            props.layer?.texture?.thumbnail,
-            props.layer?.texture?.lod_url,
-            props.layer?.texture?.texture_size,
-            props.layer?.texture?.texture_lod_key,
-            props.layer?.settings?.texture_size,
-            props.layer?.settings?.render_backend,
-            props.layer?.settings?.renderer_mode,
-            props.layer?.render_backend,
-            props.layer?.texture_size,
-            props.layer?.texture_lod_key,
-            props.layer?.material_preview_request_id,
-            props.layer?.package?.url,
-            props.layer?.surface && JSON.stringify(props.layer.surface),
-            stableAnimatorRenderSignature(props.layer).geometry,
-            stableAnimatorRenderSignature(props.layer).mesh,
-            props.layer?.particle_system && particleSystemSignature(props.layer.particle_system),
-            props.layer?.keyframes && JSON.stringify(props.layer.keyframes),
-            props.layer?.light && JSON.stringify(props.layer.light),
-            props.layer?.settings?.light && JSON.stringify(props.layer.settings.light),
-            props.layer?.uv && JSON.stringify(props.layer.uv),
-            props.layer?.bitmap_maps && JSON.stringify(props.layer.bitmap_maps),
-            props.layer?.shader_graph && JSON.stringify(props.layer.shader_graph),
-            props.layer?.bitmap_maps?.baseColor?.url,
-            props.layer?.preview?.idle_rotation?.enabled,
-            props.layer?.preview?.rotate,
-            props.layer?.preview?.wireframe,
-            props.layer?.preview?.faces,
-            props.layer?.preview?.vertices].join("|"),
+        () => {
+            const renderSignature = stableAnimatorRenderSignature(props.layer);
+
+            return [props.layer?.id,
+                props.layer?.url,
+                props.exportState,
+                props.pauseWebgl,
+                props.layer?.settings?.animator_viewport,
+                props.layer?.viewport_camera?.mode,
+                props.layer?.settings?.viewport_camera?.mode,
+                props.layer?.preview?.viewport_camera?.mode,
+                props.layer?.texture?.url,
+                props.layer?.texture?.thumbnail,
+                props.layer?.texture?.lod_url,
+                props.layer?.texture?.texture_size,
+                props.layer?.texture?.texture_lod_key,
+                props.layer?.settings?.texture_size,
+                props.layer?.settings?.render_backend,
+                props.layer?.settings?.renderer_mode,
+                props.layer?.render_backend,
+                props.layer?.texture_size,
+                props.layer?.texture_lod_key,
+                props.layer?.material_preview_request_id,
+                props.layer?.package?.url,
+                props.layer?.surface && JSON.stringify(props.layer.surface),
+                renderSignature.geometry,
+                renderSignature.mesh,
+                props.layer?.particle_system && particleSystemSignature(props.layer.particle_system),
+                props.layer?.keyframes && JSON.stringify(props.layer.keyframes),
+                props.layer?.light && JSON.stringify(props.layer.light),
+                props.layer?.settings?.light && JSON.stringify(props.layer.settings.light),
+                props.layer?.uv && JSON.stringify(props.layer.uv),
+                props.layer?.bitmap_maps && JSON.stringify(props.layer.bitmap_maps),
+                props.layer?.shader_graph && JSON.stringify(props.layer.shader_graph),
+                props.layer?.bitmap_maps?.baseColor?.url,
+                props.layer?.preview?.idle_rotation?.enabled,
+                props.layer?.preview?.rotate,
+                props.layer?.preview?.wireframe,
+                props.layer?.preview?.faces,
+                props.layer?.preview?.vertices].join("|");
+        },
         () => {
             requestInit();
         }
