@@ -31,82 +31,52 @@ const stringify = value => {
     }
 };
 
-const boolValue = value => (value ? "true" : "false");
-
 const unwrap = response => response?.data || response || null;
 
-export const normalizeMaterialValuesForApi = (values = {}) => {
-    const plain = toPlain(values);
+const appendIfPresent = (formData, key, value, serialize = value => String(value)) => {
+    if (value === undefined || value === null) {
+        return;
+    }
 
-    const textureSize = plain.texture_size === "Original"
-        ? "Original"
-        : String(plain.texture_size || "Original");
-
-    return {
-        name: plain.name || "Cube Material",
-
-        surface: toPlain(plain.surface),
-        geometry: toPlain(plain.geometry),
-        mesh: toPlain(plain.mesh),
-        light: toPlain(plain.light),
-        bitmap_maps: toPlain(plain.bitmap_maps),
-        uv: toPlain(plain.uv),
-        particle_system: toPlain(plain.particle_system),
-        shader_graph: toPlain(plain.shader_graph),
-
-        cube_size: Number(plain.cube_size || 256),
-        texture_size: textureSize,
-        rotate_preview: plain.rotate_preview !== false,
-        wireframe_preview: plain.wireframe_preview === true,
-        faces_preview: plain.faces_preview === true,
-        vertices_preview: plain.vertices_preview === true,
-        fluid_mesh_preview: plain.fluid_mesh_preview !== false,
-        fluid_particle_preview: plain.fluid_particle_preview !== false,
-
-        blend_mode: plain.blend_mode || "BLEND",
-        alpha_clip: Math.min(Math.max(Number(plain.alpha_clip ?? 0.5), 0), 1),
-        shadow_method: plain.shadow_method || "HASHED",
-        use_nodes: plain.use_nodes !== false,
-    };
+    formData.append(key, serialize(value));
 };
 
 export const appendMaterialForm = (formData, values = {}) => {
-    const normalized = normalizeMaterialValuesForApi(values);
+    const plain = toPlain(values);
 
-    const surfaceJson = stringify(normalized.surface);
-    const geometryJson = stringify(normalized.geometry);
-    const meshJson = stringify(normalized.mesh);
-    const bitmapMapsJson = stringify(normalized.bitmap_maps);
-    const uvJson = stringify(normalized.uv);
-    const particleSystemJson = stringify(normalized.particle_system);
-    const shaderGraphJson = stringify(normalized.shader_graph);
-    const valuesJson = stringify(normalized);
+    appendIfPresent(formData, "name", plain.name);
 
-    formData.append("name", normalized.name);
+    appendIfPresent(formData, "surface", plain.surface, stringify);
+    appendIfPresent(formData, "geometry", plain.geometry, stringify);
+    appendIfPresent(formData, "mesh", plain.mesh, stringify);
+    appendIfPresent(formData, "light", plain.light, stringify);
+    appendIfPresent(formData, "physics", plain.physics, stringify);
+    appendIfPresent(formData, "bitmap_maps", plain.bitmap_maps, stringify);
+    appendIfPresent(formData, "uv", plain.uv, stringify);
+    appendIfPresent(formData, "particle_system", plain.particle_system, stringify);
+    appendIfPresent(formData, "shader_graph", plain.shader_graph, stringify);
 
-    formData.append("surface", surfaceJson);
-    formData.append("geometry", geometryJson);
-    formData.append("mesh", meshJson);
-    formData.append("bitmap_maps", bitmapMapsJson);
-    formData.append("uv", uvJson);
-    formData.append("particle_system", particleSystemJson);
-    formData.append("shader_graph", shaderGraphJson);
+    appendIfPresent(formData, "cube_size", plain.cube_size);
+    appendIfPresent(formData, "texture_size", plain.texture_size);
+    appendIfPresent(formData, "rotate_preview", plain.rotate_preview);
+    appendIfPresent(formData, "wireframe_preview", plain.wireframe_preview);
+    appendIfPresent(formData, "faces_preview", plain.faces_preview);
+    appendIfPresent(formData, "vertices_preview", plain.vertices_preview);
+    appendIfPresent(formData, "fluid_mesh_preview", plain.fluid_mesh_preview);
+    appendIfPresent(formData, "fluid_particle_preview", plain.fluid_particle_preview);
 
-    formData.append("cube_size", String(normalized.cube_size));
-    formData.append("texture_size", String(normalized.texture_size));
-    formData.append("rotate_preview", boolValue(normalized.rotate_preview));
-    formData.append("wireframe_preview", boolValue(normalized.wireframe_preview));
-    formData.append("faces_preview", boolValue(normalized.faces_preview));
-    formData.append("vertices_preview", boolValue(normalized.vertices_preview));
-    formData.append("fluid_mesh_preview", boolValue(normalized.fluid_mesh_preview));
-    formData.append("fluid_particle_preview", boolValue(normalized.fluid_particle_preview));
+    appendIfPresent(formData, "blend_mode", plain.blend_mode);
+    appendIfPresent(formData, "render_backend", plain.render_backend);
+    appendIfPresent(formData, "alpha_clip", plain.alpha_clip);
+    appendIfPresent(formData, "shadow_method", plain.shadow_method);
+    appendIfPresent(formData, "backface_culling", plain.backface_culling);
+    appendIfPresent(formData, "show_backface", plain.show_backface);
+    appendIfPresent(formData, "screen_space_refraction", plain.screen_space_refraction);
+    appendIfPresent(formData, "refraction_depth", plain.refraction_depth);
+    appendIfPresent(formData, "subsurface_translucency", plain.subsurface_translucency);
+    appendIfPresent(formData, "use_nodes", plain.use_nodes);
 
-    formData.append("blend_mode", normalized.blend_mode);
-    formData.append("alpha_clip", String(normalized.alpha_clip));
-    formData.append("shadow_method", normalized.shadow_method);
-    formData.append("use_nodes", boolValue(normalized.use_nodes));
-
-    formData.append("values", valuesJson);
+    formData.append("values", stringify(plain));
 };
 
 const assertPayload = payload => {
@@ -118,7 +88,7 @@ const assertPayload = payload => {
 
     return {
         layer,
-        values: normalizeMaterialValuesForApi(values),
+        values,
     };
 };
 

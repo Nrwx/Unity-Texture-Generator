@@ -3086,6 +3086,10 @@ class MaterialModel(BaseModel):
         shader_graph_data = raw_values.get("shader_graph", shader_graph)
         mesh_data = raw_values.get("mesh", fallbacks.get("mesh", {}))
         particle_system_data = raw_values.get("particle_system", fallbacks.get("particle_system", {}))
+        light_data = raw_values.get("light", fallbacks.get("light", {}))
+        physics_data = raw_values.get("physics", fallbacks.get("physics", {}))
+        settings_data = raw_values.get("settings", fallbacks.get("settings", {}))
+        preview_data = raw_values.get("preview", fallbacks.get("preview", {}))
 
         if not isinstance(surface_data, dict):
             surface_data = json_loads(surface_data, {})
@@ -3108,8 +3112,36 @@ class MaterialModel(BaseModel):
         if not isinstance(particle_system_data, dict):
             particle_system_data = json_loads(particle_system_data, {})
 
+        if not isinstance(light_data, dict):
+            light_data = json_loads(light_data, {})
+
+        if not isinstance(physics_data, dict):
+            physics_data = json_loads(physics_data, {})
+
+        if not isinstance(settings_data, dict):
+            settings_data = json_loads(settings_data, {})
+
+        if not isinstance(preview_data, dict):
+            preview_data = json_loads(preview_data, {})
+
+        def value_from_contract(key, default=None):
+            if key in raw_values:
+                return raw_values.get(key)
+            if isinstance(settings_data, dict) and key in settings_data:
+                return settings_data.get(key)
+            return default
+
+        def preview_value(key, settings_key, default=None):
+            if key in raw_values:
+                return raw_values.get(key)
+            if isinstance(settings_data, dict) and settings_key in settings_data:
+                return settings_data.get(settings_key)
+            if isinstance(preview_data, dict) and key in preview_data:
+                return preview_data.get(key)
+            return default
+
         resolved = {
-            "name": raw_values.get("name", name or "Cube Material"),
+            "name": value_from_contract("name", name or "Cube Material"),
 
             "surface": surface_data if isinstance(surface_data, dict) else {},
             "geometry": geometry_data if isinstance(geometry_data, dict) else {},
@@ -3118,18 +3150,27 @@ class MaterialModel(BaseModel):
             "shader_graph": shader_graph_data if isinstance(shader_graph_data, dict) else {},
             "mesh": mesh_data if isinstance(mesh_data, dict) else {},
             "particle_system": particle_system_data if isinstance(particle_system_data, dict) else {},
+            "light": light_data if isinstance(light_data, dict) else {},
+            "physics": physics_data if isinstance(physics_data, dict) else {},
 
-            "cube_size": raw_values.get("cube_size", cube_size),
-            "rotate_preview": raw_values.get("rotate_preview", rotate_preview),
-            "wireframe_preview": raw_values.get("wireframe_preview", wireframe_preview),
-            "faces_preview": raw_values.get("faces_preview", faces_preview),
-            "vertices_preview": raw_values.get("vertices_preview", vertices_preview),
-            "fluid_mesh_preview": raw_values.get("fluid_mesh_preview", fluid_mesh_preview),
-            "fluid_particle_preview": raw_values.get("fluid_particle_preview", fluid_particle_preview),
-            "blend_mode": raw_values.get("blend_mode", blend_mode or "BLEND"),
-            "shadow_method": raw_values.get("shadow_method", shadow_method or "HASHED"),
-            "use_nodes": raw_values.get("use_nodes", use_nodes),
-            "texture_size": cls.normalize_texture_size(raw_values.get("texture_size", raw_values.get("TEXTURE_SIZE",fallbacks.get("texture_size", texture_size))))
+            "cube_size": value_from_contract("cube_size", cube_size),
+            "rotate_preview": preview_value("rotate_preview", "rotate_preview", rotate_preview),
+            "wireframe_preview": preview_value("wireframe_preview", "wireframe_preview", preview_data.get("wireframe", wireframe_preview) if isinstance(preview_data, dict) else wireframe_preview),
+            "faces_preview": preview_value("faces_preview", "faces_preview", preview_data.get("faces", faces_preview) if isinstance(preview_data, dict) else faces_preview),
+            "vertices_preview": preview_value("vertices_preview", "vertices_preview", preview_data.get("vertices", vertices_preview) if isinstance(preview_data, dict) else vertices_preview),
+            "fluid_mesh_preview": preview_value("fluid_mesh_preview", "fluid_mesh_preview", preview_data.get("fluid_mesh", fluid_mesh_preview) if isinstance(preview_data, dict) else fluid_mesh_preview),
+            "fluid_particle_preview": preview_value("fluid_particle_preview", "fluid_particle_preview", preview_data.get("fluid_particles", fluid_particle_preview) if isinstance(preview_data, dict) else fluid_particle_preview),
+            "blend_mode": value_from_contract("blend_mode", blend_mode or "BLEND"),
+            "shadow_method": value_from_contract("shadow_method", shadow_method or "HASHED"),
+            "use_nodes": value_from_contract("use_nodes", use_nodes),
+            "render_backend": value_from_contract("render_backend", "WEBGL2"),
+            "alpha_clip": value_from_contract("alpha_clip", 0.5),
+            "backface_culling": value_from_contract("backface_culling", False),
+            "show_backface": value_from_contract("show_backface", True),
+            "screen_space_refraction": value_from_contract("screen_space_refraction", False),
+            "refraction_depth": value_from_contract("refraction_depth", 0.0),
+            "subsurface_translucency": value_from_contract("subsurface_translucency", False),
+            "texture_size": cls.normalize_texture_size(value_from_contract("texture_size", raw_values.get("TEXTURE_SIZE", fallbacks.get("texture_size", texture_size))))
         }
 
         resolved["name"] = str(resolved.get("name") or "Cube Material")
@@ -3141,6 +3182,15 @@ class MaterialModel(BaseModel):
         resolved["fluid_mesh_preview"] = cls.safe_bool(resolved.get("fluid_mesh_preview"))
         resolved["fluid_particle_preview"] = cls.safe_bool(resolved.get("fluid_particle_preview"))
         resolved["use_nodes"] = cls.safe_bool(resolved.get("use_nodes"))
+        resolved["render_backend"] = str(resolved.get("render_backend") or "WEBGL2").upper()
+        if resolved["render_backend"] not in {"CANVAS2D", "WEBGL2"}:
+            resolved["render_backend"] = "WEBGL2"
+        resolved["alpha_clip"] = cls.clamp(cls.safe_float(resolved.get("alpha_clip"), 0.5), 0.0, 1.0)
+        resolved["backface_culling"] = cls.safe_bool(resolved.get("backface_culling"))
+        resolved["show_backface"] = cls.safe_bool(resolved.get("show_backface"))
+        resolved["screen_space_refraction"] = cls.safe_bool(resolved.get("screen_space_refraction"))
+        resolved["refraction_depth"] = cls.clamp(cls.safe_float(resolved.get("refraction_depth"), 0.0), 0.0, 100.0)
+        resolved["subsurface_translucency"] = cls.safe_bool(resolved.get("subsurface_translucency"))
         resolved["blend_mode"] = str(resolved.get("blend_mode") or "BLEND")
         resolved["shadow_method"] = str(resolved.get("shadow_method") or "HASHED")
 
@@ -3243,6 +3293,8 @@ class MaterialModel(BaseModel):
         )
         mesh = cls.normalize_mesh(payload.get("mesh", {}), fallback_mesh)
         particle_system = cls.normalize_particle_system(payload.get("particle_system", {}))
+        light = payload.get("light", {}) if isinstance(payload.get("light", {}), dict) else {}
+        physics = payload.get("physics", {}) if isinstance(payload.get("physics", {}), dict) else {}
         preview_rotate = bool(payload["rotate_preview"])
 
         shader = cls.build_shader_payload(
@@ -3253,6 +3305,7 @@ class MaterialModel(BaseModel):
             shader_graph=normalized_graph,
         )
         shader["particle_system"] = particle_system
+        shader["light"] = light
 
         primary_url = cls.resolve_primary_preview_url({
             "bitmap_maps": normalized_maps,
@@ -3308,6 +3361,8 @@ class MaterialModel(BaseModel):
             "uv": normalized_uv,
             "shader_graph": normalized_graph,
             "particle_system": particle_system,
+            "light": light,
+            "physics": physics,
 
             "texture": texture,
             "material": material,
@@ -3329,10 +3384,18 @@ class MaterialModel(BaseModel):
             },
 
             "settings": {
+                "render_backend": payload["render_backend"],
                 "blend_mode": payload["blend_mode"],
+                "alpha_clip": payload["alpha_clip"],
                 "shadow_method": payload["shadow_method"],
+                "backface_culling": bool(payload["backface_culling"]),
+                "show_backface": bool(payload["show_backface"]),
+                "screen_space_refraction": bool(payload["screen_space_refraction"]),
+                "refraction_depth": payload["refraction_depth"],
+                "subsurface_translucency": bool(payload["subsurface_translucency"]),
                 "use_nodes": bool(payload["use_nodes"]),
                 "texture_size": texture_size,
+                "texture_lod_key": cls.texture_lod_key(texture_size),
                 "texture_preload": TEXTURE_PRELOAD_OPTIONS,
                 "cube_size": payload["cube_size"],
                 "rotate_preview": preview_rotate,
@@ -3488,6 +3551,8 @@ class MaterialModel(BaseModel):
             "uv": package["uv"],
             "shader_graph": package["shader_graph"],
             "particle_system": package.get("particle_system", {}),
+            "light": package.get("light", {}),
+            "physics": package.get("physics", {}),
 
             "material": package["material"],
             "mesh": package["mesh"],
@@ -3552,6 +3617,8 @@ class MaterialModel(BaseModel):
             "uv": package["uv"],
             "shader_graph": package["shader_graph"],
             "particle_system": package.get("particle_system", {}),
+            "light": package.get("light", {}),
+            "physics": package.get("physics", {}),
 
             "material": package["material"],
             "mesh": package["mesh"],

@@ -710,7 +710,7 @@ export function materialEditorModel(props, emit) {
     });
 
     const previewLayer = computed(() => {
-        const normalized = normalizeValues();
+        const normalized = buildMaterialDraft();
         const backendLayer = getBackendPreviewLayer(normalized);
 
         if (backendLayer) {
@@ -1768,7 +1768,7 @@ export function materialEditorModel(props, emit) {
         }
     );
 
-    const normalizeValues = ({ preview = false } = {}) => ({
+    const buildMaterialDraft = ({ preview = false } = {}) => ({
         name: values.name || "Cube Material",
 
         surface: clone(values.surface, 'json'),
@@ -3881,60 +3881,60 @@ export function materialEditorModel(props, emit) {
 
             surface: {
                 ...cloneData(layerValues.surface || layerValues.principled_bsdf || {}),
-                ...cloneData(packageValues.surface || packageValues.principled_bsdf || {}),
                 ...cloneData(layer?.surface || {}),
+                ...cloneData(packageValues.surface || packageValues.principled_bsdf || {}),
             },
 
             geometry: {
                 ...cloneData(layerValues.geometry || {}),
-                ...cloneData(packageValues.geometry || {}),
                 ...cloneData(layer?.geometry || {}),
+                ...cloneData(packageValues.geometry || {}),
             },
 
             mesh: {
                 ...cloneData(layerValues.mesh || {}),
-                ...cloneData(packageValues.mesh || {}),
                 ...cloneData(layer?.mesh || {}),
+                ...cloneData(packageValues.mesh || {}),
             },
 
             particle_system: {
                 ...cloneData(layerValues.particle_system || {}),
-                ...cloneData(packageValues.particle_system || {}),
                 ...cloneData(layer?.particle_system || {}),
+                ...cloneData(packageValues.particle_system || {}),
             },
 
             light: {
                 ...cloneData(layerValues.light || {}),
-                ...cloneData(packageValues.light || {}),
-                ...cloneData(packageValues.settings?.light || {}),
                 ...cloneData(layer?.light || {}),
                 ...cloneData(layer?.settings?.light || {}),
+                ...cloneData(packageValues.light || {}),
+                ...cloneData(packageValues.settings?.light || {}),
             },
 
             bitmap_maps: {
                 ...cloneData(layerValues.bitmap_maps || {}),
-                ...cloneData(packageValues.bitmap_maps || {}),
                 ...cloneData(layer?.bitmap_maps || {}),
+                ...cloneData(packageValues.bitmap_maps || {}),
             },
 
             uv: {
                 ...cloneData(layerValues.uv || {}),
-                ...cloneData(packageValues.uv || {}),
                 ...cloneData(layer?.uv || {}),
+                ...cloneData(packageValues.uv || {}),
             },
 
             shader_graph: resolveImportedShaderGraphSource(layer, packageValues),
 
             preview: {
                 ...cloneData(layerValues.preview || {}),
-                ...cloneData(packageValues.preview || {}),
                 ...cloneData(layer?.preview || {}),
+                ...cloneData(packageValues.preview || {}),
             },
 
             settings: {
                 ...cloneData(layerValues.settings || {}),
-                ...cloneData(packageValues.settings || {}),
                 ...cloneData(layer?.settings || {}),
+                ...cloneData(packageValues.settings || {}),
             },
         };
     };
@@ -4571,7 +4571,7 @@ export function materialEditorModel(props, emit) {
             syncAllSurfaceSlotsFromShaderGraph();
             syncSurfaceOffsetsFromNodes();
 
-            return normalizeValues({ preview });
+            return buildMaterialDraft({ preview });
         } finally {
             queueMicrotask(() => {
                 pauseAutoSync.value = false;
