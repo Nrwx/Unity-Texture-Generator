@@ -133,6 +133,7 @@ export function materialEditorModel(props, emit) {
     const collapsedNodeIds = reactive({});
     const nodeLayoutVersion = ref(0);
     const socketOffsetMemory = {};
+    const uvImageCache = new Map();
     const uvViewport = reactive({
         zoom: 1,
         panX: 0,
@@ -710,14 +711,18 @@ export function materialEditorModel(props, emit) {
         return values.uv.faces[values.uv.active_face];
     });
 
+    const activeUvIsland = computed(() => (
+        values.uv.islands.find(island => island.id === values.uv.active_island_id) ||
+        values.uv.islands[0] ||
+        null
+    ));
+
     const hasUvMapNode = computed(() => values.shader_graph.nodes.some(node => (
         node?.settings?.node_key === "uv.map"
     )));
 
     const hasUvCubemapNode = computed(() => values.shader_graph.nodes.some(node => (
-        node?.settings?.node_key === "uv.cubemap" ||
-        node?.id === "uv-cubemap-layout" ||
-        (node?.settings?.node_key === "uv.map" && node?.generated === true && node?.system === "uv-cubemap")
+        node?.settings?.node_key === "uv.cubemap"
     )));
 
     const showUvModeSwitch = computed(() => hasUvMapNode.value && hasUvCubemapNode.value);
@@ -756,8 +761,7 @@ export function materialEditorModel(props, emit) {
 
     const activeUvFaceBitmap = computed(() => {
         if (values.uv.view_mode === "unwrap") {
-            const activeIsland = values.uv.islands.find(island => island.id === values.uv.active_island_id);
-            return activeIsland?.bitmap || values.bitmap_maps.baseColor || {};
+            return activeUvIsland.value?.bitmap || values.bitmap_maps.baseColor || {};
         }
 
         return activeUvFace.value?.bitmap || {};
@@ -787,6 +791,18 @@ export function materialEditorModel(props, emit) {
         };
     });
 
+    const unwrapReferenceMetrics = computed(() => {
+        const island = activeUvIsland.value || {};
+
+        return {
+            translateX: Math.round(Number(island.bitmap_translate_x || 0) * 1000) / 1000,
+            translateY: Math.round(Number(island.bitmap_translate_y || 0) * 1000) / 1000,
+            scaleX: Math.round(Number(island.bitmap_scale_x ?? 1) * 1000) / 1000,
+            scaleY: Math.round(Number(island.bitmap_scale_y ?? 1) * 1000) / 1000,
+            rotate: Math.round(Number(island.bitmap_rotate || 0) * 100) / 100,
+        };
+    });
+
     const uvFaceLayout = computed(() => [
         { face: "top", col: 2, row: 1 },
         { face: "left", col: 1, row: 2 },
@@ -795,6 +811,15 @@ export function materialEditorModel(props, emit) {
         { face: "back", col: 4, row: 2 },
         { face: "bottom", col: 2, row: 3 },
     ]);
+
+    const uvIslandLayout = computed(() => values.uv.islands.map((island, index) => ({
+        id: island.id,
+        label: island.name || island.faceName || `Island ${index + 1}`,
+        detail: island.bitmap?.name || island.faceName || island.primitive || "unwrap",
+        selected: (values.uv.selected_island_ids || []).includes(island.id),
+        active: values.uv.active_island_id === island.id,
+        mapped: Boolean(island.bitmap?.url || island.bitmaps?.baseColor?.url),
+    })));
 
     const getGraphNode = id => {
         return values.shader_graph.nodes.find(node => node.id === id);
@@ -1949,9 +1974,7 @@ export function materialEditorModel(props, emit) {
 
     const hasUvShaderNode = () => Boolean(getFirstUvShaderNode());
 
-    const connectMaterialSlotBitmapNodesToFirstUv = () => {
-        const uvNode = getFirstUvShaderNode();
-
+    const connectMaterialSlotBitmapNodesToUvNode = uvNode => {
         if (!uvNode) {
             return;
         }
@@ -3149,7 +3172,11 @@ export function materialEditorModel(props, emit) {
             };
         }
 
-        if (hasUvShaderNode()) {
+        const uvNode = ensureDefaultUvMapNode();
+
+        if (uvNode) {
+            connectUvNodeToBitmapNode(nodeId, uvNode);
+        } else if (hasUvShaderNode()) {
             connectUvNodeToBitmapNode(nodeId);
         }
 
@@ -3457,6 +3484,17 @@ export function materialEditorModel(props, emit) {
                 };
             }
 
+            if (node.id === "uv-cubemap-layout" && node.system === "uv-cubemap") {
+                node.settings = {
+                    ...(node.settings || {}),
+                    node_key: "uv.cubemap",
+                    node_name: "UV-CubeMap",
+                    group: "UV",
+                    mode: "cubemap",
+                    uv_map: "CubeMap",
+                };
+            }
+
             const settings = normalizeNodeSettings(node);
             const definition = Node.get(settings.node_key);
 
@@ -3503,8 +3541,6 @@ export function materialEditorModel(props, emit) {
             ...edge,
             core: isMaterialOutputEdge(edge),
         }));
-
-        connectMaterialSlotBitmapNodesToFirstUv();
 
         if (!pauseAutoSync.value) {
             SURFACE_FIELDS.forEach(field => {
@@ -3571,6 +3607,7 @@ export function materialEditorModel(props, emit) {
 
         ensureCoreNodes();
 
+        const hadUvShaderNode = hasUvShaderNode();
         const node = createShaderNode(descriptor.key, position || {
             x: 280,
             y: 120 + values.shader_graph.nodes.length * 30,
@@ -3581,6 +3618,13 @@ export function materialEditorModel(props, emit) {
         }
 
         values.shader_graph.nodes.push(node);
+
+        if (
+            (node.settings.node_key === "uv.map" || node.settings.node_key === "uv.cubemap") &&
+            !hadUvShaderNode
+        ) {
+            connectMaterialSlotBitmapNodesToUvNode(node);
+        }
 
         if (
             (
@@ -3630,8 +3674,8 @@ export function materialEditorModel(props, emit) {
         requestPreviewDebounced();
     };
 
-    const connectUvNodeToBitmapNode = bitmapNodeId => {
-        const uvNode = getFirstUvShaderNode();
+    const connectUvNodeToBitmapNode = (bitmapNodeId, preferredUvNode = null) => {
+        const uvNode = preferredUvNode || getFirstUvShaderNode();
         const bitmapNode = getGraphNode(bitmapNodeId);
 
         if (!uvNode || !bitmapNode || !bitmapNode.inputs?.uv) {
@@ -3847,6 +3891,38 @@ export function materialEditorModel(props, emit) {
 
     const CUBE_FACE_ORDER = ["front", "back", "left", "right", "top", "bottom"];
 
+    const getCubemapTextureLayers = () => {
+        const layers = textureLayers.value.filter(isUsableTextureLayer);
+
+        if (layers.length) {
+            return layers;
+        }
+
+        return selectedSourceLayer.value && isUsableTextureLayer(selectedSourceLayer.value)
+            ? [selectedSourceLayer.value]
+            : [];
+    };
+
+    const ensureCubemapFaceTexturesFromLayers = () => {
+        const layers = getCubemapTextureLayers();
+
+        if (!layers.length) {
+            return false;
+        }
+
+        CUBE_FACE_ORDER.forEach((face, index) => {
+            const layer = layers[index % layers.length];
+
+            assignLayerToUvFace(face, layer);
+        });
+
+        values.uv.mode = "cubemap";
+        values.uv.view_mode = "cubemap";
+        values.uv.selected_faces = [...CUBE_FACE_ORDER];
+
+        return true;
+    };
+
     const getMappedUvFaces = () => {
         return CUBE_FACE_ORDER.filter(face => Boolean(values.uv.faces[face]?.bitmap?.url));
     };
@@ -3857,6 +3933,30 @@ export function materialEditorModel(props, emit) {
 
     const getMappedUvTextureGroups = () => {
         const mappedFaces = getMappedUvFaces();
+
+        if ((values.uv.mode === "cubemap" || values.uv.view_mode === "cubemap") && hasUvCubemapNode.value) {
+            return CUBE_FACE_ORDER
+                .map((face, index) => {
+                    const bitmap = values.uv.faces[face]?.bitmap || {};
+                    const url = normalizeTextureUrl(bitmap.url);
+
+                    if (!url && !bitmap.layer_id) {
+                        return null;
+                    }
+
+                    return {
+                        url,
+                        layer_id: bitmap.layer_id || "",
+                        name: bitmap.name || bitmap.layer_id || `CubeMap ${face}`,
+                        filename: bitmap.filename || "",
+                        cached: bitmap.cached === true,
+                        bitmap,
+                        slot: `texture_${index + 1}`,
+                        faces: [face],
+                    };
+                })
+                .filter(Boolean);
+        }
 
         const groups = mappedFaces.reduce((acc, face) => {
             const bitmap = values.uv.faces[face]?.bitmap || {};
@@ -4216,6 +4316,46 @@ export function materialEditorModel(props, emit) {
         const groups = new Map();
         const mappedFaces = [];
 
+        if ((values.uv.mode === "cubemap" || values.uv.view_mode === "cubemap") && hasUvCubemapNode.value) {
+            const textureGroups = getMappedUvTextureGroups().map((group, index) => ({
+                url: group.url || "",
+                layer_id: group.layer_id || "",
+                name: group.name || `CubeMap ${index + 1}`,
+                filename: group.filename || "",
+                cached: group.cached === true,
+                ...mergeTextureSettingsForSlot(slotKey, slot, group.bitmap || group),
+                slot: `texture_${index + 1}`,
+                faces: group.faces || [],
+            }));
+
+            values.bitmap_maps[slotKey] = {
+                ...slot,
+                enabled: textureGroups.length > 0,
+                source_type: textureGroups.length > 0 ? "multitexture" : "none",
+
+                layer_id: "",
+                url: "",
+                name: textureGroups.length
+                    ? `${slotKey} CubeMap MultiTexture`
+                    : "",
+
+                node_id: textureGroups.length > 0 ? "uv-cubemap-multitexture" : "",
+                uv_node_id: textureGroups.length > 0 ? "uv-cubemap-layout" : "",
+
+                faces,
+                mapped_faces: textureGroups.flatMap(group => group.faces || []),
+                texture_groups: textureGroups,
+
+                ...mergeTextureSettingsForSlot(slotKey, slot),
+                strength: slot.strength ?? 1,
+                offset: slot.offset ?? 0,
+                invert: slot.invert === true,
+                blend: slot.blend || "replace",
+            };
+
+            return;
+        }
+
         Object.entries(faces).forEach(([faceName, face]) => {
             const bitmap = face?.bitmap || {};
             const url = bitmap.url || "";
@@ -4520,20 +4660,24 @@ export function materialEditorModel(props, emit) {
 
         targetSlots.forEach(removeAutoBitmapNode);
 
-        const uvNodeId = "uv-cubemap-layout";
+        const existingCubemapNode = values.shader_graph.nodes.find(node => (
+            node?.settings?.node_key === "uv.cubemap"
+        ));
+        const uvNodeId = existingCubemapNode?.id || "uv-cubemap-layout";
 
         const uvNode = {
+            ...(existingCubemapNode || {}),
             id: uvNodeId,
             type: "UV",
             label: "UV-CubeMap",
             locked: false,
-            generated: true,
-            system: "uv-cubemap",
+            generated: existingCubemapNode ? existingCubemapNode.generated === true : true,
+            system: existingCubemapNode?.system || "uv-cubemap",
             position: getPreservedNodePosition(
                 preservedUvNodePositions,
                 uvNodeId,
                 getNodePosition(
-                    getGraphNode(uvNodeId),
+                    existingCubemapNode || getGraphNode(uvNodeId),
                     { x: 70, y: 430 }
                 ),
             ),
@@ -4572,7 +4716,13 @@ export function materialEditorModel(props, emit) {
             }),
         };
 
-        values.shader_graph.nodes.push(uvNode);
+        if (existingCubemapNode) {
+            values.shader_graph.nodes = values.shader_graph.nodes.map(node => (
+                node.id === existingCubemapNode.id ? uvNode : node
+            ));
+        } else {
+            values.shader_graph.nodes.push(uvNode);
+        }
 
         const restoreGeneratedBridges = () => {
             restoreGeneratedUvBridgeEdges(generatedUvBridgeEdges);
@@ -4850,6 +5000,14 @@ export function materialEditorModel(props, emit) {
             return;
         }
 
+        if (mode === "unwrap" && !hasUvMapNode.value) {
+            return;
+        }
+
+        if (mode === "cubemap" && !hasUvCubemapNode.value) {
+            return;
+        }
+
         values.uv.mode = mode;
         values.uv.view_mode = mode;
 
@@ -4857,7 +5015,24 @@ export function materialEditorModel(props, emit) {
             rebuildMaterialMesh({ preserveLayout: values.uv.vertices.length > 0 });
         }
 
+        if (mode === "cubemap") {
+            ensureCubemapFaceTexturesFromLayers();
+            syncUvCubeMapToShaderGraph();
+        }
+
         await drawUvCanvas();
+        requestPreviewDebounced();
+    };
+
+    const selectUvIsland = async (islandId, event = null) => {
+        const additive = event?.shiftKey || event?.ctrlKey || event?.metaKey;
+        values.uv = UV.selectIsland(values.uv, islandId, { additive });
+        await drawUvCanvas();
+    };
+
+    const syncUnwrapReferenceMap = async () => {
+        await drawUvCanvas();
+        syncUvToBitmapSlot("baseColor");
         requestPreviewDebounced();
     };
 
@@ -4956,9 +5131,17 @@ export function materialEditorModel(props, emit) {
                 return;
             }
 
+            if (uvImageCache.has(url)) {
+                resolve(uvImageCache.get(url));
+                return;
+            }
+
             const image = new Image();
             image.crossOrigin = "anonymous";
-            image.onload = () => resolve(image);
+            image.onload = () => {
+                uvImageCache.set(url, image);
+                resolve(image);
+            };
             image.onerror = () => resolve(null);
             image.src = url;
         });
@@ -4974,6 +5157,21 @@ export function materialEditorModel(props, emit) {
 
     const getFaceRect = (face, gridX, gridY, gridW, gridH) => {
         const data = values.uv.faces[face];
+
+        if (values.uv.view_mode === "cubemap") {
+            const cell = Math.min(gridW / 4, gridH / 3);
+            const atlasW = cell * 4;
+            const atlasH = cell * 3;
+            const atlasX = gridX + (gridW - atlasW) * 0.5;
+            const atlasY = gridY + (gridH - atlasH) * 0.5;
+
+            return {
+                x: atlasX + Math.round(Number(data.x || 0) * 4) * cell,
+                y: atlasY + Math.round(Number(data.y || 0) * 3) * cell,
+                w: cell,
+                h: cell,
+            };
+        }
 
         return {
             x: gridX + data.x * gridW,
@@ -5018,14 +5216,33 @@ export function materialEditorModel(props, emit) {
         );
     };
 
+    const getUnwrapReferenceTransform = island => ({
+        translateX: Number(island?.bitmap_translate_x || 0),
+        translateY: Number(island?.bitmap_translate_y || 0),
+        scaleX: Number(island?.bitmap_scale_x ?? 1) || 1,
+        scaleY: Number(island?.bitmap_scale_y ?? 1) || 1,
+        rotate: Number(island?.bitmap_rotate || 0),
+    });
+
     const drawUnwrapCanvas = async ({ ctx, height, gridX, gridY, gridW, gridH }) => {
-        const backgroundUrl = getUnwrapBitmapUrl(values.uv.islands?.[0]);
+        const referenceIsland = activeUvIsland.value || values.uv.islands?.[0];
+        const backgroundUrl = getUnwrapBitmapUrl(referenceIsland);
         const background = await loadImageFromUrl(backgroundUrl);
 
         if (background) {
+            const transform = getUnwrapReferenceTransform(referenceIsland);
+            const centerX = gridX + gridW * 0.5 + transform.translateX * gridW;
+            const centerY = gridY + gridH * 0.5 + transform.translateY * gridH;
+
             ctx.save();
+            ctx.beginPath();
+            ctx.rect(gridX, gridY, gridW, gridH);
+            ctx.clip();
             ctx.globalAlpha = 0.32;
-            ctx.drawImage(background, gridX, gridY, gridW, gridH);
+            ctx.translate(centerX, centerY);
+            ctx.rotate((transform.rotate * Math.PI) / 180);
+            ctx.scale(transform.scaleX, transform.scaleY);
+            ctx.drawImage(background, -gridW / 2, -gridH / 2, gridW, gridH);
             ctx.restore();
         }
 
@@ -5442,6 +5659,7 @@ export function materialEditorModel(props, emit) {
         const point = getUvPointFromEvent(event);
         const vertex = UV.pickVertex(values.uv, point, 0.018 / uvViewport.zoom);
         const additive = event.shiftKey || event.ctrlKey || event.metaKey;
+        pauseAutoSync.value = true;
 
         if (vertex) {
             values.uv = UV.selectVertex(values.uv, vertex.id, { additive });
@@ -5455,6 +5673,9 @@ export function materialEditorModel(props, emit) {
             } else {
                 values.uv = UV.clearSelection(values.uv);
                 uvDragState.mode = "";
+                queueMicrotask(() => {
+                    pauseAutoSync.value = false;
+                });
                 await drawUvCanvas();
                 return;
             }
@@ -5500,7 +5721,10 @@ export function materialEditorModel(props, emit) {
         window.removeEventListener("mousemove", moveUvCanvasPointer);
         window.removeEventListener("mouseup", stopUvCanvasPointer);
 
-        syncUvAndPreview();
+        queueMicrotask(() => {
+            pauseAutoSync.value = false;
+            syncUvAndPreview();
+        });
     };
 
     const requestPreviewNow = () => {
@@ -5529,6 +5753,31 @@ export function materialEditorModel(props, emit) {
         if (ui.value.activeTab === "uv") {
             drawUvCanvas();
         }
+    };
+
+    const ensureDefaultUvMapNode = () => {
+        let node = values.shader_graph.nodes.find(item => item.settings?.node_key === "uv.map");
+
+        if (node) {
+            return node;
+        }
+
+        node = Node.create("uv.map", { x: 70, y: 260 }, {
+            id: "uv-map-layout",
+            generated: true,
+            system: "uv-map",
+            settings: {
+                uv_map: "Unwrap",
+                mode: "unwrap",
+            },
+        });
+
+        if (!node) {
+            return null;
+        }
+
+        values.shader_graph.nodes.push(node);
+        return node;
     };
 
     const requestPreviewDebounced = () => {
@@ -5769,7 +6018,10 @@ export function materialEditorModel(props, emit) {
         uvTextureLayerId,
         uvGridMetrics,
         uvFaceLayout,
+        uvIslandLayout,
         activeUvFace,
+        activeUvIsland,
+        unwrapReferenceMetrics,
         hasUvMapNode,
         hasUvCubemapNode,
         showUvModeSwitch,
@@ -5783,6 +6035,7 @@ export function materialEditorModel(props, emit) {
         activeSnapEdgeId,
         syncUvCubeMapToShaderGraph,
         syncUvAndPreview,
+        syncUnwrapReferenceMap,
         setPreviewSetting,
         handleGeometryChange,
 
@@ -5878,6 +6131,7 @@ export function materialEditorModel(props, emit) {
         handleLayerDragStart,
 
         selectUvLayer,
+        selectUvIsland,
         setUvEditorMode,
         setActiveUvFace,
         resetActiveUvFace,

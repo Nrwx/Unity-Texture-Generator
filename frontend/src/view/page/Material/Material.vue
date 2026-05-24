@@ -194,7 +194,7 @@
                     </template>
 
                     <button
-                        v-if="values.uv.view_mode !== 'unwrap'"
+                        v-if="hasUvCubemapNode && values.uv.view_mode !== 'unwrap'"
                         type="button"
                         class="mem-ghost-btn"
                         :class="{ active: values.uv.view_mode === 'face' }"
@@ -204,7 +204,7 @@
                     </button>
 
                     <button
-                        v-if="values.uv.view_mode !== 'unwrap'"
+                        v-if="hasUvCubemapNode && values.uv.view_mode !== 'unwrap'"
                         type="button"
                         class="mem-ghost-btn"
                         :class="{ active: values.uv.view_mode === 'cubemap' }"
@@ -214,7 +214,7 @@
                     </button>
 
                     <button
-                        v-if="values.uv.view_mode !== 'unwrap'"
+                        v-if="hasUvCubemapNode && values.uv.view_mode !== 'unwrap'"
                         type="button"
                         class="mem-ghost-btn"
                         @click="selectAllUvFaces"
@@ -444,6 +444,33 @@
                       v-else
                       class="mem-uv-side-column"
                   >
+                    <section class="mem-uv-card mem-uv-cubemap-card">
+                      <header class="mem-uv-card-head">
+                        <div>
+                          <strong>Islands</strong>
+                          <span>Dynamische Auswahl aus dem aktuellen Unwrap.</span>
+                        </div>
+                      </header>
+
+                      <div class="mem-uv-island-list">
+                        <button
+                            v-for="item in uvIslandLayout"
+                            :key="item.id"
+                            type="button"
+                            class="mem-uv-island-item"
+                            :class="{
+                              active: item.active,
+                              selected: item.selected,
+                              mapped: item.mapped
+                            }"
+                            @click="selectUvIsland(item.id, $event)"
+                        >
+                          <strong>{{ item.label }}</strong>
+                          <small>{{ item.detail }}</small>
+                        </button>
+                      </div>
+                    </section>
+
                     <section class="mem-uv-card mem-uv-inspector-card">
                       <header class="mem-uv-card-head">
                         <div>
@@ -473,6 +500,43 @@
                           <strong>{{ values.uv.triangles.length }}</strong>
                         </div>
                       </div>
+
+                      <template v-if="activeUvIsland">
+                        <div class="mem-uv-control-grid">
+                          <div
+                              v-for="key in ['bitmap_translate_x', 'bitmap_translate_y', 'bitmap_scale_x', 'bitmap_scale_y', 'bitmap_rotate']"
+                              :key="key"
+                              class="mem-control-card"
+                          >
+                            <header>
+                              <strong>{{ key.replace('bitmap_', '') }}</strong>
+                              <small>
+                                {{
+                                  key === 'bitmap_translate_x'
+                                      ? unwrapReferenceMetrics.translateX
+                                      : key === 'bitmap_translate_y'
+                                          ? unwrapReferenceMetrics.translateY
+                                          : key === 'bitmap_scale_x'
+                                              ? unwrapReferenceMetrics.scaleX
+                                              : key === 'bitmap_scale_y'
+                                                  ? unwrapReferenceMetrics.scaleY
+                                                  : unwrapReferenceMetrics.rotate
+                                }}
+                              </small>
+                            </header>
+
+                            <v-slider
+                                v-model="activeUvIsland[key]"
+                                :min="key === 'bitmap_rotate' ? -360 : key.includes('scale') ? 0.01 : -2"
+                                :max="key === 'bitmap_rotate' ? 360 : key.includes('scale') ? 10 : 2"
+                                :step="key === 'bitmap_rotate' ? 1 : 0.001"
+                                thumb-label
+                                hide-details
+                                @update:model-value="syncUnwrapReferenceMap"
+                            />
+                          </div>
+                        </div>
+                      </template>
                     </section>
                   </section>
                 </div>

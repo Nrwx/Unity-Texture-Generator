@@ -1619,6 +1619,60 @@ button {
   }
 }
 
+.mem-uv-island-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  max-height: 260px;
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid var(--mem-border);
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.mem-uv-island-item {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--mem-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--mem-muted);
+  text-align: left;
+  cursor: pointer;
+
+  strong,
+  small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  strong {
+    font-size: 0.72rem;
+    font-weight: 820;
+    text-transform: uppercase;
+  }
+
+  small {
+    font-size: 0.6rem;
+    opacity: 0.74;
+  }
+
+  &.mapped {
+    border-color: rgba(112, 223, 180, 0.30);
+  }
+
+  &.selected,
+  &.active {
+    border-color: rgba(97, 230, 255, 0.65);
+    background: rgba(97, 230, 255, 0.10);
+    color: var(--mem-text);
+  }
+}
+
 /* ----------------------------------------------------------
    Inspector + Metrics
    ---------------------------------------------------------- */
