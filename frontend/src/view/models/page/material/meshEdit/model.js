@@ -208,6 +208,107 @@ const validUniqueVertices = (indices, vertexCount, min = 2, max = 4) => {
     return values.length >= min && values.length <= max ? values : [];
 };
 
+const orderFaceVertices = ({ vertices, stride, values }) => {
+    if (!Array.isArray(values) || values.length <= 2) {
+        return values || [];
+    }
+
+    const points = values.map(index => ({
+        index,
+        point: Mesh.read3(vertices, stride, index),
+    }));
+
+    const center = points.reduce((acc, item) => ([
+        acc[0] + item.point[0] / points.length,
+        acc[1] + item.point[1] / points.length,
+        acc[2] + item.point[2] / points.length,
+    ]), [0, 0, 0]);
+
+    const normal = points.length >= 3
+        ? Mesh.triangleNormal(points[0].point, points[1].point, points[2].point)
+        : [0, 0, 1];
+
+    const abs = normal.map(Math.abs);
+    const dropAxis = abs[0] > abs[1] && abs[0] > abs[2]
+        ? 0
+        : abs[1] > abs[2]
+            ? 1
+            : 2;
+
+    const project = point => {
+        if (dropAxis === 0) return [point[1], point[2]];
+        if (dropAxis === 1) return [point[0], point[2]];
+        return [point[0], point[1]];
+    };
+
+    const [cx, cy] = project(center);
+
+    return points
+        .map(item => {
+            const [x, y] = project(item.point);
+            return {
+                ...item,
+                angle: Math.atan2(y - cy, x - cx),
+            };
+        })
+        .sort((a, b) => a.angle - b.angle)
+        .map(item => item.index);
+};
+
+const pushTriangulatedFace = ({ vertices, indices, stride, values }) => {
+    const ordered = orderFaceVertices({ vertices, stride, values });
+
+    if (ordered.length === 3) {
+        indices.push(ordered[0], ordered[1], ordered[2]);
+        return 1;
+    }
+
+    if (ordered.length === 4) {
+        indices.push(ordered[0], ordered[1], ordered[2], ordered[0], ordered[2], ordered[3]);
+        return 2;
+    }
+
+    if (ordered.length > 4) {
+        for (let i = 1; i + 1 < ordered.length; i += 1) {
+            indices.push(ordered[0], ordered[i], ordered[i + 1]);
+        }
+        return ordered.length - 2;
+    }
+
+    return 0;
+};
+
+const orderedVerticesFromEdges = (edgeKeys = []) => {
+    const pairs = edgeKeys.map(parseEdgeKey).filter(pair => pair.length >= 2 && pair[0] !== pair[1]);
+
+    if (!pairs.length) {
+        return [];
+    }
+
+    const adjacency = new Map();
+    pairs.forEach(([a, b]) => {
+        if (!adjacency.has(a)) adjacency.set(a, []);
+        if (!adjacency.has(b)) adjacency.set(b, []);
+        adjacency.get(a).push(b);
+        adjacency.get(b).push(a);
+    });
+
+    const start = Array.from(adjacency.keys()).find(key => adjacency.get(key).length === 1) ?? pairs[0][0];
+    const ordered = [start];
+    let previous = null;
+    let current = start;
+
+    while (ordered.length < adjacency.size) {
+        const next = (adjacency.get(current) || []).find(item => item !== previous && !ordered.includes(item));
+        if (next === undefined) break;
+        previous = current;
+        current = next;
+        ordered.push(current);
+    }
+
+    return ordered.length === adjacency.size ? ordered : unique(pairs.flat());
+};
+
 const collectSelectedVertices = ({ state, indices }) => {
     const out = new Set(selectedVertexIndices(state));
 
@@ -227,16 +328,15 @@ const collectSelectedVertices = ({ state, indices }) => {
 };
 
 const makeFaceFromVertices = ({ layer, mesh, vertices, indices, stride, values }) => {
-    if (values.length === 3) {
-        indices.push(values[0], values[1], values[2]);
-    }
+    const created = pushTriangulatedFace({ vertices, indices, stride, values });
 
-    if (values.length === 4) {
-        indices.push(values[0], values[1], values[2], values[0], values[2], values[3]);
+    if (!created) {
+        return null;
     }
 
     return applyMeshToLayer(layer, mesh, vertices, indices, stride, "geometry-edit:make-face", {
         uvPreserved: true,
+        faceCreated: true,
     });
 };
 
@@ -461,7 +561,8 @@ export const applyMeshEditOperation = ({ state, layer, action = "", payload = {}
             }
 
             if (values.length === 3 || values.length === 4) {
-                makeFaceFromVertices({
+                const startFace = Math.floor(indices.length / 3);
+                const created = makeFaceFromVertices({
                     layer,
                     mesh,
                     vertices,
@@ -470,9 +571,11 @@ export const applyMeshEditOperation = ({ state, layer, action = "", payload = {}
                     values,
                 });
 
-                state.selection.faces = [
-                    Math.floor((indices.length - (values.length === 4 ? 6 : 3)) / 3),
-                ];
+                if (!created) {
+                    return { changed: false, message: "Face konnte nicht erstellt werden." };
+                }
+
+                state.selection.faces = [startFace];
 
                 state.mode = "face";
                 state.lastAction =
@@ -485,14 +588,15 @@ export const applyMeshEditOperation = ({ state, layer, action = "", payload = {}
         }
 
         if (mode === "edge") {
-            const edgeVertices = unique(selectedEdges.flatMap(parseEdgeKey));
+            const edgeVertices = orderedVerticesFromEdges(selectedEdges);
             const values = validUniqueVertices(edgeVertices, normalized.vertexCount, 3, 4);
 
             if (values.length < 3) {
                 return { changed: false, message: "Ungültige Edge-Auswahl." };
             }
 
-            makeFaceFromVertices({
+            const startFace = Math.floor(indices.length / 3);
+            const created = makeFaceFromVertices({
                 layer,
                 mesh,
                 vertices,
@@ -501,9 +605,11 @@ export const applyMeshEditOperation = ({ state, layer, action = "", payload = {}
                 values,
             });
 
-            state.selection.faces = [
-                Math.floor((indices.length - (values.length === 4 ? 6 : 3)) / 3),
-            ];
+            if (!created) {
+                return { changed: false, message: "Face konnte nicht erstellt werden." };
+            }
+
+            state.selection.faces = [startFace];
 
             state.mode = "face";
             state.lastAction = "Face aus Edges erstellt";
@@ -539,11 +645,80 @@ export const applyMeshEditOperation = ({ state, layer, action = "", payload = {}
             );
         });
 
+        const pushedSideEdges = new Set();
+        const pushSideQuad = (a, b) => {
+            if (!cloneMap.has(a) || !cloneMap.has(b)) {
+                return;
+            }
+
+            const key = edgeKey(a, b);
+            if (pushedSideEdges.has(key)) {
+                return;
+            }
+            pushedSideEdges.add(key);
+
+            const ca = cloneMap.get(a);
+            const cb = cloneMap.get(b);
+            indices.push(a, b, cb, a, cb, ca);
+        };
+
+        if (selectedFaces.length) {
+            selectedFaces.forEach(face => {
+                const offset = face * 3;
+                if (offset + 2 >= normalized.indices.length) {
+                    return;
+                }
+
+                const a = normalized.indices[offset];
+                const b = normalized.indices[offset + 1];
+                const c = normalized.indices[offset + 2];
+
+                if (![a, b, c].every(index => cloneMap.has(index))) {
+                    return;
+                }
+
+                indices.push(cloneMap.get(a), cloneMap.get(b), cloneMap.get(c));
+                [[a, b], [b, c], [c, a]].forEach(([left, right]) => {
+                    const neighborUsesEdge = (() => {
+                        let count = 0;
+                        for (let i = 0; i < normalized.indices.length; i += 3) {
+                            const tri = [normalized.indices[i], normalized.indices[i + 1], normalized.indices[i + 2]];
+                            if (tri.includes(left) && tri.includes(right) && selectedFaces.includes(i / 3)) {
+                                count += 1;
+                            }
+                        }
+                        return count > 1;
+                    })();
+
+                    if (!neighborUsesEdge) {
+                        pushSideQuad(left, right);
+                    }
+                });
+            });
+        } else {
+            selectedEdges.forEach(key => {
+                const [a, b] = parseEdgeKey(key);
+                pushSideQuad(a, b);
+            });
+
+            if (!selectedEdges.length && selected.length >= 3) {
+                pushTriangulatedFace({
+                    vertices,
+                    indices,
+                    stride: normalized.stride,
+                    values: Array.from(cloneMap.values()),
+                });
+            }
+        }
+
         applyMeshToLayer(layer, mesh, vertices, indices, normalized.stride, "geometry-edit:extrude", {
             uvPreserved: true,
+            sideFaces: pushedSideEdges.size,
         });
 
         state.selection.vertices = Array.from(cloneMap.values());
+        state.selection.edges = [];
+        state.selection.faces = [];
         state.mode = "vertex";
         state.lastAction = "Extrude";
 

@@ -30,19 +30,19 @@ const triangleUv = (uvA, uvB, uvC, barycentric = null) => {
  */
 const normalizeBrush = (brush) => ({
     enabled: brush?.enabled === true,
-    mode: String(brush?.mode || "draw"),
+    mode: String(brush?.tool || brush?.mode || "draw"),
     radius: Math.max(0.001, number(brush?.radius, 0.18)),
     strength: Math.max(0, number(brush?.strength, 0.04)),
     sharpness: clamp(brush?.sharpness ?? 0.35, 0, 1),
     hardness: clamp(brush?.hardness ?? brush?.sharpness ?? 0.35, 0, 1),
     spacing: clamp(brush?.spacing ?? 0.18, 0.02, 1),
-    softness: clamp(brush?.softness ?? 0.68, 0, 1),
+    softness: clamp(brush?.softness ?? brush?.smoothness ?? 0.68, 0, 1),
     falloffOffset: clamp(brush?.falloffOffset ?? brush?.offset ?? 0, 0, 0.95),
     invert: brush?.invert === true,
     detailEnabled: brush?.detail?.enabled === true || brush?.dynamicTopology === true,
     detailPercent: clamp(
-        brush?.detail?.percent ??
         brush?.detail?.detailPercent ??
+        brush?.detail?.percent ??
         brush?.detailPercent ??
         0,
         0,
@@ -72,10 +72,49 @@ const refineMeshInBrush = ({ vertices, indices, stride, hit, brush }) => {
     const radius = brush.radius;
     const detailFactor = clamp(brush.detailPercent / 100, 0, 2);
     const targetEdge = Math.max(0.003, radius * (0.78 - detailFactor * 0.34) * brush.detailTolerance);
-
-    const nextIndices = [];
-    let changed = false;
+    const maxIndexCount = brush.detailMaxTriangles * 3;
+    const splitEdges = new Set();
     const midpointCache = new Map();
+
+    const edgeLength = (a, b) => Vector.from(
+        Mesh.read3(vertices, stride, a, POSITION_OFFSET)
+    ).distance(Mesh.read3(vertices, stride, b, POSITION_OFFSET));
+
+    const shouldTouchTriangle = (a, b, c) => {
+        const pa = Mesh.read3(vertices, stride, a, POSITION_OFFSET);
+        const pb = Mesh.read3(vertices, stride, b, POSITION_OFFSET);
+        const pc = Mesh.read3(vertices, stride, c, POSITION_OFFSET);
+        const centroid = [
+            (pa[0] + pb[0] + pc[0]) / 3,
+            (pa[1] + pb[1] + pc[1]) / 3,
+            (pa[2] + pb[2] + pc[2]) / 3,
+        ];
+
+        return Vector.from(centroid).distance(hit.point) <= radius ||
+            Math.min(
+                Vector.from(pa).distance(hit.point),
+                Vector.from(pb).distance(hit.point),
+                Vector.from(pc).distance(hit.point),
+            ) <= radius;
+    };
+
+    for (let i = 0; i < indices.length; i += 3) {
+        const a = indices[i];
+        const b = indices[i + 1];
+        const c = indices[i + 2];
+
+        if (!shouldTouchTriangle(a, b, c)) {
+            continue;
+        }
+
+        if (edgeLength(a, b) > targetEdge) splitEdges.add(Mesh.edgeKey(a, b));
+        if (edgeLength(b, c) > targetEdge) splitEdges.add(Mesh.edgeKey(b, c));
+        if (edgeLength(c, a) > targetEdge) splitEdges.add(Mesh.edgeKey(c, a));
+    }
+
+    if (!splitEdges.size) {
+        return { vertices, indices, changed: false };
+    }
 
     const getMidpoint = (a, b) => {
         const key = Mesh.edgeKey(a, b);
@@ -90,51 +129,79 @@ const refineMeshInBrush = ({ vertices, indices, stride, hit, brush }) => {
         return midpointCache.get(key);
     };
 
-    for (let i = 0; i < indices.length; i += 3) {
-        const a = indices[i];
-        const b = indices[i + 1];
-        const c = indices[i + 2];
+    const addTri = (target, a, b, c) => {
+        if (target.length + 3 <= maxIndexCount) {
+            target.push(a, b, c);
+        }
+    };
 
-        const pa = Mesh.read3(vertices, stride, a, POSITION_OFFSET);
-        const pb = Mesh.read3(vertices, stride, b, POSITION_OFFSET);
-        const pc = Mesh.read3(vertices, stride, c, POSITION_OFFSET);
+    const splitTriangle = (target, a, b, c) => {
+        const hasAB = splitEdges.has(Mesh.edgeKey(a, b));
+        const hasBC = splitEdges.has(Mesh.edgeKey(b, c));
+        const hasCA = splitEdges.has(Mesh.edgeKey(c, a));
+        const count = Number(hasAB) + Number(hasBC) + Number(hasCA);
 
-        const centroid = [
-            (pa[0] + pb[0] + pc[0]) / 3,
-            (pa[1] + pb[1] + pc[1]) / 3,
-            (pa[2] + pb[2] + pc[2]) / 3,
-        ];
-
-        const inside =
-            Vector.from(centroid).distance(hit.point) <= radius ||
-            Math.min(
-                Vector.from(pa).distance(hit.point),
-                Vector.from(pb).distance(hit.point),
-                Vector.from(pc).distance(hit.point),
-            ) <= radius;
-
-        const maxEdge = Math.max(
-            Vector.from(pa).distance(pb),
-            Vector.from(pb).distance(pc),
-            Vector.from(pc).distance(pa),
-        );
-
-        const shouldSplit = inside && maxEdge > targetEdge;
-
-        if (!shouldSplit) {
-            nextIndices.push(a, b, c);
-            continue;
+        if (count === 0) {
+            addTri(target, a, b, c);
+            return;
         }
 
-        const ab = getMidpoint(a, b);
-        const bc = getMidpoint(b, c);
-        const ca = getMidpoint(c, a);
+        const ab = hasAB ? getMidpoint(a, b) : null;
+        const bc = hasBC ? getMidpoint(b, c) : null;
+        const ca = hasCA ? getMidpoint(c, a) : null;
 
-        nextIndices.push(a, ab, ca, ab, b, bc, ca, bc, c, ab, bc, ca);
-        changed = true;
+        if (count === 3) {
+            addTri(target, a, ab, ca);
+            addTri(target, ab, b, bc);
+            addTri(target, ca, bc, c);
+            addTri(target, ab, bc, ca);
+            return;
+        }
+
+        if (count === 1) {
+            if (hasAB) {
+                addTri(target, a, ab, c);
+                addTri(target, ab, b, c);
+            } else if (hasBC) {
+                addTri(target, b, bc, a);
+                addTri(target, bc, c, a);
+            } else {
+                addTri(target, c, ca, b);
+                addTri(target, ca, a, b);
+            }
+            return;
+        }
+
+        if (hasAB && hasBC) {
+            addTri(target, b, bc, ab);
+            addTri(target, a, ab, c);
+            addTri(target, ab, bc, c);
+            return;
+        }
+
+        if (hasBC && hasCA) {
+            addTri(target, c, ca, bc);
+            addTri(target, b, bc, a);
+            addTri(target, bc, ca, a);
+            return;
+        }
+
+        addTri(target, a, ab, ca);
+        addTri(target, b, c, ab);
+        addTri(target, ab, c, ca);
+    };
+
+    const nextIndices = [];
+
+    for (let i = 0; i < indices.length; i += 3) {
+        splitTriangle(nextIndices, indices[i], indices[i + 1], indices[i + 2]);
     }
 
-    return { vertices, indices: changed ? nextIndices : indices, changed };
+    return {
+        vertices,
+        indices: nextIndices.length ? nextIndices : indices,
+        changed: nextIndices.length !== indices.length || midpointCache.size > 0,
+    };
 };
 
 /**
@@ -161,6 +228,7 @@ const createHitUv = (vertices, indices, stride, hit) => {
 export const createDefaultSculptBrush = () => ({
     enabled: false,
     mode: "draw",
+    tool: "draw",
     radius: 0.18,
     strength: 0.04,
     sharpness: 0.35,
@@ -173,8 +241,10 @@ export const createDefaultSculptBrush = () => ({
     detail: {
         enabled: false,
         percent: 100,
+        detailPercent: 100,
         tolerance: 0.42,
         maxTriangles: 4096,
+        maxSubdivisionsPerStroke: 4096,
     },
     texture: "",
     opacity: 1,

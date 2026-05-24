@@ -1,49 +1,48 @@
-
 <template>
-  <v-list density="comfortable" two-line class="layer-list channel-list overflow-hidden pa-2" bg-color="transparent">
-    <v-list-item
-        v-for="(channel) in data.filter(x => !x?.combined)"
+  <section class="channel-list">
+    <article
+        v-for="channel in data.filter(x => !x?.combined)"
         :key="channel.id"
         :data-id="channel.id"
         class="channel-item"
-        :class="{selected: selectedChannel.find(x => x.id === channel.id)}"
+        :class="{ selected: selectedChannel.find(x => x.id === channel.id) }"
         @click="toggleChannelSelection(channel)"
     >
-      <template v-slot:prepend>
-        <v-checkbox
-            :model-value="settings[channel.key]"
-            @update:model-value="toggleChannel(channel)"
-            hide-details
-            dense
-        ></v-checkbox>
-      </template>
+      <button
+          type="button"
+          class="channel-toggle"
+          :class="{ active: settings[channel.key] }"
+          @click.stop="toggleChannel(channel)"
+      >
+        <v-icon size="15">
+          {{ settings[channel.key] ? 'mdi-checkbox-marked' : 'mdi-checkbox-blank-outline' }}
+        </v-icon>
+      </button>
 
-      <template v-slot:append>
-        <v-icon color="grey" @click="handleChannel(channel.id)">mdi-tune-vertical</v-icon>
-      </template>
-      <div class="d-flex align-baseline">
-        <v-text-field
-            v-model="channel.name"
-            variant="outlined"
-            min-width="160"
-            hide-details
-            @click.stop
-            class="channel-field flex-1-1"
-        >
-          <template v-slot:prepend-inner>
-            <v-tooltip location="bottom">
-              <template v-slot:activator="{ props }">
-                <v-avatar v-bind="props" rounded="0" variant="elevated" class="channel-avatar overflow-hidden mr-2">
-                  <v-img :src="channel?.thumbnail || channel?.url" :alt="channel.name" />
-                </v-avatar>
-              </template>
-              {{ channel.name }}
-            </v-tooltip>
-          </template>
-        </v-text-field>
+      <div class="channel-avatar">
+        <img
+            v-if="channel?.thumbnail || channel?.url"
+            :src="channel?.thumbnail || channel?.url"
+            :alt="channel.name"
+        />
+        <v-icon v-else size="18">mdi-image-outline</v-icon>
       </div>
-    </v-list-item>
-  </v-list>
+
+      <input
+          class="channel-name"
+          v-model="channel.name"
+          @click.stop
+      />
+
+      <button
+          type="button"
+          class="channel-action"
+          @click.stop="handleChannel(channel.id)"
+      >
+        <v-icon size="16">mdi-tune-vertical</v-icon>
+      </button>
+    </article>
+  </section>
 </template>
 
 <script>

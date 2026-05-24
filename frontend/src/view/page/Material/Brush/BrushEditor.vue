@@ -52,9 +52,20 @@
       <span>{{ Math.round(Number(brush?.smoothness || 0) * 100) }}%</span>
     </label>
 
+    <label>
+      Falloff
+      <input type="range" min="0" max="0.95" step="0.01" :value="brush?.falloffOffset" @input="setField('falloffOffset', Number($event.target.value))" />
+      <span>{{ Math.round(Number(brush?.falloffOffset || 0) * 100) }}%</span>
+    </label>
+
     <label class="sculpt-brush-editor__check">
       <input type="checkbox" :checked="brush?.invert" @change="setField('invert', $event.target.checked)" />
       Eindrücken / Invert
+    </label>
+
+    <label class="sculpt-brush-editor__check">
+      <input type="checkbox" :checked="brush?.dynamicTopology" @change="setField('dynamicTopology', $event.target.checked)" />
+      Dynamic Topology
     </label>
 
     <section class="sculpt-brush-editor__detail">
@@ -65,14 +76,20 @@
 
       <label>
         Detail
-        <input type="range" min="0" max="200" step="1" :value="brush?.detail?.detailPercent" @input="setField('detail.detailPercent', Number($event.target.value))" />
-        <span>{{ Math.round(Number(brush?.detail?.detailPercent || 0)) }}%</span>
+        <input type="range" min="0" max="200" step="1" :value="brush?.detail?.detailPercent ?? brush?.detail?.percent ?? 0" @input="setField('detail.detailPercent', Number($event.target.value))" />
+        <span>{{ Math.round(Number((brush?.detail?.detailPercent ?? brush?.detail?.percent) || 0)) }}%</span>
       </label>
 
       <label>
         Tolerance
         <input type="range" min="0.001" max="1" step="0.001" :value="brush?.detail?.tolerance" @input="setField('detail.tolerance', Number($event.target.value))" />
         <span>{{ Math.round(Number(brush?.detail?.tolerance || 0) * 100) }}%</span>
+      </label>
+
+      <label>
+        Max Triangles
+        <input type="range" min="128" max="20000" step="128" :value="brush?.detail?.maxTriangles || brush?.detail?.maxSubdivisionsPerStroke || 4096" @input="setField('detail.maxTriangles', Number($event.target.value))" />
+        <span>{{ Number(brush?.detail?.maxTriangles || brush?.detail?.maxSubdivisionsPerStroke || 4096) }}</span>
       </label>
     </section>
   </aside>

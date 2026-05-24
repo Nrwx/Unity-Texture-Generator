@@ -1,155 +1,179 @@
 <template>
-  <v-card
+  <section
       v-if="state"
       class="layer-system"
-      width="360"
-      :theme="theme"
+      :data-theme="theme"
   >
-    <v-container class="layer-wrapper">
-      <!-- Schließen-Button -->
-      <v-btn icon size="small" class="rounded-0" variant="flat" @click="emitEvent('layer-state', false)">
-        <v-icon>mdi-window-close</v-icon>
-      </v-btn>
-      <v-tabs
-          v-model="tabIndex"
-          class="tab-navigation"
-          background-color="primary"
-          dark
-          grow
-          height="32"
-      >
-        <v-tab min-width="96" min-height="24" height="28" v-for="(tab, index) in tabs" :key="tab.name" @click="handleTabEmit(index)">
-          <v-icon size="16">{{ tab.icon }}</v-icon>
-          <span class="text-subtitle-2">{{ tab.name }}</span>
-        </v-tab>
-      </v-tabs>
-      <!-- Layer-Controller -->
-      <v-row
-          v-if="tabIndex === 0"
-          class="pt-2"
-          align="center"
-          dense
+    <div class="layer-wrapper">
+      <nav class="layer-tabs">
+        <button
+            v-for="(tab, index) in tabs"
+            :key="tab.name"
+            type="button"
+            class="layer-tab"
+            :class="{ active: tabIndex === index }"
+            @click="handleTabEmit(index)"
+        >
+          <v-icon size="15">{{ tab.icon }}</v-icon>
+          <span>{{ tab.name }}</span>
+        </button>
+      </nav>
 
+      <section
+          v-if="tabIndex === 0"
+          class="layer-controls"
       >
-        <v-col cols="6">
-          <Form @component-event="updateBlend" v-model:operation="methods" v-model:item="config"/>
-        </v-col>
-        <v-col cols="6" class="d-flex align-center flex-wrap">
-          <div class="text-caption font-weight-medium">Deckkraft:</div>
-          <v-slider
+        <div class="layer-blend">
+          <Form
+              @component-event="updateBlend"
+              v-model:operation="methods"
+              v-model:item="config"
+          />
+        </div>
+
+        <label class="layer-opacity">
+          <span>Deckkraft</span>
+          <input
+              type="range"
               v-model="globalOpacity"
               min="0"
               max="100"
               step="1"
               :disabled="!selectedLayer.length"
-              density="compact"
-              hide-details
-              @click.stop="updateOpacity"
+              @change="updateOpacity"
           />
-          <div class="text-caption ml-2">{{ globalOpacity }}%</div>
-        </v-col>
-      </v-row>
-      <v-card
-          class="overflow-hidden overflow-y-auto"
-          max-height="300"
-          height="300"
-          rounded="0"
-          border="0"
-          variant="flat"
-      >
-        <div v-for="(tab, index) in tabs" :key="tab.name" v-show="tabIndex === index">
-          <!-- Layer-Liste -->
-          <v-list density="comfortable" two-line class="layer-list overflow-hidden" v-show="tabIndex === 0 && visibleLayers.length > 0" bg-color="transparent">
-            <Drag :items="visibleLayers" :on-drop="handleDrop" @update:drag-event="emitEvent">
+          <strong>{{ globalOpacity }}%</strong>
+        </label>
+      </section>
+
+      <section class="layer-content">
+        <div
+            v-for="(tab, index) in tabs"
+            :key="tab.name"
+            v-show="tabIndex === index"
+            class="layer-panel"
+        >
+          <div
+              v-show="tabIndex === 0 && visibleLayers.length > 0"
+              class="layer-list"
+          >
+            <Drag
+                :items="visibleLayers"
+                :on-drop="handleDrop"
+                @update:drag-event="emitEvent"
+            >
               <template #default>
-                <v-list-item
-                    v-for="(layer) in visibleLayers"
+                <div
+                    v-for="layer in visibleLayers"
                     v-show="shouldShowLayer(layer)"
                     :key="layer.time"
-                    :disabled="windowStates.drag.value && dragId === layer.id"
                     :data-id="layer.id"
                     class="layer-item"
-                    :class="{selected: selectedLayer.find(x => x.id === layer.id),dragging: windowStates.drag.value && dragId === layer.id,'not-dragging': windowStates.drag.value && dragId !== layer.id}"
+                    :class="{
+                    selected: selectedLayer.find(x => x.id === layer.id),
+                    dragging: windowStates.drag.value && dragId === layer.id,
+                    'not-dragging': windowStates.drag.value && dragId !== layer.id
+                  }"
                     @click="layer.type === 4 ? '' : toggleLayerSelection(layer)"
                 >
-                  <template v-slot:prepend>
-                    <v-icon v-if="layer.type === 4" @click="groupCollapse[layer.id] = !groupCollapse[layer.id]">
+                  <button
+                      v-if="layer.type === 4"
+                      type="button"
+                      class="layer-icon-btn"
+                      @click.stop="groupCollapse[layer.id] = !groupCollapse[layer.id]"
+                  >
+                    <v-icon size="16">
                       {{ groupCollapse[layer.id] ? 'mdi-chevron-up' : 'mdi-chevron-down' }}
                     </v-icon>
-                    <v-icon v-else color="grey" size="x-small" @click.stop="emitEvent('hide-layer', layer)">
+                  </button>
+
+                  <button
+                      v-else
+                      type="button"
+                      class="layer-icon-btn"
+                      @click.stop="emitEvent('hide-layer', layer)"
+                  >
+                    <v-icon size="15">
                       {{ layer?.hidden === 1 ? 'mdi-eye-off' : 'mdi-eye' }}
                     </v-icon>
-                  </template>
+                  </button>
 
-                  <template v-slot:append>
-                    <v-icon color="grey">
-                      {{ windowStates.drag.value && dragId === layer.id ? 'mdi-drag-variant' : 'mdi-drag' }}</v-icon>
-                  </template>
+                  <div class="layer-thumb">
+                    <template v-if="layer?.mask && layer.type !== 4">
+                      <img
+                          class="layer-thumb__mask"
+                          :src="layer.mask"
+                          :alt="'Mask ' + layer.name"
+                      />
+                    </template>
 
-                  <div class="d-flex align-baseline">
-                    <v-text-field
-                        v-model="layer.name"
-                        clearable
-                        variant="outlined"
-                        clear-icon="mdi-broom"
-                        min-width="160"
-                        :hide-details="validRule(layer.name).isValid"
-                        :rules="[validRule(layer.name).rule]"
-                        @blur="validRule(layer.name).isValid ? emitEvent('update-layer', layer) : ''"
-                        @click.stop
-                        @click:clear="layer.name = ''"
-                    >
-                      <template v-slot:prepend-inner>
-                        <v-tooltip location="bottom">
-                          <template v-slot:activator="{ props }">
-                            <v-tooltip v-if="layer?.mask && layer.type !== 4" location="bottom">
-                              <template v-slot:activator="{ props }">
-                                <v-avatar class="mr-2 transparent thumbnail" v-bind="props" rounded="0" variant="elevated">
-                                  <v-img :cover="false" :src="layer?.mask" :alt="'Mask ' + layer.name" />
-                                </v-avatar>
-                              </template>
-                              {{ 'Mask ' + layer.name }}
-                            </v-tooltip>
-                            <v-avatar v-bind="props" rounded="0" variant="elevated" :class="layer.type !== 1 && layer.type !== 4 && layer.type !== 5 ? 'transparent thumbnail' : ''">
-                              <template v-if="layer?.type === 1">
-                                <v-icon>mdi-format-text</v-icon>
-                              </template>
-                              <template v-else-if="layer?.type === 2">
-                                <v-img
-                                    :src="layer?.thumbnail || layer?.url || layer?.svg"
-                                    :alt="layer.name"
-                                    style="width: 100%; height: 100%; object-fit: contain;"
-                                    cover
-                                />
-                              </template>
-                              <template v-else-if="layer.type === 4">
-                                <v-icon>mdi-folder</v-icon>
-                              </template>
-                              <template v-else-if="layer?.type === 5">
-                                <v-icon color="#70dfb4">mdi-cube-outline</v-icon>
-                              </template>
-                              <template v-else>
-                                <v-img :cover="false" :src="layer?.thumbnail || layer?.url" :alt="layer.name" />
-                              </template>
-                            </v-avatar>
-                          </template>
-                          {{ layer.name }}
-                        </v-tooltip>
-                      </template>
-                    </v-text-field>
+                    <template v-if="layer?.type === 1">
+                      <v-icon size="18">mdi-format-text</v-icon>
+                    </template>
+
+                    <template v-else-if="layer?.type === 2">
+                      <img
+                          :src="layer?.thumbnail || layer?.url || layer?.svg"
+                          :alt="layer.name"
+                      />
+                    </template>
+
+                    <template v-else-if="layer.type === 4">
+                      <v-icon size="18">mdi-folder</v-icon>
+                    </template>
+
+                    <template v-else-if="layer?.type === 5">
+                      <v-icon size="18" color="#70dfb4">mdi-cube-outline</v-icon>
+                    </template>
+
+                    <template v-else>
+                      <img
+                          v-if="layer?.thumbnail || layer?.url"
+                          :src="layer?.thumbnail || layer?.url"
+                          :alt="layer.name"
+                      />
+                    </template>
                   </div>
-                </v-list-item>
+
+                  <input
+                      class="layer-name"
+                      v-model="layer.name"
+                      :class="{ invalid: !validRule(layer.name).isValid }"
+                      @blur="validRule(layer.name).isValid ? emitEvent('update-layer', layer) : ''"
+                      @click.stop
+                  />
+
+                  <button
+                      type="button"
+                      class="layer-icon-btn layer-icon-btn--drag"
+                  >
+                    <v-icon size="16">
+                      {{ windowStates.drag.value && dragId === layer.id ? 'mdi-drag-variant' : 'mdi-drag' }}
+                    </v-icon>
+                  </button>
+                </div>
               </template>
             </Drag>
-          </v-list>
+          </div>
 
-          <Channel v-show="!orbit && tabIndex === 1 && channel.length > 0" :selected-channel="selectedChannel" :data="channel" :settings="channelSettings" :theme="theme" @update:componentEvent="emitEvent"/>
+          <Channel
+              v-show="!orbit && tabIndex === 1 && channel.length > 0"
+              :selected-channel="selectedChannel"
+              :data="channel"
+              :settings="channelSettings"
+              :theme="theme"
+              @update:componentEvent="emitEvent"
+          />
 
-          <Path v-show="!orbit && tabIndex === 2 && paths.length > 0" :data="paths" @update:componentEvent="emitEvent"/>
+          <Path
+              v-show="!orbit && tabIndex === 2 && paths.length > 0"
+              :data="paths"
+              @update:componentEvent="emitEvent"
+          />
 
           <div
-              v-show="!orbit && tabIndex === 3 || orbit && tabIndex === 1"
-              class="layer-transform-panel pa-3"
+              v-show="(!orbit && tabIndex === 3) || (orbit && tabIndex === 1)"
+              class="layer-transform-panel"
           >
             <Transformation
                 :layers="layers"
@@ -159,111 +183,103 @@
             />
           </div>
         </div>
-      </v-card>
-      <!-- Navigation -->
-      <div class="navigation-bar d-flex justify-space-between align-center px-4">
+      </section>
+
+      <footer class="navigation-bar">
         <template v-if="tabIndex === 0">
-          <v-btn
-              icon
-              color="#DCFDD4"
-              size="x-small"
+          <button
+              type="button"
+              class="layer-action add"
               @click="emitEvent('add-layer')"
           >
-            <v-icon color="black">mdi-plus</v-icon>
-          </v-btn>
-          <v-btn
-              icon
-              color="#DCFDD4"
-              size="x-small"
+            <v-icon size="15">mdi-plus</v-icon>
+          </button>
+
+          <button
+              type="button"
+              class="layer-action"
               :disabled="selectedLayer.length !== 2"
-              @click="emitEvent('mask-layer', {id: selectedLayer[0].id, id2: selectedLayer[1].id})"
+              @click="emitEvent('mask-layer', { id: selectedLayer[0].id, id2: selectedLayer[1].id })"
           >
-            <v-icon color="black">mdi-vector-intersection</v-icon>
-          </v-btn>
-          <v-btn
-              icon
-              color="#DCFDD4"
-              size="x-small"
+            <v-icon size="15">mdi-vector-intersection</v-icon>
+          </button>
+
+          <button
+              type="button"
+              class="layer-action"
               :disabled="!visibleLayers.length"
               @click="emitEvent('renderer:preview')"
           >
-            <v-icon color="black">mdi-printer</v-icon>
-          </v-btn>
-          <v-btn
-              icon
-              color="#C2F0FF"
-              size="x-small"
+            <v-icon size="15">mdi-printer</v-icon>
+          </button>
+
+          <button
+              type="button"
+              class="layer-action link"
               :disabled="!groupAble"
-              @click="emitEvent('group-layer', allInSameGroup ? {ids: selectedLayer, group: selectedLayer[0].group, reset: true} : {ids: selectedLayer, group: null, reset: false})"
+              @click="emitEvent('group-layer', allInSameGroup ? { ids: selectedLayer, group: selectedLayer[0].group, reset: true } : { ids: selectedLayer, group: null, reset: false })"
           >
-            <v-icon color="black">
+            <v-icon size="15">
               {{ allInSameGroup ? 'mdi-link-off' : 'mdi-link' }}
             </v-icon>
-          </v-btn>
-          <v-btn
-              icon
-              color="#FF516D"
-              size="x-small"
-              @click="emitEvent('delete-layer', selectedLayer)"
+          </button>
+
+          <button
+              type="button"
+              class="layer-action danger"
               :disabled="!selectedLayer.length"
+              @click="emitEvent('delete-layer', selectedLayer)"
           >
-            <v-icon color="white">mdi-delete</v-icon>
-          </v-btn>
+            <v-icon size="15">mdi-delete</v-icon>
+          </button>
         </template>
+
         <template v-if="!orbit && tabIndex === 2">
-          <!-- Create / Add Channel from selected -->
-          <v-btn
-              icon
-              color="#DCFDD4"
-              size="x-small"
+          <button
+              type="button"
+              class="layer-action add"
               :disabled="!selectedChannel.length"
               @click="emitEvent('add-channel', selectedChannel)"
           >
-            <v-icon color="black">mdi-plus</v-icon>
-          </v-btn>
+            <v-icon size="15">mdi-plus</v-icon>
+          </button>
 
-          <!-- Activate selected Channel -->
-          <v-btn
-              icon
-              color="#C2F0FF"
-              size="x-small"
+          <button
+              type="button"
+              class="layer-action link"
               :disabled="!selectedChannel.length"
               @click="emitEvent('activate-channel', selectedChannel)"
           >
-            <v-icon color="black">mdi-check-bold</v-icon>
-          </v-btn>
+            <v-icon size="15">mdi-check-bold</v-icon>
+          </button>
 
-          <!-- Delete selected Channel -->
-          <v-btn
-              icon
-              color="#FF516D"
-              size="x-small"
+          <button
+              type="button"
+              class="layer-action danger"
               :disabled="!selectedChannel.length"
               @click="emitEvent('delete-channel', selectedChannel)"
           >
-            <v-icon color="white">mdi-delete</v-icon>
-          </v-btn>
+            <v-icon size="15">mdi-delete</v-icon>
+          </button>
 
-          <!-- Render Preview of selected Channel -->
-          <v-btn
-              icon
-              color="#DCFDD4"
-              size="x-small"
+          <button
+              type="button"
+              class="layer-action add"
               @click="emitEvent('renderer:preview', selectedChannel.length ? selectedChannel : channel)"
           >
-            <v-icon color="black">mdi-printer</v-icon>
-          </v-btn>
+            <v-icon size="15">mdi-printer</v-icon>
+          </button>
         </template>
-      </div>
-    </v-container>
-  </v-card>
+      </footer>
+    </div>
+  </section>
 </template>
 
 <script>
-import {defineComponent} from "vue";
-import {layerModel, layerProps} from "@/models/layer/model";
+import { defineComponent } from "vue";
+import { layerModel, layerProps } from "@/models/layer/model";
 import Drag from "@/components/Drag/Drag.vue";
-import {windowStates} from "@/dataLayer/state";
+import { windowStates } from "@/dataLayer/state";
 import Channel from "@/components/Channel/Channel.vue";
 import Form from "@/components/Form/Form.vue";
 import Path from "@/components/Path/Path";
@@ -277,13 +293,14 @@ export default defineComponent({
     Path,
     Form,
     Drag,
-    Channel
+    Channel,
   },
   setup(props, { emit }) {
     const model = layerModel(props, emit);
+
     return {
       ...model,
-      windowStates
+      windowStates,
     };
   },
 });

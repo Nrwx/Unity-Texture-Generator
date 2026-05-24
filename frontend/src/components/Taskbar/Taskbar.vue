@@ -47,15 +47,8 @@ export default defineComponent({
     TaskbarItem
   },
   setup(props, { emit }) {
-    const { taskbar, topItems, centerItems, bottomItems, emitEvent, emitSubEvent } = taskbarModel(props, emit);
-    return {
-      taskbar,
-      topItems,
-      centerItems,
-      bottomItems,
-      emitEvent,
-      emitSubEvent
-    };
+    const model = taskbarModel(props, emit);
+    return {...model};
   },
 });
 </script>

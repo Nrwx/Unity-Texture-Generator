@@ -1,49 +1,35 @@
 .engine-camera-panel {
-  --panel-surface: rgba(13, 17, 27, 0.86);
-  --panel-surface-soft: rgba(255, 255, 255, 0.055);
-  --panel-surface-strong: rgba(255, 255, 255, 0.095);
-  --panel-border: rgba(255, 255, 255, 0.12);
-  --panel-text: rgba(255, 255, 255, 0.92);
-  --panel-muted: rgba(255, 255, 255, 0.58);
-  --panel-gold: #ffd37c;
-  --panel-blue: #78a8ff;
-  --panel-green: #70dfb4;
-  --panel-red: #ff6c7a;
+  --camera-bg: #171923;
+  --camera-surface: rgba(255, 255, 255, 0.045);
+  --camera-surface-2: rgba(255, 255, 255, 0.075);
+  --camera-border: rgba(255, 255, 255, 0.105);
+  --camera-text: rgba(255, 255, 255, 0.92);
+  --camera-muted: rgba(255, 255, 255, 0.58);
+  --camera-soft: rgba(255, 255, 255, 0.34);
+  --camera-gold: #ffd37c;
+  --camera-orange: #ff9f6e;
+  --camera-green: #70dfb4;
+  --camera-blue: #78a8ff;
 
-  position: absolute;
-  right: 16px;
-  bottom: 14px;
-  z-index: 92;
-  width: min(356px, calc(100vw - 32px));
-  max-height: min(76vh, 680px);
+  width: 100%;
   display: grid;
-  gap: 8px;
+  align-content: start;
+  gap: 9px;
   padding: 10px;
-  overflow: auto;
-  border: 1px solid var(--panel-border);
-  border-radius: 18px;
-  color: var(--panel-text);
+  border: 1px solid var(--camera-border);
+  border-radius: 16px;
   background:
-    radial-gradient(circle at top left, rgba(255, 211, 124, 0.13), transparent 44%),
-    linear-gradient(180deg, rgba(23, 25, 35, 0.94), rgba(9, 12, 19, 0.88));
-  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.055);
-  backdrop-filter: blur(16px);
-}
-
-.engine-camera-panel.compact {
-  width: 336px;
-  gap: 7px;
-  padding: 9px;
-}
-
-.engine-camera-panel__hero,
-.engine-camera-panel__section,
-.engine-camera-panel__fields,
-.engine-camera-panel__views,
-.engine-camera-panel__row {
-  border: 1px solid var(--panel-border);
-  border-radius: 14px;
-  background: var(--panel-surface-soft);
+          radial-gradient(circle at top left, rgba(255, 211, 124, 0.10), transparent 46%),
+          rgba(23, 25, 35, 0.86);
+  box-shadow:
+          0 14px 34px rgba(0, 0, 0, 0.24),
+          inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  color: var(--camera-text);
+  backdrop-filter: blur(14px);
+  transition:
+          opacity 150ms ease,
+          transform 150ms ease,
+          border-color 150ms ease;
 }
 
 .engine-camera-panel__hero {
@@ -51,18 +37,18 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 9px;
+  min-width: 0;
 }
 
 .engine-camera-panel__title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   min-width: 0;
 
   .v-icon {
-    color: var(--panel-gold);
-    filter: drop-shadow(0 0 12px rgba(255, 211, 124, 0.24));
+    color: var(--camera-gold);
+    filter: drop-shadow(0 0 12px rgba(255, 211, 124, 0.32));
   }
 
   div {
@@ -79,189 +65,177 @@
 
   strong {
     font-size: 0.82rem;
-    font-weight: 820;
+    font-weight: 790;
   }
 
   span {
     margin-top: 2px;
-    color: var(--panel-muted);
-    font-size: 0.64rem;
-    font-weight: 760;
+    color: var(--camera-muted);
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
   }
 }
 
 .engine-camera-panel__status {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   min-width: max-content;
-  border: 1px solid var(--panel-border);
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--camera-border);
   border-radius: 999px;
-  padding: 5px 8px;
-  background: var(--panel-surface-soft);
-  color: var(--panel-muted);
-  font-size: 0.62rem;
-  font-weight: 850;
+  background: var(--camera-surface);
+  color: var(--camera-muted);
+  font-size: 0.66rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+          background 150ms ease,
+          border-color 150ms ease,
+          color 150ms ease,
+          box-shadow 150ms ease;
 
   span {
-    width: 7px;
-    height: 7px;
+    width: 8px;
+    height: 8px;
     border-radius: 999px;
     background: currentColor;
-    box-shadow: 0 0 12px currentColor;
+    box-shadow: 0 0 14px currentColor;
+  }
+
+  &:hover {
+    border-color: rgba(255, 211, 124, 0.24);
+    color: var(--camera-text);
   }
 
   &.active {
-    color: var(--panel-green);
-  }
-}
-
-.engine-camera-panel__section {
-  display: grid;
-  gap: 7px;
-  padding: 8px;
-
-  > header {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 8px;
-
-    strong {
-      font-size: 0.72rem;
-      font-weight: 850;
-    }
-
-    small {
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      color: var(--panel-muted);
-      font-size: 0.6rem;
-      font-weight: 790;
-      text-transform: uppercase;
-    }
+    color: var(--camera-green);
+    border-color: rgba(112, 223, 180, 0.3);
   }
 }
 
 .engine-camera-panel__row,
 .engine-camera-panel__views,
-.engine-camera-panel__strip {
+.engine-camera-panel__fields {
   display: grid;
   gap: 5px;
+  min-width: 0;
   padding: 4px;
+  border: 1px solid var(--camera-border);
+  border-radius: 13px;
+  background: rgba(0, 0, 0, 0.12);
 }
 
 .engine-camera-panel__row {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.engine-camera-panel__row--projection {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .engine-camera-panel__views {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
-.engine-camera-panel__fields {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-  padding: 7px;
-
-  label {
-    min-width: 0;
-    display: grid;
-    gap: 3px;
-  }
-
-  span {
-    color: var(--panel-muted);
-    font-size: 0.58rem;
-    font-weight: 820;
-    text-transform: uppercase;
-  }
-
-  input {
-    width: 100%;
-    min-height: 27px;
-    border: 1px solid var(--panel-border);
-    border-radius: 9px;
-    padding: 0 7px;
-    outline: none;
-    color: var(--panel-text);
-    background: rgba(0, 0, 0, 0.16);
-    font-size: 0.7rem;
-    font-weight: 780;
-  }
-}
-
-.engine-camera-panel__strip.tools { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.engine-camera-panel__strip.axis { grid-template-columns: repeat(7, minmax(0, 1fr)); }
-.engine-camera-panel__strip.pivot { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-
-.engine-camera-panel button {
+.engine-camera-panel__row button,
+.engine-camera-panel__views button {
   min-width: 0;
-  min-height: 28px;
+  min-height: 30px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 6px;
   border: 1px solid transparent;
   border-radius: 10px;
   background: transparent;
-  color: var(--panel-muted);
-  font-size: 0.64rem;
-  font-weight: 820;
+  color: var(--camera-muted);
+  font-size: 0.66rem;
+  font-weight: 800;
   cursor: pointer;
-  transition: background 150ms ease, border-color 150ms ease, color 150ms ease, transform 150ms ease;
+  transition:
+          background 150ms ease,
+          border-color 150ms ease,
+          color 150ms ease,
+          transform 150ms ease,
+          box-shadow 150ms ease;
 
   &:hover {
     transform: translateY(-1px);
     border-color: rgba(255, 211, 124, 0.24);
-    background: var(--panel-surface-soft);
-    color: var(--panel-text);
+    background: var(--camera-surface);
+    color: var(--camera-text);
   }
 
   &.active {
     border-color: rgba(255, 211, 124, 0.35);
-    background: linear-gradient(135deg, rgba(255, 211, 124, 0.17), rgba(255, 159, 110, 0.09));
+    background: linear-gradient(
+                    135deg,
+                    rgba(255, 211, 124, 0.16),
+                    rgba(255, 159, 110, 0.09)
+    );
     color: #fff;
+    box-shadow:
+            0 0 18px rgba(255, 211, 124, 0.08),
+            inset 0 1px 0 rgba(255, 255, 255, 0.075);
   }
 }
 
-.engine-camera-panel__strip.axis button {
-  min-height: 24px;
-  font-size: 0.56rem;
-}
-
-.engine-camera-panel__strip.axis .axis-x { color: #ff7c7c; }
-.engine-camera-panel__strip.axis .axis-y { color: #78ebb9; }
-.engine-camera-panel__strip.axis .axis-z { color: #83adff; }
-
-.engine-camera-panel__selection {
-  color: var(--panel-muted);
-  font-size: 0.64rem;
-  font-weight: 850;
-  letter-spacing: 0.04em;
-}
-
-.engine-camera-panel__sliders {
-  display: grid;
-  gap: 5px;
+.engine-camera-panel__fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 
   label {
+    min-width: 0;
     display: grid;
-    gap: 3px;
-    color: var(--panel-muted);
-    font-size: 0.62rem;
-    font-weight: 820;
+    gap: 4px;
+    color: var(--camera-muted);
+    font-size: 0.61rem;
+    font-weight: 800;
   }
 
-  input[type="range"] {
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  input {
     width: 100%;
-    accent-color: var(--panel-gold);
+    min-width: 0;
+    height: 30px;
+    padding: 0 8px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    outline: none;
+    background: var(--camera-surface);
+    color: var(--camera-text);
+    font-size: 0.66rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    transition:
+            background 150ms ease,
+            border-color 150ms ease,
+            color 150ms ease,
+            box-shadow 150ms ease;
+
+    &:hover,
+    &:focus {
+      border-color: rgba(255, 211, 124, 0.24);
+      background: var(--camera-surface-2);
+    }
+  }
+}
+
+.engine-camera-panel.compact {
+  padding: 8px;
+}
+
+@media (max-width: 420px) {
+  .engine-camera-panel__views {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .engine-camera-panel__fields {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
   }
 }

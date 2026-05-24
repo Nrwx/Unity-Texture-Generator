@@ -319,10 +319,12 @@ export class Mesh {
         ];
     }
 
-    static sanitizeTriangleIndices(indices = [], vertexCount = 0) {
+    static sanitizeTriangleIndices(indices = [], vertexCount = 0, vertices = null, stride = Mesh.STRIDE) {
         const source = Mesh.toIndexArray(indices);
         const next = [];
         const max = Math.max(0, Math.trunc(Mesh.toNumber(vertexCount, 0)));
+        const hasGeometry = Array.isArray(vertices) || ArrayBuffer.isView(vertices);
+        const safeStride = Math.max(3, Math.trunc(Mesh.toNumber(stride, Mesh.STRIDE)));
 
         for (let offset = 0; offset + 2 < source.length; offset += 3) {
             const a = source[offset];
@@ -335,6 +337,18 @@ export class Mesh {
 
             if (a === b || b === c || c === a) {
                 continue;
+            }
+
+            if (hasGeometry) {
+                const pa = Mesh.read3(vertices, safeStride, a);
+                const pb = Mesh.read3(vertices, safeStride, b);
+                const pc = Mesh.read3(vertices, safeStride, c);
+                const cross = Mesh.cross3(Mesh.sub3(pb, pa), Mesh.sub3(pc, pa));
+                const area2 = Math.hypot(cross[0], cross[1], cross[2]);
+
+                if (!Number.isFinite(area2) || area2 <= 0.00000001) {
+                    continue;
+                }
             }
 
             next.push(a, b, c);
@@ -381,7 +395,7 @@ export class Mesh {
     static finalizeMesh(mesh, { vertices, indices, stride, source = "edit", meta = {} } = {}) {
         const safeStride = Math.max(Mesh.STRIDE, Math.trunc(Mesh.toNumber(stride, Mesh.STRIDE)));
         const sourceVertices = Mesh.upgradeVertexLayout(vertices || [], safeStride);
-        const sourceIndices = Mesh.sanitizeTriangleIndices(indices || [], Mesh.vertexCount(sourceVertices, safeStride));
+        const sourceIndices = Mesh.sanitizeTriangleIndices(indices || [], Mesh.vertexCount(sourceVertices, safeStride), sourceVertices, safeStride);
         const nextMesh = {
             ...(mesh || {}),
             stride: safeStride,

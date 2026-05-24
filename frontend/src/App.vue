@@ -32,7 +32,28 @@
         </Grid>
       </v-main>
       <!-- Layer -->
-      <Layer style="position: absolute; top: 40px; right: 70px;" :state="windowStates.layer.value" v-model:orbit="windowStates.orbit.value" v-model:selected-channel="localData.selectedChannel.value" v-model:channel-settings="localData.channelSettings.value" v-model:layers="localData.layers.value" v-model:paths="localData.paths.value" v-model:selected-layer="localData.selectedLayer.value" v-model:channel="localData.channel.value" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
+      <Window
+          id="layer-window"
+          :state="windowStates.layer.value"
+          :start-position="{ top: '40px', right: '70px' }"
+          title="Layer"
+          icon="mdi-layers"
+          close-event="layer-state"
+          @component-event="componentEvent"
+      >
+        <Layer
+            :state="windowStates.layer.value"
+            v-model:orbit="windowStates.orbit.value"
+            v-model:selected-channel="localData.selectedChannel.value"
+            v-model:channel-settings="localData.channelSettings.value"
+            v-model:layers="localData.layers.value"
+            v-model:paths="localData.paths.value"
+            v-model:selected-layer="localData.selectedLayer.value"
+            v-model:channel="localData.channel.value"
+            v-model:theme="appData.theme.value"
+            @component-event="componentEvent"
+        />
+      </Window>
       <!-- Channel Mixer -->
       <Mixer v-model:viewport="localData.viewport.value" v-model:data="mixerConfig" v-model:shader="localData.shader.value" :blend-mode="blendMode" v-model:channel="localData.channel.value" v-model:state="windowStates.mixer.value" v-model:loading="loadingStates.mixer.value" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
       <!-- Cut/Crop/Resize Modifier -->
@@ -112,10 +133,12 @@ import EffectsModifier from "@/view/page/Modifier/Effects/Effects";
 import DistortModifier from "@/view/page/Modifier/Distort/Distort";
 import MaterialEditor from "@/view/page/Material/Material";
 import {engineData, engineSession} from "@/models/orbit/config/model";
+import Window from "@/components/Window/Window";
 
 export default {
   name: 'App',
   components: {
+    Window,
     Mixer,
     Boot,
     Notify,

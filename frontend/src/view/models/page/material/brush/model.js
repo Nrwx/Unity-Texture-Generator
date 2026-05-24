@@ -85,11 +85,17 @@ export function brushEditorModel(props, emit) {
             const detailKey = key.slice("detail.".length);
             const detailDefaults = props.config.detail || {};
 
+            const nextValue = detailKey === "enabled"
+                ? value === true
+                : number(value, detailDefaults?.[detailKey] ?? 0);
+
             props.config.detail = {
                 ...detailDefaults,
-                [detailKey]: detailKey === "enabled"
-                    ? value === true
-                    : number(value, detailDefaults?.[detailKey] ?? 0),
+                [detailKey]: nextValue,
+                ...(detailKey === "detailPercent" ? { percent: nextValue } : {}),
+                ...(detailKey === "percent" ? { detailPercent: nextValue } : {}),
+                ...(detailKey === "maxTriangles" ? { maxSubdivisionsPerStroke: nextValue } : {}),
+                ...(detailKey === "maxSubdivisionsPerStroke" ? { maxTriangles: nextValue } : {}),
             };
 
             emitChange();

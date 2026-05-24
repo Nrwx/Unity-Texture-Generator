@@ -142,22 +142,38 @@
 
     <slot style="width: 100%;"/>
 
-    <CameraPanel
-        v-if="orbit"
-        :selected-layers="selectedLayer"
-        :editor-config="engineData.editor.value"
-        :camera-config="engineData.camera.value"
-        :orbit-config="engineData.orbit.value"
-        :gizmo-config="engineData.gizmo.value"
-        :edit-config="engineData.edit.value"
-        :sculpt-config="engineData.sculpt.value"
-        :grid-config="engineData.grid.value"
-        :view-config="engineData.view.value"
-        :keyboard="engineData.keyboard"
-        :mesh-states="meshStates"
-        compact
-        @update:component-event="emitEvent"
-    />
+    <template v-if="orbit">
+      <CameraPanel
+          :selected-layers="selectedLayer"
+          :editor-config="engineData.editor.value"
+          :camera-config="engineData.camera.value"
+          :orbit-config="engineData.orbit.value"
+          :gizmo-config="engineData.gizmo.value"
+          :edit-config="engineData.edit.value"
+          :sculpt-config="engineData.sculpt.value"
+          :grid-config="engineData.grid.value"
+          :view-config="engineData.view.value"
+          :keyboard="engineData.keyboard"
+          :mesh-states="meshStates"
+          compact
+          @update:component-event="emitEvent"
+      />
+
+      <MeshEditPanel
+          :config="engineData.edit.value"
+          @update:component-event="emitEvent"
+      />
+      <SculptBrushEditor
+          :config="engineData.sculpt.value"
+          @update:component-event="emitEvent"
+      />
+      <Gizmo
+          :config="engineData.gizmo.value"
+          :active="true"
+          compact
+          @update:component-event="emitEvent"
+      />
+    </template>
 
     <!-- Container Control -->
     <Control
@@ -193,6 +209,9 @@ import Cursor from "@/components/Brush/Cursor";
 import Edit from "@/components/Text/Edit";
 import Animator from "@/view/page/Material/Animator/Animator";
 import CameraPanel from "@/view/page/Material/Camera/CameraPanel";
+import MeshEditPanel from "@/view/page/Material/MeshEdit/MeshEditPanel";
+import SculptBrushEditor from "@/view/page/Material/Brush/BrushEditor";
+import Gizmo from "@/components/Gizmo/Gizmo";
 
 export default defineComponent({
   name: "GridComponent",
@@ -213,7 +232,10 @@ export default defineComponent({
     Menu,
     Box,
     Animator,
-    CameraPanel
+    CameraPanel,
+    MeshEditPanel,
+    SculptBrushEditor,
+    Gizmo
   },
   setup(props, { emit }) {
     const model = gridModel(props, emit);

@@ -1,50 +1,44 @@
 <template>
-  <!-- Path-Liste -->
-  <v-list
-      density="comfortable" two-line class="layer-list overflow-hidden" bg-color="transparent"
-  >
-    <v-list-item
-        v-for="(path) in data.filter(x => !x.default)"
+  <section class="path-list">
+    <article
+        v-for="path in data.filter(x => !x.default)"
         :key="path.id"
         :data-id="path.id"
         class="path-item"
     >
+      <button
+          type="button"
+          class="path-action add"
+          @click.stop="add(path)"
+      >
+        <v-icon size="15">mdi-plus</v-icon>
+      </button>
 
-      <template v-slot:prepend>
-        <v-icon color="grey" size="x-small" @click="add(path)">
-          mdi-plus
-        </v-icon>
-      </template>
-
-      <template v-slot:append>
-        <v-icon color="grey" size="x-small" @click="emitEvent('path:delete', path.id)">
-          mdi-delete
-        </v-icon>
-      </template>
-
-      <div class="d-flex align-baseline">
-        <v-text-field
-            v-model="path.name"
-            variant="outlined"
-            min-width="160"
-            :hide-details="true"
-            @blur="emitEvent('path:update', path)"
-            @click.stop
-        >
-          <template v-slot:prepend-inner>
-            <v-tooltip location="bottom">
-              <template v-slot:activator="{ props }">
-                <v-avatar v-bind="props" rounded="0" variant="elevated">
-                  <v-img :src="path?.thumbnail" :alt="path.name" />
-                </v-avatar>
-              </template>
-              {{ path.name }}
-            </v-tooltip>
-          </template>
-        </v-text-field>
+      <div class="path-avatar">
+        <img
+            v-if="path?.thumbnail"
+            :src="path.thumbnail"
+            :alt="path.name"
+        />
+        <v-icon v-else size="18">mdi-vector-polyline</v-icon>
       </div>
-    </v-list-item>
-  </v-list>
+
+      <input
+          class="path-name"
+          v-model="path.name"
+          @blur="emitEvent('path:update', path)"
+          @click.stop
+      />
+
+      <button
+          type="button"
+          class="path-action danger"
+          @click.stop="emitEvent('path:delete', path.id)"
+      >
+        <v-icon size="15">mdi-delete</v-icon>
+      </button>
+    </article>
+  </section>
 </template>
 
 <script>
@@ -55,7 +49,8 @@ export default defineComponent({
   name: "PathComponent",
   props: pathProps,
   setup(props, { emit }) {
-    const {add, emitEvent } = pathModel(props, emit);
+    const { add, emitEvent } = pathModel(props, emit);
+
     return {
       add,
       emitEvent,

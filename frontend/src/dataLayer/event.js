@@ -34,6 +34,7 @@ import {pluginEvent} from "@/dataLayer/event/plugin";
 import {materialEvent} from "@/dataLayer/event/material";
 import {meshEvent} from "@/dataLayer/event/mesh";
 import {engineEvent} from "@/dataLayer/event/engine";
+import {windowEvent} from "@/dataLayer/event/window";
 
 
 /**
@@ -41,6 +42,7 @@ import {engineEvent} from "@/dataLayer/event/engine";
  */
 const eventHandler = (route) => ({
     ...listenerEvent(route),
+    ...windowEvent(route),
     ...keyEvent(route),
     ...appEvent(route),
     ...timelineEvent(route),
