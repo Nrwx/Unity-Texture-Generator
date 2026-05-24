@@ -1,8 +1,5 @@
 .animator-orbit {
   --animator-bg: #10131d;
-  --animator-grid: rgba(255, 255, 255, 0.045);
-  --animator-axis-x: rgba(255, 112, 111, 0.42);
-  --animator-axis-z: rgba(120, 168, 255, 0.42);
   --animator-text: rgba(255, 255, 255, 0.92);
   --animator-muted: rgba(255, 255, 255, 0.58);
   --animator-cyan: #61e6ff;
@@ -22,7 +19,6 @@
   top: 0;
   z-index: 1;
   overflow: hidden;
-  cursor: default;
   touch-action: none;
   background: rgba(0, 0, 0, 0.18);
 
@@ -37,40 +33,6 @@
 
   &.dollying {
     cursor: ns-resize;
-  }
-}
-
-.animator-grid {
-  position: absolute;
-  inset: -10%;
-  z-index: 0;
-  opacity: 0.52;
-  transform:
-          perspective(900px)
-          rotateX(64deg)
-          rotateZ(0deg)
-          scale(1.25);
-  transform-origin: center center;
-  pointer-events: none;
-  mask-image: radial-gradient(circle at center, #000 0%, #000 48%, transparent 78%);
-}
-
-.animator-grid-line {
-  position: absolute;
-  background: var(--animator-grid);
-
-  &.minor {
-    background: var(--animator-grid);
-  }
-
-  &.axis-x {
-    background: var(--animator-axis-x);
-    box-shadow: 0 0 10px rgba(255, 112, 111, 0.18);
-  }
-
-  &.axis-z {
-    background: var(--animator-axis-z);
-    box-shadow: 0 0 10px rgba(120, 168, 255, 0.18);
   }
 }
 

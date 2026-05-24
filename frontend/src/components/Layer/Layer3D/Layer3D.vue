@@ -22,32 +22,12 @@
         :style="lightOverlay.style"
     >
       <div class="canvas-material-light-range" />
-
       <div class="canvas-material-light-line" />
-
-      <div
-          v-if="lightOverlay.isSpot"
-          class="canvas-material-light-cone"
-      >
-        <span />
-      </div>
-
-      <div
-          class="canvas-material-light-glyph"
-          :class="`type-${lightOverlay.type}`"
-      >
-        <span />
-      </div>
-
+      <div v-if="lightOverlay.isSpot" class="canvas-material-light-cone"><span /></div>
+      <div class="canvas-material-light-glyph" :class="`type-${lightOverlay.type}`"><span /></div>
       <div class="canvas-material-light-origin" />
-
       <div class="canvas-material-light-metrics">
-        <small
-            v-for="metric in lightOverlay.metrics"
-            :key="metric"
-        >
-          {{ metric }}
-        </small>
+        <small v-for="metric in lightOverlay.metrics" :key="metric">{{ metric }}</small>
       </div>
     </div>
   </div>
@@ -61,9 +41,7 @@ export default defineComponent({
   name: "Layer3D",
   props: layer3DProps,
   setup(props, { emit }) {
-    return {
-      ...layer3DModel(props, emit),
-    };
+    return { ...layer3DModel(props, emit) };
   },
 });
 </script>

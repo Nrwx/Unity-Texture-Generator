@@ -4,44 +4,20 @@
       <header>
         <div>
           <strong>{{ activeLayer?.name || "Kamera" }}</strong>
-          <small>{{ savedCamera.projection }} - {{ Math.round(savedCamera.fov) }} deg</small>
+          <small>{{ savedCamera.projection }} · {{ Math.round(savedCamera.fov) }} deg</small>
         </div>
 
-        <v-btn
-            icon
-            size="x-small"
-            variant="text"
-            :disabled="!activeLayer"
-            @click="applyCurrentCamera"
-        >
+        <v-btn icon size="x-small" variant="text" :disabled="!activeLayer" @click="applyCurrentCamera">
           <v-icon size="16">mdi-camera-plus-outline</v-icon>
         </v-btn>
       </header>
 
       <div v-if="activeLayer" class="camera-segment">
-        <button
-            type="button"
-            :class="{ active: savedCamera.projection === 'perspective' }"
-            @click="setSavedCameraField('projection', 'perspective')"
-        >
-          Persp
-        </button>
-
-        <button
-            type="button"
-            :class="{ active: savedCamera.projection === 'orthographic' }"
-            @click="setSavedCameraField('projection', 'orthographic')"
-        >
-          Ortho
-        </button>
-
-        <button type="button" @click="animatorCameraCommand.frame += 1">
-          Frame
-        </button>
-
-        <button type="button" @click="animatorCameraCommand.reset += 1">
-          Reset
-        </button>
+        <button type="button" :class="{ active: savedCamera.projection === 'perspective' }" @click="setSavedCameraField('projection', 'perspective')">Persp</button>
+        <button type="button" :class="{ active: savedCamera.projection === 'orthographic' }" @click="setSavedCameraField('projection', 'orthographic')">Ortho</button>
+        <button type="button" @click="animatorCameraCommand.frame += 1">Frame</button>
+        <button type="button" @click="animatorCameraCommand.reset += 1">Reset</button>
+        <button type="button" @click="focusPivot">Pivot</button>
       </div>
 
       <div v-else class="camera-empty">
@@ -54,17 +30,12 @@
       <header>
         <div>
           <strong>Perspektiven</strong>
-          <small>Schnellzugriff fuer Animator Orbit</small>
+          <small>Orbit / Viewport</small>
         </div>
       </header>
 
       <div class="camera-view-grid">
-        <button
-            v-for="view in viewButtons"
-            :key="view.key"
-            type="button"
-            @click="setAnimatorView(view.key)"
-        >
+        <button v-for="view in viewButtons" :key="view.key" type="button" @click="setAnimatorView(view.key)">
           <v-icon size="15">{{ view.icon }}</v-icon>
           <span>{{ view.label }}</span>
         </button>
@@ -75,15 +46,11 @@
       <header>
         <div>
           <strong>Settings</strong>
-          <small>Lens und Orbit speichern im Layer</small>
+          <small>Lens und Orbit speichern im Mesh-Layer</small>
         </div>
       </header>
 
-      <div
-          v-for="group in cameraGroups"
-          :key="group.key"
-          class="camera-group"
-      >
+      <div v-for="group in cameraGroups" :key="group.key" class="camera-group">
         <small>{{ group.title }}</small>
 
         <div class="camera-grid">
@@ -108,15 +75,14 @@
 
 <script>
 import { defineComponent } from "vue";
-import {cameraModel, cameraProps} from "@/models/camera/model";
+import { cameraModel, cameraProps } from "@/models/camera/model";
 
 export default defineComponent({
   name: "CameraPanel",
   props: cameraProps,
+  emits: ["component-event"],
   setup(props, { emit }) {
-    return {
-      ...cameraModel(props, emit),
-    };
+    return { ...cameraModel(props, emit) };
   },
 });
 </script>

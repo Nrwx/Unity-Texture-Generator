@@ -1,10 +1,20 @@
-import {reactive, ref} from "vue";
+import { reactive, ref } from "vue";
 
 export const animatorGizmo = reactive({
-    tool: "orbit",
+    tool: "translate",
     axis: "free",
     pivot: "object",
-    space: "local",
+    space: "world",
+    showAxisHandles: true,
+    showRotateRings: true,
+    showScaleHandles: true,
+    showPlaneHandles: false,
+    showObjectPivot: true,
+    showWorldPivot: true,
+    showAxisGuide: true,
+    showWorldAxis: false,
+    pivotAction: "",
+    pivotActionTick: 0,
 });
 
 export const animatorCameraState = reactive({
@@ -16,8 +26,11 @@ export const animatorCameraState = reactive({
     orthographicScale: 5,
     theta: 0,
     phi: 0,
-    target: {x: 0, y: 0, z: 0},
-    position: {x: 0, y: -3.25, z: 0.18},
+    target: { x: 0, y: 0, z: 0 },
+    position: { x: 0, y: -3.25, z: 0.18 },
+    forward: { x: 0, y: 1, z: 0 },
+    right: { x: 1, y: 0, z: 0 },
+    up: { x: 0, y: 0, z: 1 },
     payload: null,
 });
 
@@ -28,6 +41,7 @@ export const animatorCameraCommand = reactive({
     toggleGrid: 0,
     projection: "",
     view: "",
+    focusPivot: 0,
 });
 
 export const animatorActiveLayerId = ref("");

@@ -1273,6 +1273,7 @@ export class WebGLMaterialRenderer {
         this.meshes = new Map();
         this.overlayMeshes = new Map();
         this.particleBuffers = new Map();
+        this.editorBuffers = new Map();
 
         this.textures = new WeakMap();
         this.fallbackTextures = {};
@@ -1703,6 +1704,8 @@ export class WebGLMaterialRenderer {
         });
         gl.bindVertexArray(null);
         gl.depthMask(true);
+        gl.enable(gl.DEPTH_TEST);
+        gl.depthFunc(gl.LEQUAL);
         if (ignoreDepth) {
             gl.enable(gl.DEPTH_TEST);
         }
@@ -1733,7 +1736,8 @@ export class WebGLMaterialRenderer {
 
         gl.disable(gl.CULL_FACE);
 
-        // Overlay soll sichtbar bleiben, aber nicht die Tiefe kaputt schreiben.
+        // Mesh topology overlay belongs to the object, not to the editor gizmo.
+        // Keep depth testing enabled so it does not wash over the whole orbit.
         gl.depthMask(false);
         gl.enable(gl.DEPTH_TEST);
         gl.depthFunc(gl.LEQUAL);
@@ -1807,6 +1811,286 @@ export class WebGLMaterialRenderer {
         gl.disable(gl.POLYGON_OFFSET_FILL);
 
         gl.depthMask(true);
+        gl.enable(gl.DEPTH_TEST);
+        gl.depthFunc(gl.LEQUAL);
+    }
+
+
+    buildEditorEntries(editor = {}, materialLayer = null) {
+        const entries = [];
+        const pushLineEntry = (key, color, positions, pointMode = 0, pointSize = 5.5, overlay = false) => {
+            if (!positions.length) return;
+            entries.push({ key, primitive: "LINES", pointMode, pointSize, color, overlay, positions: new Float32Array(positions) });
+        };
+        const pushPointEntry = (key, color, positions, pointSize = 12.0, overlay = false) => {
+            if (!positions.length) return;
+            entries.push({ key, primitive: "POINTS", pointMode: 1, pointSize, color, overlay, positions: new Float32Array(positions) });
+        };
+        const pushSceneLine = (target, a, b) => {
+            target.push(...sceneToRendererVector(a), ...sceneToRendererVector(b));
+        };
+        const point = value => ([
+            toNumber(value?.x ?? value?.[0], 0),
+            toNumber(value?.y ?? value?.[1], 0),
+            toNumber(value?.z ?? value?.[2], 0),
+        ]);
+
+        const grid = editor.grid || {};
+        const size = Math.max(1, toNumber(grid.size, 12));
+        const divisions = Math.max(2, Math.trunc(toNumber(grid.divisions, 24)));
+        const majorEvery = Math.max(1, Math.trunc(toNumber(grid.majorEvery, 4)));
+        const step = size / divisions;
+        const half = size * 0.5;
+
+        if (editor.renderGrid !== false) {
+            const minor = [];
+            const major = [];
+            for (let index = 0; index <= divisions; index += 1) {
+                const target = index % majorEvery === 0 ? major : minor;
+                const value = -half + index * step;
+                pushSceneLine(target, [-half, value, 0], [half, value, 0]);
+                pushSceneLine(target, [value, -half, 0], [value, half, 0]);
+            }
+            pushLineEntry("grid:minor", [0.58, 0.66, 0.82, 0.22], minor);
+            pushLineEntry("grid:major", [0.72, 0.82, 1.0, 0.42], major);
+        }
+
+        const geometry = materialLayer?.geometry || materialLayer?.mesh?.settings || {};
+        const objectPivot = [
+            toNumber(geometry.position_x, 0) + toNumber(geometry.pivot_x, 0),
+            toNumber(geometry.position_y, 0) + toNumber(geometry.pivot_y, 0),
+            toNumber(geometry.position_z, 0) + toNumber(geometry.pivot_z, 0),
+        ];
+        const origin = point(editor.gizmoOrigin || editor.pivotPoint || objectPivot);
+        const gizmoSize = Math.max(0.16, Math.min(0.92, toNumber(editor.gizmoSize, 0.72)));
+        const activeTool = String(editor.tool || "translate").toLowerCase();
+        const activeAxis = String(editor.axis || "free").toLowerCase();
+        const axisColors = {
+            x: [1.0, 0.18, 0.16, 1.0],
+            y: [0.25, 1.0, 0.45, 1.0],
+            z: [0.35, 0.58, 1.0, 1.0],
+        };
+        const axisDirs = { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] };
+        const lineTo = (axis, amount) => [origin[0] + axis[0] * amount, origin[1] + axis[1] * amount, origin[2] + axis[2] * amount];
+
+        if (editor.renderWorldAxis === true) {
+            const axisSize = Math.max(0.5, Math.min(2.5, half * 0.3));
+            Object.entries(axisDirs).forEach(([axis, dir]) => {
+                const line = [];
+                pushSceneLine(line, [0, 0, 0], [dir[0] * axisSize, dir[1] * axisSize, dir[2] * axisSize]);
+                pushLineEntry(`world-axis:${axis}`, axisColors[axis], line, 0, 4.5);
+            });
+        }
+
+        if (editor.renderPivot !== false) {
+            const drawPivot = (key, pivotPoint, color, pointSize = 8.5) => {
+                const pivot = [];
+                const s = Math.max(0.03, gizmoSize * 0.075);
+                pushSceneLine(pivot, [pivotPoint[0] - s, pivotPoint[1], pivotPoint[2]], [pivotPoint[0] + s, pivotPoint[1], pivotPoint[2]]);
+                pushSceneLine(pivot, [pivotPoint[0], pivotPoint[1] - s, pivotPoint[2]], [pivotPoint[0], pivotPoint[1] + s, pivotPoint[2]]);
+                pushSceneLine(pivot, [pivotPoint[0], pivotPoint[1], pivotPoint[2] - s], [pivotPoint[0], pivotPoint[1], pivotPoint[2] + s]);
+                pushLineEntry(`pivot:${key}:cross`, color, pivot, 0, 5.25, true);
+                pushPointEntry(`pivot:${key}:point`, color, sceneToRendererVector(pivotPoint), pointSize, true);
+            };
+
+            if (editor.showObjectPivot !== false) {
+                drawPivot("object", point(editor.objectPivotPoint || objectPivot), [1.0, 0.78, 0.28, 1.0], 8.5);
+            }
+
+            if (editor.showWorldPivot !== false) {
+                // World pivot is the immutable scene origin. It is never moved by mesh transforms.
+                drawPivot("world", [0, 0, 0], [0.72, 0.86, 1.0, 0.82], 7.0);
+            }
+
+            if (editor.pivotMode === "cursor" && editor.cursorPivotActive === true) {
+                drawPivot("cursor", point(editor.cursorPivot), [1.0, 0.48, 0.9, 0.95], 8.0);
+            }
+        }
+
+        if (editor.renderGizmo !== false) {
+            if ((activeTool === "translate" || activeTool === "pivot") && editor.showAxisHandles !== false) {
+                Object.entries(axisDirs).forEach(([axis, dir]) => {
+                    const line = [];
+                    const tip = lineTo(dir, gizmoSize);
+                    pushSceneLine(line, origin, tip);
+                    pushLineEntry(`gizmo:translate:${axis}`, axisColors[axis], line, 0, 7.0, true);
+                    pushPointEntry(`gizmo:translate-tip:${axis}`, axisColors[axis], sceneToRendererVector(tip), 13.5, true);
+                });
+            }
+
+            if (activeTool === "scale" && editor.showScaleHandles !== false) {
+                Object.entries(axisDirs).forEach(([axis, dir]) => {
+                    const line = [];
+                    const tip = lineTo(dir, gizmoSize * 0.82);
+                    pushSceneLine(line, origin, tip);
+                    pushLineEntry(`gizmo:scale:${axis}`, axisColors[axis], line, 0, 7.0, true);
+                    pushPointEntry(`gizmo:scale-box:${axis}`, axisColors[axis], sceneToRendererVector(tip), 15.0, true);
+                });
+                pushPointEntry("gizmo:scale:free", [1.0, 1.0, 1.0, 1.0], sceneToRendererVector(origin), 11.0, true);
+
+                const triangle = [];
+                const pushTriangleEdge = (a, b) => pushSceneLine(triangle, a, b);
+                const activeDir = axisDirs[activeAxis];
+
+                if (activeDir) {
+                    const sideAxis = activeAxis === "x" ? axisDirs.y : axisDirs.x;
+                    const heightAxis = activeAxis === "z" ? axisDirs.y : axisDirs.z;
+                    const p0 = origin;
+                    const p1 = lineTo(activeDir, gizmoSize * 0.62);
+                    const p2 = [
+                        p1[0] + sideAxis[0] * gizmoSize * 0.16 + heightAxis[0] * gizmoSize * 0.16,
+                        p1[1] + sideAxis[1] * gizmoSize * 0.16 + heightAxis[1] * gizmoSize * 0.16,
+                        p1[2] + sideAxis[2] * gizmoSize * 0.16 + heightAxis[2] * gizmoSize * 0.16,
+                    ];
+                    pushTriangleEdge(p0, p1);
+                    pushTriangleEdge(p1, p2);
+                    pushTriangleEdge(p2, p0);
+                    pushLineEntry(`gizmo:scale-triangle:${activeAxis}`, [1.0, 1.0, 1.0, 0.78], triangle, 0, 3.0, true);
+                } else {
+                    const px = lineTo(axisDirs.x, gizmoSize * 0.48);
+                    const py = lineTo(axisDirs.y, gizmoSize * 0.48);
+                    const pz = lineTo(axisDirs.z, gizmoSize * 0.48);
+                    pushTriangleEdge(px, py);
+                    pushTriangleEdge(py, pz);
+                    pushTriangleEdge(pz, px);
+                    pushLineEntry("gizmo:scale-triangle:free", [1.0, 1.0, 1.0, 0.72], triangle, 0, 3.0, true);
+                }
+            }
+
+            if (editor.renderPlaneHandles === true && activeTool === "translate") {
+                const planeLine = (name, u, v, color) => {
+                    const s = gizmoSize * 0.25;
+                    const p0 = [origin[0] + u[0] * s + v[0] * s, origin[1] + u[1] * s + v[1] * s, origin[2] + u[2] * s + v[2] * s];
+                    const p1 = [origin[0] + u[0] * s * 1.7 + v[0] * s, origin[1] + u[1] * s * 1.7 + v[1] * s, origin[2] + u[2] * s * 1.7 + v[2] * s];
+                    const p2 = [origin[0] + u[0] * s * 1.7 + v[0] * s * 1.7, origin[1] + u[1] * s * 1.7 + v[1] * s * 1.7, origin[2] + u[2] * s * 1.7 + v[2] * s * 1.7];
+                    const p3 = [origin[0] + u[0] * s + v[0] * s * 1.7, origin[1] + u[1] * s + v[1] * s * 1.7, origin[2] + u[2] * s + v[2] * s * 1.7];
+                    const positions = [];
+                    pushSceneLine(positions, p0, p1);
+                    pushSceneLine(positions, p1, p2);
+                    pushSceneLine(positions, p2, p3);
+                    pushSceneLine(positions, p3, p0);
+                    pushLineEntry(`gizmo:plane:${name}`, color, positions, 0, 4.5, true);
+                };
+                planeLine("xy", [1, 0, 0], [0, 1, 0], [1.0, 0.9, 0.22, 0.64]);
+                planeLine("xz", [1, 0, 0], [0, 0, 1], [0.9, 0.45, 1.0, 0.64]);
+                planeLine("yz", [0, 1, 0], [0, 0, 1], [0.35, 1.0, 1.0, 0.64]);
+            }
+
+            if (activeTool === "rotate" && editor.showRotateRings !== false) {
+                const ring = (name, normalAxis, color) => {
+                    const positions = [];
+                    const steps = 96;
+                    const radius = gizmoSize * 0.88;
+                    for (let index = 0; index < steps; index += 1) {
+                        const a0 = (index / steps) * Math.PI * 2;
+                        const a1 = ((index + 1) / steps) * Math.PI * 2;
+                        let p0; let p1;
+                        if (normalAxis === "x") {
+                            p0 = [origin[0], origin[1] + Math.cos(a0) * radius, origin[2] + Math.sin(a0) * radius];
+                            p1 = [origin[0], origin[1] + Math.cos(a1) * radius, origin[2] + Math.sin(a1) * radius];
+                        } else if (normalAxis === "y") {
+                            p0 = [origin[0] + Math.cos(a0) * radius, origin[1], origin[2] + Math.sin(a0) * radius];
+                            p1 = [origin[0] + Math.cos(a1) * radius, origin[1], origin[2] + Math.sin(a1) * radius];
+                        } else {
+                            p0 = [origin[0] + Math.cos(a0) * radius, origin[1] + Math.sin(a0) * radius, origin[2]];
+                            p1 = [origin[0] + Math.cos(a1) * radius, origin[1] + Math.sin(a1) * radius, origin[2]];
+                        }
+                        pushSceneLine(positions, p0, p1);
+                    }
+                    pushLineEntry(`gizmo:rotate:${name}`, color, positions, 0, 5.75, true);
+                };
+                ring("x", "x", [1.0, 0.18, 0.16, 0.86]);
+                ring("y", "y", [0.25, 1.0, 0.45, 0.86]);
+                ring("z", "z", [0.35, 0.58, 1.0, 0.88]);
+            }
+
+            if (editor.dragging === true && editor.showAxisGuide !== false && axisDirs[activeAxis]) {
+                const guide = [];
+                const d = axisDirs[activeAxis];
+                const amount = gizmoSize * 3.0;
+                pushSceneLine(guide, lineTo(d, -amount), lineTo(d, amount));
+                pushLineEntry(`gizmo:active-guide:${activeAxis}`, [1, 1, 1, 0.78], guide, 0, 3.0, true);
+            }
+        }
+
+        return entries;
+    }
+
+    getEditorEntryBuffer(entry) {
+        const key = `${entry.key}:${entry.positions.length}:${entry.primitive || "LINES"}`;
+
+        if (this.editorBuffers.size > 96) {
+            this.editorBuffers.forEach(item => item?.buffer?.destroy?.());
+            this.editorBuffers.clear();
+        }
+
+        if (!this.editorBuffers.has(key)) {
+            this.editorBuffers.set(key, {
+                count: entry.positions.length / 3,
+                primitive: entry.primitive || "LINES",
+                buffer: Buffer.positions(this.gl, entry.positions, {
+                    label: `editor:${entry.key}`,
+                }),
+            });
+        }
+
+        return this.editorBuffers.get(key);
+    }
+
+    drawEditorPass({ editor = {}, matrices, materialLayer = null }) {
+        if (editor.enabled !== true || !this.overlayProgram) {
+            return;
+        }
+
+        this.editorBuffers.forEach(entry => entry?.buffer?.destroy?.());
+        this.editorBuffers.clear();
+
+        const entries = this.buildEditorEntries(editor, materialLayer);
+
+        if (!entries.length) {
+            return;
+        }
+
+        const gl = this.gl;
+
+        gl.useProgram(this.overlayProgram);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.disable(gl.CULL_FACE);
+        gl.depthMask(false);
+
+        entries.forEach(entry => {
+            const buffer = this.getEditorEntryBuffer(entry);
+            if (!buffer?.count) {
+                return;
+            }
+
+            if (entry.overlay === true) {
+                // Only gizmo handles/pivots are drawn as screen-readable editor overlays.
+                // Grid/topology keeps depth testing, so the scene does not become washed out.
+                gl.disable(gl.DEPTH_TEST);
+            } else {
+                gl.enable(gl.DEPTH_TEST);
+                gl.depthFunc(gl.LEQUAL);
+            }
+
+            this.setUniforms(this.overlayProgram, {
+                uModel: Matrix.identity().toArray(),
+                uViewProj: matrices.viewProj,
+                uPointSize: entry.pointSize || 5.5,
+                uPointMode: entry.pointMode || 0,
+                uColor: entry.color,
+            });
+
+            buffer.buffer?.drawArrays(
+                entry.primitive === "POINTS" ? gl.POINTS : gl.LINES,
+                buffer.count
+            );
+        });
+
+        gl.bindVertexArray(null);
+        gl.depthMask(true);
+        gl.enable(gl.DEPTH_TEST);
         gl.depthFunc(gl.LEQUAL);
     }
 
@@ -1834,6 +2118,7 @@ export class WebGLMaterialRenderer {
             getTextureForSlotFace,
             getAlphaTextureForFace,
             getParticleTextureForLayer,
+            editor = {},
         } = options;
 
         const gl = this.gl;
@@ -2333,6 +2618,12 @@ export class WebGLMaterialRenderer {
             renderMesh: materialMesh,
         });
 
+        this.drawEditorPass({
+            editor,
+            matrices,
+            materialLayer,
+        });
+
         gl.bindVertexArray(null);
 
         if (volumeLayeredPreview && showFluidParticles) {
@@ -2381,6 +2672,10 @@ export class WebGLMaterialRenderer {
             destroyBufferOnce(particles.buffer);
         });
 
+        this.editorBuffers.forEach(entry => {
+            destroyBufferOnce(entry.buffer);
+        });
+
         Object.values(this.fallbackTextures || {}).forEach(texture => {
             if (texture) {
                 gl.deleteTexture(texture);
@@ -2402,6 +2697,7 @@ export class WebGLMaterialRenderer {
         this.meshes.clear();
         this.overlayMeshes.clear();
         this.particleBuffers.clear();
+        this.editorBuffers.clear();
 
         this.program = null;
         this.overlayProgram = null;

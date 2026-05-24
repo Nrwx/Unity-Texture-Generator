@@ -654,6 +654,30 @@ export function layer3DModel(props, emit) {
         });
     };
 
+
+    const isLiveAnimatorEditor = () => (
+        props.editorMode === true ||
+        props.layer?.settings?.animator_viewport === true ||
+        props.layer?.preview?.animator_viewport === true ||
+        props.layer?.animator_viewport === true
+    );
+
+    const stableAnimatorRenderSignature = layer => {
+        if (!isLiveAnimatorEditor()) {
+            return {
+                geometry: layer?.geometry && JSON.stringify(layer.geometry),
+                mesh: layer?.mesh && JSON.stringify(layer.mesh),
+            };
+        }
+
+        // In Animator/editor mode geometry is expected to change every pointermove.
+        // Do not destroy/recreate WebGL buffers for transform-only updates.
+        return {
+            geometry: "animator-live-transform",
+            mesh: layer?.mesh?.id || layer?.mesh?.primitive || "animator-live-mesh",
+        };
+    };
+
     const shouldRotatePreview = materialLayer => (
         !isAnimatorViewport(materialLayer) &&
         (
@@ -1467,6 +1491,7 @@ export function layer3DModel(props, emit) {
                 getTextureForSlotFace,
                 getAlphaTextureForFace,
                 getParticleTextureForLayer,
+                editor: props.editorMode === true ? props.editorState : {},
             });
         } catch (error) {
             console.warn("Layer3D WebGL renderer failed.", error);
@@ -1831,8 +1856,8 @@ export function layer3DModel(props, emit) {
             props.layer?.material_preview_request_id,
             props.layer?.package?.url,
             props.layer?.surface && JSON.stringify(props.layer.surface),
-            props.layer?.geometry && JSON.stringify(props.layer.geometry),
-            props.layer?.mesh && JSON.stringify(props.layer.mesh),
+            stableAnimatorRenderSignature(props.layer).geometry,
+            stableAnimatorRenderSignature(props.layer).mesh,
             props.layer?.particle_system && JSON.stringify(props.layer.particle_system),
             props.layer?.keyframes && JSON.stringify(props.layer.keyframes),
             props.layer?.light && JSON.stringify(props.layer.light),
@@ -1960,5 +1985,17 @@ export const layer3DProps = {
         type: Boolean,
         required: false,
         default: false,
+    },
+
+    editorMode: {
+        type: Boolean,
+        required: false,
+        default: false,
+    },
+
+    editorState: {
+        type: Object,
+        required: false,
+        default: () => ({}),
     },
 };

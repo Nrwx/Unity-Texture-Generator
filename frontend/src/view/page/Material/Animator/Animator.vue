@@ -10,7 +10,7 @@
         ref="viewportRef"
         :id="animator.viewportId"
         class="animator-orbit-viewport"
-        :style="animatorViewportStyle"
+        :style="[animatorViewportStyle, editorCursorStyle]"
         :class="{
           grabbing: pointer.active,
           panning: pointer.mode === 'pan',
@@ -18,20 +18,6 @@
           dollying: pointer.mode === 'dolly'
         }"
     >
-      <div
-          v-if="camera.backgroundGrid !== false"
-          class="animator-grid"
-          aria-hidden="true"
-      >
-        <div
-            v-for="line in gridLines"
-            :key="line.key"
-            class="animator-grid-line"
-            :class="line.type"
-            :style="line.style"
-        />
-      </div>
-
       <template v-if="animatedLayers.length">
         <Layer3D
             v-for="layer in animatedLayers"
@@ -45,21 +31,9 @@
             webgl-scope="animator"
             :webgl-exclusive="false"
             :export-state="false"
+            :editor-mode="true"
+            :editor-state="editorState"
             class="animator-layer3d"
-        />
-
-        <Gizmo
-            v-for="layer in animatedLayers"
-            v-show="isActiveLayer(layer)"
-            :key="`animator-gizmo-${layer.id}`"
-            mode="object"
-            :selected="isActiveLayer(layer)"
-            :active="objectGizmoLayer?.id === layer.id"
-            :disabled="!isActiveLayer(layer)"
-            @select="selectAnimatorObject(layer)"
-            @axis="setObjectGizmoAxis(layer, $event)"
-            @release="releaseObjectGizmoAxis"
-            @update:component-event="emitEvent"
         />
       </template>
 
@@ -78,7 +52,6 @@
 <script>
 import { defineComponent } from "vue";
 import Layer3D from "@/components/Layer/Layer3D/Layer3D";
-import Gizmo from "@/components/Gizmo/Gizmo";
 import {
   animatorModel,
   animatorProps,
@@ -87,7 +60,6 @@ import {
 export default defineComponent({
   name: "AnimatorComponent",
   components: {
-    Gizmo,
     Layer3D,
   },
   props: animatorProps,

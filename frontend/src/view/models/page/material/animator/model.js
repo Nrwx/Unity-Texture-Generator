@@ -15,6 +15,12 @@ import { clamp, clone } from "@/utils/tools";
 import { Accumulator } from "@/view/models/page/material/core/Accumulator/Accumulator";
 import { Camera } from "@/view/models/page/material/core/Camera/Camera";
 import { Vector } from "@/view/models/page/material/core/Math/Vector/Vector";
+import { Matrix } from "@/view/models/page/material/core/Math/Matrix/Matrix";
+import { EditorState } from "@/view/models/page/material/core/Editor/EditorState";
+import { TransformController } from "@/view/models/page/material/core/Editor/TransformController";
+import { PickingController } from "@/view/models/page/material/core/Editor/PickingController";
+import { GizmoGeometry } from "@/view/models/page/material/core/Editor/GizmoGeometry";
+import { Ray } from "@/view/models/page/material/core/Ray/Ray";
 import {
     animatorActiveLayerId,
     animatorCameraCommand,
@@ -24,6 +30,7 @@ import {
 } from "@/view/models/page/material/animator/state";
 
 const DEG = Math.PI / 180;
+const WORLD_PIVOT = Object.freeze({ x: 0, y: 0, z: 0 });
 
 const toNumber = (value, fallback = 0) => {
     const number = Number(value);
@@ -34,6 +41,49 @@ const toNumber = (value, fallback = 0) => {
 const toVectorObject = (value, fallback = [0, 0, 0]) => Vector
     .from(value, fallback)
     .toObject();
+
+const sceneToRendererVector = (value, fallback = [0, 0, 0]) => {
+    const vector = Vector.from(value, fallback);
+
+    return [
+        vector.x,
+        vector.z,
+        vector.y,
+    ];
+};
+
+const buildRendererPickCamera = (cameraPayload = {}, viewport = { width: 1, height: 1 }) => {
+    const aspect = Math.max(0.0001, viewport.width / Math.max(1, viewport.height));
+    const projection = String(cameraPayload.projection || "perspective").toLowerCase();
+    const position = sceneToRendererVector(cameraPayload.position, [0, -3.25, 0.18]);
+    const target = sceneToRendererVector(cameraPayload.target, [0, 0, 0]);
+    const up = Vector.normalize(sceneToRendererVector(cameraPayload.up, [0, 0, 1]), [0, 1, 0]).toArray();
+    const view = Matrix.lookAt(position, target, up);
+    const projectionMatrix = projection === "orthographic" || projection === "ortho"
+        ? (() => {
+            const halfHeight = Math.max(0.0001, toNumber(cameraPayload.orthographic_scale ?? cameraPayload.orthographicScale, 5)) * 0.5;
+            const halfWidth = halfHeight * aspect;
+
+            return Matrix.orthographic(
+                -halfWidth,
+                halfWidth,
+                -halfHeight,
+                halfHeight,
+                Math.max(0.0001, toNumber(cameraPayload.near, 0.01)),
+                Math.max(0.01, toNumber(cameraPayload.far, 1000)),
+            );
+        })()
+        : Matrix.perspective(
+            toNumber(cameraPayload.fov, 50) * DEG,
+            aspect,
+            Math.max(0.0001, toNumber(cameraPayload.near, 0.01)),
+            Math.max(0.01, toNumber(cameraPayload.far, 1000)),
+        );
+
+    return {
+        viewProjectionMatrix: projectionMatrix.clone().multiply(view),
+    };
+};
 
 const createDefaultOrbitSettings = settings => ({
     projection: settings?.projection || "perspective",
@@ -249,8 +299,25 @@ export function animatorModel(props, emit) {
     });
 
     const gizmo = animatorGizmo;
+    const editorState = props.editorState || reactive(EditorState.create({
+        enabled: true,
+        renderPlaneHandles: false,
+        renderWorldAxis: false,
+    }));
+    const transformController = new TransformController();
+    const transformRevision = ref(0);
 
-    let commitTimer = null;
+    let transformSession = null;
+    let localTransformDirty = false;
+    let localTransformVersion = 0;
+    let submittedTransformVersion = 0;
+
+    const markLocalTransformDirty = () => {
+        localTransformDirty = true;
+        localTransformVersion += 1;
+        transformRevision.value += 1;
+    };
+
 
     const emitEvent = (event, payload) => {
         emit("update:component-event", event, payload);
@@ -432,13 +499,16 @@ export function animatorModel(props, emit) {
     });
 
     const animatedLayers = computed(() => {
+        // Force recomputation while dragging without pushing through global events.
+        transformRevision.value;
         const cameraPayload = viewportCamera.value;
+        syncEditorVisualState(activeLayer.value);
 
         return selectedMaterialLayers.value.map(layer => {
             const cloned = clone(layer, "json");
             const geometry = normalizeMeshSettings(
-                cloned.geometry ||
-                cloned.mesh?.settings ||
+                layer.geometry ||
+                layer.mesh?.settings ||
                 {}
             );
             const mesh = {
@@ -473,6 +543,10 @@ export function animatorModel(props, emit) {
 
                 material: {
                     ...(cloned.material || {}),
+                    geometry: {
+                        ...(cloned.material?.geometry || {}),
+                        ...geometry,
+                    },
                     mesh,
                     viewport_camera: cameraPayload,
                 },
@@ -509,26 +583,103 @@ export function animatorModel(props, emit) {
 
         activeLayerId.value = layer.id;
         animatorActiveLayerId.value = layer.id;
-        frameSelected();
+    };
+
+    const createAnimatorMeshPayload = layer => {
+        if (!layer?.id) {
+            return null;
+        }
+
+        const geometry = normalizeMeshSettings(
+            layer.geometry ||
+            layer.mesh?.settings ||
+            {}
+        );
+        const mesh = {
+            ...(layer.mesh || {}),
+            settings: {
+                ...(layer.mesh?.settings || {}),
+                ...geometry,
+            },
+        };
+        const cameraPayload = clone(viewportCamera.value, "json");
+
+        return clone({
+            id: layer.id,
+            name: layer.name,
+            width: layer.width,
+            height: layer.height,
+            hidden: layer.hidden,
+            opacity: layer.opacity,
+            order: layer.order,
+            matrix: layer.matrix,
+            keyframes: layer.keyframes,
+            geometry,
+            mesh,
+            settings: {
+                ...(layer.settings || {}),
+                animator_viewport: true,
+                viewport_camera: cameraPayload,
+            },
+            preview: {
+                ...(layer.preview || {}),
+                animator_viewport: true,
+                viewport_camera: cameraPayload,
+                rotate: false,
+                idle_rotation: {
+                    ...(layer.preview?.idle_rotation || {}),
+                    enabled: false,
+                },
+            },
+            viewport_camera: cameraPayload,
+            material: {
+                ...(layer.material || {}),
+                geometry: {
+                    ...(layer.material?.geometry || {}),
+                    ...geometry,
+                },
+                mesh,
+                viewport_camera: cameraPayload,
+            },
+            shader: {
+                ...(layer.shader || {}),
+                geometry: {
+                    ...(layer.shader?.geometry || {}),
+                    ...geometry,
+                },
+                mesh,
+                viewport_camera: cameraPayload,
+            },
+            particle_system: layer.particle_system,
+        }, "json");
     };
 
     const commitLayer = layer => {
-        if (!layer?.id) {
-            return;
+        const payload = createAnimatorMeshPayload(layer);
+
+        if (!payload) {
+            return false;
         }
 
-        emitEvent("update-layer", clone(layer, "json"));
+        // Use the existing mesh event directly. No animator mesh proxy, no extra parsing layer.
+        emitEvent("mesh:update", payload);
+        submittedTransformVersion = localTransformVersion;
+        localTransformDirty = false;
+
+        return true;
     };
 
-    const scheduleLayerCommit = (layer, delay = 180) => {
-        if (commitTimer) {
-            clearTimeout(commitTimer);
+    const scheduleLayerCommit = () => {
+        // Local render invalidation only. Persistence happens on pointerup / ESC.
+        markLocalTransformDirty();
+    };
+
+    const submitAnimatorMesh = () => {
+        if (!localTransformDirty || submittedTransformVersion === localTransformVersion) {
+            return false;
         }
 
-        commitTimer = setTimeout(() => {
-            commitTimer = null;
-            commitLayer(layer);
-        }, delay);
+        return commitLayer(activeLayer.value);
     };
 
     const ensureActiveGeometry = () => {
@@ -568,6 +719,17 @@ export function animatorModel(props, emit) {
 
     const setGizmoPivot = pivot => {
         gizmo.pivot = pivot;
+
+        if (pivot === "cursor" && activeLayer.value?.id) {
+            setCursorPivotFromObject(activeLayer.value);
+        }
+
+        if (pivot === "world") {
+            resetCursorPivot();
+        }
+
+        syncEditorVisualState(activeLayer.value);
+        rootRef.value?.focus?.();
     };
 
     const setGeometryNumber = (key, value, commit = true) => {
@@ -580,10 +742,10 @@ export function animatorModel(props, emit) {
 
         const fallback = key.startsWith("scale_") ? 1 : 0;
         geometry[key] = toNumber(value, fallback);
-        layer.mesh.settings[key] = geometry[key];
+        syncLayerTransformGeometry(layer, geometry);
 
-        if (commit) {
-            scheduleLayerCommit(layer);
+        if (!commit) {
+            localTransformDirty = false;
         }
     };
 
@@ -606,23 +768,224 @@ export function animatorModel(props, emit) {
             "scale_z",
         ].forEach(key => setGeometryNumber(key, 1, false));
 
-        commitLayer(activeLayer.value);
+        scheduleLayerCommit(activeLayer.value);
     };
 
-    const isObjectHit = event => {
-        const rect = viewportRef.value?.getBoundingClientRect?.();
+    const applyPivotAction = action => {
+        const layer = activeLayer.value;
+        const geometry = ensureActiveGeometry();
 
-        if (!rect || !activeLayer.value) {
+        if (!layer?.id || !geometry || !action) {
             return false;
         }
 
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-        const dx = event.clientX - centerX;
-        const dy = event.clientY - centerY;
-        const radius = Math.max(42, Math.min(rect.width, rect.height) * 0.28);
+        const position = {
+            x: toNumber(geometry.position_x, 0),
+            y: toNumber(geometry.position_y, 0),
+            z: toNumber(geometry.position_z, 0),
+        };
+        const objectPivot = objectPivotPoint(geometry);
+        const cursor = toPointObject(editorState.cursorPivot || WORLD_PIVOT);
 
-        return Math.sqrt(dx * dx + dy * dy) <= radius;
+        if (action === "pivot-to-center") {
+            geometry.pivot_x = 0;
+            geometry.pivot_y = 0;
+            geometry.pivot_z = 0;
+        }
+
+        if (action === "center-to-pivot") {
+            geometry.position_x = objectPivot.x;
+            geometry.position_y = objectPivot.y;
+            geometry.position_z = objectPivot.z;
+            geometry.pivot_x = 0;
+            geometry.pivot_y = 0;
+            geometry.pivot_z = 0;
+        }
+
+        if (action === "pivot-to-cursor") {
+            geometry.pivot_x = cursor.x - position.x;
+            geometry.pivot_y = cursor.y - position.y;
+            geometry.pivot_z = cursor.z - position.z;
+        }
+
+        if (action === "cursor-to-pivot") {
+            EditorState.setCursorPivot(editorState, objectPivot);
+            setGizmoPivot("cursor");
+            syncEditorVisualState(layer);
+            return true;
+        }
+
+        if (action === "pivot-to-world") {
+            geometry.pivot_x = -position.x;
+            geometry.pivot_y = -position.y;
+            geometry.pivot_z = -position.z;
+        }
+
+        if (action === "cursor-to-world") {
+            resetCursorPivot();
+            syncEditorVisualState(layer);
+            return true;
+        }
+
+        syncLayerTransformGeometry(layer, geometry);
+        submitAnimatorMesh();
+        syncEditorVisualState(layer);
+        return true;
+    };
+
+    const localPointerFromEvent = event => {
+        const element = viewportRef.value;
+        const rect = element?.getBoundingClientRect?.();
+        const local = mouse.clientToLocalPoint(event.clientX || 0, event.clientY || 0);
+        const layoutWidth = Math.max(1, element?.clientWidth || element?.offsetWidth || rect?.width || viewportSize.width);
+        const layoutHeight = Math.max(1, element?.clientHeight || element?.offsetHeight || rect?.height || viewportSize.height);
+
+        // useMouse.clientToLocalPoint already compensates transformed parents.
+        // Therefore scale from the element's layout size, not from getBoundingClientRect(),
+        // otherwise CSS zoom/scale is applied twice and picking drifts from the rendered gizmo.
+        const scaleX = viewportSize.width / layoutWidth;
+        const scaleY = viewportSize.height / layoutHeight;
+
+        return {
+            x: local.x * scaleX,
+            y: local.y * scaleY,
+            clientX: event.clientX,
+            clientY: event.clientY,
+            rect: rect
+                ? {
+                    left: rect.left,
+                    top: rect.top,
+                    width: rect.width,
+                    height: rect.height,
+                }
+                : null,
+            layout: {
+                width: layoutWidth,
+                height: layoutHeight,
+            },
+        };
+    };
+
+    const rayFromPointerEvent = event => {
+        const local = localPointerFromEvent(event);
+        return Ray.fromCamera(cameraCore, local.x, local.y, viewportSize);
+    };
+
+    const emitEditorPick = (type, hit = null, event = null) => {
+        const local = event ? localPointerFromEvent(event) : null;
+        const payload = {
+            type,
+            hit: hit ? clone(hit, "json") : null,
+            pointer: local
+                ? {
+                    x: local.x,
+                    y: local.y,
+                    clientX: local.clientX,
+                    clientY: local.clientY,
+                }
+                : null,
+            viewport: {
+                width: viewportSize.width,
+                height: viewportSize.height,
+            },
+        };
+
+        emitEvent("editor:pick", payload);
+        return payload;
+    };
+
+    const pickActiveMesh = event => {
+        const layer = activeLayer.value;
+
+        if (!layer?.mesh) {
+            return null;
+        }
+
+        const hit = PickingController.pickMesh({
+            ray: rayFromPointerEvent(event),
+            mesh: layer.mesh,
+            mode: editorState.selectionMode || "object",
+            thresholds: editorState.picking || {},
+        });
+
+        if (!hit) {
+            return null;
+        }
+
+        return {
+            ...hit,
+            objectId: layer.id,
+        };
+    };
+
+    const pickGizmo = event => {
+        const layer = objectGizmoLayer.value || activeLayer.value;
+
+        if (!layer?.id) {
+            return null;
+        }
+
+        const geometry = normalizeMeshSettings(layer.geometry || layer.mesh?.settings || {});
+        const visual = syncEditorVisualState(layer);
+        const gizmoGeometry = GizmoGeometry.build({
+            geometry,
+            origin: visual.pivotPoint,
+            size: visual.gizmoSize,
+            tool: gizmo.tool || editorState.tool || "translate",
+            renderPlaneHandles: editorState.showPlaneHandles === true,
+            showAxisHandles: editorState.showAxisHandles !== false,
+            showRotateRings: editorState.showRotateRings !== false,
+            showScaleHandles: editorState.showScaleHandles !== false,
+            showPivot: editorState.showObjectPivot !== false || editorState.showWorldPivot !== false,
+            showAxisGuide: editorState.dragging === true && editorState.showAxisGuide !== false,
+            activeAxis: editorState.axis || gizmo.axis || "free",
+        });
+
+        const local = localPointerFromEvent(event);
+        const rendererPickCamera = buildRendererPickCamera(viewportCamera.value, viewportSize);
+
+        return GizmoGeometry.pick(
+            rayFromPointerEvent(event),
+            gizmoGeometry,
+            editorState.picking?.gizmoThreshold || 0.34,
+            {
+                ...(editorState.picking || {}),
+                camera: rendererPickCamera,
+                viewport: viewportSize,
+                local,
+                rendererSpace: true,
+                strictScreen: true,
+                // The WebGL editor overlay draws scene points through sceneToRendererVector()
+                // and then matrices.viewProj. Picking must use that exact same projection chain.
+                axisPixelThreshold: editorState.picking?.axisPixelThreshold ?? 1.5,
+                ringPixelThreshold: editorState.picking?.ringPixelThreshold ?? 3,
+                pointPixelExtra: editorState.picking?.pointPixelExtra ?? 2,
+                planePixelInset: editorState.picking?.planePixelInset ?? 2,
+            }
+        );
+    };
+
+    const isObjectHit = event => Boolean(pickActiveMesh(event));
+
+    const selectByPicking = event => {
+        const hit = pickActiveMesh(event);
+
+        if (!hit) {
+            clearAnimatorObjectSelection();
+            emitEditorPick("clear", null, event);
+            return null;
+        }
+
+        selectAnimatorObject(activeLayer.value);
+        EditorState.setSelection(editorState, {
+            objectId: hit.objectId,
+            face: hit.type === "face" ? hit : null,
+            edge: hit.type === "edge" ? hit : null,
+            vertex: hit.type === "vertex" ? hit : null,
+        });
+
+        emitEditorPick("mesh", hit, event);
+        return hit;
     };
 
     const selectAnimatorObject = (layer = activeLayer.value) => {
@@ -634,15 +997,20 @@ export function animatorModel(props, emit) {
         activeLayerId.value = layer.id;
         animatorActiveLayerId.value = layer.id;
         animatorObjectLayerId.value = layer.id;
-        frameSelected();
+        EditorState.setSelection(editorState, { objectId: layer.id });
+        setCursorPivotFromObject(layer);
+        editorState.renderPivot = true;
+        syncEditorVisualState(layer);
         rootRef.value?.focus?.();
     };
 
     const clearAnimatorObjectSelection = () => {
         animatorObjectLayerId.value = "";
         gizmo.axis = "free";
-        cameraCore.orbit.setTarget([0, 0, 0]);
-        syncCameraState();
+        EditorState.clearSelection(editorState);
+        editorState.worldPivot = { ...WORLD_PIVOT };
+        editorState.renderPivot = true;
+        syncEditorVisualState(activeLayer.value);
     };
 
     const setObjectGizmoAxis = (layer, payload) => {
@@ -650,10 +1018,12 @@ export function animatorModel(props, emit) {
         const tool = typeof payload === "object" ? payload?.tool : "";
 
         selectAnimatorObject(layer);
-        if (["translate", "rotate", "scale"].includes(tool)) {
+        if (["translate", "rotate", "scale", "pivot"].includes(tool)) {
             setGizmoTool(tool);
+            editorState.tool = tool;
         }
         setGizmoAxis(axis);
+        editorState.axis = axis || "free";
     };
 
     const releaseObjectGizmoAxis = () => {
@@ -715,82 +1085,214 @@ export function animatorModel(props, emit) {
         commitLayer(layer);
     };
 
-    const applyGizmoDelta = (dx, dy) => {
+    const toPointObject = point => ({
+        x: toNumber(point?.x ?? point?.[0], 0),
+        y: toNumber(point?.y ?? point?.[1], 0),
+        z: toNumber(point?.z ?? point?.[2], 0),
+    });
+
+    const objectPivotPoint = geometry => ({
+        x: toNumber(geometry?.position_x, 0) + toNumber(geometry?.pivot_x, 0),
+        y: toNumber(geometry?.position_y, 0) + toNumber(geometry?.pivot_y, 0),
+        z: toNumber(geometry?.position_z, 0) + toNumber(geometry?.pivot_z, 0),
+    });
+
+    const geometryVisualSize = geometry => {
+        const sx = Math.abs(toNumber(geometry?.width, 1) * toNumber(geometry?.scale_x, 1));
+        const sy = Math.abs(toNumber(geometry?.height, 1) * toNumber(geometry?.scale_y, 1));
+        const sz = Math.abs(toNumber(geometry?.depth, 1) * toNumber(geometry?.scale_z, 1));
+        const maxDim = Math.max(sx, sy, sz, 0.25);
+        return Math.max(0.22, Math.min(1.25, maxDim * 0.62));
+    };
+
+    const resolvePivotMode = () => gizmo.pivot || editorState.pivotMode || "object";
+
+    const resetCursorPivot = () => {
+        EditorState.resetCursorPivot(editorState);
+    };
+
+    const setCursorPivotFromObject = (layer = activeLayer.value) => {
+        const geometry = normalizeMeshSettings(layer?.geometry || layer?.mesh?.settings || activeGeometry.value || {});
+        EditorState.setCursorPivot(editorState, objectPivotPoint(geometry));
+    };
+
+    const resolveWorldCursorPivot = () => {
+        const mode = resolvePivotMode();
+
+        if (mode === "cursor" && editorState.cursorPivotActive === true) {
+            return toPointObject(editorState.cursorPivot);
+        }
+
+        // World pivot is immutable scene origin. It is not an editable transform.
+        return { ...WORLD_PIVOT };
+    };
+
+    const resolveGizmoPivotPoint = (geometry = activeGeometry.value) => {
+        const mode = resolvePivotMode();
+
+        if (mode === "cursor" || mode === "world") {
+            return resolveWorldCursorPivot();
+        }
+
+        // Single object: object and median collapse to the attached object pivot/origin.
+        return objectPivotPoint(geometry);
+    };
+
+    const syncEditorVisualState = (layer = activeLayer.value) => {
+        const geometry = normalizeMeshSettings(layer?.geometry || layer?.mesh?.settings || activeGeometry.value || {});
+        const pivotPoint = resolveGizmoPivotPoint(geometry);
+        const gizmoSize = geometryVisualSize(geometry);
+
+        editorState.tool = gizmo.tool || editorState.tool || "translate";
+        editorState.axis = gizmo.axis || editorState.axis || "free";
+        editorState.pivotMode = resolvePivotMode();
+        editorState.activeObjectId = layer?.id || "";
+        editorState.pivotPoint = pivotPoint;
+        editorState.gizmoOrigin = pivotPoint;
+        editorState.objectPivotPoint = objectPivotPoint(geometry);
+        editorState.worldPivot = { ...WORLD_PIVOT };
+        editorState.cursorPivotActive = editorState.cursorPivotActive === true;
+        editorState.gizmoSize = gizmoSize;
+        editorState.showAxisHandles = gizmo.showAxisHandles !== false;
+        editorState.showRotateRings = gizmo.showRotateRings !== false;
+        editorState.showScaleHandles = gizmo.showScaleHandles !== false;
+        editorState.showPlaneHandles = gizmo.showPlaneHandles === true;
+        editorState.showObjectPivot = gizmo.showObjectPivot !== false;
+        editorState.showWorldPivot = gizmo.showWorldPivot !== false;
+        editorState.showAxisGuide = gizmo.showAxisGuide !== false;
+        editorState.renderWorldAxis = gizmo.showWorldAxis === true;
+        editorState.renderGizmo = gizmo.showTransformGizmo !== false;
+        editorState.renderPivot = editorState.showObjectPivot !== false || editorState.showWorldPivot !== false;
+        editorState.renderPlaneHandles = editorState.showPlaneHandles === true;
+        editorState.currentCamera = clone(viewportCamera.value, "json");
+
+        return { geometry, pivotPoint, gizmoSize };
+    };
+
+    const syncLayerTransformGeometry = (layer, geometry) => {
+        if (!layer?.id || !geometry) {
+            return false;
+        }
+
+        const nextGeometry = normalizeMeshSettings(geometry);
+        const mesh = {
+            ...(layer.mesh || {}),
+            settings: {
+                ...(layer.mesh?.settings || {}),
+                ...nextGeometry,
+            },
+        };
+
+        layer.geometry = nextGeometry;
+        layer.mesh = mesh;
+        layer.material = {
+            ...(layer.material || {}),
+            geometry: {
+                ...(layer.material?.geometry || {}),
+                ...nextGeometry,
+            },
+            mesh,
+        };
+        layer.shader = {
+            ...(layer.shader || {}),
+            geometry: {
+                ...(layer.shader?.geometry || {}),
+                ...nextGeometry,
+            },
+            mesh,
+        };
+
+        transformRevision.value += 1;
+        markLocalTransformDirty();
+        return true;
+    };
+
+    const applyGizmoDelta = event => {
         const layer = activeLayer.value;
         const geometry = ensureActiveGeometry();
 
-        if (!layer || !geometry) {
+        if (!layer?.id || !geometry || !transformSession) {
             return;
         }
 
-        const axis = gizmo.axis;
-        const distanceFactor = cameraCore.projection === "orthographic"
-            ? cameraCore.orthographicScale
-            : cameraCore.orbit.radius;
-        const translateScale = Math.max(0.001, distanceFactor * 0.0025);
+        const local = localPointerFromEvent(event);
+        const result = transformController.apply({
+            event,
+            local,
+            element: viewportRef.value,
+            camera: cameraCore,
+            viewport: viewportSize,
+            geometry,
+            tool: transformSession.tool,
+            axis: transformSession.axis,
+            pivotMode: transformSession.pivotMode,
+            pivotPoint: transformSession.pivotPoint,
+        });
 
-        if (gizmo.tool === "translate") {
-            if (axis === "x" || axis === "free") {
-                geometry.position_x += dx * translateScale;
-            }
-
-            if (axis === "z" || axis === "free") {
-                geometry.position_z -= dy * translateScale;
-            }
-
-            if (axis === "y") {
-                geometry.position_y += (dx - dy) * translateScale;
-            }
+        if (!result?.geometry) {
+            return;
         }
 
-        if (gizmo.tool === "rotate") {
-            const rotateScale = 0.35;
-
-            if (axis === "x") {
-                geometry.rotation_x += dy * rotateScale;
-            } else if (axis === "z") {
-                geometry.rotation_z += dx * rotateScale;
-            } else {
-                geometry.rotation_y += dx * rotateScale;
-
-                if (axis === "free") {
-                    geometry.rotation_x += dy * rotateScale;
-                }
-            }
-        }
-
-        if (gizmo.tool === "scale") {
-            const factor = Math.max(0.01, 1 + (dx - dy) * 0.006);
-            const applyScale = key => {
-                geometry[key] = Math.max(0.001, geometry[key] * factor);
-            };
-
-            if (axis === "x") {
-                applyScale("scale_x");
-            } else if (axis === "y") {
-                applyScale("scale_y");
-            } else if (axis === "z") {
-                applyScale("scale_z");
-            } else {
-                applyScale("scale_x");
-                applyScale("scale_y");
-                applyScale("scale_z");
-            }
-        }
-
-        layer.mesh.settings = {
-            ...(layer.mesh?.settings || {}),
-            ...geometry,
-        };
+        syncLayerTransformGeometry(layer, result.geometry);
+        EditorState.setSelection(editorState, { objectId: layer.id });
     };
 
-    const updateViewportSize = () => {
-        const size = normalizeViewportSize();
+    const beginGizmoTransform = event => {
+        const geometry = ensureActiveGeometry();
 
-        viewportSize.width = size.width;
-        viewportSize.height = size.height;
+        if (!geometry) {
+            return;
+        }
 
-        syncCameraState();
+        syncEditorVisualState(activeLayer.value);
+        const tool = gizmo.tool || editorState.tool || "translate";
+        const axis = gizmo.axis || editorState.axis || "free";
+        const pivotMode = resolvePivotMode();
+        const pivotPoint = resolveGizmoPivotPoint(geometry);
+        const startPointer = localPointerFromEvent(event);
+
+        transformSession = {
+            startPointer,
+            startGeometry: clone(geometry, "json"),
+            tool,
+            axis,
+            pivotMode,
+            pivotPoint,
+        };
+
+        transformController.begin({
+            event,
+            local: startPointer,
+            element: viewportRef.value,
+            camera: cameraCore,
+            viewport: viewportSize,
+            geometry,
+            tool,
+            axis,
+            pivotMode,
+            pivotPoint,
+        });
+
+        editorState.active = true;
+        editorState.dragging = true;
+        editorState.tool = tool;
+        editorState.axis = axis;
+        editorState.pivotMode = pivotMode;
+        editorState.pivotPoint = pivotPoint;
+        editorState.gizmoOrigin = pivotPoint;
+    };
+
+    const endGizmoTransform = () => {
+        const endedTool = transformSession?.tool || "";
+        transformController.end();
+        transformSession = null;
+        editorState.dragging = false;
+
+        if (["translate", "rotate", "scale", "pivot"].includes(endedTool)) {
+            resetCursorPivot();
+        }
+
+        syncEditorVisualState(activeLayer.value);
     };
 
     const tick = (frameTime = performance.now()) => {
@@ -833,13 +1335,27 @@ export function animatorModel(props, emit) {
         const isGizmoHandle = Boolean(gizmoHandle);
         const handleTool = gizmoHandle?.dataset?.gizmoTool || gizmo.tool;
 
-        if (
-            isRight &&
-            isGizmoHandle &&
-            objectGizmoActive.value &&
-            ["translate", "rotate", "scale"].includes(handleTool)
-        ) {
-            return `gizmo-${handleTool}`;
+        if (isRight && activeLayer.value) {
+            const pickedGizmo = isGizmoHandle
+                ? {
+                    axis: gizmoHandle?.dataset?.gizmoAxis || gizmo.axis,
+                    tool: handleTool,
+                }
+                : pickGizmo(event);
+
+            if (pickedGizmo && ["translate", "rotate", "scale", "pivot"].includes(pickedGizmo.tool)) {
+                selectAnimatorObject(activeLayer.value);
+                emitEditorPick("gizmo", pickedGizmo, event);
+                gizmo.axis = pickedGizmo.axis || "free";
+                gizmo.tool = pickedGizmo.tool;
+                editorState.hover = clone(pickedGizmo, "json");
+                editorState.cursor = pickedGizmo.tool === "rotate"
+                    ? "grab"
+                    : pickedGizmo.tool === "scale"
+                        ? "nwse-resize"
+                        : "move";
+                return `gizmo-${pickedGizmo.tool}`;
+            }
         }
 
         if (event.shiftKey && (isRight || isMiddle || isLeft)) {
@@ -901,12 +1417,42 @@ export function animatorModel(props, emit) {
         );
     };
 
+    const updateHoverCursor = event => {
+        if (pointer.active) {
+            return;
+        }
+
+        const pickedGizmo = activeLayer.value ? pickGizmo(event) : null;
+
+        if (pickedGizmo) {
+            emitEditorPick("hover:gizmo", pickedGizmo, event);
+            editorState.hover = clone(pickedGizmo, "json");
+            editorState.cursor = pickedGizmo.tool === "rotate"
+                ? "grab"
+                : pickedGizmo.tool === "scale"
+                    ? "nwse-resize"
+                    : pickedGizmo.tool === "pivot"
+                        ? "crosshair"
+                        : "move";
+            return;
+        }
+
+        editorState.hover = null;
+        editorState.cursor = "default";
+    };
+
+    const editorCursorStyle = computed(() => ({
+        cursor: pointer.active
+            ? (pointer.mode === "orbit" ? "grabbing" : pointer.mode === "pan" ? "move" : pointer.mode === "dolly" ? "ns-resize" : editorState.cursor || "default")
+            : editorState.cursor || "default",
+    }));
+
     const onPointerDown = async event => {
         const mode = resolvePointerMode(event);
 
         if (!mode) {
             if (event.button === 0) {
-                clearAnimatorObjectSelection();
+                selectByPicking(event);
             }
 
             if (event.button === 2 && isObjectHit(event)) {
@@ -917,6 +1463,10 @@ export function animatorModel(props, emit) {
 
         stopNativeEvent(event);
         rootRef.value?.focus?.();
+
+        if (mode.startsWith("gizmo-")) {
+            beginGizmoTransform(event);
+        }
 
         await mouse.down(event);
 
@@ -934,7 +1484,12 @@ export function animatorModel(props, emit) {
     };
 
     const onPointerMove = async event => {
-        if (!pointer.active || pointer.pointerId !== event.pointerId) {
+        if (!pointer.active) {
+            updateHoverCursor(event);
+            return;
+        }
+
+        if (pointer.pointerId !== event.pointerId) {
             return;
         }
 
@@ -962,7 +1517,7 @@ export function animatorModel(props, emit) {
             }
 
             if (pointer.mode.startsWith("gizmo-")) {
-                applyGizmoDelta(dx, dy);
+                applyGizmoDelta(event);
             }
         });
     };
@@ -985,12 +1540,14 @@ export function animatorModel(props, emit) {
         pointer.mode = "";
 
         if (mode.startsWith("gizmo-")) {
-            if (moved) {
-                commitLayer(activeLayer.value);
-            }
+            endGizmoTransform();
             releaseObjectGizmoAxis();
+            if (moved || localTransformDirty) {
+                submitAnimatorMesh();
+            }
         }
 
+        editorState.cursor = "default";
         event.currentTarget?.releasePointerCapture?.(event.pointerId);
     };
 
@@ -1094,6 +1651,14 @@ export function animatorModel(props, emit) {
         );
     };
 
+    const focusPivot = () => {
+        const geometry = normalizeMeshSettings(activeLayer.value?.geometry || activeLayer.value?.mesh?.settings || activeGeometry.value || {});
+        const pivot = resolveGizmoPivotPoint(geometry);
+        cameraCore.orbit.setTarget([pivot.x, pivot.y, pivot.z]);
+        cameraCore.orbit.smoothTarget?.copy?.(cameraCore.orbit.target);
+        syncCameraState();
+    };
+
     const toggleGrid = () => {
         cameraCore.backgroundGrid = cameraCore.backgroundGrid === false;
         syncCameraState();
@@ -1125,7 +1690,15 @@ export function animatorModel(props, emit) {
 
         if (event.code === "Escape" || key === "escape") {
             stopNativeEvent(event);
+            submitAnimatorMesh();
             emitEvent("animator:state", false);
+            emitEvent("apply-key-down", event);
+            return;
+        }
+
+        if (event.code === "Comma") {
+            focusPivot();
+            stopNativeEvent(event);
             emitEvent("apply-key-down", event);
             return;
         }
@@ -1165,8 +1738,11 @@ export function animatorModel(props, emit) {
             return;
         }
 
+
         if (key === "g") {
             setGizmoTool("translate");
+            editorState.tool = "translate";
+            editorState.cursor = "move";
             stopNativeEvent(event);
             emitEvent("apply-key-down", event);
             return;
@@ -1174,6 +1750,8 @@ export function animatorModel(props, emit) {
 
         if (key === "r") {
             setGizmoTool("rotate");
+            editorState.tool = "rotate";
+            editorState.cursor = "grab";
             stopNativeEvent(event);
             emitEvent("apply-key-down", event);
             return;
@@ -1181,20 +1759,35 @@ export function animatorModel(props, emit) {
 
         if (key === "s") {
             setGizmoTool("scale");
+            editorState.tool = "scale";
+            editorState.cursor = "nwse-resize";
             stopNativeEvent(event);
             emitEvent("apply-key-down", event);
             return;
         }
 
-        if (key === "x" || key === "y" || key === "z") {
+        if (["x", "y", "z"].includes(key)) {
             setGizmoAxis(key);
+            editorState.axis = key;
             stopNativeEvent(event);
             emitEvent("apply-key-down", event);
             return;
         }
 
-        if (event.code === "KeyB") {
-            toggleGrid();
+        if (key === "a") {
+            setGizmoAxis("free");
+            editorState.axis = "free";
+            stopNativeEvent(event);
+            emitEvent("apply-key-down", event);
+            return;
+        }
+
+        if (event.code === "Period") {
+            const modes = ["object", "median", "cursor"];
+            const index = Math.max(0, modes.indexOf(resolvePivotMode()));
+            setGizmoPivot(modes[(index + 1) % modes.length]);
+            editorState.pivotMode = resolvePivotMode();
+            syncEditorVisualState(activeLayer.value);
             stopNativeEvent(event);
             emitEvent("apply-key-down", event);
             return;
@@ -1221,7 +1814,6 @@ export function animatorModel(props, emit) {
         viewportRef.value = document.getElementById(animator.viewportId);
 
         mouse.init();
-        updateViewportSize();
 
         if (viewportRef.value) {
             register("add", viewportRef.value, "pointerdown", onPointerDown);
@@ -1238,8 +1830,10 @@ export function animatorModel(props, emit) {
             register("add", rootRef.value, "keyup", onKeyUp);
         }
 
+        register("add", window, "keydown", onKeyDown);
+        register("add", window, "keyup", onKeyUp);
+
         startTick();
-        frameSelected();
         rootRef.value?.focus?.();
     };
 
@@ -1261,12 +1855,8 @@ export function animatorModel(props, emit) {
                 clearAnimatorObjectSelection();
             }
             if (!animatorObjectLayerId.value) {
-                cameraCore.orbit.setTarget([0, 0, 0]);
-                syncCameraState();
-                return;
+                EditorState.clearSelection(editorState);
             }
-
-            nextTick(frameSelected);
         },
         { immediate: true }
     );
@@ -1324,6 +1914,16 @@ export function animatorModel(props, emit) {
         }
     );
 
+
+    watch(
+        () => animatorCameraCommand.focusPivot,
+        () => {
+            if (animatorCameraCommand.focusPivot > 0) {
+                focusPivot();
+            }
+        }
+    );
+
     watch(
         () => animatorCameraCommand.view,
         view => {
@@ -1335,25 +1935,21 @@ export function animatorModel(props, emit) {
     );
 
     watch(
-        () => [
-            props.viewport?.width,
-            props.viewport?.height,
-        ],
+        () => animatorGizmo.pivotActionTick,
         () => {
-            updateViewportSize();
-        },
-        { immediate: true }
+            if (animatorGizmo.pivotAction) {
+                applyPivotAction(animatorGizmo.pivotAction);
+                animatorGizmo.pivotAction = "";
+            }
+        }
     );
 
     onMounted(init);
 
     onBeforeUnmount(() => {
+        submitAnimatorMesh();
         stopTick();
 
-        if (commitTimer) {
-            clearTimeout(commitTimer);
-            commitTimer = null;
-        }
 
         register("removeAll");
     });
@@ -1364,6 +1960,7 @@ export function animatorModel(props, emit) {
         animator,
         animatorStyle,
         animatorViewportStyle,
+        editorCursorStyle,
         emitEvent,
 
         pointer,
@@ -1374,6 +1971,7 @@ export function animatorModel(props, emit) {
         activeLayer,
         objectGizmoLayer,
         objectGizmoActive,
+        editorState,
         activeGeometry,
         viewportCamera,
         animatedLayers,
@@ -1384,6 +1982,7 @@ export function animatorModel(props, emit) {
         setView,
         setProjection,
         frameSelected,
+        focusPivot,
         toggleGrid,
         isActiveLayer,
         setActiveLayer,
@@ -1398,18 +1997,27 @@ export function animatorModel(props, emit) {
         resetActiveTransform,
         setCameraNumber,
         applyCameraToActiveLayer,
+        submitAnimatorMesh,
     };
 }
 
 export const animatorProps = {
     selectedLayers: {
         type: Array,
-        required: true,
+        required: false,
+        default: () => [],
     },
 
     orbitSettings: {
         type: Object,
-        required: true,
+        required: false,
+        default: () => ({}),
+    },
+
+    settings: {
+        type: Object,
+        required: false,
+        default: () => ({}),
     },
 
     viewport: {
@@ -1417,8 +2025,15 @@ export const animatorProps = {
         required: true
     },
 
+    editorState: {
+        type: Object,
+        required: false,
+        default: null,
+    },
+
     timelineTime: {
         type: Number,
-        required: true
+        required: false,
+        default: 0,
     }
 };
