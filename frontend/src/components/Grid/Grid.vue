@@ -20,18 +20,21 @@
             :style="grid.container.style"
             :id="grid.container.id"
         >
-          <Animator
-              v-if="animatorState"
-              :selected-layers="selectedLayer"
-              :orbit-settings="ui.animator"
-              :timeline-time="time"
-              @update:component-event="emitEvent"
-          />
 
           <!-- Zentrale Inhalte im Canvas -->
-          <div v-else class="canvas-content overflow-hidden transparent">
+          <div class="canvas-content overflow-hidden transparent">
+
+            <Animator
+                v-if="animatorState"
+                :selected-layers="selectedLayer"
+                :orbit-settings="ui.animator"
+                :timeline-time="time"
+                :viewport="viewport"
+                @update:component-event="emitEvent"
+            />
 
             <Image
+                v-else
                 :layers="layers"
                 :color="color"
                 :selected-layer="selectedLayer"
@@ -46,7 +49,7 @@
                 :export-time-seconds="exportTimeSeconds"
             />
 
-            <template v-if="!exportState">
+            <template v-if="!exportState && ! animatorState">
               <div v-if="!selectedLayer.length" class="center-crosshair"></div>
 
               <Text :state="text" @update:component-event="emitEvent" :layer="textLayer"/>
@@ -127,8 +130,16 @@
 
     <slot style="width: 100%;"/>
 
+    <Gizmo
+        v-if="animatorState"
+        mode="control"
+        :state="animatorState"
+        @update:component-event="emitEvent"
+    />
+
     <!-- Container Control -->
     <Control
+        v-else
         :state="containerStates.control.value"
         :data="{...grid.container.matrix, width: grid.wrapper.width, height: grid.wrapper.height}"
         :theme="theme"
@@ -159,6 +170,7 @@ import Box from "@/components/Selection/Box";
 import Cursor from "@/components/Brush/Cursor";
 import Edit from "@/components/Text/Edit";
 import Animator from "@/view/page/Material/Animator/Animator";
+import Gizmo from "@/components/Gizmo/Gizmo";
 
 export default defineComponent({
   name: "GridComponent",
@@ -178,7 +190,8 @@ export default defineComponent({
     Status,
     Menu,
     Box,
-    Animator
+    Animator,
+    Gizmo
   },
   setup(props, { emit }) {
     const model = gridModel(props, emit);

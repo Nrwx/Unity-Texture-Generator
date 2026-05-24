@@ -1,0 +1,120 @@
+.transformation-panel {
+  width: 100%;
+  display: grid;
+  gap: 12px;
+}
+
+.transformation-section {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(127, 127, 127, 0.18);
+  background: rgba(127, 127, 127, 0.055);
+}
+
+.transformation-section header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.transformation-section strong,
+.transformation-section small {
+  display: block;
+  line-height: 1.2;
+}
+
+.transformation-section strong {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.82rem;
+}
+
+.transformation-section small {
+  color: rgba(127, 127, 127, 0.86);
+  font-size: 0.68rem;
+  font-weight: 760;
+  text-transform: uppercase;
+}
+
+.transformation-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.transformation-grid.matrix {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.transformation-group {
+  display: grid;
+  gap: 6px;
+}
+
+.transformation-segment {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  background: rgba(127, 127, 127, 0.09);
+}
+
+.transformation-segment button {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 0;
+  color: currentColor;
+  background: transparent;
+  font-size: 0.68rem;
+  font-weight: 780;
+  cursor: pointer;
+  opacity: 0.74;
+}
+
+.transformation-segment button.active {
+  color: #10131d;
+  background: #70dfb4;
+  opacity: 1;
+}
+
+.transformation-segment.axis .x.active {
+  background: #ff706f;
+}
+
+.transformation-segment.axis .y.active {
+  background: #70dfb4;
+}
+
+.transformation-segment.axis .z.active {
+  background: #78a8ff;
+}
+
+.transformation-empty {
+  min-height: 130px;
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  text-align: center;
+  color: rgba(127, 127, 127, 0.8);
+  font-size: 0.78rem;
+}
+
+.transformation-panel.compact {
+  gap: 8px;
+}
+
+.transformation-panel.compact .transformation-section {
+  padding: 8px;
+}
+
+.transformation-panel.compact .transformation-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}

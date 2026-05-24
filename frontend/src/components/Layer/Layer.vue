@@ -18,7 +18,7 @@
           grow
           height="32"
       >
-        <v-tab min-width="16" min-height="16" height="24" width="16" max-width="16" max-height="24" v-for="(tab, index) in tabs" :key="tab.index" @click="handleTabEmit(index)">
+        <v-tab min-width="96" min-height="24" height="28" v-for="(tab, index) in tabs" :key="tab.name" @click="handleTabEmit(index)">
           <v-icon size="16">{{ tab.icon }}</v-icon>
           <span class="text-subtitle-2">{{ tab.name }}</span>
         </v-tab>
@@ -143,9 +143,21 @@
             </Drag>
           </v-list>
 
-          <Channel v-show="tabIndex === 1 && channel.length > 0" :selected-channel="selectedChannel" :data="channel" :settings="channelSettings" :theme="theme" @update:componentEvent="emitEvent"/>
+          <Channel v-show="!animatorState && tabIndex === 1 && channel.length > 0" :selected-channel="selectedChannel" :data="channel" :settings="channelSettings" :theme="theme" @update:componentEvent="emitEvent"/>
 
-          <Path v-show="tabIndex === 2 && paths.length > 0" :data="paths" @update:componentEvent="emitEvent"/>
+          <Path v-show="!animatorState && tabIndex === 2 && paths.length > 0" :data="paths" @update:componentEvent="emitEvent"/>
+
+          <div
+              v-show="!animatorState && tabIndex === 3 || animatorState && tabIndex === 1"
+              class="layer-transform-panel pa-3"
+          >
+            <Transformation
+                :layers="layers"
+                :selected-layers="selectedLayer"
+                :compact="true"
+                @component-event="emitEvent"
+            />
+          </div>
         </div>
       </v-card>
       <!-- Navigation -->
@@ -198,7 +210,7 @@
             <v-icon color="white">mdi-delete</v-icon>
           </v-btn>
         </template>
-        <template v-if="tabIndex === 1">
+        <template v-if="!animatorState && tabIndex === 2">
           <!-- Create / Add Channel from selected -->
           <v-btn
               icon
@@ -255,11 +267,13 @@ import {windowStates} from "@/dataLayer/state";
 import Channel from "@/components/Channel/Channel.vue";
 import Form from "@/components/Form/Form.vue";
 import Path from "@/components/Path/Path";
+import Transformation from "@/components/Transformation/Transformation";
 
 export default defineComponent({
   name: "LayerComponent",
   props: layerProps,
   components: {
+    Transformation,
     Path,
     Form,
     Drag,

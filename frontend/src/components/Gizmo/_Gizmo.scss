@@ -1,0 +1,351 @@
+.gizmo-panel {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.095);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(19, 24, 34, 0.92), rgba(12, 15, 22, 0.86));
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.24);
+}
+
+.gizmo-panel header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.gizmo-panel strong,
+.gizmo-panel small {
+  display: block;
+  line-height: 1.2;
+}
+
+.gizmo-panel strong {
+  font-size: 0.82rem;
+}
+
+.gizmo-panel small {
+  color: rgba(127, 127, 127, 0.86);
+  font-size: 0.68rem;
+  font-weight: 760;
+  text-transform: uppercase;
+}
+
+.gizmo-segment {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.gizmo-segment button {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 0;
+  color: currentColor;
+  background: transparent;
+  font-size: 0.68rem;
+  font-weight: 780;
+  cursor: pointer;
+  opacity: 0.74;
+}
+
+.gizmo-segment button.active {
+  color: #10131d;
+  background: #70dfb4;
+  border-radius: 4px;
+  opacity: 1;
+}
+
+.gizmo-panel.compact {
+  padding: 8px;
+}
+
+.gizmo-panel.control {
+  width: 170px;
+  position: absolute;
+  right: 20px;
+  bottom: 0;
+  z-index: 85;
+  opacity: 0.72;
+  backdrop-filter: blur(12px);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.gizmo-panel.control:hover,
+.gizmo-panel.control:focus-within {
+  opacity: 1;
+}
+
+.gizmo-panel.hidden {
+  display: none;
+}
+
+.gizmo-object {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 24;
+  width: 168px;
+  height: 168px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+.gizmo-object.selected {
+  opacity: 0.36;
+}
+
+.gizmo-object.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.gizmo-object.disabled {
+  opacity: 0.22;
+  pointer-events: none;
+}
+
+.gizmo-object-core,
+.gizmo-object-axis,
+.gizmo-object-pivot {
+  position: absolute;
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  color: #10131d;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.gizmo-object-core {
+  left: 50%;
+  top: 50%;
+  width: 32px;
+  height: 32px;
+  transform: translate(-50%, -50%);
+}
+
+.gizmo-object-pivot {
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  width: 42px;
+  height: 42px;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(255, 211, 124, 0.92);
+  border-radius: 999px;
+  background:
+          linear-gradient(90deg, transparent calc(50% - 1px), rgba(255, 211, 124, 0.94) 50%, transparent calc(50% + 1px)),
+          linear-gradient(0deg, transparent calc(50% - 1px), rgba(255, 211, 124, 0.94) 50%, transparent calc(50% + 1px));
+  box-shadow: 0 0 18px rgba(255, 211, 124, 0.38);
+  pointer-events: none;
+}
+
+.gizmo-object-core span {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.86);
+  background: rgba(112, 223, 180, 0.78);
+  box-shadow: 0 0 18px rgba(112, 223, 180, 0.38);
+}
+
+.gizmo-object-core:hover span,
+.gizmo-object-core.active span {
+  background: #ffffff;
+  box-shadow: 0 0 24px rgba(255, 255, 255, 0.62);
+}
+
+.gizmo-object-axis {
+  left: 50%;
+  top: 50%;
+  width: 86px;
+  height: 26px;
+  transform-origin: 0 50%;
+}
+
+.gizmo-object-axis i {
+  position: absolute;
+  left: 0;
+  width: 64px;
+  height: 4px;
+  border-radius: 999px;
+  opacity: 0.86;
+  transition: box-shadow 140ms ease, height 140ms ease, opacity 140ms ease;
+}
+
+.gizmo-object-axis span {
+  position: absolute;
+  right: 0;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: #10131d;
+  font-size: 0.66rem;
+  font-weight: 900;
+}
+
+.gizmo-object-axis.scale span {
+  border-radius: 3px;
+}
+
+.gizmo-object-axis.scale-handle {
+  width: 68px;
+  height: 24px;
+  opacity: 0.72;
+}
+
+.gizmo-object-axis.scale-handle i {
+  width: 47px;
+  height: 3px;
+}
+
+.gizmo-object-axis.translate span::before {
+  content: "";
+  position: absolute;
+  left: -8px;
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 8px solid currentColor;
+  opacity: 0.9;
+}
+
+.gizmo-object-axis:hover i,
+.gizmo-object-axis.active i {
+  height: 6px;
+  opacity: 1;
+}
+
+.gizmo-object-axis.x {
+  transform: rotate(0deg);
+}
+
+.gizmo-object-axis.y {
+  transform: rotate(-38deg) translateX(10px) translateY(22px);
+}
+
+.gizmo-object-axis.z {
+  transform: rotate(-90deg) translateX(8px);
+}
+
+.gizmo-object-axis.z.scale-handle {
+  transform: rotate(-90deg) translateX(-12px);
+}
+
+.gizmo-object-axis.x i,
+.gizmo-object-axis.x span {
+  background: #ff706f;
+}
+
+.gizmo-object-axis.y i,
+.gizmo-object-axis.y span {
+  background: #70dfb4;
+}
+
+.gizmo-object-axis.z i,
+.gizmo-object-axis.z span {
+  background: #78a8ff;
+}
+
+.gizmo-object-axis.x:hover i,
+.gizmo-object-axis.x.active i {
+  box-shadow: 0 0 20px rgba(255, 112, 111, 0.8);
+}
+
+.gizmo-object-axis.y:hover i,
+.gizmo-object-axis.y.active i {
+  box-shadow: 0 0 20px rgba(112, 223, 180, 0.8);
+}
+
+.gizmo-object-axis.z:hover i,
+.gizmo-object-axis.z.active i {
+  box-shadow: 0 0 20px rgba(120, 168, 255, 0.8);
+}
+
+.gizmo-object-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: grid;
+  place-items: start center;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.76;
+  pointer-events: auto;
+  transition:
+          opacity 140ms ease,
+          box-shadow 140ms ease,
+          border-width 140ms ease;
+}
+
+.gizmo-object-ring span {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  margin-top: -11px;
+  border-radius: 999px;
+  background: currentColor;
+  color: #10131d;
+  font-size: 0.66rem;
+  font-weight: 900;
+}
+
+.gizmo-object-ring:hover,
+.gizmo-object-ring.active {
+  opacity: 1;
+  border-width: 3px;
+}
+
+.gizmo-object-ring.x {
+  width: 124px;
+  height: 124px;
+  transform: translate(-50%, -50%) rotateX(66deg);
+  color: #ff706f;
+}
+
+.gizmo-object-ring.y {
+  width: 142px;
+  height: 142px;
+  transform: translate(-50%, -50%) rotateY(62deg);
+  color: #70dfb4;
+}
+
+.gizmo-object-ring.z {
+  width: 156px;
+  height: 156px;
+  transform: translate(-50%, -50%);
+  color: #78a8ff;
+}
+
+.gizmo-object-ring.x:hover,
+.gizmo-object-ring.x.active {
+  box-shadow: 0 0 22px rgba(255, 112, 111, 0.48);
+}
+
+.gizmo-object-ring.y:hover,
+.gizmo-object-ring.y.active {
+  box-shadow: 0 0 22px rgba(112, 223, 180, 0.48);
+}
+
+.gizmo-object-ring.z:hover,
+.gizmo-object-ring.z.active {
+  box-shadow: 0 0 22px rgba(120, 168, 255, 0.48);
+}

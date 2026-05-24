@@ -101,6 +101,12 @@ class RenderModel(BaseModel):
         if not layer:
             return None
 
+        if layer.get("type") == 5:
+            layer_img = cls.load_material_layer_image(layer)
+
+            if layer_img:
+                return layer_img.convert("RGBA")
+
         if layer.get("type") == 2:
             layer_img = render_svg(layer["id"])
 
@@ -126,6 +132,41 @@ class RenderModel(BaseModel):
             return None
 
         return Image.open(layer_path).convert("RGBA")
+
+    @classmethod
+    def load_material_layer_image(cls, layer):
+        candidates = [
+            layer.get("thumbnail"),
+            layer.get("url"),
+            layer.get("texture", {}).get("thumbnail"),
+            layer.get("texture", {}).get("url"),
+            layer.get("texture", {}).get("lod_url"),
+            layer.get("material", {}).get("texture", {}).get("url"),
+        ]
+
+        layer_path = os.path.join(
+            PUBLIC_LAYER_FOLDER,
+            f"{layer['id']}.png",
+        )
+
+        if os.path.exists(layer_path):
+            candidates.insert(0, layer_path)
+
+        for candidate in candidates:
+            path = ""
+
+            if not candidate:
+                continue
+
+            if isinstance(candidate, str) and os.path.exists(candidate):
+                path = candidate
+            elif isinstance(candidate, str):
+                path = MaterialModel.public_download_url_to_path(candidate)
+
+            if path and os.path.exists(path):
+                return Image.open(path).convert("RGBA")
+
+        return None
 
     @classmethod
     def prepare_layer_image(cls, layer, layer_img):

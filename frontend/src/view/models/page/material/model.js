@@ -18,6 +18,8 @@ import {
 } from "@/dataLayer/webgl";
 
 import {normalizeTextureSize} from "@/view/models/page/material/settings/model";
+import {timelineStates} from "@/dataLayer/state";
+import {timelineData} from "@/models/timeline/config/model";
 
 
 const normalizeNodeSettings = node => Node.normalizeSettings(node);
@@ -708,6 +710,124 @@ export function materialEditorModel(props, emit) {
     const animatorState = computed(() => {
         return props.animatorState !== true;
     });
+
+    const materialTimelineTime = computed(() => Number(timelineData.value?.time ?? 0));
+
+    const setMaterialTimelineTime = value => {
+        const next = Number(value);
+
+        if (!Number.isFinite(next)) {
+            return;
+        }
+
+        timelineData.value.time = Math.max(0, next);
+    };
+
+    const materialKeyframeRecordActive = computed(() => (
+        timelineStates.record.value === true &&
+        isEditingMaterialLayer.value &&
+        !!props.layer?.id
+    ));
+
+    const materialKeyframeToolsVisible = computed(() => (
+        isEditingMaterialLayer.value &&
+        !!props.layer?.id
+    ));
+
+    const mixMaterialFieldValue = (from, to, t) => {
+        if (typeof from === "number" && typeof to === "number") {
+            return from + (to - from) * t;
+        }
+
+        if (Array.isArray(from) && Array.isArray(to)) {
+            return from.map((value, index) => (
+                typeof value === "number" && typeof to[index] === "number"
+                    ? value + (to[index] - value) * t
+                    : (t >= 1 ? to[index] : value)
+            ));
+        }
+
+        return t >= 1 ? to : from;
+    };
+
+    const getMaterialKeyframeValue = (node, fieldKey, frame) => (
+        frame?.material?.nodes?.[node?.id]?.settings?.[fieldKey]
+    );
+
+    const getMaterialFieldValue = (node, fieldKey) => {
+        const fallback = normalizeNodeSettings(node)[fieldKey];
+        const frames = (props.layer?.keyframes || [])
+            .map(frame => ({
+                frame,
+                time: Number(frame?.time ?? 0),
+                value: getMaterialKeyframeValue(node, fieldKey, frame),
+            }))
+            .filter(item => Number.isFinite(item.time) && item.value !== undefined)
+            .sort((a, b) => a.time - b.time);
+
+        if (!frames.length) {
+            return fallback;
+        }
+
+        const time = materialTimelineTime.value;
+        const previous = [...frames].reverse().find(item => item.time <= time) || frames[0];
+        const next = frames.find(item => item.time >= time) || frames[frames.length - 1];
+
+        if (!previous || !next || previous.time === next.time) {
+            return clone(previous?.value ?? next?.value ?? fallback, "json");
+        }
+
+        const factor = clamp((time - previous.time) / (next.time - previous.time), 0, 1);
+
+        return mixMaterialFieldValue(previous.value, next.value, factor);
+    };
+
+    const addMaterialInputKeyframe = (node, fieldKey) => {
+        if (!materialKeyframeRecordActive.value || !node?.id || !fieldKey || !props.layer?.id) {
+            return;
+        }
+
+        const time = Number(timelineData.value?.time ?? 0);
+        const layer = props.layer;
+        const value = getMaterialFieldValue(node, fieldKey);
+
+        if (!Array.isArray(layer.keyframes)) {
+            layer.keyframes = [];
+        }
+
+        let keyframe = layer.keyframes.find(frame => Number(frame.time) === time);
+
+        if (!keyframe) {
+            keyframe = {
+                id: uuid("keyframe"),
+                time,
+                opacity: layer.opacity,
+                matrix: clone(layer.matrix || {}, "json"),
+                width: layer.width,
+                height: layer.height,
+                ease: "linear",
+                bezier: null,
+            };
+            layer.keyframes.push(keyframe);
+        }
+
+        keyframe.material = {
+            ...(keyframe.material || {}),
+            nodes: {
+                ...(keyframe.material?.nodes || {}),
+                [node.id]: {
+                    ...(keyframe.material?.nodes?.[node.id] || {}),
+                    settings: {
+                        ...(keyframe.material?.nodes?.[node.id]?.settings || {}),
+                        [fieldKey]: clone(value, "json"),
+                    },
+                },
+            },
+        };
+
+        layer.keyframes.sort((a, b) => Number(a.time) - Number(b.time));
+        emitEvent("update-layer", clone(layer, "json"));
+    };
 
     const previewLayer = computed(() => {
         const normalized = buildMaterialDraft();
@@ -6857,6 +6977,12 @@ export function materialEditorModel(props, emit) {
         sourceLayerThumbnail,
         imageSizeLabel,
         isEditingMaterialLayer,
+        materialTimelineTime,
+        setMaterialTimelineTime,
+        materialKeyframeToolsVisible,
+        materialKeyframeRecordActive,
+        getMaterialFieldValue,
+        addMaterialInputKeyframe,
 
         uvMoveAxis,
         setUvMoveAxis,

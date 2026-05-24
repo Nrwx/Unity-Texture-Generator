@@ -17,6 +17,7 @@ export class Orbit {
         maxRadius = 250,
         minPhi = -89.5 * DEG,
         maxPhi = 89.5 * DEG,
+        worldUp = [0, 0, 1],
     } = {}) {
         this.camera = camera;
 
@@ -39,11 +40,12 @@ export class Orbit {
         this.maxRadius = maxRadius;
         this.minPhi = minPhi;
         this.maxPhi = maxPhi;
+        this.worldUp = Vector.from(worldUp, [0, 0, 1]).normalize([0, 0, 1]);
 
         this.position = Vector.zero();
         this.forward = Vector.forward();
         this.right = Vector.right();
-        this.up = Vector.up();
+        this.up = this.worldUp.clone();
         this.rotation = Quaternion.identity();
 
         this.dragging = false;
@@ -97,17 +99,17 @@ export class Orbit {
 
         const direction = new Vector(
             cosPhi * sinTheta,
-            sinPhi,
             cosPhi * cosTheta,
-        ).normalize([0, 0, 1]);
+            sinPhi,
+        ).normalize([0, 1, 0]);
 
         this.position
             .copy(this.smoothTarget)
             .addScaled(direction, this.smoothRadius);
 
-        this.forward = Vector.sub(this.smoothTarget, this.position).normalize([0, 0, -1]);
-        this.right = Vector.cross(this.forward, Vector.up()).normalize([1, 0, 0]);
-        this.up = this.right.crossed(this.forward).normalize([0, 1, 0]);
+        this.forward = Vector.sub(this.smoothTarget, this.position).normalize([0, 1, 0]);
+        this.right = Vector.cross(this.forward, this.worldUp).normalize([1, 0, 0]);
+        this.up = this.right.crossed(this.forward).normalize(this.worldUp);
         this.rotation = Quaternion.lookRotation(this.forward, this.up);
 
         return this;
@@ -127,10 +129,10 @@ export class Orbit {
         this.radius = radius;
         this.smoothRadius = radius;
 
-        this.theta = Math.atan2(offset.x, offset.z);
+        this.theta = Math.atan2(offset.x, offset.y);
         this.smoothTheta = this.theta;
 
-        this.phi = Math.asin(Math.min(Math.max(offset.y / radius, -1), 1));
+        this.phi = Math.asin(Math.min(Math.max(offset.z / radius, -1), 1));
         this.phi = this.clampPhi(this.phi);
         this.smoothPhi = this.phi;
 

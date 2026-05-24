@@ -460,6 +460,91 @@ export function layer3DModel(props, emit) {
         return {};
     };
 
+    const resolveMaterialTimelineTime = layer => {
+        const time = Number(layer?.time ?? layer?.export_time_seconds ?? layer?.exportTimeSeconds ?? props.exportTimeSeconds ?? 0);
+        return Number.isFinite(time) ? time : 0;
+    };
+
+    const lerpValue = (left, right, factor) => {
+        const a = Number(left);
+        const b = Number(right);
+
+        if (Number.isFinite(a) && Number.isFinite(b)) {
+            return a + (b - a) * factor;
+        }
+
+        return factor < 1 ? left : right;
+    };
+
+    const applyMaterialInputKeyframes = (sourceLayer, materialLayer) => {
+        const frames = (sourceLayer?.keyframes || [])
+            .filter(frame => frame?.material?.nodes && frame.time !== undefined && frame.time !== null)
+            .slice()
+            .sort((a, b) => Number(a.time) - Number(b.time));
+
+        if (!frames.length || !materialLayer?.shader_graph?.nodes?.length) {
+            return materialLayer;
+        }
+
+        const time = resolveMaterialTimelineTime(sourceLayer);
+        let left = frames[0];
+        let right = frames[0];
+        let factor = 0;
+
+        if (time >= Number(frames[frames.length - 1].time)) {
+            left = frames[frames.length - 1];
+            right = left;
+        } else if (time > Number(frames[0].time)) {
+            for (let index = 0; index < frames.length - 1; index += 1) {
+                const current = frames[index];
+                const next = frames[index + 1];
+                const currentTime = Number(current.time);
+                const nextTime = Number(next.time);
+
+                if (time >= currentTime && time <= nextTime) {
+                    left = current;
+                    right = next;
+                    const delta = nextTime - currentTime;
+                    factor = delta === 0 ? 0 : (time - currentTime) / delta;
+                    break;
+                }
+            }
+        }
+
+        const nodes = materialLayer.shader_graph.nodes.map(node => {
+            const leftSettings = left.material?.nodes?.[node.id]?.settings || {};
+            const rightSettings = right.material?.nodes?.[node.id]?.settings || {};
+            const keys = new Set([...Object.keys(leftSettings), ...Object.keys(rightSettings)]);
+
+            if (!keys.size) {
+                return node;
+            }
+
+            const settings = {...(node.settings || {})};
+
+            keys.forEach(key => {
+                settings[key] = lerpValue(
+                    leftSettings[key] ?? settings[key],
+                    rightSettings[key] ?? leftSettings[key] ?? settings[key],
+                    factor
+                );
+            });
+
+            return {
+                ...node,
+                settings,
+            };
+        });
+
+        return {
+            ...materialLayer,
+            shader_graph: {
+                ...(materialLayer.shader_graph || {}),
+                nodes,
+            },
+        };
+    };
+
     const resolveMaterialLayer = layer => {
         const viewportCamera = pickViewportCamera(layer);
 
@@ -468,7 +553,7 @@ export function layer3DModel(props, emit) {
         const shader = parsePlainObject(layer?.shader || material.shader || {});
         const settings = parsePlainObject(layer?.settings || material.settings || {});
 
-        return {
+        const resolved = {
             ...clone(material, 'json'),
 
             surface: {
@@ -533,6 +618,8 @@ export function layer3DModel(props, emit) {
                 viewport_camera: viewportCamera,
             },
         };
+
+        return applyMaterialInputKeyframes(layer, resolved);
     };
 
     const particleSystemEnabled = layer => layer?.particle_system?.enabled === true;
@@ -1747,6 +1834,7 @@ export function layer3DModel(props, emit) {
             props.layer?.geometry && JSON.stringify(props.layer.geometry),
             props.layer?.mesh && JSON.stringify(props.layer.mesh),
             props.layer?.particle_system && JSON.stringify(props.layer.particle_system),
+            props.layer?.keyframes && JSON.stringify(props.layer.keyframes),
             props.layer?.light && JSON.stringify(props.layer.light),
             props.layer?.settings?.light && JSON.stringify(props.layer.settings.light),
             props.layer?.uv && JSON.stringify(props.layer.uv),

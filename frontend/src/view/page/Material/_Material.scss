@@ -2372,13 +2372,17 @@ button {
 
 .mem-node-inline-field {
   display: grid;
-  grid-template-columns: minmax(54px, 0.78fr) minmax(0, 1fr);
+  grid-template-columns: minmax(54px, 0.72fr) minmax(0, 1fr);
   align-items: center;
   gap: 6px;
   min-width: 0;
   color: var(--mem-muted);
   font-size: 0.58rem;
   font-weight: 760;
+
+  &.has-key {
+    grid-template-columns: minmax(54px, 0.72fr) auto minmax(0, 1fr);
+  }
 
   span {
     overflow: hidden;
@@ -2405,6 +2409,60 @@ button {
     width: 16px;
     height: 16px;
     padding: 0;
+  }
+}
+
+.mem-node-key-btn,
+.mem-inspector-key-btn {
+  width: 22px;
+  height: 22px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid rgba(255, 211, 124, 0.34);
+  border-radius: 4px;
+  background: rgba(255, 211, 124, 0.12);
+  color: #ffd37c;
+  cursor: pointer;
+}
+
+.mem-node-key-btn:hover,
+.mem-inspector-key-btn:hover {
+  background: rgba(255, 211, 124, 0.24);
+  box-shadow: 0 0 14px rgba(255, 211, 124, 0.2);
+}
+
+.mem-inspector-key-btn {
+  justify-self: center;
+}
+
+.mem-inspector-field,
+.mem-material-key-time {
+  display: grid;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.mem-inspector-field {
+  grid-template-columns: minmax(0, 1fr);
+
+  &.has-key {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+}
+
+.mem-material-key-time {
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: 7px;
+  border: 1px solid rgba(255, 211, 124, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 211, 124, 0.075);
+  color: #ffd37c;
+
+  &.action {
+    width: 148px;
+    padding: 4px 6px;
+    background: rgba(255, 211, 124, 0.055);
   }
 }
 

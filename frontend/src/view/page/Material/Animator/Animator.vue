@@ -3,12 +3,14 @@
       ref="rootRef"
       :id="animator.id"
       class="animator-orbit"
+      :style="animatorStyle"
       tabindex="0"
   >
     <main
         ref="viewportRef"
         :id="animator.viewportId"
         class="animator-orbit-viewport"
+        :style="animatorViewportStyle"
         :class="{
           grabbing: pointer.active,
           panning: pointer.mode === 'pan',
@@ -45,6 +47,20 @@
             :export-state="false"
             class="animator-layer3d"
         />
+
+        <Gizmo
+            v-for="layer in animatedLayers"
+            v-show="isActiveLayer(layer)"
+            :key="`animator-gizmo-${layer.id}`"
+            mode="object"
+            :selected="isActiveLayer(layer)"
+            :active="objectGizmoLayer?.id === layer.id"
+            :disabled="!isActiveLayer(layer)"
+            @select="selectAnimatorObject(layer)"
+            @axis="setObjectGizmoAxis(layer, $event)"
+            @release="releaseObjectGizmoAxis"
+            @update:component-event="emitEvent"
+        />
       </template>
 
       <div
@@ -62,6 +78,7 @@
 <script>
 import { defineComponent } from "vue";
 import Layer3D from "@/components/Layer/Layer3D/Layer3D";
+import Gizmo from "@/components/Gizmo/Gizmo";
 import {
   animatorModel,
   animatorProps,
@@ -70,6 +87,7 @@ import {
 export default defineComponent({
   name: "AnimatorComponent",
   components: {
+    Gizmo,
     Layer3D,
   },
   props: animatorProps,

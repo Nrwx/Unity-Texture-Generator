@@ -13,9 +13,9 @@ export class Camera {
                     orthographicScale = 5,
                     minOrthographicScale = 0.05,
                     maxOrthographicScale = 250,
-                    position = [0, 0.18, 3.25],
+                    position = [0, -3.25, 0.18],
                     target = [0, 0, 0],
-                    up = [0, 1, 0],
+                    up = [0, 0, 1],
                     damping = 18,
                     orbit = {},
                 } = {}) {
@@ -34,7 +34,7 @@ export class Camera {
 
         this.position = Vector.from(position);
         this.target = Vector.from(target);
-        this.up = Vector.from(up, [0, 1, 0]).normalize([0, 1, 0]);
+        this.up = Vector.from(up, [0, 0, 1]).normalize([0, 0, 1]);
         this.rotation = Quaternion.identity();
 
         this.viewMatrix = Matrix.identity();
@@ -86,6 +86,7 @@ export class Camera {
                 panSpeed: payload.pan_speed ?? payload.panSpeed,
                 dollySpeed: payload.dolly_speed ?? payload.dollySpeed,
                 target: payload.target,
+                worldUp: payload.up,
             },
         });
     }

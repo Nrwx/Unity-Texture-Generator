@@ -53,5 +53,12 @@
       height: 50px;
       border-top: 1px solid #ddd;
     }
+
+    .layer-transform-panel {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
   }
 }

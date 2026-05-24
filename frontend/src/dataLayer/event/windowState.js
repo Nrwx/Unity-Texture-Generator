@@ -407,29 +407,23 @@ export const windowStateEvent = (route) => ({
 
     "animator:state": async (payload) => {
         route.windowStates.animator.value = payload;
-
+        if(!payload) {await route.emit("event:listener", {resume: true, id: 'listener:grid'})}
         if (payload) {
+            await route.emit("event:listener", {pause: true, id: 'listener:grid'})
             WebGLRuntime.pauseScope("main-canvas");
             WebGLRuntime.destroyScope("material-preview");
-
-            // Wenn MaterialEditor offen ist, darf Animator-State true bleiben,
-            // aber sein WebGL muss pausiert bleiben.
             if (route.windowStates.material.value) {
                 WebGLRuntime.pauseScope("animator");
                 return;
             }
-
             WebGLRuntime.resumeScope("animator");
             return;
         }
-
         WebGLRuntime.destroyScope("animator");
-
         if (route.windowStates.material.value) {
             WebGLRuntime.pauseScope("main-canvas");
             return;
         }
-
         WebGLRuntime.resumeScope("main-canvas");
     },
 });

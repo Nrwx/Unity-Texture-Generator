@@ -290,12 +290,18 @@ export class Node {
             type: "UV",
             label: "UV-Map",
             icon: "mdi-vector-square",
+            fields: ["mode", "offset_x", "offset_y", "scale_x", "scale_y", "rotate"],
             outputs: {
                 uv: Node.socket("vector", "UV"),
             },
             defaults: {
                 uv_map: "Unwrap",
                 mode: "unwrap",
+                offset_x: 0,
+                offset_y: 0,
+                scale_x: 1,
+                scale_y: 1,
+                rotate: 0,
             },
         }),
 
@@ -304,6 +310,7 @@ export class Node {
             type: "UV",
             label: "UV-CubeMap",
             icon: "mdi-cube-scan",
+            fields: ["mode", "atlas", "offset_x", "offset_y", "scale_x", "scale_y", "rotate"],
             outputs: {
                 uv: Node.socket("vector", "Cube UV"),
             },
@@ -311,6 +318,11 @@ export class Node {
                 uv_map: "CubeMap",
                 mode: "cubemap",
                 atlas: "cross",
+                offset_x: 0,
+                offset_y: 0,
+                scale_x: 1,
+                scale_y: 1,
+                rotate: 0,
             },
         }),
 
@@ -1487,6 +1499,14 @@ export class Node {
 
         if (fieldKey === "extension") {
             return ["Repeat", "Extend", "Clip"];
+        }
+
+        if ((nodeKey === "uv.map" || nodeKey === "uv.cubemap") && fieldKey === "mode") {
+            return ["unwrap", "planar", "cylindrical", "spherical", "primitive", "cubemap"];
+        }
+
+        if (nodeKey === "uv.cubemap" && fieldKey === "atlas") {
+            return ["cross", "strip", "grid"];
         }
 
         if (nodeKey === "texture.gradient" && fieldKey === "type") {

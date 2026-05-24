@@ -287,6 +287,69 @@ class ExportModel(BaseModel):
         return cls._lerp(left_value, right_value, t)
 
     @classmethod
+    def _lerp_material_value(cls, left_value, right_value, t):
+        try:
+            left_number = float(left_value)
+            right_number = float(right_value)
+            return cls._lerp(left_number, right_number, t)
+        except Exception:
+            return left_value if t < 1 else right_value
+
+    @classmethod
+    def _apply_material_input_keyframes(cls, layer, left, right, factor):
+        graph_sources = (
+            layer.get("shader_graph"),
+            (layer.get("material") or {}).get("shader_graph"),
+            ((layer.get("material") or {}).get("shader") or {}).get("graph"),
+            (layer.get("shader") or {}).get("graph"),
+        )
+
+        graph = None
+        for candidate in graph_sources:
+            if isinstance(candidate, dict) and isinstance(candidate.get("nodes"), list):
+                graph = candidate
+                break
+
+        if not graph:
+            return
+
+        left_nodes = ((left.get("material") or {}).get("nodes") or {})
+        right_nodes = ((right.get("material") or {}).get("nodes") or {})
+
+        if not left_nodes and not right_nodes:
+            return
+
+        nodes = []
+        for node in graph.get("nodes") or []:
+            if not isinstance(node, dict):
+                nodes.append(node)
+                continue
+
+            node_id = node.get("id")
+            left_settings = ((left_nodes.get(node_id) or {}).get("settings") or {})
+            right_settings = ((right_nodes.get(node_id) or {}).get("settings") or {})
+            keys = set(left_settings.keys()) | set(right_settings.keys())
+
+            if not keys:
+                nodes.append(node)
+                continue
+
+            next_node = deepcopy(node)
+            settings = deepcopy(next_node.get("settings") or {})
+
+            for key in keys:
+                settings[key] = cls._lerp_material_value(
+                    left_settings.get(key, settings.get(key)),
+                    right_settings.get(key, left_settings.get(key, settings.get(key))),
+                    factor,
+                )
+
+            next_node["settings"] = settings
+            nodes.append(next_node)
+
+        graph["nodes"] = nodes
+
+    @classmethod
     def _lerp_matrix(cls, base_matrix, left_matrix, right_matrix, t):
         result = deepcopy(base_matrix or {})
 
@@ -362,6 +425,8 @@ class ExportModel(BaseModel):
 
             if value is not None:
                 animated[key] = value
+
+        cls._apply_material_input_keyframes(animated, left, right, factor)
 
         return animated
 

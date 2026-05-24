@@ -45,17 +45,37 @@ export const layerEvent = (route) => ({
         }
     },
     "update-layer": async (payload) => {
+        if (Number(payload?.type) === 5) {
+            return await route.emit("mesh:update", payload);
+        }
+
         const response = await route.api.updateLayer(payload)
         if (response) {
             await route.emit("fetch-layer");
         }
     },
     "delete-layer": async (payload) => {
-        const response = await route.api.deleteLayer(payload);
+        const layers = Array.isArray(payload) ? payload : [payload].filter(Boolean);
+        const meshLayers = layers.filter(layer => Number(layer?.type) === 5);
+        const regularLayers = layers.filter(layer => Number(layer?.type) !== 5);
+        let changed = false;
+
+        if (meshLayers.length) {
+            changed = Boolean(await route.emit("mesh:delete", meshLayers)) || changed;
+        }
+
+        if (!regularLayers.length) {
+            return changed;
+        }
+
+        const response = await route.api.deleteLayer(regularLayers);
         if (response) {
             await route.emit("layer:select", [])
             await route.emit("fetch-layer");
+            changed = true;
         }
+
+        return changed;
     },
     "group-layer": async (payload) => {
         const ids = payload.ids.map(x => x.id);

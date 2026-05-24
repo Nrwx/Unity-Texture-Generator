@@ -7,33 +7,24 @@
   --animator-muted: rgba(255, 255, 255, 0.58);
   --animator-cyan: #61e6ff;
 
-  position: absolute;
-  inset: 0;
+  position: relative !important;
   z-index: 70;
-  min-width: 0;
-  min-height: 0;
   overflow: hidden;
   outline: none;
   color: var(--animator-text);
   user-select: none;
-  background:
-          radial-gradient(circle at 48% 20%, rgba(97, 230, 255, 0.12), transparent 38%),
-          radial-gradient(circle at 82% 80%, rgba(181, 138, 255, 0.10), transparent 42%),
-          var(--animator-bg);
+  background: var(--animator-bg);
 }
 
 .animator-orbit-viewport {
   position: absolute;
-  inset: 0;
+  left: 0;
+  top: 0;
   z-index: 1;
-  min-width: 0;
-  min-height: 0;
   overflow: hidden;
   cursor: default;
   touch-action: none;
-  background:
-          radial-gradient(circle at 50% 46%, rgba(120, 168, 255, 0.095), transparent 44%),
-          rgba(0, 0, 0, 0.18);
+  background: rgba(0, 0, 0, 0.18);
 
   &.orbiting,
   &.grabbing {

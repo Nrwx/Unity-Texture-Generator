@@ -15,6 +15,13 @@ import { clamp, clone } from "@/utils/tools";
 import { Accumulator } from "@/view/models/page/material/core/Accumulator/Accumulator";
 import { Camera } from "@/view/models/page/material/core/Camera/Camera";
 import { Vector } from "@/view/models/page/material/core/Math/Vector/Vector";
+import {
+    animatorActiveLayerId,
+    animatorCameraCommand,
+    animatorCameraState,
+    animatorGizmo,
+    animatorObjectLayerId,
+} from "@/view/models/page/material/animator/state";
 
 const DEG = Math.PI / 180;
 
@@ -116,6 +123,7 @@ const createCameraCore = settings => {
             maxRadius: settings.maxRadius,
             minPhi: settings.minPhi,
             maxPhi: settings.maxPhi,
+            worldUp: [0, 0, 1],
             rotateSpeed: settings.rotateSpeed,
             panSpeed: settings.panSpeed,
             dollySpeed: settings.dollySpeed,
@@ -131,6 +139,10 @@ const createCameraCore = settings => {
 const normalizeMeshSettings = settings => ({
     ...(settings || {}),
 
+    position_x: toNumber(settings?.position_x, 0),
+    position_y: toNumber(settings?.position_y, 0),
+    position_z: toNumber(settings?.position_z, 0),
+
     rotation_x: toNumber(settings?.rotation_x, 0),
     rotation_y: toNumber(settings?.rotation_y, 0),
     rotation_z: toNumber(settings?.rotation_z, 0),
@@ -144,12 +156,70 @@ const normalizeMeshSettings = settings => ({
     pivot_z: toNumber(settings?.pivot_z, 0),
 });
 
+const TRANSFORM_FIELD_GROUPS = [
+    {
+        key: "position",
+        title: "Position",
+        fields: [
+            { key: "position_x", label: "X", step: 0.01 },
+            { key: "position_y", label: "Y", step: 0.01 },
+            { key: "position_z", label: "Z", step: 0.01 },
+        ],
+    },
+    {
+        key: "rotation",
+        title: "Rotation",
+        fields: [
+            { key: "rotation_x", label: "X", step: 0.1 },
+            { key: "rotation_y", label: "Y", step: 0.1 },
+            { key: "rotation_z", label: "Z", step: 0.1 },
+        ],
+    },
+    {
+        key: "scale",
+        title: "Scale",
+        fields: [
+            { key: "scale_x", label: "X", step: 0.01 },
+            { key: "scale_y", label: "Y", step: 0.01 },
+            { key: "scale_z", label: "Z", step: 0.01 },
+        ],
+    },
+    {
+        key: "pivot",
+        title: "Pivot",
+        fields: [
+            { key: "pivot_x", label: "X", step: 0.01 },
+            { key: "pivot_y", label: "Y", step: 0.01 },
+            { key: "pivot_z", label: "Z", step: 0.01 },
+        ],
+    },
+];
+
+const CAMERA_FIELD_GROUPS = [
+    {
+        key: "lens",
+        title: "Camera",
+        fields: [
+            { key: "fov", label: "FOV", step: 1, min: 1, max: 175 },
+            { key: "near", label: "Near", step: 0.001, min: 0.0001 },
+            { key: "far", label: "Far", step: 1, min: 0.01 },
+        ],
+    },
+    {
+        key: "orbit",
+        title: "Orbit",
+        fields: [
+            { key: "radius", label: "Radius", step: 0.01, min: 0.0001 },
+            { key: "orthographicScale", label: "Ortho", step: 0.01, min: 0.0001 },
+        ],
+    },
+];
+
 export function animatorModel(props, emit) {
     const rootRef = ref(null);
     const viewportRef = ref(null);
     const rafId = ref(null);
     const activeLayerId = ref("");
-    const resizeObserver = ref(null);
     const clock = new Accumulator();
 
     let lastFrameTime = 0;
@@ -178,6 +248,10 @@ export function animatorModel(props, emit) {
         meta: false,
     });
 
+    const gizmo = animatorGizmo;
+
+    let commitTimer = null;
+
     const emitEvent = (event, payload) => {
         emit("update:component-event", event, payload);
     };
@@ -187,8 +261,7 @@ export function animatorModel(props, emit) {
     const mouse = useMouse({
         register,
         elementId: animator.viewportId,
-        mode: "client",
-        preventDefault: true,
+        mode: "local"
     });
 
     const settings = computed(() => createDefaultOrbitSettings(props.orbitSettings || props.settings || {}));
@@ -214,12 +287,25 @@ export function animatorModel(props, emit) {
         right: cameraCore.orbit.right.toObject(),
         up: cameraCore.orbit.up.toObject(),
         backgroundGrid: cameraCore.backgroundGrid,
+        showAxisGizmo: settings.value.showAxisGizmo,
     });
 
-    const viewportSize = reactive({
-        width: 1,
-        height: 1,
+    const normalizeViewportSize = () => ({
+        width: Math.max(1, Math.round(toNumber(props.viewport?.width, 1))),
+        height: Math.max(1, Math.round(toNumber(props.viewport?.height, 1))),
     });
+
+    const viewportSize = reactive(normalizeViewportSize());
+
+    const animatorStyle = computed(() => ({
+        width: `${viewportSize.width}px`,
+        height: `${viewportSize.height}px`,
+    }));
+
+    const animatorViewportStyle = computed(() => ({
+        width: `${viewportSize.width}px`,
+        height: `${viewportSize.height}px`,
+    }));
 
     const viewportAspect = computed(() => (
         viewportSize.height > 0
@@ -249,6 +335,28 @@ export function animatorModel(props, emit) {
         camera.right = cameraCore.orbit.right.toObject();
         camera.up = cameraCore.orbit.up.toObject();
         camera.backgroundGrid = cameraCore.backgroundGrid;
+        camera.showAxisGizmo = settings.value.showAxisGizmo;
+
+        animatorCameraState.projection = camera.projection;
+        animatorCameraState.fov = camera.fov;
+        animatorCameraState.near = camera.near;
+        animatorCameraState.far = camera.far;
+        animatorCameraState.radius = camera.radius;
+        animatorCameraState.orthographicScale = camera.orthographicScale;
+        animatorCameraState.theta = camera.theta;
+        animatorCameraState.phi = camera.phi;
+        animatorCameraState.target = {...camera.target};
+        animatorCameraState.position = {...camera.position};
+        animatorCameraState.payload = {
+            ...cameraCore.toViewportCamera(),
+            aspect: viewportAspect.value,
+            orthographic_scale: camera.orthographicScale,
+            target: {...camera.target},
+            position: {...camera.position},
+            forward: {...camera.forward},
+            right: {...camera.right},
+            up: {...camera.up},
+        };
     };
 
     const selectedMaterialLayers = computed(() => (
@@ -261,6 +369,23 @@ export function animatorModel(props, emit) {
         selectedMaterialLayers.value[0] ||
         null
     ));
+
+    const objectGizmoLayer = computed(() => (
+        selectedMaterialLayers.value.find(layer => layer.id === animatorObjectLayerId.value) ||
+        null
+    ));
+
+    const objectGizmoActive = computed(() => !!objectGizmoLayer.value?.id);
+
+    const activeGeometry = computed(() => normalizeMeshSettings(
+        activeLayer.value?.geometry ||
+        activeLayer.value?.mesh?.settings ||
+        {}
+    ));
+
+    const transformFieldGroups = computed(() => TRANSFORM_FIELD_GROUPS);
+
+    const cameraFieldGroups = computed(() => CAMERA_FIELD_GROUPS);
 
     const viewportCamera = computed(() => ({
         ...cameraCore.toViewportCamera(),
@@ -311,9 +436,17 @@ export function animatorModel(props, emit) {
 
         return selectedMaterialLayers.value.map(layer => {
             const cloned = clone(layer, "json");
+            const geometry = normalizeMeshSettings(
+                cloned.geometry ||
+                cloned.mesh?.settings ||
+                {}
+            );
             const mesh = {
                 ...(cloned.mesh || {}),
-                settings: normalizeMeshSettings(cloned.mesh?.settings),
+                settings: {
+                    ...normalizeMeshSettings(cloned.mesh?.settings),
+                    ...geometry,
+                },
             };
 
             return {
@@ -324,10 +457,16 @@ export function animatorModel(props, emit) {
 
                 time: props.timelineTime,
 
+                geometry,
+
                 mesh,
 
                 shader: {
                     ...(cloned.shader || {}),
+                    geometry: {
+                        ...(cloned.shader?.geometry || {}),
+                        ...geometry,
+                    },
                     mesh,
                     viewport_camera: cameraPayload,
                 },
@@ -363,15 +502,294 @@ export function animatorModel(props, emit) {
 
     const isActiveLayer = layer => layer?.id && activeLayer.value?.id === layer.id;
 
-    const updateViewportSize = () => {
-        const rect = viewportRef.value?.getBoundingClientRect?.();
-
-        if (!rect) {
+    const setActiveLayer = layer => {
+        if (!layer?.id) {
             return;
         }
 
-        viewportSize.width = Math.max(1, Math.round(rect.width));
-        viewportSize.height = Math.max(1, Math.round(rect.height));
+        activeLayerId.value = layer.id;
+        animatorActiveLayerId.value = layer.id;
+        frameSelected();
+    };
+
+    const commitLayer = layer => {
+        if (!layer?.id) {
+            return;
+        }
+
+        emitEvent("update-layer", clone(layer, "json"));
+    };
+
+    const scheduleLayerCommit = (layer, delay = 180) => {
+        if (commitTimer) {
+            clearTimeout(commitTimer);
+        }
+
+        commitTimer = setTimeout(() => {
+            commitTimer = null;
+            commitLayer(layer);
+        }, delay);
+    };
+
+    const ensureActiveGeometry = () => {
+        const layer = activeLayer.value;
+
+        if (!layer) {
+            return null;
+        }
+
+        const geometry = normalizeMeshSettings(
+            layer.geometry ||
+            layer.mesh?.settings ||
+            {}
+        );
+
+        layer.geometry = geometry;
+        layer.mesh = {
+            ...(layer.mesh || {}),
+            settings: {
+                ...(layer.mesh?.settings || {}),
+                ...geometry,
+            },
+        };
+
+        return geometry;
+    };
+
+    const setGizmoTool = tool => {
+        gizmo.tool = tool;
+        rootRef.value?.focus?.();
+    };
+
+    const setGizmoAxis = axis => {
+        gizmo.axis = axis;
+        rootRef.value?.focus?.();
+    };
+
+    const setGizmoPivot = pivot => {
+        gizmo.pivot = pivot;
+    };
+
+    const setGeometryNumber = (key, value, commit = true) => {
+        const layer = activeLayer.value;
+        const geometry = ensureActiveGeometry();
+
+        if (!layer || !geometry) {
+            return;
+        }
+
+        const fallback = key.startsWith("scale_") ? 1 : 0;
+        geometry[key] = toNumber(value, fallback);
+        layer.mesh.settings[key] = geometry[key];
+
+        if (commit) {
+            scheduleLayerCommit(layer);
+        }
+    };
+
+    const resetActiveTransform = () => {
+        [
+            "position_x",
+            "position_y",
+            "position_z",
+            "rotation_x",
+            "rotation_y",
+            "rotation_z",
+            "pivot_x",
+            "pivot_y",
+            "pivot_z",
+        ].forEach(key => setGeometryNumber(key, 0, false));
+
+        [
+            "scale_x",
+            "scale_y",
+            "scale_z",
+        ].forEach(key => setGeometryNumber(key, 1, false));
+
+        commitLayer(activeLayer.value);
+    };
+
+    const isObjectHit = event => {
+        const rect = viewportRef.value?.getBoundingClientRect?.();
+
+        if (!rect || !activeLayer.value) {
+            return false;
+        }
+
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const dx = event.clientX - centerX;
+        const dy = event.clientY - centerY;
+        const radius = Math.max(42, Math.min(rect.width, rect.height) * 0.28);
+
+        return Math.sqrt(dx * dx + dy * dy) <= radius;
+    };
+
+    const selectAnimatorObject = (layer = activeLayer.value) => {
+        if (!layer?.id) {
+            animatorObjectLayerId.value = "";
+            return;
+        }
+
+        activeLayerId.value = layer.id;
+        animatorActiveLayerId.value = layer.id;
+        animatorObjectLayerId.value = layer.id;
+        frameSelected();
+        rootRef.value?.focus?.();
+    };
+
+    const clearAnimatorObjectSelection = () => {
+        animatorObjectLayerId.value = "";
+        gizmo.axis = "free";
+        cameraCore.orbit.setTarget([0, 0, 0]);
+        syncCameraState();
+    };
+
+    const setObjectGizmoAxis = (layer, payload) => {
+        const axis = typeof payload === "object" ? payload?.axis : payload;
+        const tool = typeof payload === "object" ? payload?.tool : "";
+
+        selectAnimatorObject(layer);
+        if (["translate", "rotate", "scale"].includes(tool)) {
+            setGizmoTool(tool);
+        }
+        setGizmoAxis(axis);
+    };
+
+    const releaseObjectGizmoAxis = () => {
+        gizmo.axis = "free";
+    };
+
+    const setCameraNumber = (key, value) => {
+        const number = toNumber(value, camera[key] ?? 0);
+
+        if (key === "fov") {
+            cameraCore.fov = clamp(number, 1, 175);
+        }
+
+        if (key === "near") {
+            cameraCore.near = Math.max(0.0001, number);
+        }
+
+        if (key === "far") {
+            cameraCore.far = Math.max(0.01, number);
+        }
+
+        if (key === "radius") {
+            cameraCore.orbit.setRadius(number);
+        }
+
+        if (key === "orthographicScale") {
+            cameraCore.setOrthographicScale(number);
+        }
+
+        syncCameraState();
+    };
+
+    const applyCameraToActiveLayer = () => {
+        const layer = activeLayer.value;
+
+        if (!layer) {
+            return;
+        }
+
+        const payload = clone(viewportCamera.value, "json");
+
+        layer.viewport_camera = payload;
+        layer.settings = {
+            ...(layer.settings || {}),
+            animator_viewport: true,
+            viewport_camera: payload,
+        };
+        layer.preview = {
+            ...(layer.preview || {}),
+            animator_viewport: true,
+            viewport_camera: payload,
+            rotate: false,
+            idle_rotation: {
+                ...(layer.preview?.idle_rotation || {}),
+                enabled: false,
+            },
+        };
+
+        commitLayer(layer);
+    };
+
+    const applyGizmoDelta = (dx, dy) => {
+        const layer = activeLayer.value;
+        const geometry = ensureActiveGeometry();
+
+        if (!layer || !geometry) {
+            return;
+        }
+
+        const axis = gizmo.axis;
+        const distanceFactor = cameraCore.projection === "orthographic"
+            ? cameraCore.orthographicScale
+            : cameraCore.orbit.radius;
+        const translateScale = Math.max(0.001, distanceFactor * 0.0025);
+
+        if (gizmo.tool === "translate") {
+            if (axis === "x" || axis === "free") {
+                geometry.position_x += dx * translateScale;
+            }
+
+            if (axis === "z" || axis === "free") {
+                geometry.position_z -= dy * translateScale;
+            }
+
+            if (axis === "y") {
+                geometry.position_y += (dx - dy) * translateScale;
+            }
+        }
+
+        if (gizmo.tool === "rotate") {
+            const rotateScale = 0.35;
+
+            if (axis === "x") {
+                geometry.rotation_x += dy * rotateScale;
+            } else if (axis === "z") {
+                geometry.rotation_z += dx * rotateScale;
+            } else {
+                geometry.rotation_y += dx * rotateScale;
+
+                if (axis === "free") {
+                    geometry.rotation_x += dy * rotateScale;
+                }
+            }
+        }
+
+        if (gizmo.tool === "scale") {
+            const factor = Math.max(0.01, 1 + (dx - dy) * 0.006);
+            const applyScale = key => {
+                geometry[key] = Math.max(0.001, geometry[key] * factor);
+            };
+
+            if (axis === "x") {
+                applyScale("scale_x");
+            } else if (axis === "y") {
+                applyScale("scale_y");
+            } else if (axis === "z") {
+                applyScale("scale_z");
+            } else {
+                applyScale("scale_x");
+                applyScale("scale_y");
+                applyScale("scale_z");
+            }
+        }
+
+        layer.mesh.settings = {
+            ...(layer.mesh?.settings || {}),
+            ...geometry,
+        };
+    };
+
+    const updateViewportSize = () => {
+        const size = normalizeViewportSize();
+
+        viewportSize.width = size.width;
+        viewportSize.height = size.height;
+
         syncCameraState();
     };
 
@@ -411,6 +829,18 @@ export function animatorModel(props, emit) {
         const isRight = event.button === 2;
         const isMiddle = event.button === 1;
         const isLeft = event.button === 0;
+        const gizmoHandle = event.target?.closest?.("[data-gizmo-handle='true']");
+        const isGizmoHandle = Boolean(gizmoHandle);
+        const handleTool = gizmoHandle?.dataset?.gizmoTool || gizmo.tool;
+
+        if (
+            isRight &&
+            isGizmoHandle &&
+            objectGizmoActive.value &&
+            ["translate", "rotate", "scale"].includes(handleTool)
+        ) {
+            return `gizmo-${handleTool}`;
+        }
 
         if (event.shiftKey && (isRight || isMiddle || isLeft)) {
             return "pan";
@@ -475,6 +905,13 @@ export function animatorModel(props, emit) {
         const mode = resolvePointerMode(event);
 
         if (!mode) {
+            if (event.button === 0) {
+                clearAnimatorObjectSelection();
+            }
+
+            if (event.button === 2 && isObjectHit(event)) {
+                selectAnimatorObject();
+            }
             return;
         }
 
@@ -503,9 +940,7 @@ export function animatorModel(props, emit) {
 
         stopNativeEvent(event);
 
-        await mouse.move(event, ({ client, lastClient }) => {
-            const dx = client.x - lastClient.x;
-            const dy = client.y - lastClient.y;
+        await mouse.move(event, ({ client, dx, dy }) => {
 
             pointer.x = client.x;
             pointer.y = client.y;
@@ -525,6 +960,10 @@ export function animatorModel(props, emit) {
             if (pointer.mode === "dolly") {
                 dollyByDelta(dy);
             }
+
+            if (pointer.mode.startsWith("gizmo-")) {
+                applyGizmoDelta(dx, dy);
+            }
         });
     };
 
@@ -537,10 +976,20 @@ export function animatorModel(props, emit) {
 
         await mouse.up(event);
 
+        const mode = pointer.mode;
+        const moved = pointer.moved;
+
         pointer.active = false;
         pointer.pointerId = null;
         pointer.button = -1;
         pointer.mode = "";
+
+        if (mode.startsWith("gizmo-")) {
+            if (moved) {
+                commitLayer(activeLayer.value);
+            }
+            releaseObjectGizmoAxis();
+        }
 
         event.currentTarget?.releasePointerCapture?.(event.pointerId);
     };
@@ -717,6 +1166,34 @@ export function animatorModel(props, emit) {
         }
 
         if (key === "g") {
+            setGizmoTool("translate");
+            stopNativeEvent(event);
+            emitEvent("apply-key-down", event);
+            return;
+        }
+
+        if (key === "r") {
+            setGizmoTool("rotate");
+            stopNativeEvent(event);
+            emitEvent("apply-key-down", event);
+            return;
+        }
+
+        if (key === "s") {
+            setGizmoTool("scale");
+            stopNativeEvent(event);
+            emitEvent("apply-key-down", event);
+            return;
+        }
+
+        if (key === "x" || key === "y" || key === "z") {
+            setGizmoAxis(key);
+            stopNativeEvent(event);
+            emitEvent("apply-key-down", event);
+            return;
+        }
+
+        if (event.code === "KeyB") {
             toggleGrid();
             stopNativeEvent(event);
             emitEvent("apply-key-down", event);
@@ -745,11 +1222,6 @@ export function animatorModel(props, emit) {
 
         mouse.init();
         updateViewportSize();
-
-        if (typeof ResizeObserver !== "undefined" && viewportRef.value) {
-            resizeObserver.value = new ResizeObserver(updateViewportSize);
-            resizeObserver.value.observe(viewportRef.value);
-        }
 
         if (viewportRef.value) {
             register("add", viewportRef.value, "pointerdown", onPointerDown);
@@ -781,6 +1253,19 @@ export function animatorModel(props, emit) {
                 activeLayerId.value = selectedMaterialLayers.value[0]?.id || "";
             }
 
+            animatorActiveLayerId.value = activeLayerId.value;
+            if (
+                animatorObjectLayerId.value &&
+                !selectedMaterialLayers.value.some(layer => layer.id === animatorObjectLayerId.value)
+            ) {
+                clearAnimatorObjectSelection();
+            }
+            if (!animatorObjectLayerId.value) {
+                cameraCore.orbit.setTarget([0, 0, 0]);
+                syncCameraState();
+                return;
+            }
+
             nextTick(frameSelected);
         },
         { immediate: true }
@@ -793,14 +1278,81 @@ export function animatorModel(props, emit) {
         }
     );
 
+    watch(
+        () => animatorCameraCommand.apply,
+        () => {
+            if (animatorCameraCommand.apply > 0) {
+                applyCameraToActiveLayer();
+            }
+        }
+    );
+
+    watch(
+        () => animatorCameraCommand.frame,
+        () => {
+            if (animatorCameraCommand.frame > 0) {
+                frameSelected();
+            }
+        }
+    );
+
+    watch(
+        () => animatorCameraCommand.reset,
+        () => {
+            if (animatorCameraCommand.reset > 0) {
+                resetView();
+            }
+        }
+    );
+
+    watch(
+        () => animatorCameraCommand.toggleGrid,
+        () => {
+            if (animatorCameraCommand.toggleGrid > 0) {
+                toggleGrid();
+            }
+        }
+    );
+
+    watch(
+        () => animatorCameraCommand.projection,
+        projection => {
+            if (projection) {
+                setProjection(projection);
+                animatorCameraCommand.projection = "";
+            }
+        }
+    );
+
+    watch(
+        () => animatorCameraCommand.view,
+        view => {
+            if (view) {
+                setView(view);
+                animatorCameraCommand.view = "";
+            }
+        }
+    );
+
+    watch(
+        () => [
+            props.viewport?.width,
+            props.viewport?.height,
+        ],
+        () => {
+            updateViewportSize();
+        },
+        { immediate: true }
+    );
+
     onMounted(init);
 
     onBeforeUnmount(() => {
         stopTick();
 
-        if (resizeObserver.value) {
-            resizeObserver.value.disconnect();
-            resizeObserver.value = null;
+        if (commitTimer) {
+            clearTimeout(commitTimer);
+            commitTimer = null;
         }
 
         register("removeAll");
@@ -810,42 +1362,63 @@ export function animatorModel(props, emit) {
         rootRef,
         viewportRef,
         animator,
+        animatorStyle,
+        animatorViewportStyle,
+        emitEvent,
 
         pointer,
         camera,
+        gizmo,
 
         selectedMaterialLayers,
         activeLayer,
+        objectGizmoLayer,
+        objectGizmoActive,
+        activeGeometry,
         viewportCamera,
         animatedLayers,
+        transformFieldGroups,
+        cameraFieldGroups,
         gridLines,
         resetView,
+        setView,
+        setProjection,
+        frameSelected,
+        toggleGrid,
         isActiveLayer,
+        setActiveLayer,
+        selectAnimatorObject,
+        clearAnimatorObjectSelection,
+        setObjectGizmoAxis,
+        releaseObjectGizmoAxis,
+        setGizmoTool,
+        setGizmoAxis,
+        setGizmoPivot,
+        setGeometryNumber,
+        resetActiveTransform,
+        setCameraNumber,
+        applyCameraToActiveLayer,
     };
 }
 
 export const animatorProps = {
     selectedLayers: {
         type: Array,
-        required: false,
-        default: () => [],
+        required: true,
     },
 
     orbitSettings: {
         type: Object,
-        required: false,
-        default: () => ({}),
+        required: true,
     },
 
-    settings: {
+    viewport: {
         type: Object,
-        required: false,
-        default: () => ({}),
+        required: true
     },
 
     timelineTime: {
         type: Number,
-        required: false,
-        default: 0,
-    },
+        required: true
+    }
 };

@@ -18,7 +18,7 @@
     "project_name": "unity-texture-generator"
   },
   "dependencies": {
-    "last_build": "2026-05-23T13:44:20.604667Z",
+    "last_build": "2026-05-23T21:39:44.197639Z",
     "config": {
       "library_policy": {
         "auto_update": true,
@@ -1131,6 +1131,102 @@
         "upload": {
           "keys": [],
           "function": "upload",
+          "value": "dispatch"
+        }
+      },
+      "api": {
+        "dependency": {
+          "view": [
+            "log"
+          ],
+          "controller": [
+            "log"
+          ],
+          "model": [
+            "syslink",
+            "log"
+          ]
+        }
+      }
+    },
+    {
+      "blueprint": "mesh",
+      "view_module": "view.mesh_view",
+      "controller": "controller.mesh_controller",
+      "model": "model.mesh_model",
+      "url": "/mesh",
+      "strict_slashes": false,
+      "active": true,
+      "routes": {
+        "0": {
+          "methods": [
+            "GET",
+            "POST"
+          ],
+          "url": "",
+          "function": "handle_mesh",
+          "value": "dispatch"
+        }
+      },
+      "method_map": {
+        "fetch": {
+          "keys": [
+            "id"
+          ],
+          "function": "fetch",
+          "value": "dispatch"
+        },
+        "create": {
+          "keys": [
+            "id",
+            "name",
+            "width",
+            "height",
+            "hidden",
+            "opacity",
+            "order",
+            "matrix",
+            "keyframes",
+            "geometry",
+            "mesh",
+            "settings",
+            "preview",
+            "viewport_camera",
+            "material",
+            "shader",
+            "particle_system"
+          ],
+          "function": "create",
+          "value": "dispatch"
+        },
+        "update": {
+          "keys": [
+            "id",
+            "name",
+            "width",
+            "height",
+            "hidden",
+            "opacity",
+            "order",
+            "matrix",
+            "keyframes",
+            "geometry",
+            "mesh",
+            "settings",
+            "preview",
+            "viewport_camera",
+            "material",
+            "shader",
+            "particle_system"
+          ],
+          "function": "update",
+          "value": "dispatch"
+        },
+        "delete": {
+          "keys": [
+            "id"
+          ],
+          "function": "delete",
           "value": "dispatch"
         }
       },

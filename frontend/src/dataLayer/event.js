@@ -32,6 +32,7 @@ import {taskEvent} from "@/dataLayer/event/task";
 import {shaderEvent} from "@/dataLayer/event/shader";
 import {pluginEvent} from "@/dataLayer/event/plugin";
 import {materialEvent} from "@/dataLayer/event/material";
+import {meshEvent} from "@/dataLayer/event/mesh";
 
 
 /**
@@ -58,6 +59,7 @@ const eventHandler = (route) => ({
     ...modifierEvent(route),
     ...fileEvent(route),
     ...fileSettingEvent(route),
+    ...meshEvent(route),
     ...layerEvent(route),
     ...materialEvent(route),
     ...layerModifierEvent(route),

@@ -364,6 +364,10 @@ export const createGeometry = () => ({
     uv_fit: "stretch",
     uv_density: 1,
 
+    position_x: 0,
+    position_y: 0,
+    position_z: 0,
+
     pivot_x: 0,
     pivot_y: 0,
     pivot_z: 0,

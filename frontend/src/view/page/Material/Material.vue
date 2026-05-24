@@ -32,86 +32,86 @@
 
             <div class="mem-canvas-control-grid">
               <template v-if="ui.activeTab !== 'particleSystem'">
-              <button
-                  type="button"
-                  class="mem-canvas-control"
-                  :class="{ active: values.rotate_preview }"
-                  @click="setPreviewSetting('rotate_preview', !values.rotate_preview)"
-              >
-                <span class="mem-canvas-control-icon">
-                  <v-icon size="18">mdi-orbit</v-icon>
-                </span>
+                <button
+                    type="button"
+                    class="mem-canvas-control"
+                    :class="{ active: values.rotate_preview }"
+                    @click="setPreviewSetting('rotate_preview', !values.rotate_preview)"
+                >
+                  <span class="mem-canvas-control-icon">
+                    <v-icon size="18">mdi-orbit</v-icon>
+                  </span>
 
-                <span class="mem-canvas-control-text">
-                  <strong>World Orbit</strong>
-                  <small>{{ values.rotate_preview ? 'Aktiv' : 'Aus' }}</small>
-                </span>
-              </button>
+                  <span class="mem-canvas-control-text">
+                    <strong>World Orbit</strong>
+                    <small>{{ values.rotate_preview ? 'Aktiv' : 'Aus' }}</small>
+                  </span>
+                </button>
 
-              <button
-                  type="button"
-                  class="mem-canvas-control"
-                  :class="{ active: values.wireframe_preview }"
-                  @click="setPreviewSetting('wireframe_preview', !values.wireframe_preview)"
-              >
-                <span class="mem-canvas-control-icon">
-                  <v-icon size="18">mdi-vector-polyline</v-icon>
-                </span>
+                <button
+                    type="button"
+                    class="mem-canvas-control"
+                    :class="{ active: values.wireframe_preview }"
+                    @click="setPreviewSetting('wireframe_preview', !values.wireframe_preview)"
+                >
+                  <span class="mem-canvas-control-icon">
+                    <v-icon size="18">mdi-vector-polyline</v-icon>
+                  </span>
 
-                <span class="mem-canvas-control-text">
-                  <strong>Wireframe</strong>
-                  <small>{{ values.wireframe_preview ? 'Mesh Linien sichtbar' : 'Solid Render' }}</small>
-                </span>
-              </button>
+                  <span class="mem-canvas-control-text">
+                    <strong>Wireframe</strong>
+                    <small>{{ values.wireframe_preview ? 'Mesh Linien sichtbar' : 'Solid Render' }}</small>
+                  </span>
+                </button>
 
-              <button
-                  type="button"
-                  class="mem-canvas-control"
-                  :class="{ active: values.faces_preview }"
-                  @click="setPreviewSetting('faces_preview', !values.faces_preview)"
-              >
-                <span class="mem-canvas-control-icon">
-                  <v-icon size="18">mdi-grid-large</v-icon>
-                </span>
+                <button
+                    type="button"
+                    class="mem-canvas-control"
+                    :class="{ active: values.faces_preview }"
+                    @click="setPreviewSetting('faces_preview', !values.faces_preview)"
+                >
+                  <span class="mem-canvas-control-icon">
+                    <v-icon size="18">mdi-grid-large</v-icon>
+                  </span>
 
-                <span class="mem-canvas-control-text">
-                  <strong>Faces</strong>
-                  <small>{{ values.faces_preview ? 'Flächen markiert' : 'Nicht markiert' }}</small>
-                </span>
-              </button>
+                  <span class="mem-canvas-control-text">
+                    <strong>Faces</strong>
+                    <small>{{ values.faces_preview ? 'Flächen markiert' : 'Nicht markiert' }}</small>
+                  </span>
+                </button>
 
-              <button
-                  type="button"
-                  class="mem-canvas-control"
-                  :class="{ active: values.vertices_preview }"
-                  @click="setPreviewSetting('vertices_preview', !values.vertices_preview)"
-              >
-                <span class="mem-canvas-control-icon">
-                  <v-icon size="18">mdi-vector-point</v-icon>
-                </span>
+                <button
+                    type="button"
+                    class="mem-canvas-control"
+                    :class="{ active: values.vertices_preview }"
+                    @click="setPreviewSetting('vertices_preview', !values.vertices_preview)"
+                >
+                  <span class="mem-canvas-control-icon">
+                    <v-icon size="18">mdi-vector-point</v-icon>
+                  </span>
 
-                          <span class="mem-canvas-control-text">
-                  <strong>Vertices</strong>
-                  <small>{{ values.vertices_preview ? 'Punkte sichtbar' : 'Ausgeblendet' }}</small>
-                </span>
-              </button>
+                            <span class="mem-canvas-control-text">
+                    <strong>Vertices</strong>
+                    <small>{{ values.vertices_preview ? 'Punkte sichtbar' : 'Ausgeblendet' }}</small>
+                  </span>
+                </button>
 
-              <button
-                  v-if="isVolumeOrFluidPreview"
-                  type="button"
-                  class="mem-canvas-control"
-                  :class="{ active: values.fluid_particle_preview }"
-                  @click="setPreviewSetting('fluid_particle_preview', !values.fluid_particle_preview)"
-              >
-                <span class="mem-canvas-control-icon">
-                  <v-icon size="18">mdi-blur-radial</v-icon>
-                </span>
+                <button
+                    v-if="isVolumeOrFluidPreview"
+                    type="button"
+                    class="mem-canvas-control"
+                    :class="{ active: values.fluid_particle_preview }"
+                    @click="setPreviewSetting('fluid_particle_preview', !values.fluid_particle_preview)"
+                >
+                  <span class="mem-canvas-control-icon">
+                    <v-icon size="18">mdi-blur-radial</v-icon>
+                  </span>
 
-                <span class="mem-canvas-control-text">
-                  <strong>Particles</strong>
-                  <small>{{ values.fluid_particle_preview ? 'Partikel sichtbar' : 'Partikel ausgeblendet' }}</small>
-                </span>
-              </button>
+                  <span class="mem-canvas-control-text">
+                    <strong>Particles</strong>
+                    <small>{{ values.fluid_particle_preview ? 'Partikel sichtbar' : 'Partikel ausgeblendet' }}</small>
+                  </span>
+                </button>
               </template>
 
               <template v-else>
@@ -1118,12 +1118,25 @@
                             v-for="field in getNodeInlineFieldItems(node)"
                             :key="`${node.id}-${field.key}`"
                         >
-                          <label class="mem-node-inline-field">
+                          <label
+                              class="mem-node-inline-field"
+                              :class="{ 'has-key': materialKeyframeRecordActive }"
+                          >
                             <span>{{ field.label }}</span>
+
+                            <button
+                                v-if="materialKeyframeRecordActive"
+                                type="button"
+                                class="mem-node-key-btn"
+                                title="Keyframe setzen"
+                                @click.stop.prevent="addMaterialInputKeyframe(node, field.key)"
+                            >
+                              <v-icon size="12">mdi-key-plus</v-icon>
+                            </button>
 
                             <select
                                 v-if="field.type === 'select'"
-                                :value="normalizeNodeSettings(node)[field.key] ?? field.items?.[0] ?? ''"
+                                :value="getMaterialFieldValue(node, field.key) ?? field.items?.[0] ?? ''"
                                 @change="updateNodeSetting(node, field.key, $event.target.value)"
                             >
                               <option
@@ -1138,7 +1151,7 @@
                             <input
                                 v-else-if="field.type === 'boolean'"
                                 type="checkbox"
-                                :checked="normalizeNodeSettings(node)[field.key] === true"
+                                :checked="getMaterialFieldValue(node, field.key) === true"
                                 @change="updateNodeSetting(node, field.key, $event.target.checked)"
                             />
 
@@ -1148,14 +1161,14 @@
                                 :min="field.min"
                                 :max="field.max"
                                 :step="field.step ?? 0.001"
-                                :value="normalizeNodeSettings(node)[field.key] ?? 0"
+                                :value="getMaterialFieldValue(node, field.key) ?? 0"
                                 @input="updateNodeSetting(node, field.key, Number($event.target.value))"
                             />
 
                             <input
                                 v-else
                                 type="text"
-                                :value="normalizeNodeSettings(node)[field.key] ?? ''"
+                                :value="getMaterialFieldValue(node, field.key) ?? ''"
                                 @input="updateNodeSetting(node, field.key, $event.target.value)"
                             />
                           </label>
@@ -1302,35 +1315,6 @@
                       </div>
                     </template>
 
-                    <template v-if="activeShaderNode?.settings?.node_key === 'uv.map' && !getShaderNodeFieldItems(activeShaderNode).length">
-                      <v-text-field
-                          :model-value="normalizeNodeSettings(activeShaderNode).offset_x"
-                          label="Offset X"
-                          type="number"
-                          density="compact"
-                          hide-details
-                          @update:model-value="updateNodeSetting(activeShaderNode, 'offset_x', Number($event))"
-                      />
-
-                      <v-text-field
-                          :model-value="normalizeNodeSettings(activeShaderNode).offset_y"
-                          label="Offset Y"
-                          type="number"
-                          density="compact"
-                          hide-details
-                          @update:model-value="updateNodeSetting(activeShaderNode, 'offset_y', Number($event))"
-                      />
-
-                      <v-text-field
-                          :model-value="normalizeNodeSettings(activeShaderNode).rotate"
-                          label="Rotate"
-                          type="number"
-                          density="compact"
-                          hide-details
-                          @update:model-value="updateNodeSetting(activeShaderNode, 'rotate', Number($event))"
-                      />
-                    </template>
-
                     <div
                         v-if="getShaderNodeFieldItems(activeShaderNode).length"
                         class="mem-control-card"
@@ -1344,45 +1328,60 @@
                           v-for="field in getShaderNodeFieldItems(activeShaderNode)"
                           :key="field.key"
                       >
-                        <v-select
-                            v-if="field.type === 'select'"
-                            :model-value="normalizeNodeSettings(activeShaderNode)[field.key] ?? field.items?.[0] ?? ''"
-                            :items="field.items"
-                            :label="field.label"
-                            density="compact"
-                            hide-details
-                            @update:model-value="updateNodeSetting(activeShaderNode, field.key, $event)"
-                        />
+                        <div
+                            class="mem-inspector-field"
+                            :class="{ 'has-key': materialKeyframeRecordActive }"
+                        >
+                          <button
+                              v-if="materialKeyframeRecordActive"
+                              type="button"
+                              class="mem-inspector-key-btn"
+                              title="Keyframe setzen"
+                              @click.stop.prevent="addMaterialInputKeyframe(activeShaderNode, field.key)"
+                          >
+                            <v-icon size="12">mdi-key-plus</v-icon>
+                          </button>
 
-                        <v-switch
-                            v-else-if="field.type === 'boolean'"
-                            :model-value="normalizeNodeSettings(activeShaderNode)[field.key] === true"
-                            :label="field.label"
-                            hide-details
-                            @update:model-value="updateNodeSetting(activeShaderNode, field.key, $event === true)"
-                        />
+                          <v-select
+                              v-if="field.type === 'select'"
+                              :model-value="getMaterialFieldValue(activeShaderNode, field.key) ?? field.items?.[0] ?? ''"
+                              :items="field.items"
+                              :label="field.label"
+                              density="compact"
+                              hide-details
+                              @update:model-value="updateNodeSetting(activeShaderNode, field.key, $event)"
+                          />
 
-                        <v-text-field
-                            v-else-if="field.type === 'number'"
-                            :model-value="normalizeNodeSettings(activeShaderNode)[field.key] ?? 0"
-                            :label="field.label"
-                            type="number"
-                            :min="field.min"
-                            :max="field.max"
-                            :step="field.step ?? 0.001"
-                            density="compact"
-                            hide-details
-                            @update:model-value="updateNodeSetting(activeShaderNode, field.key, Number($event))"
-                        />
+                          <v-switch
+                              v-else-if="field.type === 'boolean'"
+                              :model-value="getMaterialFieldValue(activeShaderNode, field.key) === true"
+                              :label="field.label"
+                              hide-details
+                              @update:model-value="updateNodeSetting(activeShaderNode, field.key, $event === true)"
+                          />
 
-                        <v-text-field
-                            v-else
-                            :model-value="normalizeNodeSettings(activeShaderNode)[field.key] ?? ''"
-                            :label="field.label"
-                            density="compact"
-                            hide-details
-                            @update:model-value="updateNodeSetting(activeShaderNode, field.key, $event)"
-                        />
+                          <v-text-field
+                              v-else-if="field.type === 'number'"
+                              :model-value="getMaterialFieldValue(activeShaderNode, field.key) ?? 0"
+                              :label="field.label"
+                              type="number"
+                              :min="field.min"
+                              :max="field.max"
+                              :step="field.step ?? 0.001"
+                              density="compact"
+                              hide-details
+                              @update:model-value="updateNodeSetting(activeShaderNode, field.key, Number($event))"
+                          />
+
+                          <v-text-field
+                              v-else
+                              :model-value="getMaterialFieldValue(activeShaderNode, field.key) ?? ''"
+                              :label="field.label"
+                              density="compact"
+                              hide-details
+                              @update:model-value="updateNodeSetting(activeShaderNode, field.key, $event)"
+                          />
+                        </div>
                       </template>
                     </div>
 
@@ -1485,6 +1484,24 @@
         <span class="mem-action-state">
           {{ values.shader_graph.nodes.length }} Nodes · {{ values.shader_graph.edges.length }} Edges
         </span>
+
+        <div
+            v-if="materialKeyframeToolsVisible"
+            class="mem-material-key-time action"
+        >
+          <v-icon size="15">mdi-timeline-clock-outline</v-icon>
+
+          <v-text-field
+              :model-value="materialTimelineTime"
+              label="Time"
+              type="number"
+              step="0.001"
+              min="0"
+              density="compact"
+              hide-details
+              @update:model-value="setMaterialTimelineTime($event)"
+          />
+        </div>
 
         <v-btn
             class="mem-apply"

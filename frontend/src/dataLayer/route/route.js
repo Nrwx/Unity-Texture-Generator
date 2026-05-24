@@ -5,6 +5,8 @@ export {
     hideLayer, orderLayers, previewLayers, updateChannel, updateLayer, pasteLayer, maskedLayer, groupLayer
 } from "./layer";
 
+export { fetchMesh, createMesh, updateMesh, deleteMesh } from "./mesh";
+
 export { addPath, deletePath, updatePath, fetchPath } from "./path";
 
 export { createCursor } from "./cursor"

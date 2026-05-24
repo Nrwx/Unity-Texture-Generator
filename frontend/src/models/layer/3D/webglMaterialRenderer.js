@@ -2,6 +2,11 @@ import {Buffer} from "@/models/layer/3D/core/buffer/model";
 import {clamp} from "@/utils/tools";
 import {Matrix} from "@/view/models/page/material/core/Math/Matrix/Matrix";
 import {Quaternion} from "@/view/models/page/material/core/Math/Quaternion/Quaternion";
+import {
+    sceneToRendererCamera,
+    sceneToRendererGeometry,
+    sceneToRendererVector,
+} from "@/models/layer/3D/coordinateSystem";
 
 const FACE_DEFS = Object.freeze({
     front: {
@@ -771,18 +776,18 @@ const resolveViewportCamera = ({
     );
 
     if (!source || typeof source !== "object") {
-        return {
+        return sceneToRendererCamera({
             enabled: false,
             projection: "perspective",
             aspect,
             fov: 42,
             near: 0.01,
             far: 1000,
-            position: [0, 0.18, 3.25],
+            position: [0, -3.25, 0.18],
             target: [0, 0, 0],
-            up: [0, 1, 0],
+            up: [0, 0, 1],
             orthographicScale: 5,
-        };
+        });
     }
 
     const projection = String(
@@ -791,7 +796,7 @@ const resolveViewportCamera = ({
         "perspective"
     ).toLowerCase();
 
-    return {
+    const camera = {
         enabled: true,
 
         projection: projection === "orthographic" || projection === "ortho"
@@ -819,6 +824,8 @@ const resolveViewportCamera = ({
         target: asVec3Array(source.target, [0, 0, 0]),
         up: normalize3(asVec3Array(source.up, [0, 1, 0])),
     };
+
+    return sceneToRendererCamera(camera);
 };
 
 const buildCameraMatrices = ({
@@ -1553,30 +1560,53 @@ export class WebGLMaterialRenderer {
     }
 
     buildMatrices(width, height, geometry, rotation = 0, materialLayer = null, viewportCamera = null) {
+        const rendererGeometry = sceneToRendererGeometry(geometry || {});
+
+        const position = Matrix.translation(
+            toNumber(rendererGeometry?.position_x, 0),
+            toNumber(rendererGeometry?.position_y, 0),
+            toNumber(rendererGeometry?.position_z, 0)
+        );
+
+        const pivot = Matrix.translation(
+            toNumber(rendererGeometry?.pivot_x, 0),
+            toNumber(rendererGeometry?.pivot_y, 0),
+            toNumber(rendererGeometry?.pivot_z, 0)
+        );
+
+        const inversePivot = Matrix.translation(
+            -toNumber(rendererGeometry?.pivot_x, 0),
+            -toNumber(rendererGeometry?.pivot_y, 0),
+            -toNumber(rendererGeometry?.pivot_z, 0)
+        );
+
         const scale = Matrix.scale(
-            toNumber(geometry?.width, 1) * toNumber(geometry?.scale_x, 1),
-            toNumber(geometry?.height, 1) * toNumber(geometry?.scale_y, 1),
-            toNumber(geometry?.depth, 1) * toNumber(geometry?.scale_z, 1)
+            toNumber(rendererGeometry?.width, 1) * toNumber(rendererGeometry?.scale_x, 1),
+            toNumber(rendererGeometry?.height, 1) * toNumber(rendererGeometry?.scale_y, 1),
+            toNumber(rendererGeometry?.depth, 1) * toNumber(rendererGeometry?.scale_z, 1)
         );
 
         const rx = Matrix.fromQuaternion(Quaternion.fromAxisAngle([1, 0, 0],
             -0.34 +
-            toNumber(geometry?.rotation_x, 0) * Math.PI / 180
+            toNumber(rendererGeometry?.rotation_x, 0) * Math.PI / 180
         ));
 
         const ry = Matrix.fromQuaternion(Quaternion.fromAxisAngle([0, 1, 0],
             toNumber(rotation, 0) +
-            toNumber(geometry?.rotation_y, 0) * Math.PI / 180
+            toNumber(rendererGeometry?.rotation_y, 0) * Math.PI / 180
         ));
 
         const rz = Matrix.fromQuaternion(Quaternion.fromAxisAngle([0, 0, 1],
-            -toNumber(geometry?.rotation_z, 0) * Math.PI / 180
+            -toNumber(rendererGeometry?.rotation_z, 0) * Math.PI / 180
         ));
 
-        const model = rz
+        const model = position
+            .multiply(pivot)
+            .multiply(rz)
             .multiply(ry)
             .multiply(rx)
             .multiply(scale)
+            .multiply(inversePivot)
             .toArray();
 
         const cameraMatrices = buildCameraMatrices({
@@ -1837,11 +1867,11 @@ export class WebGLMaterialRenderer {
 
         const cameraPos = matrices.cameraPos || matrices.camera || [0, 0.18, 3.25];
 
-        const lightDirection = normalize3([
+        const lightDirection = normalize3(sceneToRendererVector([
             toNumber(light.direction_x, -0.35),
             toNumber(light.direction_y, -0.65),
             toNumber(light.direction_z, 0.72),
-        ]);
+        ]));
 
         const alphaMode = objectTextureSettings.alpha_mode === "OPAQUE"
             ? 0
@@ -2246,11 +2276,11 @@ export class WebGLMaterialRenderer {
 
                 uLightType: lightTypeIndex,
 
-                uLightPos: [
+                uLightPos: sceneToRendererVector([
                     toNumber(light.position_x, 0),
                     toNumber(light.position_y, 1.4),
                     toNumber(light.position_z, 2.8),
-                ],
+                ]),
 
                 uLightDir: lightDirection,
                 uLightColor: toHexColor3(light.color, [1, 0.96, 0.9]),

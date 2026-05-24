@@ -32,7 +32,7 @@ export function gridModel(props, emit) {
                 height: `${props.settings.height}px`,
                 transform: `matrix(${grid.value.container.matrix.a}, ${grid.value.container.matrix.b}, ${grid.value.container.matrix.c}, ${grid.value.container.matrix.d}, ${grid.value.container.matrix.x}, ${grid.value.container.matrix.y}) rotate(${grid.value.container.matrix.rotate}deg)`,
                 transformOrigin: "center center",
-            }))
+            })),
         }
     });
 
