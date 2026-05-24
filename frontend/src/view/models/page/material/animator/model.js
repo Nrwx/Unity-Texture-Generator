@@ -6,6 +6,8 @@ import {clamp, clone} from "@/utils/tools";
 import {Accumulator} from "@/view/models/page/material/core/Accumulator/Accumulator";
 import {Camera} from "@/view/models/page/material/core/Camera/Camera";
 import {Vector} from "@/view/models/page/material/core/Math/Vector/Vector";
+import {Matrix} from "@/view/models/page/material/core/Math/Matrix/Matrix";
+import {Quaternion} from "@/view/models/page/material/core/Math/Quaternion/Quaternion";
 import {TransformController} from "@/view/models/page/material/core/Editor/TransformController";
 import {PickingController} from "@/view/models/page/material/core/Editor/PickingController";
 import {GizmoGeometry} from "@/view/models/page/material/core/Editor/GizmoGeometry";
@@ -17,8 +19,6 @@ import {DEG, isFiniteNumber, number} from "@/utils/math";
 
 const WORLD_PIVOT = Object.freeze({ x: 0, y: 0, z: 0 });
 const TAU = Math.PI * 2;
-const SCULPT_GPU_FLUSH_VERTEX_VALUE_LIMIT = 160000;
-const SCULPT_GPU_FLUSH_STROKE_LIMIT = 48;
 
 const normalizeAngleRad = value => {
     const n = number(value, 0);
@@ -64,6 +64,47 @@ const normalizeMeshSettings = settings => ({
     pivot_y: number(settings?.pivot_y, 0),
     pivot_z: number(settings?.pivot_z, 0),
 });
+
+const buildLayerPickModelMatrix = layer => {
+    const geometry = CoordinateSystem.sceneToRendererGeometry(normalizeMeshSettings(
+        layer?.geometry ||
+        layer?.mesh?.settings ||
+        {}
+    ));
+
+    const position = Matrix.translation(
+        number(geometry.position_x, 0),
+        number(geometry.position_y, 0),
+        number(geometry.position_z, 0),
+    );
+    const pivot = Matrix.translation(
+        number(geometry.pivot_x, 0),
+        number(geometry.pivot_y, 0),
+        number(geometry.pivot_z, 0),
+    );
+    const inversePivot = Matrix.translation(
+        -number(geometry.pivot_x, 0),
+        -number(geometry.pivot_y, 0),
+        -number(geometry.pivot_z, 0),
+    );
+    const scale = Matrix.scale(
+        number(geometry.width, 1) * number(geometry.scale_x, 1),
+        number(geometry.height, 1) * number(geometry.scale_y, 1),
+        number(geometry.depth, 1) * number(geometry.scale_z, 1),
+    );
+    const rx = Matrix.fromQuaternion(Quaternion.fromAxisAngle([1, 0, 0], number(geometry.rotation_x, 0) * DEG));
+    const ry = Matrix.fromQuaternion(Quaternion.fromAxisAngle([0, 1, 0], number(geometry.rotation_y, 0) * DEG));
+    const rz = Matrix.fromQuaternion(Quaternion.fromAxisAngle([0, 0, 1], number(geometry.rotation_z, 0) * DEG));
+
+    return position
+        .multiply(pivot)
+        .multiply(rz)
+        .multiply(ry)
+        .multiply(rx)
+        .multiply(scale)
+        .multiply(inversePivot)
+        .toArray();
+};
 
 export function animatorModel(props, emit) {
 
@@ -433,18 +474,20 @@ export function animatorModel(props, emit) {
 
         return props.selectedLayers.map(layer => {
             const sourceLayer = temp.value.edit.layer?.id === layer.id ? temp.value.edit.layer : layer;
-            const cloned = clone(sourceLayer, "json");
+            const directMeshRuntime = sourceLayer === temp.value.edit.layer && (isSculptStateActive() || isMeshEditStateActive());
+            const cloned = directMeshRuntime ? { ...sourceLayer } : clone(sourceLayer, "json");
             const geometry = normalizeMeshSettings(
-                layer.geometry ||
-                layer.mesh?.settings ||
+                sourceLayer.geometry ||
+                sourceLayer.mesh?.settings ||
                 {}
             );
-            const mesh = {
-                ...(cloned.mesh || {}),
-                settings: {
-                    ...normalizeMeshSettings(cloned.mesh?.settings),
-                    ...geometry,
-                },
+            const mesh = directMeshRuntime && cloned.mesh
+                ? cloned.mesh
+                : { ...(cloned.mesh || {}) };
+
+            mesh.settings = {
+                ...normalizeMeshSettings(mesh.settings),
+                ...geometry,
             };
 
             return {
@@ -551,7 +594,7 @@ export function animatorModel(props, emit) {
         };
 
         // Sculpt persistence only needs the vertex buffer/indices. Large UV helper
-        // arrays are kept in the local draft and preserved by the backend when not
+        // arrays are kept in the local mesh runtime and preserved by the backend when not
         // sent, otherwise they make `/mesh` exceed the request queue limit.
         delete mesh.uv;
 
@@ -658,57 +701,49 @@ export function animatorModel(props, emit) {
     };
 
 
-    const cloneLayerForLocalMeshEdit = layer => {
-        const draft = clone(layer, "json");
-        const geometry = normalizeMeshSettings(draft.geometry || draft.mesh?.settings || {});
-
-        draft.geometry = geometry;
-        draft.mesh = {
-            ...(draft.mesh || {}),
-            settings: {
-                ...(draft.mesh?.settings || {}),
-                ...geometry,
-            },
-            meta: {
-                ...(draft.mesh?.meta || {}),
-                localEditDraft: true,
-                localEditSourceId: layer.id,
-            },
-        };
-        draft.material = {
-            ...(draft.material || {}),
-            mesh: draft.mesh,
-        };
-        draft.shader = {
-            ...(draft.shader || {}),
-            mesh: draft.mesh,
-        };
-
-        return draft;
-    };
-
-    const ensureMeshEditDraftLayer = () => {
-        const layer = activeLayer.value;
-
+    const prepareLayerForDirectMeshEdit = layer => {
         if (!layer?.id || !layer.mesh) {
-            temp.value.edit.layer = null;
             return null;
         }
 
-        if (!temp.value.edit.layer) {
-            temp.value.edit.layer = cloneLayerForLocalMeshEdit(layer);
-        }
+        const geometry = normalizeMeshSettings(layer.geometry || layer.mesh?.settings || {});
 
-        return temp.value.edit.layer;
+        layer.geometry = geometry;
+        layer.mesh.settings = {
+            ...(layer.mesh?.settings || {}),
+            ...geometry,
+        };
+        layer.mesh.meta = {
+            ...(layer.mesh?.meta || {}),
+            localEditActive: true,
+            localEditSourceId: layer.id,
+        };
+        layer.material = {
+            ...(layer.material || {}),
+            mesh: layer.mesh,
+        };
+        layer.shader = {
+            ...(layer.shader || {}),
+            mesh: layer.mesh,
+        };
+
+        return layer;
+    };
+
+    const ensureDirectMeshEditLayer = () => {
+        const layer = prepareLayerForDirectMeshEdit(activeLayer.value);
+
+        temp.value.edit.layer = layer;
+        return layer;
     };
 
     const getMeshEditLayer = () => (
         isMeshEditStateActive()
-            ? (ensureMeshEditDraftLayer() || activeLayer.value)
+            ? (ensureDirectMeshEditLayer() || activeLayer.value)
             : activeLayer.value
     );
 
-    const clearMeshEditDraftLayer = () => {
+    const clearDirectMeshEditLayerRef = () => {
         temp.value.edit.layer = null;
     };
 
@@ -729,14 +764,7 @@ export function animatorModel(props, emit) {
         temp.value.sculpt.dirtyVertexValues = Math.max(0, Math.trunc(Number(temp.value.sculpt.dirtyVertexValues || 0))) + dirtyValues;
     };
 
-    const shouldFlushSculptForGpuPressure = () => (
-        temp.value.sculpt.dirty === true && (
-            Math.max(0, Math.trunc(Number(temp.value.sculpt.strokeCount || 0))) >= SCULPT_GPU_FLUSH_STROKE_LIMIT ||
-            Math.max(0, Math.trunc(Number(temp.value.sculpt.dirtyVertexValues || 0))) >= SCULPT_GPU_FLUSH_VERTEX_VALUE_LIMIT
-        )
-    );
-
-    const commitDraftLayerWithEvent = (eventName = "mesh:update") => {
+    const commitDirectMeshLayerWithEvent = (eventName = "mesh:update") => {
         if (!temp.value.edit.layer?.id) {
             return false;
         }
@@ -752,7 +780,7 @@ export function animatorModel(props, emit) {
         emitEvent(eventName, payload);
         localTransformDirty = false;
         cameraDirty = false;
-        clearMeshEditDraftLayer();
+        clearDirectMeshEditLayerRef();
 
         if (eventName.startsWith("sculpt:")) {
             resetSculptFlushQueue();
@@ -761,13 +789,13 @@ export function animatorModel(props, emit) {
         return true;
     };
 
-    const commitMeshEditDraftLayer = () => commitDraftLayerWithEvent("mesh-edit:commit");
-    const commitSculptDraftLayer = ({ force = false } = {}) => {
+    const commitMeshEditDirectLayer = () => commitDirectMeshLayerWithEvent("mesh-edit:commit");
+    const commitSculptDirectLayer = ({ force = false } = {}) => {
         if (!force && temp.value.sculpt.dirty !== true && localTransformDirty !== true) {
             return false;
         }
 
-        return commitDraftLayerWithEvent("sculpt:commit");
+        return commitDirectMeshLayerWithEvent("sculpt:commit");
     };
 
     const leaveSculptForPersistentBoundary = () => {
@@ -776,7 +804,7 @@ export function animatorModel(props, emit) {
         }
 
         endSculptStroke({ flush: false });
-        commitSculptDraftLayer({ force: true });
+        commitSculptDirectLayer({ force: true });
         setSculptStateActive(false);
         props.editorConfig.tool = isMeshEditStateActive() ? "mesh-edit" : (props.gizmoConfig.tool || "translate");
         emitEvent("sculpt:brush", {
@@ -806,13 +834,13 @@ export function animatorModel(props, emit) {
         setMeshEditStateActive(enabled);
 
         if (isMeshEditStateActive()) {
-            ensureMeshEditDraftLayer();
+            ensureDirectMeshEditLayer();
             props.editConfig.mode = normalizeMeshEditMode(props.editConfig.mode);
             props.editorConfig.tool = "mesh-edit";
             props.editorConfig.axis = "free";
             props.gizmoConfig.axis = "free";
         } else {
-            commitMeshEditDraftLayer();
+            commitMeshEditDirectLayer();
             clearMeshEditSelection(props.editConfig);
         }
 
@@ -838,14 +866,14 @@ export function animatorModel(props, emit) {
         const leavingEditMode = isMeshEditStateActive() && next.enabled !== true;
 
         if (leavingEditMode) {
-            commitMeshEditDraftLayer();
+            commitMeshEditDirectLayer();
         }
 
         setMeshEditStateActive(next.enabled);
         props.editConfig.mode = next.mode;
 
         if (isMeshEditStateActive()) {
-            ensureMeshEditDraftLayer();
+            ensureDirectMeshEditLayer();
             props.editConfig.tool = props.editConfig.tool || "move";
             setEditorViewMode(props.editConfig.viewMode || "wireframe");
             props.editorConfig.tool = "mesh-edit";
@@ -865,7 +893,7 @@ export function animatorModel(props, emit) {
         }
 
         setMeshEditStateActive(true);
-        ensureMeshEditDraftLayer();
+        ensureDirectMeshEditLayer();
         props.editConfig.mode = normalizeMeshEditMode(mode);
         refreshMeshEditOverlay();
         syncEditorVisualState(activeLayer.value);
@@ -1344,7 +1372,7 @@ export function animatorModel(props, emit) {
             props.gizmoConfig.axis = 'free';
         } else {
             endSculptStroke({ flush: false });
-            commitSculptDraftLayer({ force: true });
+            commitSculptDirectLayer({ force: true });
             setEditorViewMode(isMeshEditStateActive() ? props.editConfig.viewMode || 'wireframe' : 'world');
             props.editorConfig.tool = isMeshEditStateActive() ? 'mesh-edit' : (props.gizmoConfig.tool || 'translate');
         }
@@ -1360,9 +1388,13 @@ export function animatorModel(props, emit) {
     };
 
     const applySculptStroke = event => {
-        const layer = ensureMeshEditDraftLayer() || activeLayer.value;
+        const layer = prepareLayerForDirectMeshEdit(activeLayer.value);
         if (!layer?.mesh) return false;
-        const hit = pickActiveMesh(event);
+        temp.value.edit.layer = layer;
+        const hit = pickActiveMesh(event, {
+            surface: true,
+            seedTriangleIndex: temp.value.sculpt.lastHit?.triangleIndex,
+        });
         if (!hit?.point) return false;
 
         const brush = resolveSculptBrush();
@@ -1376,6 +1408,7 @@ export function animatorModel(props, emit) {
             const minSpacing = Math.max(0.002, Number(brush.radius || 0.18) * 0.18);
 
             if (Math.sqrt(dx * dx + dy * dy + dz * dz) < minSpacing) {
+                syncEditorVisualState(layer);
                 return false;
             }
         }
@@ -1386,22 +1419,26 @@ export function animatorModel(props, emit) {
             brush,
             uv: resolveLayerUv(layer),
             uvBitmap: resolveLayerUvBitmap(layer),
+            mutateInPlace: true,
         });
 
         if (!result.changed) {
+            syncEditorVisualState(layer);
             return false;
         }
 
         const uvPatch = result.uv ? { uv: result.uv } : {};
 
-        layer.mesh = {
-            ...result.mesh,
-            ...uvPatch,
-        };
+        if (result.mesh && result.mesh !== layer.mesh) {
+            layer.mesh = result.mesh;
+        }
         layer.mesh.settings = {
             ...(layer.mesh.settings || {}),
             ...(layer.geometry || {}),
         };
+        if (uvPatch.uv) {
+            layer.mesh.uv = uvPatch.uv;
+        }
         layer.uv = result.uv || layer.uv;
         layer.shader = {
             ...(layer.shader || {}),
@@ -1418,10 +1455,6 @@ export function animatorModel(props, emit) {
         markLocalTransformDirty();
         markSculptFlushQueueDirty(layer.mesh);
         syncEditorVisualState(layer);
-
-        if (shouldFlushSculptForGpuPressure()) {
-            commitSculptDraftLayer({ force: true });
-        }
 
         return true;
     };
@@ -1459,19 +1492,19 @@ export function animatorModel(props, emit) {
             markLocalTransformDirty();
 
             if (flush === true) {
-                commitSculptDraftLayer({ force: true });
+                commitSculptDirectLayer({ force: true });
             }
 
             return;
         }
 
         if (flush === true && temp.value.sculpt.dirty === true) {
-            commitSculptDraftLayer({ force: true });
+            commitSculptDirectLayer({ force: true });
             return;
         }
 
-        if (temp.value.edit.layer?.mesh?.meta?.localEditDraft === true && temp.value.sculpt.dirty !== true) {
-            clearMeshEditDraftLayer();
+        if (temp.value.edit.layer?.id && temp.value.sculpt.dirty !== true) {
+            clearDirectMeshEditLayerRef();
         }
     };
 
@@ -1650,7 +1683,8 @@ export function animatorModel(props, emit) {
         return payload;
     };
 
-    const pickActiveMesh = event => {
+    const pickActiveMesh = (event, options = {}) => {
+        const sculptSurface = options.surface === true || sculptBrushActive();
         const layer = meshEditActive() ? getMeshEditLayer() : activeLayer.value;
 
         if (!layer?.mesh) return null;
@@ -1658,8 +1692,18 @@ export function animatorModel(props, emit) {
         const hit = PickingController.pickMesh({
             ray: rayFromPointerEvent(event),
             mesh: layer.mesh,
-            mode: meshEditActive() ? normalizeMeshEditMode(props.editConfig.mode) : (props.editorConfig.selectionMode || "object"),
-            thresholds: props.editorConfig.picking || {},
+            modelMatrix: buildLayerPickModelMatrix(layer),
+            mode: sculptSurface
+                ? "face"
+                : meshEditActive()
+                    ? normalizeMeshEditMode(props.editConfig.mode)
+                    : (props.editorConfig.selectionMode || "object"),
+            thresholds: {
+                ...(props.editorConfig.picking || {}),
+                ...(Number.isInteger(Math.trunc(Number(options.seedTriangleIndex)))
+                    ? { seedTriangleIndex: Math.trunc(Number(options.seedTriangleIndex)), seedTriangleLimit: 128 }
+                    : {}),
+            },
         });
 
         if (!hit) return null;
@@ -1884,8 +1928,14 @@ export function animatorModel(props, emit) {
             : resolveGizmoPivotPoint(geometry);
         const gizmoSize = geometryVisualSize(geometry);
 
-        props.editorConfig.tool = props.gizmoConfig.tool || props.editorConfig.tool || "translate";
-        props.editorConfig.axis = props.gizmoConfig.axis || props.editorConfig.axis || "free";
+        props.editorConfig.tool = isMeshEditStateActive()
+            ? "mesh-edit"
+            : isSculptStateActive()
+                ? "sculpt-brush"
+                : (props.gizmoConfig.tool || props.editorConfig.tool || "translate");
+        props.editorConfig.axis = isMeshEditStateActive() || isSculptStateActive()
+            ? "free"
+            : (props.gizmoConfig.axis || props.editorConfig.axis || "free");
         props.editorConfig.pivotMode = resolvePivotMode();
         props.editorConfig.activeObjectId = layer?.id || "";
         props.editorConfig.pivotPoint = pivotPoint;
@@ -2196,6 +2246,15 @@ export function animatorModel(props, emit) {
             return;
         }
 
+        if (sculptBrushActive()) {
+            const hit = pickActiveMesh(event, { surface: true });
+            temp.value.sculpt.lastHit = hit;
+            props.editorConfig.hover = hit ? clone(hit, "json") : null;
+            props.editorConfig.cursor = hit ? "crosshair" : "default";
+            syncEditorVisualState(activeLayer.value);
+            return;
+        }
+
         const pickedGizmo = activeLayer.value ? pickGizmo(event) : null;
 
         if (pickedGizmo) {
@@ -2404,6 +2463,7 @@ export function animatorModel(props, emit) {
 
     const setView = view => {
         const core = getCameraCore();
+        const orthographicView = ["front", "right", "top", "back", "left", "bottom"].includes(view);
 
         if (view === "front") {
             core.orbit.setAngles(0, 0);
@@ -2417,12 +2477,20 @@ export function animatorModel(props, emit) {
             core.orbit.setAngles(0, 89.4 * DEG);
         }
 
+        if (view === "bottom") {
+            core.orbit.setAngles(0, -89.4 * DEG);
+        }
+
         if (view === "back") {
             core.orbit.setAngles(180 * DEG, 0);
         }
 
         if (view === "left") {
             core.orbit.setAngles(-90 * DEG, 0);
+        }
+
+        if (orthographicView) {
+            core.setProjection("orthographic");
         }
 
         markCameraDirty();
@@ -2523,7 +2591,7 @@ export function animatorModel(props, emit) {
                 leaveSculptForPersistentBoundary();
                 setEditorViewMode(isMeshEditStateActive() ? props.editConfig.viewMode || "wireframe" : "world");
             } else if (isMeshEditStateActive()) {
-                commitMeshEditDraftLayer();
+                commitMeshEditDirectLayer();
             } else {
                 commitActiveLayerState({ force: true });
             }
@@ -2561,7 +2629,7 @@ export function animatorModel(props, emit) {
         }
 
         if (event.code === "Numpad7" || event.code === "Digit7") {
-            setView("top");
+            setView(event.ctrlKey ? "bottom" : "top");
             stopNativeEvent(event);
             emitEvent("apply-key-down", event);
             return;

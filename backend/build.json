@@ -18,7 +18,7 @@
     "project_name": "unity-texture-generator"
   },
   "dependencies": {
-    "last_build": "2026-05-23T23:44:19.930558Z",
+    "last_build": "2026-05-24T02:43:27.923454Z",
     "config": {
       "library_policy": {
         "auto_update": true,
@@ -1189,6 +1189,9 @@
             "keyframes",
             "geometry",
             "mesh",
+            "geometry_manifest",
+            "mesh_manifest",
+            "geometry_payload",
             "settings",
             "preview",
             "viewport_camera",
@@ -1212,6 +1215,9 @@
             "keyframes",
             "geometry",
             "mesh",
+            "geometry_manifest",
+            "mesh_manifest",
+            "geometry_payload",
             "settings",
             "preview",
             "viewport_camera",

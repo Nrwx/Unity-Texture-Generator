@@ -17,6 +17,17 @@ const normalizeMeshPayload = (payload, options = {}) => compileGeometryPayload(p
 const DEFAULT_GEOMETRY_REQUEST_BYTE_LIMIT = 12000;
 const DEFAULT_GEOMETRY_CHUNK_VALUE_LIMIT = 384;
 
+let meshWriteQueue = Promise.resolve();
+let meshCommitSequence = 0;
+
+const nextMeshCommitId = () => `mesh-commit-${Date.now()}-${++meshCommitSequence}`;
+
+const enqueueMeshWrite = task => {
+    const run = meshWriteQueue.then(task, task);
+    meshWriteQueue = run.catch(() => {});
+    return run;
+};
+
 const estimateJsonBytes = value => {
     try {
         return stringify(value).length;
@@ -54,7 +65,7 @@ const splitChunkData = (chunk = {}, valueLimit = DEFAULT_GEOMETRY_CHUNK_VALUE_LI
 const splitGeometryPayload = (geometryPayload = {}, options = {}) => {
     const sourceChunks = Array.isArray(geometryPayload.chunks) ? geometryPayload.chunks : [];
 
-    if (!sourceChunks.length || geometryPayload.mode !== "patch") {
+    if (!sourceChunks.length) {
         return [geometryPayload];
     }
 
@@ -63,19 +74,22 @@ const splitGeometryPayload = (geometryPayload = {}, options = {}) => {
     const atomicChunks = sourceChunks.flatMap(chunk => splitChunkData(chunk, valueLimit));
     const batches = [];
     let current = [];
+    const sourceMode = geometryPayload.mode === "replace" ? "replace" : "patch";
 
-    const makePayload = chunks => ({
+    const makePayload = (chunks, index = 0) => ({
         ...geometryPayload,
-        mode: "patch",
+        // A split replace must only clear the backend geometry once. Every
+        // following batch patches into the partially accumulated server mesh.
+        mode: sourceMode === "replace" && index === 0 ? "replace" : "patch",
         chunks,
     });
 
     atomicChunks.forEach(chunk => {
         const candidate = [...current, chunk];
-        const candidatePayload = makePayload(candidate);
+        const candidatePayload = makePayload(candidate, batches.length);
 
         if (current.length && estimateJsonBytes(candidatePayload) > byteLimit) {
-            batches.push(makePayload(current));
+            batches.push(current);
             current = [chunk];
             return;
         }
@@ -84,10 +98,12 @@ const splitGeometryPayload = (geometryPayload = {}, options = {}) => {
     });
 
     if (current.length) {
-        batches.push(makePayload(current));
+        batches.push(current);
     }
 
-    return batches.length ? batches : [geometryPayload];
+    return batches.length
+        ? batches.map((chunks, index) => makePayload(chunks, index))
+        : [geometryPayload];
 };
 
 const buildGeometryPayloadBatches = (payload = {}, options = {}) => {
@@ -97,12 +113,20 @@ const buildGeometryPayloadBatches = (payload = {}, options = {}) => {
         return [payload];
     }
 
+    const commitId = options.commitId || geometryPayload.commit_id || nextMeshCommitId();
+
     return splitGeometryPayload(geometryPayload, options).map((payloadChunk, index, list) => ({
         ...payload,
-        geometry_payload: payloadChunk,
+        geometry_payload: {
+            ...payloadChunk,
+            commit_id: commitId,
+            chunk_batch: index + 1,
+            chunk_batches: list.length,
+        },
         settings: {
             ...(payload.settings || {}),
             geometry_chunked_flush: true,
+            geometry_commit_id: commitId,
             geometry_chunk_batch: index + 1,
             geometry_chunk_batches: list.length,
             geometry_fetch_after_batch: index === list.length - 1,
@@ -128,6 +152,7 @@ const appendMeshPayload = (formData, layer = {}) => {
     appendIfPresent(formData, "geometry", layer.geometry, stringify);
     appendIfPresent(formData, "mesh", layer.mesh, stringify);
     appendIfPresent(formData, "geometry_manifest", layer.geometry_manifest, stringify);
+    appendIfPresent(formData, "mesh_manifest", layer.mesh_manifest, stringify);
     appendIfPresent(formData, "geometry_payload", layer.geometry_payload, stringify);
     appendIfPresent(formData, "settings", layer.settings, stringify);
     appendIfPresent(formData, "preview", layer.preview, stringify);
@@ -152,17 +177,33 @@ const postMeshBatch = async (method, normalizedPayload = {}, requestOptions = {}
     });
 };
 
+const postMeshNow = async (method, payload = {}, options = {}) => {
+    const normalizedPayload = normalizeMeshPayload(payload, options.geometry || {});
+    const batches = buildGeometryPayloadBatches(normalizedPayload, options.geometryTransport || {});
+    let response = null;
+
+    for (const batch of batches) {
+        response = await postMeshBatch(method, batch, {
+            ...(options.request || {}),
+            headers: {
+                ...((options.request || {}).headers || {}),
+                ...(batch.settings?.geometry_commit_id ? { "X-Mesh-Commit-Id": batch.settings.geometry_commit_id } : {}),
+            },
+        });
+    }
+
+    return response || true;
+};
+
 const postMesh = async (method, payload = {}, options = {}) => {
     try {
-        const normalizedPayload = normalizeMeshPayload(payload, options.geometry || {});
-        const batches = buildGeometryPayloadBatches(normalizedPayload, options.geometryTransport || {});
-        let response = null;
+        const run = () => postMeshNow(method, payload, options);
 
-        for (const batch of batches) {
-            response = await postMeshBatch(method, batch, options.request || {});
-        }
-
-        return response || true;
+        // Writes must not overlap: chunk B of commit 2 may never overtake chunk A
+        // of commit 1. Fetches stay outside the write queue.
+        return method === "fetch"
+            ? await run()
+            : await enqueueMeshWrite(run);
     } catch (error) {
         console.error(`Error in mesh:${method}:`, error.response?.data || error.message);
         return false;

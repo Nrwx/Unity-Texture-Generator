@@ -1501,16 +1501,22 @@ export class Mesh {
     }
 
     static normalize3(vector, fallback = [0, 0, 1]) {
-        const length = Math.hypot(vector[0], vector[1], vector[2]) || 1;
+        const source = Array.isArray(vector) || ArrayBuffer.isView(vector)
+            ? vector
+            : [];
+        const x = Mesh.toNumber(source[0], fallback[0] ?? 0);
+        const y = Mesh.toNumber(source[1], fallback[1] ?? 0);
+        const z = Mesh.toNumber(source[2], fallback[2] ?? 1);
+        const length = Math.hypot(x, y, z);
 
-        if (!isFiniteNumber(length) || length <= 0) {
+        if (!isFiniteNumber(length) || length <= 0.00000001) {
             return fallback.slice();
         }
 
         return [
-            vector[0] / length,
-            vector[1] / length,
-            vector[2] / length,
+            x / length,
+            y / length,
+            z / length,
         ];
     }
 

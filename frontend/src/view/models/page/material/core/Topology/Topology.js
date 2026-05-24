@@ -4,8 +4,12 @@ import { number } from "@/utils/math";
 
 const POSITION_OFFSET = Mesh.POSITION_OFFSET;
 const NORMAL_OFFSET = Mesh.NORMAL_OFFSET;
+const TRIANGLE_ADJACENCY_CACHE = new WeakMap();
 
-const toIndex = value => Math.max(0, Math.trunc(Number(value) || 0));
+const toIndex = value => {
+    const index = Math.trunc(Number(value));
+    return Number.isFinite(index) ? index : -1;
+};
 const vertexBase = (index, stride) => index * stride + POSITION_OFFSET;
 const validIndexForCount = (index, count) => Number.isInteger(index) && index >= 0 && index < count;
 const finiteValues = values => values.every(Number.isFinite);
@@ -78,6 +82,70 @@ const expandPartsForInsertedTriangle = (parts = [], hitOffset = 0, indexLength =
             count: containsHit ? count + 6 : count,
         };
     });
+};
+
+const buildTriangleAdjacency = (indices, vertexCount) => {
+    if (!indices || !indices.length || vertexCount <= 0) {
+        return { triangles: [], vertexTriangles: new Map() };
+    }
+
+    const cached = TRIANGLE_ADJACENCY_CACHE.get(indices);
+    const signature = `${indices.length}:${vertexCount}`;
+
+    if (cached?.signature === signature) {
+        return cached.graph;
+    }
+
+    const triangleCount = Math.floor(indices.length / 3);
+    const triangles = new Array(triangleCount);
+    const vertexTriangles = new Map();
+    const validIndex = index => validIndexForCount(index, vertexCount);
+
+    const addVertexTriangle = (vertex, triangleIndex) => {
+        if (!vertexTriangles.has(vertex)) {
+            vertexTriangles.set(vertex, []);
+        }
+
+        vertexTriangles.get(vertex).push(triangleIndex);
+    };
+
+    for (let offset = 0; offset + 2 < indices.length; offset += 3) {
+        const triangleIndex = offset / 3;
+        const a = toIndex(indices[offset]);
+        const b = toIndex(indices[offset + 1]);
+        const c = toIndex(indices[offset + 2]);
+
+        if (!validIndex(a) || !validIndex(b) || !validIndex(c) || a === b || b === c || c === a) {
+            triangles[triangleIndex] = null;
+            continue;
+        }
+
+        triangles[triangleIndex] = { offset, a, b, c, neighbors: [] };
+        addVertexTriangle(a, triangleIndex);
+        addVertexTriangle(b, triangleIndex);
+        addVertexTriangle(c, triangleIndex);
+    }
+
+    triangles.forEach((triangle, triangleIndex) => {
+        if (!triangle) {
+            return;
+        }
+
+        const neighbors = new Set();
+        [triangle.a, triangle.b, triangle.c].forEach(vertex => {
+            (vertexTriangles.get(vertex) || []).forEach(otherIndex => {
+                if (otherIndex !== triangleIndex) {
+                    neighbors.add(otherIndex);
+                }
+            });
+        });
+        triangle.neighbors = Array.from(neighbors);
+    });
+
+    const graph = { triangles, vertexTriangles };
+    TRIANGLE_ADJACENCY_CACHE.set(indices, { signature, graph });
+
+    return graph;
 };
 
 const createHitVertex = ({ vertices, stride, a, b, c, hit }) => {
@@ -580,46 +648,30 @@ const collectBrushInfluence = ({ vertices, indices, stride, hit, brush }) => {
     const radius = Math.max(0.0001, number(brush?.radius, 0.18));
     const radiusSq = radius * radius;
     const paddedRadiusSq = radiusSq * 1.12;
-    const validIndex = index => Number.isInteger(index) && index >= 0 && index < vertexCount;
+    const graph = buildTriangleAdjacency(indices, vertexCount);
+    const seedTriangle = Math.trunc(number(hit?.triangleIndex, -1));
+    const seed = graph.triangles[seedTriangle] ? seedTriangle : -1;
+
+    if (seed < 0) {
+        return { vertices: [], triangleOffsets: [] };
+    }
+
     const distSq = (x, y, z) => {
         const dx = x - hitPoint[0];
         const dy = y - hitPoint[1];
         const dz = z - hitPoint[2];
         return dx * dx + dy * dy + dz * dz;
     };
-    const addTriangle = (offset, a, b, c) => {
-        affected.add(a);
-        affected.add(b);
-        affected.add(c);
-
-        if (!triangleOffsets.includes(offset)) {
-            triangleOffsets.push(offset);
-        }
+    const addTriangle = triangle => {
+        affected.add(triangle.a);
+        affected.add(triangle.b);
+        affected.add(triangle.c);
+        triangleOffsets.push(triangle.offset);
     };
-
-    const seedOffset = Math.max(0, Math.trunc(number(hit?.triangleIndex, -1))) * 3;
-    if (seedOffset >= 0 && seedOffset + 2 < indices.length) {
-        const a = toIndex(indices[seedOffset]);
-        const b = toIndex(indices[seedOffset + 1]);
-        const c = toIndex(indices[seedOffset + 2]);
-
-        if (validIndex(a) && validIndex(b) && validIndex(c)) {
-            addTriangle(seedOffset, a, b, c);
-        }
-    }
-
-    for (let offset = 0; offset + 2 < indices.length; offset += 3) {
-        const a = toIndex(indices[offset]);
-        const b = toIndex(indices[offset + 1]);
-        const c = toIndex(indices[offset + 2]);
-
-        if (!validIndex(a) || !validIndex(b) || !validIndex(c) || a === b || b === c || c === a) {
-            continue;
-        }
-
-        const ab = vertexBase(a, stride);
-        const bb = vertexBase(b, stride);
-        const cb = vertexBase(c, stride);
+    const triangleInBrush = (triangle, forceSeed = false) => {
+        const ab = vertexBase(triangle.a, stride);
+        const bb = vertexBase(triangle.b, stride);
+        const cb = vertexBase(triangle.c, stride);
         const ax = vertices[ab];
         const ay = vertices[ab + 1];
         const az = vertices[ab + 2];
@@ -631,7 +683,11 @@ const collectBrushInfluence = ({ vertices, indices, stride, hit, brush }) => {
         const cz = vertices[cb + 2];
 
         if (!finiteValues([ax, ay, az, bx, by, bz, cx, cy, cz])) {
-            continue;
+            return false;
+        }
+
+        if (forceSeed) {
+            return true;
         }
 
         const nearestVertexDistSq = Math.min(
@@ -645,8 +701,33 @@ const collectBrushInfluence = ({ vertices, indices, stride, hit, brush }) => {
             (az + bz + cz) / 3,
         );
 
-        if (nearestVertexDistSq <= paddedRadiusSq || centroidDistSq <= radiusSq) {
-            addTriangle(offset, a, b, c);
+        return nearestVertexDistSq <= paddedRadiusSq || centroidDistSq <= radiusSq;
+    };
+
+    const queue = [seed];
+    const visited = new Set(queue);
+
+    while (queue.length) {
+        const triangleIndex = queue.shift();
+        const triangle = graph.triangles[triangleIndex];
+
+        if (!triangle) {
+            continue;
+        }
+
+        const accepted = triangleInBrush(triangle, triangleIndex === seed);
+
+        if (!accepted) {
+            continue;
+        }
+
+        addTriangle(triangle);
+
+        for (const neighbor of triangle.neighbors || []) {
+            if (!visited.has(neighbor)) {
+                visited.add(neighbor);
+                queue.push(neighbor);
+            }
         }
     }
 
@@ -664,6 +745,14 @@ const buildScopedNeighbors = (indices, vertices, stride, affectedVertices = []) 
         return neighbors;
     }
 
+    const vertexCount = Mesh.vertexCount(vertices, stride);
+    const graph = buildTriangleAdjacency(indices, vertexCount);
+    const touchedTriangles = new Set();
+
+    affected.forEach(vertex => {
+        (graph.vertexTriangles.get(vertex) || []).forEach(triangleIndex => touchedTriangles.add(triangleIndex));
+    });
+
     const addNeighbor = (from, to) => {
         if (!affected.has(from)) {
             return;
@@ -676,18 +765,14 @@ const buildScopedNeighbors = (indices, vertices, stride, affectedVertices = []) 
         neighbors.get(from).push(Mesh.read3(vertices, stride, to));
     };
 
-    for (let i = 0; i + 2 < indices.length; i += 3) {
-        const a = toIndex(indices[i]);
-        const b = toIndex(indices[i + 1]);
-        const c = toIndex(indices[i + 2]);
+    touchedTriangles.forEach(triangleIndex => {
+        const triangle = graph.triangles[triangleIndex];
 
-        if (!Number.isInteger(a) || !Number.isInteger(b) || !Number.isInteger(c)) {
-            continue;
+        if (!triangle) {
+            return;
         }
 
-        if (!affected.has(a) && !affected.has(b) && !affected.has(c)) {
-            continue;
-        }
+        const { a, b, c } = triangle;
 
         addNeighbor(a, b);
         addNeighbor(a, c);
@@ -695,7 +780,7 @@ const buildScopedNeighbors = (indices, vertices, stride, affectedVertices = []) 
         addNeighbor(b, c);
         addNeighbor(c, a);
         addNeighbor(c, b);
-    }
+    });
 
     return neighbors;
 };

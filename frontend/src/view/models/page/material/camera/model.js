@@ -115,6 +115,7 @@ export function cameraModel(props, emit) {
             { key: "front", icon: "mdi-axis-z-arrow", label: "Front" },
             { key: "right", icon: "mdi-axis-x-arrow", label: "Right" },
             { key: "top", icon: "mdi-axis-y-arrow", label: "Top" },
+            { key: "bottom", icon: "mdi-axis-y-rotate-clockwise", label: "Bottom" },
             { key: "back", icon: "mdi-axis-z-rotate-clockwise", label: "Back" },
             { key: "left", icon: "mdi-axis-x-rotate-clockwise", label: "Left" },
         ],

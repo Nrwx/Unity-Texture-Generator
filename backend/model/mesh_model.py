@@ -492,13 +492,19 @@ class MeshModel(BaseModel):
         return data
 
     @classmethod
-    def _apply_geometry_chunks(cls, base, payload):
+    def _apply_geometry_chunks(cls, base, payload, kind="vertices"):
         result = cls._as_list(base).copy()
         data = cls._as_dict(payload)
         chunks = cls._as_list(data.get("chunks", []))
+        manifest = cls._as_dict(data.get("manifest", {}))
 
         if data.get("mode", "replace") == "replace":
-            result = []
+            target_kind = next((chunk.get("kind") for chunk in chunks if isinstance(chunk, dict)), kind)
+            expected = cls._safe_int(
+                manifest.get("index_count" if target_kind == "indices" else "vertex_value_count", 0),
+                0,
+            )
+            result = [0] * expected if expected > 0 else []
 
         for chunk in chunks:
             if not isinstance(chunk, dict):
@@ -521,6 +527,56 @@ class MeshModel(BaseModel):
         return result
 
     @classmethod
+    def _geometry_chunks(cls, geometry_payload):
+        return cls._as_list(cls._as_dict(geometry_payload).get("chunks", []))
+
+    @classmethod
+    def _chunk_settings(cls, settings):
+        data = cls._as_dict(settings)
+        return {
+            "enabled": data.get("geometry_chunked_flush") is True,
+            "commit_id": str(data.get("geometry_commit_id", "") or ""),
+            "batch": max(0, cls._safe_int(data.get("geometry_chunk_batch", 0), 0)),
+            "batches": max(0, cls._safe_int(data.get("geometry_chunk_batches", 0), 0)),
+        }
+
+    @classmethod
+    def _chunk_error(cls, layer_id, settings, geometry_payload):
+        chunk = cls._chunk_settings(settings)
+
+        if not chunk["enabled"]:
+            return None
+
+        chunks = cls._geometry_chunks(geometry_payload)
+        if chunks:
+            return None
+
+        return {
+            "error": "Chunked mesh update missing geometry_payload chunks",
+            "id": layer_id,
+            "geometry_commit_id": chunk.get("commit_id"),
+            "geometry_chunk_batch": chunk.get("batch"),
+            "geometry_chunk_batches": chunk.get("batches"),
+        }, 400
+
+    @classmethod
+    def _with_chunk_ack(cls, layer, settings, geometry_payload):
+        chunk = cls._chunk_settings(settings)
+
+        if not chunk["enabled"]:
+            return layer
+
+        meta = cls._as_dict(layer.get("mesh", {}).get("meta", {})) if isinstance(layer.get("mesh"), dict) else {}
+        layer["mesh"]["meta"] = {
+            **meta,
+            "lastGeometryCommitId": chunk.get("commit_id"),
+            "lastGeometryChunkBatch": chunk.get("batch"),
+            "lastGeometryChunkBatches": chunk.get("batches"),
+            "lastGeometryChunkCount": len(cls._geometry_chunks(geometry_payload)),
+        }
+        return layer
+
+    @classmethod
     def merge_geometry_payload(cls, mesh, existing_mesh=None, geometry_payload=None):
         data = copy.deepcopy(cls._as_dict(mesh))
         existing = cls._as_dict(existing_mesh)
@@ -539,8 +595,8 @@ class MeshModel(BaseModel):
             base_vertices = existing.get("vertices", []) if payload.get("mode") == "patch" else []
             base_indices = existing.get("indices", []) if payload.get("mode") == "patch" else []
 
-            data["vertices"] = cls._apply_geometry_chunks(base_vertices, vertex_payload)
-            data["indices"] = cls._apply_geometry_chunks(base_indices, index_payload)
+            data["vertices"] = cls._apply_geometry_chunks(base_vertices, vertex_payload, "vertices")
+            data["indices"] = cls._apply_geometry_chunks(base_indices, index_payload, "indices")
             data["geometry_manifest"] = copy.deepcopy(cls._as_dict(payload.get("manifest", {})))
         else:
             data["vertices"] = cls._quantize_vertices(data.get("vertices", existing.get("vertices", [])), 6)
@@ -618,7 +674,10 @@ class MeshModel(BaseModel):
             })
 
             geometry_payload = extra.pop("geometry_payload", None)
-            geometry_manifest = extra.pop("geometry_manifest", None)
+            geometry_manifest = extra.pop("geometry_manifest", None) or extra.pop("mesh_manifest", None)
+            chunk_error = cls._chunk_error(layer_id, settings, geometry_payload)
+            if chunk_error:
+                return chunk_error
             compiled_mesh = None
 
             if mesh is not None or geometry_payload:
@@ -640,7 +699,7 @@ class MeshModel(BaseModel):
             layer["time"] = time("unix_ms")
 
             LAYERS.append(layer)
-            return layer, 200
+            return cls._with_chunk_ack(layer, settings, geometry_payload), 200
         except Exception as e:
             return cls.handle_error(e)
 
@@ -675,7 +734,10 @@ class MeshModel(BaseModel):
                 layer["keyframes"] = keyframes
 
             geometry_payload = extra.pop("geometry_payload", None)
-            geometry_manifest = extra.pop("geometry_manifest", None)
+            geometry_manifest = extra.pop("geometry_manifest", None) or extra.pop("mesh_manifest", None)
+            chunk_error = cls._chunk_error(id, settings, geometry_payload)
+            if chunk_error:
+                return chunk_error
             compiled_mesh = None
 
             if mesh is not None or geometry_payload:
@@ -696,7 +758,7 @@ class MeshModel(BaseModel):
             ))
             layer["time"] = time("unix_ms")
 
-            return layer, 200
+            return cls._with_chunk_ack(layer, settings, geometry_payload), 200
         except Exception as e:
             return cls.handle_error(e)
 

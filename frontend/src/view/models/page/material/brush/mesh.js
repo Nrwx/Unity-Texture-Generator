@@ -151,6 +151,22 @@ export const createDefaultSculptBrush = () => ({
 
 export const SCULPT_BRUSH_MODES = Object.freeze(Object.keys(BRUSH_MODIFIERS));
 
+
+const assignMeshInPlace = (target, source) => {
+    if (!target || !source || target === source) {
+        return source || target;
+    }
+
+    Object.keys(target).forEach(key => {
+        if (!(key in source) && key !== "__stampWritten") {
+            delete target[key];
+        }
+    });
+
+    Object.assign(target, source);
+    return target;
+};
+
 const resolveSculptUv = (mesh, explicitUv = null, context = {}) => {
     const sourceUv = explicitUv || mesh?.uv || mesh?.meta?.uv || null;
 
@@ -166,6 +182,170 @@ const resolveSculptUv = (mesh, explicitUv = null, context = {}) => {
     });
 };
 
+const isFloat32Vertices = value => value instanceof Float32Array;
+const isIndexTypedArray = value => value instanceof Uint16Array || value instanceof Uint32Array;
+
+const ensureDirectEditableMesh = mesh => {
+    if (!mesh?.vertices || !mesh?.indices) {
+        return null;
+    }
+
+    const sourceStride = Math.max(3, Math.trunc(number(mesh.stride, Mesh.STRIDE)));
+
+    if (sourceStride !== Mesh.STRIDE || !isFloat32Vertices(mesh.vertices) || !isIndexTypedArray(mesh.indices)) {
+        const editable = Mesh.normalizeEditableMesh(mesh);
+
+        if (!editable) {
+            return null;
+        }
+
+        mesh.stride = editable.stride;
+        mesh.vertices = new Float32Array(editable.vertices);
+        mesh.indices = Mesh.createIndexArray(editable.indices, mesh.indexType);
+        mesh.indexType = mesh.indices instanceof Uint32Array ? "uint32" : "uint16";
+        mesh.count = mesh.indices.length;
+        mesh.meta = {
+            ...(mesh.meta || {}),
+            vertexLayout: "position-normal-uv-tangent",
+            runtimeInstanced: true,
+        };
+    }
+
+    return {
+        stride: Math.max(3, Math.trunc(number(mesh.stride, Mesh.STRIDE))),
+        vertices: mesh.vertices,
+        indices: mesh.indices,
+        vertexCount: Mesh.vertexCount(mesh.vertices, mesh.stride),
+    };
+};
+
+const ensureTopologyEditableMesh = mesh => {
+    const editable = Mesh.normalizeEditableMesh(mesh);
+
+    if (!editable) {
+        return null;
+    }
+
+    return {
+        ...editable,
+        vertices: Array.isArray(editable.vertices) ? editable.vertices : Array.from(editable.vertices || []),
+        indices: Array.isArray(editable.indices) ? editable.indices : Array.from(editable.indices || []),
+    };
+};
+
+const writeBoundsFromDirtyVertices = (mesh, vertices, stride, dirtyVertexIndices = []) => {
+    const existing = mesh.bounds && Array.isArray(mesh.bounds.min) && Array.isArray(mesh.bounds.max)
+        ? {
+            min: mesh.bounds.min.slice(0, 3),
+            max: mesh.bounds.max.slice(0, 3),
+        }
+        : {
+            min: [Infinity, Infinity, Infinity],
+            max: [-Infinity, -Infinity, -Infinity],
+        };
+
+    for (const index of dirtyVertexIndices) {
+        const base = index * stride + POSITION_OFFSET;
+        const x = number(vertices[base], 0);
+        const y = number(vertices[base + 1], 0);
+        const z = number(vertices[base + 2], 0);
+
+        existing.min[0] = Math.min(existing.min[0], x);
+        existing.min[1] = Math.min(existing.min[1], y);
+        existing.min[2] = Math.min(existing.min[2], z);
+        existing.max[0] = Math.max(existing.max[0], x);
+        existing.max[1] = Math.max(existing.max[1], y);
+        existing.max[2] = Math.max(existing.max[2], z);
+    }
+
+    if (existing.min.every(Number.isFinite) && existing.max.every(Number.isFinite)) {
+        mesh.bounds = existing;
+    }
+};
+
+const recomputeDirtyNormals = (vertices, indices, stride, dirtyVertexIndices = [], triangleOffsets = []) => {
+    const dirtyVertices = new Set(dirtyVertexIndices.filter(index => Number.isInteger(index) && index >= 0));
+
+    if (!dirtyVertices.size) {
+        return;
+    }
+
+    const normalSums = new Map();
+    dirtyVertices.forEach(index => normalSums.set(index, [0, 0, 0]));
+
+    const addTriangleNormal = offset => {
+        if (offset < 0 || offset + 2 >= indices.length) {
+            return;
+        }
+
+        const a = Math.trunc(Number(indices[offset]));
+        const b = Math.trunc(Number(indices[offset + 1]));
+        const c = Math.trunc(Number(indices[offset + 2]));
+
+        if (![a, b, c].some(index => dirtyVertices.has(index))) {
+            return;
+        }
+
+        const pa = Mesh.read3(vertices, stride, a, POSITION_OFFSET);
+        const pb = Mesh.read3(vertices, stride, b, POSITION_OFFSET);
+        const pc = Mesh.read3(vertices, stride, c, POSITION_OFFSET);
+        const normal = Mesh.triangleNormal(pa, pb, pc);
+
+        [a, b, c].forEach(index => {
+            const sum = normalSums.get(index);
+
+            if (!sum) {
+                return;
+            }
+
+            sum[0] += normal[0];
+            sum[1] += normal[1];
+            sum[2] += normal[2];
+        });
+    };
+
+    const offsets = Array.isArray(triangleOffsets) && triangleOffsets.length
+        ? triangleOffsets
+        : [];
+
+    offsets.forEach(offset => addTriangleNormal(Math.trunc(Number(offset))));
+
+    dirtyVertices.forEach(index => {
+        const normal = Mesh.normalize3(normalSums.get(index), Mesh.read3(vertices, stride, index, NORMAL_OFFSET));
+        Mesh.write3(vertices, stride, index, normal, NORMAL_OFFSET);
+    });
+};
+
+const finalizeDirectSculptMesh = ({ mesh, vertices, indices, stride, brush, refine, influence, dirtyVertexIndices }) => {
+    const geometryDirtyRanges = Topology.buildVertexDirtyRanges(dirtyVertexIndices, stride);
+
+    recomputeDirtyNormals(vertices, indices, stride, dirtyVertexIndices, influence.triangleOffsets);
+    writeBoundsFromDirtyVertices(mesh, vertices, stride, dirtyVertexIndices);
+
+    mesh.vertices = vertices;
+    mesh.indices = indices;
+    mesh.stride = stride;
+    mesh.indexType = indices instanceof Uint32Array ? "uint32" : "uint16";
+    mesh.count = indices.length;
+    mesh.meta = {
+        ...(mesh.meta || {}),
+        source: "sculpt",
+        sculpted: true,
+        sculptMode: brush.mode,
+        sculptStrength: brush.strength,
+        brushRadius: brush.radius,
+        brushRevision: Math.trunc(number(mesh.meta?.brushRevision, 0)) + 1,
+        editRevision: Math.trunc(number(mesh.meta?.editRevision, 0)) + 1,
+        dynamicTopology: mesh.meta?.dynamicTopology === true,
+        topologyRuntime: Topology.describeBrushRuntime(brush, refine, influence),
+        geometryDirtyRanges,
+        runtimeInstanced: true,
+        vertexLayout: "position-normal-uv-tangent",
+    };
+
+    return mesh;
+};
+
 export const buildSculptBrushOverlay = ({ brush: rawBrush, hit = null } = {}) => {
     const brush = normalizeBrush(rawBrush);
 
@@ -175,8 +355,8 @@ export const buildSculptBrushOverlay = ({ brush: rawBrush, hit = null } = {}) =>
 
     return {
         enabled: true,
-        point: hit.point,
-        normal: Vector.normalize(hit.normal || [0, 0, 1], [0, 0, 1]).toArray(),
+        point: hit.worldPoint || hit.point,
+        normal: Vector.normalize(hit.worldNormal || hit.normal || [0, 0, 1], [0, 0, 1]).toArray(),
         radius: brush.radius,
         softness: brush.softness,
         falloffOffset: brush.falloffOffset,
@@ -189,13 +369,15 @@ export const buildSculptBrushOverlay = ({ brush: rawBrush, hit = null } = {}) =>
     };
 };
 
-export const applySculptBrushToMesh = ({ mesh, hit, brush: rawBrush, uv = null, uvBitmap = null }) => {
+export const applySculptBrushToMesh = ({ mesh, hit, brush: rawBrush, uv = null, uvBitmap = null, mutateInPlace = false }) => {
     if (!mesh || !hit?.point) return { mesh, changed: false };
 
     const brush = normalizeBrush(rawBrush);
     if (!brush.enabled) return { mesh, changed: false };
 
-    const editable = Mesh.normalizeEditableMesh(mesh);
+    const editable = brush.detailEnabled
+        ? ensureTopologyEditableMesh(mesh)
+        : ensureDirectEditableMesh(mesh);
     if (!editable) return { mesh, changed: false };
 
     const vertices = editable.vertices;
@@ -203,7 +385,9 @@ export const applySculptBrushToMesh = ({ mesh, hit, brush: rawBrush, uv = null, 
     const stride = editable.stride;
     const hitUv = createHitUv(vertices, indices, stride, hit);
 
-    const refine = Topology.refineBrush({ vertices, indices, stride, hit, brush, parts: mesh.parts || [] });
+    const refine = brush.detailEnabled
+        ? Topology.refineBrush({ vertices, indices, stride, hit, brush, parts: mesh.parts || [] })
+        : { vertices, indices, parts: mesh.parts || [], changed: false, limited: false, addedVertices: 0, splitTriangles: 0 };
     indices = refine.indices;
 
     const modifier = resolveBrushModifier(brush.mode);
@@ -215,10 +399,12 @@ export const applySculptBrushToMesh = ({ mesh, hit, brush: rawBrush, uv = null, 
         ? Topology.buildScopedNeighbors(indices, vertices, stride, influence.vertices)
         : new Map();
 
-    const nextMesh = {
-        ...mesh,
-        __stampWritten: false,
-    };
+    const nextMesh = mutateInPlace
+        ? mesh
+        : {
+            ...mesh,
+        };
+    nextMesh.__stampWritten = false;
 
     const hitContext = {
         ...hit,
@@ -297,6 +483,21 @@ export const applySculptBrushToMesh = ({ mesh, hit, brush: rawBrush, uv = null, 
         return { mesh, changed: false };
     }
 
+    if (mutateInPlace && !refine.changed && !stamped) {
+        const finalized = finalizeDirectSculptMesh({
+            mesh,
+            vertices,
+            indices,
+            stride,
+            brush,
+            refine,
+            influence,
+            dirtyVertexIndices,
+        });
+
+        return { mesh: finalized, uv, changed: true };
+    }
+
     const finalized = Mesh.finalizeMesh(nextMesh, {
         vertices,
         indices,
@@ -350,5 +551,7 @@ export const applySculptBrushToMesh = ({ mesh, hit, brush: rawBrush, uv = null, 
         };
     }
 
-    return { mesh: finalized, uv: nextUv, changed: true };
+    const outputMesh = mutateInPlace ? assignMeshInPlace(mesh, finalized) : finalized;
+
+    return { mesh: outputMesh, uv: nextUv, changed: true };
 };

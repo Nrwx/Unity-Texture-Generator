@@ -1812,6 +1812,7 @@ export function materialEditorModel(props, emit) {
             meta.customGeometry === true ||
             meta.sculpted === true ||
             meta.localEditDraft === true ||
+            meta.localEditActive === true ||
             Number(meta.editRevision || 0) > 1 ||
             source.includes("geometry-edit") ||
             source.includes("sculpt")
