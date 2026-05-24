@@ -1676,16 +1676,49 @@ export function materialEditorModel(props, emit) {
 
     const getPlainMesh = () => Mesh.toPlain(values.mesh || createMesh(values.geometry));
 
-    const normalizeValues = () => ({
+    const getPreviewPlainMesh = () => {
+        const mesh = getPlainMesh();
+        const vertexCount = Math.floor((mesh.vertices?.length || 0) / (mesh.stride || Mesh.STRIDE));
+
+        return {
+            ...mesh,
+            vertices: [],
+            indices: [],
+            parts: [],
+            count: 0,
+            meta: {
+                ...(mesh.meta || {}),
+                preview_compact: true,
+                preview_vertex_count: vertexCount,
+                preview_index_count: mesh.indices?.length || 0,
+            },
+        };
+    };
+
+    const getPreviewUv = () => ({
+        ...clonePlain(values.uv),
+        vertices: [],
+        edges: [],
+        triangles: [],
+        seams: [],
+        islands: (values.uv.islands || []).map(island => ({
+            ...clonePlain(island),
+            vertex_ids: [],
+            edge_ids: [],
+            triangle_ids: [],
+        })),
+    });
+
+    const normalizeValues = ({ preview = false } = {}) => ({
         name: values.name || "Cube Material",
 
         surface: clonePlain(values.surface),
         geometry: clonePlain(values.geometry),
-        mesh: getPlainMesh(),
+        mesh: preview ? getPreviewPlainMesh() : getPlainMesh(),
         physics: clonePlain(values.physics),
         light: clonePlain(values.light),
         bitmap_maps: sanitizeSurfaceBitmapMaps(values.bitmap_maps),
-        uv: clonePlain(values.uv),
+        uv: preview ? getPreviewUv() : clonePlain(values.uv),
         shader_graph: {
             ...clonePlain(values.shader_graph),
             material_connected: materialConnected.value,
@@ -3187,8 +3220,12 @@ export function materialEditorModel(props, emit) {
             edge.to.node === "principled-bsdf" &&
             edge.to.socket === slotKey
         ));
+        const inputOccupied = values.shader_graph.edges.some(edge => (
+            edge.to.node === "principled-bsdf" &&
+            edge.to.socket === slotKey
+        ));
 
-        if (!exists) {
+        if (!exists && !inputOccupied) {
             values.shader_graph.edges.push({
                 id: uuid('shader-node'),
                 from: {
@@ -3911,6 +3948,12 @@ export function materialEditorModel(props, emit) {
         }
 
         CUBE_FACE_ORDER.forEach((face, index) => {
+            const currentBitmap = values.uv.faces[face]?.bitmap || {};
+
+            if (currentBitmap.url || currentBitmap.layer_id) {
+                return;
+            }
+
             const layer = layers[index % layers.length];
 
             assignLayerToUvFace(face, layer);
@@ -4217,7 +4260,7 @@ export function materialEditorModel(props, emit) {
         return valid.length ? Array.from(new Set(valid)) : ["baseColor"];
     };
 
-    const prepareMaterialValues = () => {
+    const prepareMaterialValues = ({ preview = false } = {}) => {
         pauseAutoSync.value = true;
 
         try {
@@ -4227,18 +4270,21 @@ export function materialEditorModel(props, emit) {
             // Wichtig: Source-Layer als echte BaseColor-Map in den Contract schreiben.
             ensureBaseColorSourceTexture();
 
-            // UV zuerst in bitmap_maps schreiben.
-            syncUvToActiveSlots();
-
-            // Danach UV-Nodes aus aktuellen bitmap_maps / uv erzeugen.
-            syncUvCubeMapToShaderGraph();
+            // UV zuerst in die aktive Node-Kette schreiben, ohne die andere UV-Variante zu verwerfen.
+            if (values.uv.view_mode === "cubemap" && hasUvCubemapNode.value) {
+                ensureCubemapFaceTexturesFromLayers();
+                syncUvCubeMapToShaderGraph();
+                connectUvModeOutputToSurfaceSlots("cubemap");
+            } else {
+                connectUvModeOutputToSurfaceSlots("unwrap");
+            }
 
             // Graph bereinigen und Slot-Zustände ableiten.
             reconcileShaderGraph();
             syncAllSurfaceSlotsFromShaderGraph();
             syncSurfaceOffsetsFromNodes();
 
-            return normalizeValues();
+            return normalizeValues({ preview });
         } finally {
             queueMicrotask(() => {
                 pauseAutoSync.value = false;
@@ -4629,6 +4675,84 @@ export function materialEditorModel(props, emit) {
         });
     };
 
+    const getUvMapTextureNodeIdForSlot = slotKey => {
+        syncUvToBitmapSlot(slotKey);
+        ensureBitmapNodeForSlot(slotKey);
+
+        const nodeId = `bitmap-${slotKey}`;
+
+        return getGraphNode(nodeId) ? nodeId : "";
+    };
+
+    const getCubemapTextureOutputNodeId = () => {
+        if (getGraphNode("uv-cubemap-multitexture")) {
+            return "uv-cubemap-multitexture";
+        }
+
+        if (getGraphNode("uv-cubemap-single-bitmap")) {
+            return "uv-cubemap-single-bitmap";
+        }
+
+        return "";
+    };
+
+    const connectTextureOutputToSurfaceSlot = (sourceNodeId, slotKey, system = "uv-mode-active") => {
+        if (!sourceNodeId || !values.bitmap_maps[slotKey]) {
+            return;
+        }
+
+        const sourceNode = getGraphNode(sourceNodeId);
+        const outputSocket = slotKey === "alpha" && sourceNode?.outputs?.alpha ? "alpha" : "color";
+
+        if (!sourceNode?.outputs?.[outputSocket]) {
+            return;
+        }
+
+        connectEdgeUnique(
+            {
+                node: sourceNodeId,
+                socket: outputSocket,
+            },
+            {
+                node: "principled-bsdf",
+                socket: slotKey,
+            },
+            {
+                generated: true,
+                system,
+            },
+        );
+
+        syncSurfaceSlotFromShaderGraph(slotKey);
+    };
+
+    const connectUvModeOutputToSurfaceSlots = mode => {
+        const targetSlots = getUvTargetSlots();
+
+        if (mode === "cubemap") {
+            if (!hasUvCubemapNode.value) {
+                return;
+            }
+
+            const sourceNodeId = getCubemapTextureOutputNodeId();
+
+            targetSlots.forEach(slotKey => {
+                connectTextureOutputToSurfaceSlot(sourceNodeId, slotKey, "uv-cubemap-active");
+            });
+
+            return;
+        }
+
+        if (!hasUvMapNode.value) {
+            return;
+        }
+
+        targetSlots.forEach(slotKey => {
+            const sourceNodeId = getUvMapTextureNodeIdForSlot(slotKey);
+            connectTextureOutputToSurfaceSlot(sourceNodeId, slotKey, "uv-map-active");
+        });
+    };
+
     const syncUvCubeMapToShaderGraph = () => {
         ensureCoreNodes();
 
@@ -4657,8 +4781,6 @@ export function materialEditorModel(props, emit) {
         if (!mappedFaces.length || textureMode === "none") {
             return;
         }
-
-        targetSlots.forEach(removeAutoBitmapNode);
 
         const existingCubemapNode = values.shader_graph.nodes.find(node => (
             node?.settings?.node_key === "uv.cubemap"
@@ -5013,13 +5135,16 @@ export function materialEditorModel(props, emit) {
 
         if (mode === "unwrap") {
             rebuildMaterialMesh({ preserveLayout: values.uv.vertices.length > 0 });
+            connectUvModeOutputToSurfaceSlots("unwrap");
         }
 
         if (mode === "cubemap") {
             ensureCubemapFaceTexturesFromLayers();
             syncUvCubeMapToShaderGraph();
+            connectUvModeOutputToSurfaceSlots("cubemap");
         }
 
+        reconcileShaderGraph();
         await drawUvCanvas();
         requestPreviewDebounced();
     };
@@ -5736,7 +5861,7 @@ export function materialEditorModel(props, emit) {
 
         emitEvent("material:preview", {
             layer: selectedSourceLayer.value,
-            values: prepareMaterialValues(),
+            values: prepareMaterialValues({ preview: true }),
             requestId: previewRequestId.value,
         });
     };

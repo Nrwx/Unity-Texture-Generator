@@ -6,6 +6,6 @@
     "log_file": "cli.log",
     "flask_config": {
         "SECRET_KEY": "supersecret",
-        "MAX_CONTENT_LENGTH": 10485760
+        "MAX_CONTENT_LENGTH": 67108864
     }
 }

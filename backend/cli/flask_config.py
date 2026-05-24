@@ -16,7 +16,7 @@ class FlaskConfig:
             "SESSION_COOKIE_SECURE": False,
             "PERMANENT_SESSION_LIFETIME": 3600,
             "UPLOAD_FOLDER": "./uploads",
-            "MAX_CONTENT_LENGTH": 16 * 1024 * 1024,
+            "MAX_CONTENT_LENGTH": 64 * 1024 * 1024,
             "JSONIFY_PRETTYPRINT_REGULAR": True,
             "JSON_SORT_KEYS": False,
             "PREFERRED_URL_SCHEME": "http"
