@@ -5,70 +5,81 @@
       class="gizmo-panel"
       :class="{ compact, control: mode === 'control', hidden: state === false }"
   >
-    <header>
+    <header class="gizmo-head">
       <div>
         <strong>Gizmo</strong>
-        <small>Transform · Pivot · Anzeige</small>
+        <small>{{ animatorGizmo.tool }} · {{ animatorGizmo.axis }} · {{ animatorGizmo.pivot }}</small>
       </div>
+      <span class="gizmo-led" />
     </header>
 
-    <div class="gizmo-segment tools">
+    <div class="gizmo-strip tools" aria-label="Gizmo tools">
       <button
           v-for="tool in gizmoTools"
           :key="tool.key"
           type="button"
+          :title="tool.label"
+          :aria-label="tool.label"
           :class="{ active: animatorGizmo.tool === tool.key }"
           @click="setTool(tool.key)"
       >
-        <v-icon size="15">{{ tool.icon }}</v-icon>
-        <span>{{ tool.label }}</span>
+        <v-icon size="16">{{ tool.icon }}</v-icon>
       </button>
     </div>
 
-    <div class="gizmo-segment axis">
+    <div class="gizmo-strip axis" aria-label="Gizmo axis">
       <button
           v-for="axis in axisOptions"
           :key="axis.key"
           type="button"
-          :class="{ active: animatorGizmo.axis === axis.key }"
+          :title="axis.label"
+          :aria-label="axis.label"
+          :class="['axis-' + axis.key, { active: animatorGizmo.axis === axis.key }]"
           @click="setAxis(axis.key)"
       >
-        {{ axis.label }}
+        <span>{{ axis.label }}</span>
       </button>
     </div>
 
-    <div class="gizmo-segment pivot">
+    <div class="gizmo-strip pivot" aria-label="Pivot mode">
       <button
           v-for="pivot in pivotOptions"
           :key="pivot.key"
           type="button"
+          :title="pivot.label"
+          :aria-label="pivot.label"
           :class="{ active: animatorGizmo.pivot === pivot.key }"
           @click="setPivot(pivot.key)"
       >
-        {{ pivot.label }}
+        <v-icon size="15">{{ pivot.icon }}</v-icon>
       </button>
     </div>
 
-    <div class="gizmo-action-grid">
+    <div class="gizmo-actions">
       <button
           v-for="action in pivotActions"
           :key="action.key"
           type="button"
+          :title="action.label"
           @click="runPivotAction(action.key)"
       >
-        {{ action.label }}
+        <v-icon size="14">{{ action.icon }}</v-icon>
+        <span>{{ action.label }}</span>
       </button>
     </div>
 
-    <div class="gizmo-check-grid">
-      <label v-for="item in visibilityOptions" :key="item.key" class="gizmo-check">
-        <input
-            type="checkbox"
-            :checked="animatorGizmo[item.key] !== false"
-            @change="setVisibility(item.key, $event.target.checked)"
-        />
-        <span>{{ item.label }}</span>
-      </label>
+    <div class="gizmo-visibility">
+      <button
+          v-for="item in visibilityOptions"
+          :key="item.key"
+          type="button"
+          :title="item.label"
+          :aria-label="item.label"
+          :class="{ active: animatorGizmo[item.key] !== false }"
+          @click="toggleVisibility(item.key)"
+      >
+        <v-icon size="14">{{ item.icon }}</v-icon>
+      </button>
     </div>
   </section>
 

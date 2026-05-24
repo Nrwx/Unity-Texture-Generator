@@ -20,40 +20,40 @@ export function gizmoModel(props, emit) {
     ];
 
     const axisOptions = [
-        { key: "free", label: "Free" },
-        { key: "x", label: "X" },
-        { key: "y", label: "Y" },
-        { key: "z", label: "Z" },
-        { key: "xy", label: "XY" },
-        { key: "xz", label: "XZ" },
-        { key: "yz", label: "YZ" },
+        { key: "free", icon: "mdi-vector-combine", label: "Free" },
+        { key: "x", icon: "mdi-axis-x-arrow", label: "X" },
+        { key: "y", icon: "mdi-axis-y-arrow", label: "Y" },
+        { key: "z", icon: "mdi-axis-z-arrow", label: "Z" },
+        { key: "xy", icon: "mdi-vector-square", label: "XY" },
+        { key: "xz", icon: "mdi-vector-square", label: "XZ" },
+        { key: "yz", icon: "mdi-vector-square", label: "YZ" },
     ];
 
     const pivotOptions = [
-        { key: "object", label: "Object" },
-        { key: "median", label: "Median" },
-        { key: "cursor", label: "Cursor" },
-        { key: "world", label: "World" },
+        { key: "object", icon: "mdi-cube-scan", label: "Object" },
+        { key: "median", icon: "mdi-selection-ellipse", label: "Median" },
+        { key: "cursor", icon: "mdi-crosshairs", label: "Cursor" },
+        { key: "world", icon: "mdi-earth", label: "World" },
     ];
 
     const visibilityOptions = [
-        { key: "showAxisHandles", label: "XYZ Handles" },
-        { key: "showRotateRings", label: "Rotate Rings" },
-        { key: "showScaleHandles", label: "Scale Handles" },
-        { key: "showPlaneHandles", label: "Plane Handles" },
-        { key: "showObjectPivot", label: "Object Pivot" },
-        { key: "showWorldPivot", label: "World Center" },
-        { key: "showAxisGuide", label: "Drag Axis Guide" },
-        { key: "showWorldAxis", label: "World Axis" },
+        { key: "showAxisHandles", icon: "mdi-axis-arrow", label: "Axis" },
+        { key: "showRotateRings", icon: "mdi-rotate-3d-variant", label: "Rings" },
+        { key: "showScaleHandles", icon: "mdi-arrow-expand-all", label: "Scale" },
+        { key: "showPlaneHandles", icon: "mdi-vector-square", label: "Planes" },
+        { key: "showObjectPivot", icon: "mdi-cube-scan", label: "Obj Pivot" },
+        { key: "showWorldPivot", icon: "mdi-earth", label: "World" },
+        { key: "showAxisGuide", icon: "mdi-ray-start-arrow", label: "Guide" },
+        { key: "showWorldAxis", icon: "mdi-axis-arrow-info", label: "World Axis" },
     ];
 
     const pivotActions = [
-        { key: "pivot-to-center", label: "Pivot → Center" },
-        { key: "center-to-pivot", label: "Center → Pivot" },
-        { key: "pivot-to-cursor", label: "Pivot → Cursor" },
-        { key: "cursor-to-pivot", label: "Cursor → Pivot" },
-        { key: "pivot-to-world", label: "Pivot → World" },
-        { key: "cursor-to-world", label: "Cursor → World" },
+        { key: "pivot-to-center", icon: "mdi-crosshairs-gps", label: "Pivot → Center" },
+        { key: "center-to-pivot", icon: "mdi-image-filter-center-focus", label: "Center → Pivot" },
+        { key: "pivot-to-cursor", icon: "mdi-crosshairs", label: "Pivot → Cursor" },
+        { key: "cursor-to-pivot", icon: "mdi-crosshairs-question", label: "Cursor → Pivot" },
+        { key: "pivot-to-world", icon: "mdi-earth", label: "Pivot → World" },
+        { key: "cursor-to-world", icon: "mdi-earth-arrow-right", label: "Cursor → World" },
     ];
 
     const setTool = tool => {
@@ -74,6 +74,10 @@ export function gizmoModel(props, emit) {
     const setVisibility = (key, value) => {
         animatorGizmo[key] = value === true;
         emitEvent("gizmo:visibility", { key, value: animatorGizmo[key] });
+    };
+
+    const toggleVisibility = key => {
+        setVisibility(key, animatorGizmo[key] === false);
     };
 
     const runPivotAction = action => {
@@ -123,6 +127,7 @@ export function gizmoModel(props, emit) {
         setAxis,
         setPivot,
         setVisibility,
+        toggleVisibility,
         runPivotAction,
         emitSelect,
         emitAxis,

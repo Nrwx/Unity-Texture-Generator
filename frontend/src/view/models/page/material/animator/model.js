@@ -311,6 +311,9 @@ export function animatorModel(props, emit) {
     let localTransformDirty = false;
     let localTransformVersion = 0;
     let submittedTransformVersion = 0;
+    let cameraDirty = false;
+    let cameraCommitTimer = null;
+    let loadedCameraLayerId = "";
 
     const markLocalTransformDirty = () => {
         localTransformDirty = true;
@@ -465,6 +468,105 @@ export function animatorModel(props, emit) {
         up: { ...camera.up },
     }));
 
+    const resolveLayerViewportCamera = layer => (
+        layer?.viewport_camera ||
+        layer?.settings?.viewport_camera ||
+        layer?.preview?.viewport_camera ||
+        layer?.material?.viewport_camera ||
+        layer?.shader?.viewport_camera ||
+        null
+    );
+
+    const writeViewportCameraToLayer = (layer, payload = viewportCamera.value) => {
+        if (!layer?.id || !payload) {
+            return null;
+        }
+
+        const cameraPayload = clone(payload, "json");
+
+        layer.viewport_camera = cameraPayload;
+        layer.settings = {
+            ...(layer.settings || {}),
+            animator_viewport: true,
+            viewport_camera: cameraPayload,
+        };
+        layer.preview = {
+            ...(layer.preview || {}),
+            animator_viewport: true,
+            viewport_camera: cameraPayload,
+        };
+        layer.material = {
+            ...(layer.material || {}),
+            viewport_camera: cameraPayload,
+        };
+        layer.shader = {
+            ...(layer.shader || {}),
+            viewport_camera: cameraPayload,
+        };
+
+        return cameraPayload;
+    };
+
+    const applyViewportCameraToCore = payload => {
+        if (!payload) {
+            return false;
+        }
+
+        const nextCamera = Camera.fromPayload({
+            ...settings.value,
+            ...(payload || {}),
+            orthographicScale: payload.orthographicScale ?? payload.orthographic_scale ?? settings.value.orthographicScale,
+            orthographic_scale: payload.orthographic_scale ?? payload.orthographicScale ?? settings.value.orthographicScale,
+        });
+
+        nextCamera.backgroundGrid = payload.backgroundGrid ?? payload.background_grid ?? cameraCore.backgroundGrid ?? settings.value.backgroundGrid;
+        nextCamera.setViewport(viewportSize.width, viewportSize.height);
+        nextCamera.update(1 / 60);
+        cameraCore = nextCamera;
+        syncCameraState();
+        cameraDirty = false;
+
+        return true;
+    };
+
+    const loadCameraFromLayer = (layer, { force = false } = {}) => {
+        if (!layer?.id) {
+            return false;
+        }
+
+        const payload = resolveLayerViewportCamera(layer);
+
+        if (!payload) {
+            loadedCameraLayerId = layer.id;
+            syncCameraState();
+            return false;
+        }
+
+        if (!force && loadedCameraLayerId === layer.id) {
+            return true;
+        }
+
+        loadedCameraLayerId = layer.id;
+        return applyViewportCameraToCore(payload);
+    };
+
+    const loadCameraFromActiveLayer = (options = {}) => loadCameraFromLayer(activeLayer.value, options);
+
+    const clearCameraCommitTimer = () => {
+        if (cameraCommitTimer) {
+            clearTimeout(cameraCommitTimer);
+            cameraCommitTimer = null;
+        }
+    };
+
+    const markCameraDirty = () => {
+        // Camera movement is local while editing. Persistence happens only on
+        // Apply / ESC / component unmount, so Orbit/Pan/Dolly stays smooth and
+        // does not spam mesh:update.
+        cameraDirty = true;
+        syncCameraState();
+    };
+
     const gridLines = computed(() => {
         const lines = [];
         const count = 18;
@@ -553,17 +655,11 @@ export function animatorModel(props, emit) {
 
                 preview: {
                     ...(cloned.preview || {}),
-                    rotate: false,
-                    idle_rotation: {
-                        ...(cloned.preview?.idle_rotation || {}),
-                        enabled: false,
-                    },
                     viewport_camera: cameraPayload,
                 },
 
                 settings: {
                     ...(cloned.settings || {}),
-                    rotate_preview: false,
                     viewport_camera: cameraPayload,
                     animator_viewport: true,
                     animator_active: cloned.id === activeLayer.value?.id,
@@ -583,6 +679,7 @@ export function animatorModel(props, emit) {
 
         activeLayerId.value = layer.id;
         animatorActiveLayerId.value = layer.id;
+        loadCameraFromLayer(layer, { force: true });
     };
 
     const createAnimatorMeshPayload = layer => {
@@ -602,7 +699,7 @@ export function animatorModel(props, emit) {
                 ...geometry,
             },
         };
-        const cameraPayload = clone(viewportCamera.value, "json");
+        const cameraPayload = writeViewportCameraToLayer(layer, viewportCamera.value);
 
         return clone({
             id: layer.id,
@@ -625,11 +722,6 @@ export function animatorModel(props, emit) {
                 ...(layer.preview || {}),
                 animator_viewport: true,
                 viewport_camera: cameraPayload,
-                rotate: false,
-                idle_rotation: {
-                    ...(layer.preview?.idle_rotation || {}),
-                    enabled: false,
-                },
             },
             viewport_camera: cameraPayload,
             material: {
@@ -665,8 +757,18 @@ export function animatorModel(props, emit) {
         emitEvent("mesh:update", payload);
         submittedTransformVersion = localTransformVersion;
         localTransformDirty = false;
+        cameraDirty = false;
 
         return true;
+    };
+
+    const commitActiveLayerState = ({ force = false } = {}) => {
+        if (force || cameraDirty || localTransformDirty || submittedTransformVersion !== localTransformVersion) {
+            clearCameraCommitTimer();
+            return commitLayer(activeLayer.value);
+        }
+
+        return false;
     };
 
     const scheduleLayerCommit = () => {
@@ -674,13 +776,7 @@ export function animatorModel(props, emit) {
         markLocalTransformDirty();
     };
 
-    const submitAnimatorMesh = () => {
-        if (!localTransformDirty || submittedTransformVersion === localTransformVersion) {
-            return false;
-        }
-
-        return commitLayer(activeLayer.value);
-    };
+    const submitAnimatorMesh = () => commitActiveLayerState();
 
     const ensureActiveGeometry = () => {
         const layer = activeLayer.value;
@@ -1049,40 +1145,38 @@ export function animatorModel(props, emit) {
             cameraCore.orbit.setRadius(number);
         }
 
-        if (key === "orthographicScale") {
+        if (key === "orthographicScale" || key === "orthographic_scale") {
             cameraCore.setOrthographicScale(number);
         }
 
-        syncCameraState();
+        if (key === "theta") {
+            cameraCore.orbit.setAngles(number * DEG, cameraCore.orbit.phi);
+        }
+
+        if (key === "phi") {
+            cameraCore.orbit.setAngles(cameraCore.orbit.theta, number * DEG);
+        }
+
+        if (["target_x", "target_y", "target_z"].includes(key)) {
+            const nextTarget = cameraCore.orbit.target.toObject();
+            const axis = key.slice(-1);
+            nextTarget[axis] = number;
+            cameraCore.orbit.setTarget([nextTarget.x, nextTarget.y, nextTarget.z]);
+        }
+
+        markCameraDirty();
     };
 
     const applyCameraToActiveLayer = () => {
         const layer = activeLayer.value;
 
         if (!layer) {
-            return;
+            return false;
         }
 
-        const payload = clone(viewportCamera.value, "json");
-
-        layer.viewport_camera = payload;
-        layer.settings = {
-            ...(layer.settings || {}),
-            animator_viewport: true,
-            viewport_camera: payload,
-        };
-        layer.preview = {
-            ...(layer.preview || {}),
-            animator_viewport: true,
-            viewport_camera: payload,
-            rotate: false,
-            idle_rotation: {
-                ...(layer.preview?.idle_rotation || {}),
-                enabled: false,
-            },
-        };
-
-        commitLayer(layer);
+        writeViewportCameraToLayer(layer, viewportCamera.value);
+        cameraDirty = true;
+        return commitActiveLayerState({ force: true });
     };
 
     const toPointObject = point => ({
@@ -1389,6 +1483,7 @@ export function animatorModel(props, emit) {
         cameraCore.orbit.phi = cameraCore.orbit.clampPhi(
             cameraCore.orbit.phi + dy * cameraCore.orbit.rotateSpeed * sy
         );
+        markCameraDirty();
     };
 
     const panByDelta = (dx, dy) => {
@@ -1401,6 +1496,7 @@ export function animatorModel(props, emit) {
         cameraCore.orbit.target
             .addScaled(cameraCore.orbit.right, -dx * scale)
             .addScaled(cameraCore.orbit.up, dy * scale);
+        markCameraDirty();
     };
 
     const dollyByDelta = dy => {
@@ -1408,6 +1504,7 @@ export function animatorModel(props, emit) {
             cameraCore.setOrthographicScale(
                 cameraCore.orthographicScale * Math.exp(dy * cameraCore.orbit.dollySpeed)
             );
+            markCameraDirty();
 
             return;
         }
@@ -1415,6 +1512,7 @@ export function animatorModel(props, emit) {
         cameraCore.orbit.setRadius(
             cameraCore.orbit.radius * Math.exp(dy * cameraCore.orbit.dollySpeed)
         );
+        markCameraDirty();
     };
 
     const updateHoverCursor = event => {
@@ -1566,6 +1664,7 @@ export function animatorModel(props, emit) {
         const ctrlMultiplier = event.ctrlKey || event.metaKey ? 2 : 1;
 
         dollyByDelta(event.deltaY * multiplier * ctrlMultiplier);
+        markCameraDirty();
     };
 
     const preventContextMenu = event => {
@@ -1574,13 +1673,20 @@ export function animatorModel(props, emit) {
 
     const setProjection = projection => {
         cameraCore.setProjection(projection);
-        syncCameraState();
+        markCameraDirty();
     };
 
     const resetView = () => {
+        // Hard viewport reset: do not reload the saved layer camera.
+        // The Camera panel uses this to recover a clean orbit while editing.
         cameraCore = createCameraCore(settings.value);
         cameraCore.setViewport(viewportSize.width, viewportSize.height);
-        syncCameraState();
+        cameraCore.update(1 / 60);
+        markCameraDirty();
+    };
+
+    const restoreSavedView = () => {
+        loadCameraFromActiveLayer({ force: true });
     };
 
     const setView = view => {
@@ -1603,6 +1709,8 @@ export function animatorModel(props, emit) {
         if (view === "left") {
             cameraCore.orbit.setAngles(-90 * DEG, 0);
         }
+
+        markCameraDirty();
     };
 
     const frameSelected = () => {
@@ -1636,6 +1744,7 @@ export function animatorModel(props, emit) {
             cameraCore.orbit.setTarget([0, 0, 0]);
             cameraCore.orbit.setRadius(settings.value.radius);
             cameraCore.setOrthographicScale(settings.value.orthographicScale);
+            markCameraDirty();
             return;
         }
 
@@ -1649,6 +1758,7 @@ export function animatorModel(props, emit) {
         cameraCore.setOrthographicScale(
             clamp(diagonal * 1.35 || settings.value.orthographicScale, settings.value.minOrthographicScale, settings.value.maxOrthographicScale)
         );
+        markCameraDirty();
     };
 
     const focusPivot = () => {
@@ -1656,12 +1766,12 @@ export function animatorModel(props, emit) {
         const pivot = resolveGizmoPivotPoint(geometry);
         cameraCore.orbit.setTarget([pivot.x, pivot.y, pivot.z]);
         cameraCore.orbit.smoothTarget?.copy?.(cameraCore.orbit.target);
-        syncCameraState();
+        markCameraDirty();
     };
 
     const toggleGrid = () => {
         cameraCore.backgroundGrid = cameraCore.backgroundGrid === false;
-        syncCameraState();
+        markCameraDirty();
     };
 
     const normalizeKey = key => {
@@ -1690,7 +1800,7 @@ export function animatorModel(props, emit) {
 
         if (event.code === "Escape" || key === "escape") {
             stopNativeEvent(event);
-            submitAnimatorMesh();
+            commitActiveLayerState({ force: true });
             emitEvent("animator:state", false);
             emitEvent("apply-key-down", event);
             return;
@@ -1814,6 +1924,7 @@ export function animatorModel(props, emit) {
         viewportRef.value = document.getElementById(animator.viewportId);
 
         mouse.init();
+        loadCameraFromActiveLayer();
 
         if (viewportRef.value) {
             register("add", viewportRef.value, "pointerdown", onPointerDown);
@@ -1848,6 +1959,7 @@ export function animatorModel(props, emit) {
             }
 
             animatorActiveLayerId.value = activeLayerId.value;
+            loadCameraFromActiveLayer();
             if (
                 animatorObjectLayerId.value &&
                 !selectedMaterialLayers.value.some(layer => layer.id === animatorObjectLayerId.value)
@@ -1864,7 +1976,9 @@ export function animatorModel(props, emit) {
     watch(
         () => createOrbitSettingsSignature(props.orbitSettings || props.settings || {}),
         () => {
-            resetView();
+            if (!loadCameraFromActiveLayer({ force: true })) {
+                resetView();
+            }
         }
     );
 
@@ -1896,6 +2010,15 @@ export function animatorModel(props, emit) {
     );
 
     watch(
+        () => animatorCameraCommand.restore,
+        () => {
+            if (animatorCameraCommand.restore > 0) {
+                restoreSavedView();
+            }
+        }
+    );
+
+    watch(
         () => animatorCameraCommand.toggleGrid,
         () => {
             if (animatorCameraCommand.toggleGrid > 0) {
@@ -1913,6 +2036,19 @@ export function animatorModel(props, emit) {
             }
         }
     );
+
+
+    watch(
+        () => animatorCameraCommand.fieldTick,
+        () => {
+            const field = animatorCameraCommand.field;
+
+            if (field?.key) {
+                setCameraNumber(field.key, field.value);
+            }
+        }
+    );
+
 
 
     watch(
@@ -1947,9 +2083,9 @@ export function animatorModel(props, emit) {
     onMounted(init);
 
     onBeforeUnmount(() => {
-        submitAnimatorMesh();
+        commitActiveLayerState({ force: true });
+        clearCameraCommitTimer();
         stopTick();
-
 
         register("removeAll");
     });
@@ -1979,6 +2115,7 @@ export function animatorModel(props, emit) {
         cameraFieldGroups,
         gridLines,
         resetView,
+        restoreSavedView,
         setView,
         setProjection,
         frameSelected,

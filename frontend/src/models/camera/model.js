@@ -1,5 +1,4 @@
 import { computed } from "vue";
-import { clone } from "@/utils/tools";
 import {
     animatorActiveLayerId,
     animatorCameraCommand,
@@ -14,6 +13,8 @@ const DEFAULT_CAMERA = {
     radius: 4.6,
     orthographic_scale: 5,
     orthographicScale: 5,
+    theta: 0,
+    phi: 0,
     target: { x: 0, y: 0, z: 0 },
     position: { x: 0, y: -3.25, z: 0.18 },
     up: { x: 0, y: 0, z: 1 },
@@ -24,20 +25,39 @@ const toNumber = (value, fallback = 0) => {
     return Number.isFinite(number) ? number : fallback;
 };
 
-const normalizeCamera = camera => ({
-    ...DEFAULT_CAMERA,
-    ...(camera || {}),
-    projection: camera?.projection === "orthographic" ? "orthographic" : "perspective",
-    fov: toNumber(camera?.fov, DEFAULT_CAMERA.fov),
-    near: toNumber(camera?.near, DEFAULT_CAMERA.near),
-    far: toNumber(camera?.far, DEFAULT_CAMERA.far),
-    radius: toNumber(camera?.radius, DEFAULT_CAMERA.radius),
-    orthographic_scale: toNumber(camera?.orthographic_scale ?? camera?.orthographicScale, DEFAULT_CAMERA.orthographic_scale),
-    orthographicScale: toNumber(camera?.orthographicScale ?? camera?.orthographic_scale, DEFAULT_CAMERA.orthographicScale),
+const normalizeVector = (value = {}, fallback = { x: 0, y: 0, z: 0 }) => ({
+    x: toNumber(value?.x ?? value?.[0], fallback.x),
+    y: toNumber(value?.y ?? value?.[1], fallback.y),
+    z: toNumber(value?.z ?? value?.[2], fallback.z),
 });
 
-export function cameraModel(props, emit) {
-    const selectedMaterialLayers = computed(() => (props.selectedLayers || []).filter(layer => Number(layer?.type) === 5));
+const normalizeCamera = camera => {
+    const normalized = {
+        ...DEFAULT_CAMERA,
+        ...(camera || {}),
+        projection: camera?.projection === "orthographic" ? "orthographic" : "perspective",
+        fov: toNumber(camera?.fov, DEFAULT_CAMERA.fov),
+        near: toNumber(camera?.near, DEFAULT_CAMERA.near),
+        far: toNumber(camera?.far, DEFAULT_CAMERA.far),
+        radius: toNumber(camera?.radius, DEFAULT_CAMERA.radius),
+        orthographic_scale: toNumber(camera?.orthographic_scale ?? camera?.orthographicScale, DEFAULT_CAMERA.orthographic_scale),
+        orthographicScale: toNumber(camera?.orthographicScale ?? camera?.orthographic_scale, DEFAULT_CAMERA.orthographicScale),
+        theta: toNumber(camera?.theta, DEFAULT_CAMERA.theta) * 180 / Math.PI,
+        phi: toNumber(camera?.phi, DEFAULT_CAMERA.phi) * 180 / Math.PI,
+        target: normalizeVector(camera?.target, DEFAULT_CAMERA.target),
+        position: normalizeVector(camera?.position, DEFAULT_CAMERA.position),
+    };
+
+    normalized.target_x = normalized.target.x;
+    normalized.target_y = normalized.target.y;
+    normalized.target_z = normalized.target.z;
+    return normalized;
+};
+
+export function cameraModel(props) {
+    const selectedMaterialLayers = computed(() => (
+        (props.selectedLayers || []).filter(layer => Number(layer?.type) === 5)
+    ));
 
     const activeLayer = computed(() => (
         selectedMaterialLayers.value.find(layer => layer.id === animatorActiveLayerId.value) ||
@@ -54,42 +74,39 @@ export function cameraModel(props, emit) {
         animatorCameraState
     ));
 
-    const emitLayerUpdate = layer => emit("component-event", "mesh:update", clone(layer, "json"));
-
-    const setLayerCamera = camera => {
-        const layer = activeLayer.value;
-        if (!layer) return;
-        const payload = normalizeCamera(camera);
-        layer.viewport_camera = payload;
-        layer.settings = { ...(layer.settings || {}), animator_viewport: true, viewport_camera: payload };
-        layer.preview = {
-            ...(layer.preview || {}),
-            animator_viewport: true,
-            viewport_camera: payload,
-            rotate: false,
-            idle_rotation: { ...(layer.preview?.idle_rotation || {}), enabled: false },
-        };
-        layer.material = { ...(layer.material || {}), viewport_camera: payload };
-        layer.shader = { ...(layer.shader || {}), viewport_camera: payload };
-        emitLayerUpdate(layer);
-    };
-
     const setSavedCameraField = (key, value) => {
-        const camera = normalizeCamera(savedCamera.value);
-        camera[key] = key === "projection" ? value : toNumber(value, DEFAULT_CAMERA[key] ?? 0);
-        if (key === "orthographicScale") camera.orthographic_scale = camera.orthographicScale;
-        if (key === "orthographic_scale") camera.orthographicScale = camera.orthographic_scale;
-        if (key === "projection") animatorCameraCommand.projection = camera.projection;
-        setLayerCamera(camera);
+        if (key === "projection") {
+            animatorCameraCommand.projection = value;
+            return;
+        }
+
+        const fieldKey = key === "orthographic_scale" ? "orthographicScale" : key;
+        animatorCameraCommand.field = {
+            key: fieldKey,
+            value: toNumber(value, DEFAULT_CAMERA[fieldKey] ?? 0),
+        };
+        animatorCameraCommand.fieldTick += 1;
     };
 
     const applyCurrentCamera = () => {
         animatorCameraCommand.apply += 1;
-        setLayerCamera(animatorCameraState.payload || animatorCameraState);
     };
 
-    const setAnimatorView = view => { animatorCameraCommand.view = view; };
-    const focusPivot = () => { animatorCameraCommand.focusPivot += 1; };
+    const resetCamera = () => {
+        animatorCameraCommand.reset += 1;
+    };
+
+    const restoreSavedCamera = () => {
+        animatorCameraCommand.restore += 1;
+    };
+
+    const setAnimatorView = view => {
+        animatorCameraCommand.view = view;
+    };
+
+    const focusPivot = () => {
+        animatorCameraCommand.focusPivot += 1;
+    };
 
     return {
         animatorCameraCommand,
@@ -111,10 +128,19 @@ export function cameraModel(props, emit) {
             { key: "orbit", title: "Orbit", fields: [
                 { key: "radius", label: "Radius", step: 0.01, min: 0.0001 },
                 { key: "orthographicScale", label: "Ortho", step: 0.01, min: 0.0001 },
+                { key: "theta", label: "Theta°", step: 1 },
+                { key: "phi", label: "Phi°", step: 1 },
+            ]},
+            { key: "target", title: "Target", fields: [
+                { key: "target_x", label: "Target X", step: 0.01 },
+                { key: "target_y", label: "Target Y", step: 0.01 },
+                { key: "target_z", label: "Target Z", step: 0.01 },
             ]},
         ],
         setSavedCameraField,
         applyCurrentCamera,
+        resetCamera,
+        restoreSavedCamera,
         setAnimatorView,
         focusPivot,
     };

@@ -38,10 +38,13 @@ export const animatorCameraCommand = reactive({
     apply: 0,
     frame: 0,
     reset: 0,
+    restore: 0,
     toggleGrid: 0,
     projection: "",
     view: "",
     focusPivot: 0,
+    field: null,
+    fieldTick: 0,
 });
 
 export const animatorActiveLayerId = ref("");
