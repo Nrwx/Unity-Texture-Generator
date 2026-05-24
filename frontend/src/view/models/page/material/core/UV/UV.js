@@ -218,6 +218,154 @@ export class UV {
         return normalized;
     }
 
+    static normalizeBitmapCandidate(candidate = null) {
+        if (!candidate) {
+            return null;
+        }
+
+        if (typeof candidate === "string") {
+            return candidate.trim() ? UV.createBitmap({ url: candidate.trim() }) : null;
+        }
+
+        if (typeof candidate !== "object") {
+            return null;
+        }
+
+        const bitmap = UV.createBitmap(candidate);
+        const hasTexture = Boolean(
+            bitmap.url ||
+            bitmap.layer_id ||
+            bitmap.filename ||
+            bitmap.cached === true ||
+            bitmap.image ||
+            bitmap.canvas ||
+            bitmap.texture
+        );
+
+        return hasTexture ? bitmap : null;
+    }
+
+    static resolveActiveIsland(uv = {}) {
+        const islands = Array.isArray(uv.islands) ? uv.islands : [];
+
+        if (uv.active_island_id) {
+            return islands.find(island => island?.id === uv.active_island_id) || null;
+        }
+
+        // Kein blindes islands[0]-Fallback: nur eindeutig übernehmen,
+        // wenn es genau eine Island gibt. Bei mehreren Islands muss die
+        // Textur aus Mesh/Part/Face-Kontext kommen.
+        return islands.length === 1 ? islands[0] : null;
+    }
+
+    static resolveTrianglePart(mesh = {}, hit = {}) {
+        const triangleIndex = Math.max(0, Math.trunc(Number(hit?.triangleIndex) || 0));
+        const parts = Array.isArray(mesh.parts) ? mesh.parts : [];
+        const offset = triangleIndex * 3;
+
+        for (const part of parts) {
+            const start = Math.max(0, Math.trunc(Number(part?.start) || 0));
+            const count = Math.max(0, Math.trunc(Number(part?.count) || 0));
+
+            if (offset >= start && offset < start + count) {
+                return part;
+            }
+        }
+
+        return parts.length === 1 ? parts[0] : null;
+    }
+
+    static getIslandMatchKey(item = {}) {
+        return `${item.faceName || ""}:${item.partName || item.name || ""}:${item.name || item.faceName || ""}`;
+    }
+
+    static findMatchingIsland(uv = {}, part = null, context = {}) {
+        const islands = Array.isArray(uv.islands) ? uv.islands : [];
+        const resolvedPart = part || context.part || null;
+
+        if (!resolvedPart) {
+            return UV.resolveActiveIsland(uv);
+        }
+
+        const faceName = resolvedPart.faceName || resolvedPart.materialSlot || context.faceName || "";
+        const partName = resolvedPart.partName || resolvedPart.name || faceName;
+        const preferredKey = `${faceName}:${partName}:${partName}`;
+
+        return islands.find(island => UV.getIslandMatchKey(island) === preferredKey)
+            || islands.find(island => (island.faceName || "") === faceName)
+            || islands.find(island => (island.partName || island.name || "") === partName)
+            || null;
+    }
+
+    static resolveFaceBitmap(uv = {}, part = null, context = {}) {
+        const slot = UV.DIFFUSE_SLOT;
+        const resolvedPart = part || context.part || null;
+        const faceName = resolvedPart?.faceName || resolvedPart?.materialSlot || context.faceName || "";
+        const island = UV.findMatchingIsland(uv, resolvedPart, context);
+
+        const candidates = [
+            island?.bitmaps?.[slot],
+            island?.bitmap,
+            faceName ? uv?.faces?.[faceName]?.bitmaps?.[slot] : null,
+            faceName ? uv?.faces?.[faceName]?.bitmap : null,
+            resolvedPart?.bitmaps?.[slot],
+            resolvedPart?.bitmap,
+        ];
+
+        for (const candidate of candidates) {
+            const bitmap = UV.normalizeBitmapCandidate(candidate);
+
+            if (bitmap) {
+                return bitmap;
+            }
+        }
+
+        return null;
+    }
+
+    static resolveMeshBitmap(mesh = {}, uv = {}, context = {}) {
+        const slot = UV.DIFFUSE_SLOT;
+        const activeIsland = UV.resolveActiveIsland(uv);
+        const hitPart = context.part || UV.resolveTrianglePart(mesh, context.hit);
+        const faceBitmap = UV.resolveFaceBitmap(uv, hitPart, context);
+        const meshTexture = mesh?.texture || mesh?.textureUrl || mesh?.texture_url || mesh?.url || "";
+        const brushTexture = context.brush?.texture || context.brush?.stampTexture || context.brush?.brushUrl || "";
+
+        const candidates = [
+            // Wichtig für Sculpting: erst die Texture aus dem betroffenen
+            // Mesh/Part/Face-Kontext nehmen. Nicht still auf islands[0] fallen.
+            faceBitmap,
+            mesh?.bitmaps?.[slot],
+            mesh?.bitmap,
+            mesh?.textureBitmap,
+            mesh?.texture_bitmap,
+            meshTexture ? { url: meshTexture, name: mesh?.textureName || mesh?.name || "" } : null,
+            mesh?.material?.bitmaps?.[slot],
+            mesh?.material?.bitmap,
+            mesh?.shader?.bitmaps?.[slot],
+            mesh?.shader?.bitmap,
+            context.bitmap,
+            context.brush?.bitmaps?.[slot],
+            context.brush?.bitmap,
+            brushTexture ? { url: brushTexture, name: context.brush?.textureName || context.brush?.name || "" } : null,
+            activeIsland?.bitmaps?.[slot],
+            activeIsland?.bitmap,
+            uv?.bitmaps?.[slot],
+            uv?.bitmap,
+        ];
+
+        for (const candidate of candidates) {
+            const bitmap = UV.normalizeBitmapCandidate(candidate);
+
+            if (bitmap) {
+                return bitmap;
+            }
+        }
+
+        return UV.createBitmap();
+    }
+
+
     static reset(uv = {}) {
         return UV.normalize(uv);
     }
@@ -342,6 +490,92 @@ export class UV {
             edges: UV.clonePlain(uv.edges || []),
             triangles: UV.clonePlain(uv.triangles || []),
             seams: UV.clonePlain(uv.seams || []),
+        };
+    }
+
+    static createLayoutFromMeshVertexUvs(mesh, uv = {}, context = {}) {
+        const normalized = UV.normalize(uv);
+        const sourceMesh = UV.cloneMesh(mesh);
+        const layout = UV.createEmptyLayout();
+        const previousActiveIsland = UV.resolveActiveIsland(normalized);
+        const hitPart = context.part || UV.resolveTrianglePart(sourceMesh, context.hit);
+        const parts = Array.isArray(sourceMesh.parts) && sourceMesh.parts.length
+            ? sourceMesh.parts.filter(part => Number(part?.count || 0) > 0)
+            : [{
+                start: 0,
+                count: sourceMesh.indices.length,
+                name: previousActiveIsland?.name || context.name || "sculpt",
+                faceName: previousActiveIsland?.faceName || context.faceName || "front",
+                materialSlot: previousActiveIsland?.faceName || context.faceName || "front",
+            }];
+
+        parts.forEach(part => {
+            const previousIsland = UV.findMatchingIsland(normalized, part, context);
+            const island = {
+                ...UV.createIsland({
+                    name: previousIsland?.name || part?.name || part?.faceName || context.name || "sculpt",
+                    primitive: previousIsland?.primitive || context.primitive || sourceMesh.primitive || "mesh",
+                    part,
+                    faceName: previousIsland?.faceName || part?.faceName || part?.materialSlot || context.faceName || "front",
+                }),
+                id: previousIsland?.id || uuid("uv-island"),
+                partName: previousIsland?.partName || part?.name || part?.faceName || "",
+            };
+            const bitmap = UV.resolveMeshBitmap(sourceMesh, normalized, {
+                ...context,
+                part,
+            });
+
+            island.bitmap = bitmap;
+            island.bitmaps = {
+                [UV.DIFFUSE_SLOT]: bitmap,
+            };
+
+            layout.islands.push(island);
+            UV.triangulatePartAsIsland({
+                mesh: sourceMesh,
+                part,
+                layout,
+                island,
+            });
+        });
+
+        UV.rebuildEdges(layout);
+
+        const finalized = UV.finalizeLayout(layout, {
+            ...normalized,
+            unwrap_normalize: false,
+            unwrap_pack: false,
+        });
+
+        return {
+            layout: finalized,
+            activeIsland: hitPart
+                ? UV.findMatchingIsland({ islands: finalized.islands }, hitPart, context)
+                : previousActiveIsland,
+        };
+    }
+
+    static syncFromMeshVertexUvs(mesh, uv = {}, context = {}) {
+        if (!mesh?.vertices || !mesh?.indices) {
+            return UV.normalize(uv);
+        }
+
+        const normalized = UV.normalize(uv);
+        const { layout, activeIsland } = UV.createLayoutFromMeshVertexUvs(mesh, normalized, context);
+
+        return {
+            ...normalized,
+            mode: "unwrap",
+            view_mode: normalized.view_mode || "unwrap",
+            islands: layout.islands,
+            vertices: layout.vertices,
+            edges: layout.edges,
+            triangles: layout.triangles,
+            seams: layout.seams,
+            active_island_id: activeIsland?.id || normalized.active_island_id || layout.islands[0]?.id || "",
+            version: layout.version,
+            source: context.source || normalized.source || "mesh",
         };
     }
 

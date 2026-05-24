@@ -64,7 +64,7 @@ const normalizeBrush = (brush) => ({
 /**
  * Subdivision inside brush radius.
  */
-const refineMeshInBrush = ({ vertices, indices, stride, hit, brush }) => {
+const refineMeshInBrush = ({ vertices, indices, stride, hit, brush, parts = [] }) => {
     if (!brush.detailEnabled || brush.detailPercent <= 0 || indices.length >= brush.detailMaxTriangles * 3) {
         return { vertices, indices, changed: false };
     }
@@ -75,6 +75,17 @@ const refineMeshInBrush = ({ vertices, indices, stride, hit, brush }) => {
     const maxIndexCount = brush.detailMaxTriangles * 3;
     const splitEdges = new Set();
     const midpointCache = new Map();
+    const sourceParts = Array.isArray(parts) && parts.length
+        ? parts
+            .filter(part => Math.trunc(number(part?.count, 0)) > 0)
+            .map(part => ({ ...part }))
+        : [{
+            name: "mesh",
+            faceName: "front",
+            materialSlot: "front",
+            start: 0,
+            count: indices.length,
+        }];
 
     const edgeLength = (a, b) => Vector.from(
         Mesh.read3(vertices, stride, a, POSITION_OFFSET)
@@ -129,77 +140,120 @@ const refineMeshInBrush = ({ vertices, indices, stride, hit, brush }) => {
         return midpointCache.get(key);
     };
 
-    const addTri = (target, a, b, c) => {
-        if (target.length + 3 <= maxIndexCount) {
-            target.push(a, b, c);
+    const nextParts = [];
+    let sourcePartIndex = 0;
+
+    const resolvePartForOffset = (offset) => {
+        while (sourcePartIndex < sourceParts.length - 1) {
+            const part = sourceParts[sourcePartIndex];
+            const start = Math.max(0, Math.trunc(number(part?.start, 0)));
+            const end = start + Math.max(0, Math.trunc(number(part?.count, 0)));
+
+            if (offset < end) {
+                break;
+            }
+
+            sourcePartIndex += 1;
         }
+
+        return sourceParts[sourcePartIndex] || sourceParts[0];
     };
 
-    const splitTriangle = (target, a, b, c) => {
+    const appendTriangles = (target, triangles, part = null) => {
+        const start = target.length;
+
+        triangles.forEach(triangle => target.push(...triangle));
+
+        const added = target.length - start;
+
+        if (added <= 0) {
+            return;
+        }
+
+        const sourcePart = part || sourceParts[0];
+        const sourceKey = [
+            sourcePart?.faceName || "",
+            sourcePart?.name || "",
+            sourcePart?.materialSlot || "",
+        ].join(":");
+        const previous = nextParts[nextParts.length - 1];
+
+        if (!previous || previous.__sourceKey !== sourceKey || previous.start + previous.count !== start) {
+            nextParts.push({
+                ...sourcePart,
+                start,
+                count: 0,
+                __sourceKey: sourceKey,
+            });
+        }
+
+        nextParts[nextParts.length - 1].count += added;
+    };
+
+    const splitTriangle = (target, a, b, c, part) => {
+        const original = [[a, b, c]];
         const hasAB = splitEdges.has(Mesh.edgeKey(a, b));
         const hasBC = splitEdges.has(Mesh.edgeKey(b, c));
         const hasCA = splitEdges.has(Mesh.edgeKey(c, a));
         const count = Number(hasAB) + Number(hasBC) + Number(hasCA);
 
         if (count === 0) {
-            addTri(target, a, b, c);
+            appendTriangles(target, original, part);
             return;
         }
 
         const ab = hasAB ? getMidpoint(a, b) : null;
         const bc = hasBC ? getMidpoint(b, c) : null;
         const ca = hasCA ? getMidpoint(c, a) : null;
+        let proposed;
 
         if (count === 3) {
-            addTri(target, a, ab, ca);
-            addTri(target, ab, b, bc);
-            addTri(target, ca, bc, c);
-            addTri(target, ab, bc, ca);
-            return;
-        }
-
-        if (count === 1) {
+            proposed = [
+                [a, ab, ca],
+                [ab, b, bc],
+                [ca, bc, c],
+                [ab, bc, ca],
+            ];
+        } else if (count === 1) {
             if (hasAB) {
-                addTri(target, a, ab, c);
-                addTri(target, ab, b, c);
+                proposed = [[a, ab, c], [ab, b, c]];
             } else if (hasBC) {
-                addTri(target, b, bc, a);
-                addTri(target, bc, c, a);
+                proposed = [[b, bc, a], [bc, c, a]];
             } else {
-                addTri(target, c, ca, b);
-                addTri(target, ca, a, b);
+                proposed = [[c, ca, b], [ca, a, b]];
             }
-            return;
+        } else if (hasAB && hasBC) {
+            proposed = [[b, bc, ab], [a, ab, c], [ab, bc, c]];
+        } else if (hasBC && hasCA) {
+            proposed = [[c, ca, bc], [b, bc, a], [bc, ca, a]];
+        } else {
+            proposed = [[a, ab, ca], [b, c, ab], [ab, c, ca]];
         }
 
-        if (hasAB && hasBC) {
-            addTri(target, b, bc, ab);
-            addTri(target, a, ab, c);
-            addTri(target, ab, bc, c);
-            return;
-        }
+        const proposedIndexCount = proposed.length * 3;
 
-        if (hasBC && hasCA) {
-            addTri(target, c, ca, bc);
-            addTri(target, b, bc, a);
-            addTri(target, bc, ca, a);
-            return;
-        }
-
-        addTri(target, a, ab, ca);
-        addTri(target, b, c, ab);
-        addTri(target, ab, c, ca);
+        // Das Triangle-Limit darf Topologie verfeinern begrenzen, aber niemals
+        // bestehende Geometrie wegschneiden. Wenn kein Budget mehr da ist,
+        // bleibt das Original-Dreieck vollständig erhalten.
+        appendTriangles(
+            target,
+            target.length + proposedIndexCount <= maxIndexCount ? proposed : original,
+            part,
+        );
     };
 
     const nextIndices = [];
 
     for (let i = 0; i < indices.length; i += 3) {
-        splitTriangle(nextIndices, indices[i], indices[i + 1], indices[i + 2]);
+        splitTriangle(nextIndices, indices[i], indices[i + 1], indices[i + 2], resolvePartForOffset(i));
     }
 
     return {
         vertices,
         indices: nextIndices.length ? nextIndices : indices,
+        parts: nextParts.length
+            ? nextParts.map(({ __sourceKey, ...part }) => { if(!__sourceKey) console.log(__sourceKey, part, 'KEY IS MISSING'); return part})
+            : sourceParts,
         changed: nextIndices.length !== indices.length || midpointCache.size > 0,
     };
 };
@@ -253,6 +307,21 @@ export const createDefaultSculptBrush = () => ({
 
 export const SCULPT_BRUSH_MODES = Object.freeze(Object.keys(BRUSH_MODIFIERS));
 
+const resolveSculptUv = (mesh, explicitUv = null, context = {}) => {
+    const sourceUv = explicitUv || mesh?.uv || mesh?.meta?.uv || null;
+
+    if (!mesh?.vertices || !mesh?.indices) {
+        return sourceUv;
+    }
+
+    return UV.syncFromMeshVertexUvs(mesh, sourceUv || {}, {
+        source: "sculpt",
+        name: "sculpt",
+        primitive: mesh?.primitive || mesh?.settings?.primitive || "mesh",
+        ...context,
+    });
+};
+
 export const buildSculptBrushOverlay = ({ brush: rawBrush, hit = null } = {}) => {
     const brush = normalizeBrush(rawBrush);
 
@@ -276,7 +345,7 @@ export const buildSculptBrushOverlay = ({ brush: rawBrush, hit = null } = {}) =>
     };
 };
 
-export const applySculptBrushToMesh = ({ mesh, hit, brush: rawBrush }) => {
+export const applySculptBrushToMesh = ({ mesh, hit, brush: rawBrush, uv = null, uvBitmap = null }) => {
     if (!mesh || !hit?.point) return { mesh, changed: false };
 
     const brush = normalizeBrush(rawBrush);
@@ -288,8 +357,9 @@ export const applySculptBrushToMesh = ({ mesh, hit, brush: rawBrush }) => {
     const vertices = editable.vertices;
     let indices = editable.indices;
     const stride = editable.stride;
+    const hitUv = createHitUv(vertices, indices, stride, hit);
 
-    const refine = refineMeshInBrush({ vertices, indices, stride, hit, brush });
+    const refine = refineMeshInBrush({ vertices, indices, stride, hit, brush, parts: mesh.parts || [] });
     indices = refine.indices;
 
     const neighbors = Mesh.buildNeighbors(indices, vertices, stride);
@@ -302,7 +372,7 @@ export const applySculptBrushToMesh = ({ mesh, hit, brush: rawBrush }) => {
 
     const hitContext = {
         ...hit,
-        uv: createHitUv(vertices, indices, stride, hit),
+        uv: hitUv || createHitUv(vertices, indices, stride, hit),
         normal: Vector.normalize(hit.normal || [0, 0, 1], [0, 0, 1]).toArray(),
     };
 
@@ -356,10 +426,32 @@ export const applySculptBrushToMesh = ({ mesh, hit, brush: rawBrush }) => {
         stride,
         source: "sculpt",
         meta: {
+            ...(nextMesh.meta || {}),
             sculpted: true,
+            sculptMode: brush.mode,
+            sculptStrength: brush.strength,
+            brushRadius: brush.radius,
             brushRevision: Math.trunc(number(mesh.meta?.brushRevision, 0)) + 1,
         },
     });
 
-    return { mesh: finalized, changed: true };
+    if (Array.isArray(refine.parts) && refine.parts.length) {
+        finalized.parts = refine.parts.map(part => ({ ...part }));
+    }
+
+    const nextUv = resolveSculptUv(finalized, uv, { brush, bitmap: uvBitmap, hit });
+
+    if (nextUv) {
+        finalized.uv = nextUv;
+        finalized.meta = {
+            ...(finalized.meta || {}),
+            uvSynced: true,
+            uvSource: "sculpt",
+            uvRevision: Math.trunc(number(finalized.meta?.uvRevision, 0)) + 1,
+            uvVertexCount: nextUv.vertices.length,
+            uvTriangleCount: nextUv.triangles.length,
+        };
+    }
+
+    return { mesh: finalized, uv: nextUv, changed: true };
 };

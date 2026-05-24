@@ -493,6 +493,39 @@ export function animatorModel(props, emit) {
 
     const isActiveLayer = layer => layer?.id && activeLayer.value?.id === layer.id;
 
+    const resolveLayerUv = layer => (
+        layer?.uv ||
+        layer?.mesh?.uv ||
+        layer?.material?.uv ||
+        layer?.shader?.uv ||
+        null
+    );
+
+    const resolveLayerUvBitmap = layer => {
+        const slot = "baseColor";
+        const uv = resolveLayerUv(layer);
+        const islands = Array.isArray(uv?.islands) ? uv.islands : [];
+        const activeIsland = uv?.active_island_id
+            ? islands.find(island => island?.id === uv.active_island_id)
+            : (islands.length === 1 ? islands[0] : null);
+
+        return (
+            layer?.mesh?.bitmap_maps?.[slot] ||
+            layer?.bitmap_maps?.[slot] ||
+            layer?.material?.bitmap_maps?.[slot] ||
+            layer?.shader?.bitmap_maps?.[slot] ||
+            layer?.mesh?.bitmaps?.[slot] ||
+            layer?.mesh?.bitmap ||
+            layer?.material?.bitmaps?.[slot] ||
+            layer?.material?.bitmap ||
+            layer?.shader?.bitmaps?.[slot] ||
+            layer?.shader?.bitmap ||
+            activeIsland?.bitmaps?.[slot] ||
+            activeIsland?.bitmap ||
+            null
+        );
+    };
+
 
     const createAnimatorMeshPayload = layer => {
         if (!layer?.id) {
@@ -504,8 +537,10 @@ export function animatorModel(props, emit) {
             layer.mesh?.settings ||
             {}
         );
+        const uv = resolveLayerUv(layer);
         const mesh = {
             ...(layer.mesh || {}),
+            ...(uv ? { uv } : {}),
             settings: {
                 ...(layer.mesh?.settings || {}),
                 ...geometry,
@@ -525,6 +560,7 @@ export function animatorModel(props, emit) {
             keyframes: layer.keyframes,
             geometry,
             mesh,
+            ...(uv ? { uv } : {}),
             settings: {
                 ...(layer.settings || {}),
                 animator_viewport: true,
@@ -538,6 +574,7 @@ export function animatorModel(props, emit) {
             viewport_camera: cameraPayload,
             material: {
                 ...(layer.material || {}),
+                ...(uv ? { uv } : {}),
                 geometry: {
                     ...(layer.material?.geometry || {}),
                     ...geometry,
@@ -547,6 +584,7 @@ export function animatorModel(props, emit) {
             },
             shader: {
                 ...(layer.shader || {}),
+                ...(uv ? { uv } : {}),
                 geometry: {
                     ...(layer.shader?.geometry || {}),
                     ...geometry,
@@ -1242,24 +1280,34 @@ export function animatorModel(props, emit) {
             mesh: layer.mesh,
             hit,
             brush,
+            uv: resolveLayerUv(layer),
+            uvBitmap: resolveLayerUvBitmap(layer),
         });
 
         if (!result.changed) {
             return false;
         }
 
-        layer.mesh = result.mesh;
+        const uvPatch = result.uv ? { uv: result.uv } : {};
+
+        layer.mesh = {
+            ...result.mesh,
+            ...uvPatch,
+        };
         layer.mesh.settings = {
             ...(layer.mesh.settings || {}),
             ...(layer.geometry || {}),
         };
+        layer.uv = result.uv || layer.uv;
         layer.shader = {
             ...(layer.shader || {}),
-            mesh: result.mesh,
+            ...uvPatch,
+            mesh: layer.mesh,
         };
         layer.material = {
             ...(layer.material || {}),
-            mesh: result.mesh,
+            ...uvPatch,
+            mesh: layer.mesh,
         };
 
         temp.value.sculpt.lastPoint = currentPoint.slice();

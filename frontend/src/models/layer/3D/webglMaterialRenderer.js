@@ -1164,6 +1164,11 @@ const makeRenderMeshSignature = mesh => {
     return [
         mesh?.meta?.renderCacheKey || mesh?.meta?.cacheKey || "",
         mesh?.meta?.version || mesh?.meta?.updatedAt || mesh?.version || mesh?.updatedAt || "",
+        mesh?.meta?.editRevision || "",
+        mesh?.meta?.brushRevision || "",
+        mesh?.meta?.uvRevision || "",
+        mesh?.meta?.uvLayoutVersion || "",
+        mesh?.meta?.sculpted === true ? "sculpted" : "",
         mesh?.id || "",
         mesh?.primitive || mesh?.settings?.primitive || "mesh",
         mesh?.stride || 11,
