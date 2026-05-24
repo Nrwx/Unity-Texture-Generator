@@ -870,6 +870,67 @@ const buildOverlayGeometry = mesh => {
     };
 };
 
+const getArrayValues = value => {
+    if (value instanceof Float32Array || value instanceof Uint16Array || value instanceof Uint32Array) {
+        return Array.from(value);
+    }
+
+    if (Array.isArray(value)) {
+        return value;
+    }
+
+    if (value && typeof value === "object") {
+        return Object.keys(value)
+            .sort((a, b) => Number(a) - Number(b))
+            .map(key => value[key]);
+    }
+
+    return [];
+};
+
+const normalizeRenderMesh = mesh => {
+    if (!mesh || !mesh.stride || !mesh.vertices || !mesh.indices) {
+        return null;
+    }
+
+    const stride = Number(mesh.stride || 11);
+    const vertices = getArrayValues(mesh.vertices).map(value => Number(value) || 0);
+    const indices = getArrayValues(mesh.indices).map(value => Math.max(0, Math.trunc(Number(value) || 0)));
+
+    if (stride < 8 || vertices.length < stride * 3 || indices.length < 3) {
+        return null;
+    }
+
+    const maxIndex = indices.reduce((max, index) => Math.max(max, index), 0);
+    const indexArray = mesh.indexType === "uint32" || maxIndex > 65535
+        ? new Uint32Array(indices)
+        : new Uint16Array(indices);
+
+    return {
+        id: mesh.id || "material-mesh",
+        primitive: mesh.primitive || mesh.settings?.primitive || "mesh",
+        stride,
+        vertices: new Float32Array(vertices),
+        indices: indexArray,
+        count: indexArray.length,
+        indexType: indexArray instanceof Uint32Array ? "uint32" : "uint16",
+        parts: Array.isArray(mesh.parts) && mesh.parts.length
+            ? mesh.parts
+            : [{
+                name: "mesh",
+                faceName: "front",
+                start: 0,
+                count: indexArray.length,
+            }],
+        cacheKey: mesh.meta?.renderCacheKey || mesh.meta?.cacheKey || JSON.stringify({
+            id: mesh.id || "",
+            primitive: mesh.primitive || mesh.settings?.primitive || "mesh",
+            count: indexArray.length,
+            vertexCount: vertices.length / stride,
+        }),
+    };
+};
+
 const INT_UNIFORMS = Object.freeze(new Set([
     "uUseBaseMap",
     "uUseAlphaMap",
@@ -1046,6 +1107,93 @@ export class WebGLMaterialRenderer {
         return this.overlayMeshes.get(faceName);
     }
 
+    getRenderMesh(sourceMesh) {
+        const normalized = normalizeRenderMesh(sourceMesh);
+
+        if (!normalized) {
+            return null;
+        }
+
+        const key = `mesh:${normalized.cacheKey}`;
+
+        if (!this.meshes.has(key)) {
+            const gl = this.gl;
+            const mesh = normalized;
+
+            mesh.vao = gl.createVertexArray();
+            mesh.vbo = gl.createBuffer();
+            mesh.ibo = gl.createBuffer();
+
+            gl.bindVertexArray(mesh.vao);
+            gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vbo);
+            gl.bufferData(gl.ARRAY_BUFFER, mesh.vertices, gl.STATIC_DRAW);
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.ibo);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, mesh.indices, gl.STATIC_DRAW);
+
+            const stride = mesh.stride * 4;
+            gl.enableVertexAttribArray(0);
+            gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+            gl.enableVertexAttribArray(1);
+            gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 3 * 4);
+            gl.enableVertexAttribArray(2);
+            gl.vertexAttribPointer(2, 2, gl.FLOAT, false, stride, 6 * 4);
+            gl.enableVertexAttribArray(3);
+            gl.vertexAttribPointer(3, 3, gl.FLOAT, false, stride, 8 * 4);
+            gl.bindVertexArray(null);
+
+            this.meshes.set(key, mesh);
+        }
+
+        return this.meshes.get(key);
+    }
+
+    getRenderOverlayMesh(sourceMesh) {
+        const mesh = this.getRenderMesh(sourceMesh);
+
+        if (!mesh) {
+            return null;
+        }
+
+        const key = `overlay:${mesh.cacheKey}`;
+
+        if (!this.overlayMeshes.has(key)) {
+            const gl = this.gl;
+            const lineOverlay = buildOverlayGeometry(mesh);
+
+            const overlay = {
+                faceMesh: mesh,
+                linePositions: lineOverlay.linePositions,
+                lineCount: lineOverlay.lineCount,
+                pointPositions: lineOverlay.pointPositions,
+                pointCount: lineOverlay.pointCount,
+            };
+
+            overlay.faceVao = mesh.vao;
+            overlay.lineVao = gl.createVertexArray();
+            overlay.lineVbo = gl.createBuffer();
+
+            gl.bindVertexArray(overlay.lineVao);
+            gl.bindBuffer(gl.ARRAY_BUFFER, overlay.lineVbo);
+            gl.bufferData(gl.ARRAY_BUFFER, overlay.linePositions, gl.STATIC_DRAW);
+            gl.enableVertexAttribArray(0);
+            gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 3 * 4, 0);
+
+            overlay.pointVao = gl.createVertexArray();
+            overlay.pointVbo = gl.createBuffer();
+
+            gl.bindVertexArray(overlay.pointVao);
+            gl.bindBuffer(gl.ARRAY_BUFFER, overlay.pointVbo);
+            gl.bufferData(gl.ARRAY_BUFFER, overlay.pointPositions, gl.STATIC_DRAW);
+            gl.enableVertexAttribArray(0);
+            gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 3 * 4, 0);
+
+            gl.bindVertexArray(null);
+            this.overlayMeshes.set(key, overlay);
+        }
+
+        return this.overlayMeshes.get(key);
+    }
+
     getImageTexture(entry, fallbackName = "white") {
         const image = textureImage(entry);
 
@@ -1172,7 +1320,7 @@ export class WebGLMaterialRenderer {
         };
     }
 
-    drawOverlayPass({ previewOverlay, matrices }) {
+    drawOverlayPass({ previewOverlay, matrices, renderMesh = null }) {
         if (!previewOverlay || !this.overlayProgram) {
             return;
         }
@@ -1209,8 +1357,11 @@ export class WebGLMaterialRenderer {
             uColor: [1, 1, 1, 1],
         });
 
-        Object.keys(FACE_DEFS).forEach((faceName, index) => {
-            const overlay = this.getOverlayMesh(faceName);
+        const overlays = renderMesh
+            ? [this.getRenderOverlayMesh(renderMesh)].filter(Boolean)
+            : Object.keys(FACE_DEFS).map(faceName => this.getOverlayMesh(faceName));
+
+        overlays.forEach((overlay, index) => {
 
             if (showFaces) {
                 this.setUniforms(this.overlayProgram, {
@@ -1224,7 +1375,7 @@ export class WebGLMaterialRenderer {
                 gl.drawElements(
                     gl.TRIANGLES,
                     overlay.faceMesh.count,
-                    gl.UNSIGNED_SHORT,
+                    overlay.faceMesh.indexType === "uint32" ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT,
                     0
                 );
             }
@@ -1320,7 +1471,23 @@ export class WebGLMaterialRenderer {
 
         gl.useProgram(this.program);
 
-        Object.keys(FACE_DEFS).forEach(faceName => {
+        const materialMesh = this.getRenderMesh(materialLayer.mesh);
+        const drawEntries = materialMesh
+            ? materialMesh.parts.map(part => ({
+                faceName: part.faceName || part.materialSlot || part.name || "front",
+                mesh: materialMesh,
+                start: Math.max(0, Math.trunc(Number(part.start || 0))),
+                count: Math.max(0, Math.trunc(Number(part.count || materialMesh.count))),
+            }))
+            : Object.keys(FACE_DEFS).map(faceName => ({
+                faceName,
+                mesh: this.getMesh(faceName),
+                start: 0,
+                count: 0,
+            }));
+
+        drawEntries.forEach(entry => {
+            const faceName = entry.faceName;
             const faceSurface = resolveSurfaceForFace(surface, materialLayer, faceName);
             const slotTexture = slot => resolvePreviewTexture(
                 useObjectTextures,
@@ -1561,14 +1728,20 @@ export class WebGLMaterialRenderer {
                 uSubsurfaceTranslucency: objectTextureSettings.subsurface_translucency ? 1 : 0,
             });
 
-            const mesh = this.getMesh(faceName);
+            const mesh = entry.mesh;
+            const indexType = mesh.indexType === "uint32" ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT;
+            const indexBytes = indexType === gl.UNSIGNED_INT ? 4 : 2;
+            const count = entry.count || mesh.count;
+            const offset = entry.start * indexBytes;
+
             gl.bindVertexArray(mesh.vao);
-            gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_SHORT, 0);
+            gl.drawElements(gl.TRIANGLES, count, indexType, offset);
         });
 
         this.drawOverlayPass({
             previewOverlay,
             matrices,
+            renderMesh: materialMesh,
         });
 
         gl.bindVertexArray(null);

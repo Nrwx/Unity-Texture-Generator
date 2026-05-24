@@ -146,7 +146,7 @@
             <Geometry
                 v-else-if="ui.activeTab === 'geometry'"
                 v-model:geometry="values.geometry"
-                @change="requestPreviewDebounced"
+                @change="handleGeometryChange"
             />
 
             <!-- PHYSICS -->
@@ -180,25 +180,41 @@
                   </div>
 
                   <div class="mem-uv-toolbar-actions">
+                    <template v-if="showUvModeSwitch">
+                      <button
+                          v-for="option in uvEditorModeOptions"
+                          :key="option.key"
+                          type="button"
+                          class="mem-ghost-btn"
+                          :class="{ active: values.uv.view_mode === option.key }"
+                          @click="setUvEditorMode(option.key)"
+                      >
+                        {{ option.label }}
+                      </button>
+                    </template>
+
                     <button
+                        v-if="values.uv.view_mode !== 'unwrap'"
                         type="button"
                         class="mem-ghost-btn"
                         :class="{ active: values.uv.view_mode === 'face' }"
-                        @click="values.uv.view_mode = 'face'; drawUvCanvas()"
+                        @click="values.uv.mode = 'cubemap'; values.uv.view_mode = 'face'; drawUvCanvas()"
                     >
                       Face View
                     </button>
 
                     <button
+                        v-if="values.uv.view_mode !== 'unwrap'"
                         type="button"
                         class="mem-ghost-btn"
                         :class="{ active: values.uv.view_mode === 'cubemap' }"
-                        @click="values.uv.view_mode = 'cubemap'; drawUvCanvas()"
+                        @click="setUvEditorMode('cubemap')"
                     >
                       CubeMap View
                     </button>
 
                     <button
+                        v-if="values.uv.view_mode !== 'unwrap'"
                         type="button"
                         class="mem-ghost-btn"
                         @click="selectAllUvFaces"
@@ -238,6 +254,7 @@
                           ref="uvCanvasRef"
                           class="mem-uv-live-canvas"
                           :style="uvCanvasStyle"
+                          @mousedown.stop="startUvCanvasPointer"
                       />
 
                       <div class="mem-uv-canvas-hud">
@@ -245,13 +262,16 @@
                       </div>
 
                       <div class="mem-uv-canvas-hud mem-uv-face-hud">
-                        {{ values.uv.view_mode === 'cubemap' ? 'CUBEMAP' : values.uv.active_face }}
+                        {{ values.uv.view_mode === 'unwrap' ? 'UNWRAP' : values.uv.view_mode === 'cubemap' ? 'CUBEMAP' : values.uv.active_face }}
                       </div>
                     </div>
                   </section>
 
                   <!-- RIGHT: CUBEMAP + INSPECTOR -->
-                  <section class="mem-uv-side-column">
+                  <section
+                      v-if="values.uv.view_mode !== 'unwrap'"
+                      class="mem-uv-side-column"
+                  >
                     <section class="mem-uv-card mem-uv-cubemap-card">
                       <header class="mem-uv-card-head">
                         <div>
@@ -419,6 +439,42 @@
                       </div>
                     </section>
                   </section>
+
+                  <section
+                      v-else
+                      class="mem-uv-side-column"
+                  >
+                    <section class="mem-uv-card mem-uv-inspector-card">
+                      <header class="mem-uv-card-head">
+                        <div>
+                          <strong>Unwrap Inspector</strong>
+                          <span>{{ values.uv.islands.length }} islands · {{ values.uv.selected_vertex_ids.length }} vertices</span>
+                        </div>
+                      </header>
+
+                      <div class="mem-uv-metrics">
+                        <div>
+                          <span>ISLANDS</span>
+                          <strong>{{ values.uv.islands.length }}</strong>
+                        </div>
+
+                        <div>
+                          <span>VERTICES</span>
+                          <strong>{{ values.uv.vertices.length }}</strong>
+                        </div>
+
+                        <div>
+                          <span>EDGES</span>
+                          <strong>{{ values.uv.edges.length }}</strong>
+                        </div>
+
+                        <div>
+                          <span>TRIS</span>
+                          <strong>{{ values.uv.triangles.length }}</strong>
+                        </div>
+                      </div>
+                    </section>
+                  </section>
                 </div>
 
                 <!-- BOTTOM: LAYERS + REFERENCE -->
@@ -427,8 +483,8 @@
                     <div>
                       <strong>Face Bitmap Assignment</strong>
                       <span>
-            Bitmap wird den selektierten Faces zugewiesen.
-            Aktuell: {{ selectedUvFaces.join(', ') }}
+            Bitmap wird der aktiven UV-Auswahl zugewiesen.
+            Aktuell: {{ values.uv.view_mode === 'unwrap' ? (values.uv.selected_island_ids.length ? values.uv.selected_island_ids.length + ' islands' : 'alle islands') : selectedUvFaces.join(', ') }}
           </span>
                     </div>
                   </header>

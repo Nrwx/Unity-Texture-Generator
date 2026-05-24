@@ -92,6 +92,13 @@ ALLOWED_NODE_TYPES = {
     "math",
     "preview",
     "multitexture",
+    "Shader",
+    "Texture",
+    "UV",
+    "Math",
+    "Vector",
+    "Color",
+    "Output",
 }
 
 SOURCE_TYPES = {
@@ -1016,6 +1023,12 @@ class MaterialModel(BaseModel):
             if slot_key in SURFACE_SLOT_KEYS
         ] or [target_slot]
 
+        islands = data.get("islands", [])
+        vertices = data.get("vertices", [])
+        edges = data.get("edges", [])
+        triangles = data.get("triangles", [])
+        seams = data.get("seams", [])
+
         return {
             "mode": data.get("mode", "cubemap"),
             "view_mode": data.get("view_mode", "cubemap"),
@@ -1025,6 +1038,22 @@ class MaterialModel(BaseModel):
             "target_slot": target_slots[0],
             "target_slots": target_slots,
             "faces": faces,
+            "tool": data.get("tool", "select"),
+            "unwrap_mode": data.get("unwrap_mode", "primitive"),
+            "unwrap_projection": data.get("unwrap_projection", "primitive"),
+            "unwrap_padding": cls.clamp(data.get("unwrap_padding", 0.015), 0.0, 0.25),
+            "unwrap_normalize": cls.safe_bool(data.get("unwrap_normalize", True)),
+            "unwrap_pack": cls.safe_bool(data.get("unwrap_pack", True)),
+            "active_island_id": str(data.get("active_island_id", "") or ""),
+            "selected_island_ids": data.get("selected_island_ids", []) if isinstance(data.get("selected_island_ids", []), list) else [],
+            "selected_vertex_ids": data.get("selected_vertex_ids", []) if isinstance(data.get("selected_vertex_ids", []), list) else [],
+            "selected_edge_ids": data.get("selected_edge_ids", []) if isinstance(data.get("selected_edge_ids", []), list) else [],
+            "selected_seam_ids": data.get("selected_seam_ids", []) if isinstance(data.get("selected_seam_ids", []), list) else [],
+            "islands": islands if isinstance(islands, list) else [],
+            "vertices": vertices if isinstance(vertices, list) else [],
+            "edges": edges if isinstance(edges, list) else [],
+            "triangles": triangles if isinstance(triangles, list) else [],
+            "seams": seams if isinstance(seams, list) else [],
         }
 
     @classmethod
@@ -2424,6 +2453,47 @@ class MaterialModel(BaseModel):
         }
 
     @classmethod
+    def normalize_mesh(cls, mesh, fallback):
+        data = json_loads(mesh, {})
+
+        if not isinstance(data, dict):
+            return fallback
+
+        vertices = data.get("vertices", [])
+        indices = data.get("indices", [])
+
+        if not isinstance(vertices, list) or not isinstance(indices, list):
+            return fallback
+
+        try:
+            flat_vertices = [float(value) for value in vertices]
+            flat_indices = [max(0, int(value)) for value in indices]
+        except (TypeError, ValueError):
+            return fallback
+
+        stride = int(data.get("stride", 11) or 11)
+
+        if stride < 8 or len(flat_vertices) < stride * 3 or len(flat_indices) < 3:
+            return fallback
+
+        max_index = max(flat_indices) if flat_indices else 0
+
+        return {
+            **data,
+            "id": str(data.get("id", "") or fallback.get("id", "material-mesh")),
+            "primitive": str(data.get("primitive", fallback.get("primitive", "cube")) or "cube"),
+            "stride": stride,
+            "vertices": flat_vertices,
+            "indices": flat_indices,
+            "indexType": "uint32" if data.get("indexType") == "uint32" or max_index > 65535 else "uint16",
+            "count": int(data.get("count", len(flat_indices)) or len(flat_indices)),
+            "parts": data.get("parts", []) if isinstance(data.get("parts", []), list) else [],
+            "settings": data.get("settings", {}) if isinstance(data.get("settings", {}), dict) else {},
+            "bounds": data.get("bounds", {}) if isinstance(data.get("bounds", {}), dict) else {},
+            "meta": data.get("meta", {}) if isinstance(data.get("meta", {}), dict) else {},
+        }
+
+    @classmethod
     def build_shader_payload(
         cls,
         surface,
@@ -2581,6 +2651,7 @@ class MaterialModel(BaseModel):
         bitmap_maps_data = raw_values.get("bitmap_maps", bitmap_maps)
         uv_data = raw_values.get("uv", uv)
         shader_graph_data = raw_values.get("shader_graph", shader_graph)
+        mesh_data = raw_values.get("mesh", fallbacks.get("mesh", {}))
 
         if not isinstance(surface_data, dict):
             surface_data = json_loads(surface_data, {})
@@ -2597,6 +2668,9 @@ class MaterialModel(BaseModel):
         if not isinstance(shader_graph_data, dict):
             shader_graph_data = json_loads(shader_graph_data, {})
 
+        if not isinstance(mesh_data, dict):
+            mesh_data = json_loads(mesh_data, {})
+
         resolved = {
             "name": raw_values.get("name", name or "Cube Material"),
 
@@ -2605,6 +2679,7 @@ class MaterialModel(BaseModel):
             "bitmap_maps": bitmap_maps_data if isinstance(bitmap_maps_data, dict) else {},
             "uv": uv_data if isinstance(uv_data, dict) else {},
             "shader_graph": shader_graph_data if isinstance(shader_graph_data, dict) else {},
+            "mesh": mesh_data if isinstance(mesh_data, dict) else {},
 
             "cube_size": raw_values.get("cube_size", cube_size),
             "rotate_preview": raw_values.get("rotate_preview", rotate_preview),
@@ -2702,10 +2777,11 @@ class MaterialModel(BaseModel):
             normalized_uv,
         )
 
-        mesh = cls.build_low_poly_cube_mesh(
+        fallback_mesh = cls.build_low_poly_cube_mesh(
             cube_size=payload["cube_size"],
             geometry=normalized_geometry,
         )
+        mesh = cls.normalize_mesh(payload.get("mesh", {}), fallback_mesh)
 
         shader = cls.build_shader_payload(
             surface=normalized_surface,

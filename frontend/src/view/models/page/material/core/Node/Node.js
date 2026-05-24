@@ -204,7 +204,23 @@ export class Node {
                 uv: Node.socket("vector", "UV"),
             },
             defaults: {
-                uv_map: "",
+                uv_map: "Unwrap",
+                mode: "unwrap",
+            },
+        }),
+
+        Node.define({
+            key: "uv.cubemap",
+            type: "UV",
+            label: "UV-CubeMap",
+            icon: "mdi-cube-scan",
+            outputs: {
+                uv: Node.socket("vector", "Cube UV"),
+            },
+            defaults: {
+                uv_map: "CubeMap",
+                mode: "cubemap",
+                atlas: "cross",
             },
         }),
 

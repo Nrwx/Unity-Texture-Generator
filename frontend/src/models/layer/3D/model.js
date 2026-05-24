@@ -537,6 +537,11 @@ export function layer3DModel(props, emit) {
                 ...parsePlainObject(shader.geometry),
                 ...parsePlainObject(layer?.geometry),
             },
+            mesh: {
+                ...parsePlainObject(material.mesh),
+                ...parsePlainObject(shader.mesh),
+                ...parsePlainObject(layer?.mesh),
+            },
             light: {
                 ...parsePlainObject(material.light),
                 ...parsePlainObject(shader.light),
@@ -1540,6 +1545,7 @@ export function layer3DModel(props, emit) {
             props.layer?.package?.url,
             props.layer?.surface && JSON.stringify(props.layer.surface),
             props.layer?.geometry && JSON.stringify(props.layer.geometry),
+            props.layer?.mesh && JSON.stringify(props.layer.mesh),
             props.layer?.light && JSON.stringify(props.layer.light),
             props.layer?.settings?.light && JSON.stringify(props.layer.settings.light),
             props.layer?.uv && JSON.stringify(props.layer.uv),
