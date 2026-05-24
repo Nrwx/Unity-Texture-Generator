@@ -16,6 +16,7 @@ import {
     faceDepth,
     polygonArea, resolvePrincipled
 } from "@/models/layer/3D/canvas2DMaterialRender";
+import {WebGLRuntime} from "@/models/layer/3D/webglRuntime";
 
 const SURFACE_DEFAULTS = Object.freeze({
     baseColor: [1, 1, 1, 1],
@@ -517,9 +518,67 @@ export function layer3DModel(props, emit) {
     let lastFrameTime = 0;
     let initToken = 0;
     let running = false;
+    const instanceId = `${props.webglScope}:${props.layer?.id}`;
 
     const emitEvent = (event, payload) => {
         emit("component-event", event, payload);
+    };
+
+    const destroyWebGL = () => {
+        if (frameId) {
+            cancelAnimationFrame(frameId);
+            frameId = null;
+        }
+
+        running = false;
+        lastFrameTime = 0;
+        particleAge = 0;
+
+        if (webglRenderer) {
+            try {
+                webglRenderer.destroy();
+            } catch (error) {
+                console.warn("[Layer3D] WebGL destroy failed", error);
+            }
+
+            webglRenderer = null;
+        }
+
+        const canvas = webglCanvasRef.value;
+
+        if (canvas) {
+            canvas.width = 1;
+            canvas.height = 1;
+        }
+
+        activeRenderer.value = "CANVAS2D";
+
+        WebGLRuntime.unregister({
+            scope: props.webglScope,
+            id: instanceId,
+        });
+    };
+
+    const registerWebGLRuntime = () => {
+        WebGLRuntime.register({
+            scope: props.webglScope,
+            id: instanceId,
+            destroy: destroyWebGL,
+            pause: () => {
+                if (frameId) {
+                    cancelAnimationFrame(frameId);
+                    frameId = null;
+                }
+
+                running = false;
+            },
+            resume: () => {
+                if (!running) {
+                    running = true;
+                    frameId = requestAnimationFrame(loop);
+                }
+            },
+        });
     };
 
     const shouldPauseLayerAnimation = (materialLayer = null) => {
@@ -1456,13 +1515,20 @@ export function layer3DModel(props, emit) {
     };
 
     const drawWebGL = () => {
+        if (props.webglActive !== true) {
+            destroyWebGL();
+            return false;
+        }
+
         const canvas = webglCanvasRef.value;
 
         if (!canvas || typeof WebGL2RenderingContext === "undefined") {
+            destroyWebGL();
             return false;
         }
 
         if (!isMaterialConnected(props.layer)) {
+            destroyWebGL();
             return false;
         }
 
@@ -1473,11 +1539,7 @@ export function layer3DModel(props, emit) {
         const rendererMode = resolveRendererMode(materialLayer);
 
         if (rendererMode !== "WEBGL2") {
-            if (webglRenderer) {
-                webglRenderer.destroy();
-                webglRenderer = null;
-            }
-
+            destroyWebGL();
             return false;
         }
 
@@ -1487,13 +1549,19 @@ export function layer3DModel(props, emit) {
             materialLayer?.preview?.viewport_camera ||
             materialLayer?.shader?.viewport_camera ||
             null;
+
         const surface = normalizeSurface(materialLayer);
         const light = resolveLight(materialLayer);
         const objectTextureSettings = resolveObjectTextureSettings(materialLayer);
 
         try {
+            if (props.webglExclusive === true) {
+                WebGLRuntime.setExclusiveScope(props.webglScope);
+            }
+
             if (!webglRenderer) {
                 webglRenderer = new WebGLMaterialRenderer(canvas);
+                registerWebGLRuntime();
             }
 
             return webglRenderer.render({
@@ -1515,6 +1583,7 @@ export function layer3DModel(props, emit) {
             });
         } catch (error) {
             console.warn("Layer3D WebGL renderer failed.", error);
+            destroyWebGL();
             return false;
         }
     };
@@ -1836,6 +1905,25 @@ export function layer3DModel(props, emit) {
     };
 
     watch(
+        () => props.webglScope,
+        () => {
+            destroyWebGL();
+            requestInit();
+        }
+    );
+
+    watch(
+        () => props.webglActive,
+        value => {
+            if (value === false) {
+                destroyWebGL();
+            } else {
+                requestInit();
+            }
+        }
+    );
+
+    watch(
         () => [props.layer?.id,
             props.layer?.time,
             props.layer?.url,
@@ -1890,12 +1978,11 @@ export function layer3DModel(props, emit) {
             initTimer = null;
         }
 
-        stopLoop();
+        destroyWebGL();
 
-        if (webglRenderer) {
-            webglRenderer.destroy();
-            webglRenderer = null;
-        }
+        textureImages = {};
+        textureSampleCache = {};
+        materialPackage = null;
     });
 
     return {
@@ -1929,5 +2016,22 @@ export const layer3DProps = {
         type: Boolean,
         required: false,
         default: false,
-    }
+    },
+    webglScope: {
+        type: String,
+        required: false,
+        default: "main-canvas",
+    },
+
+    webglActive: {
+        type: Boolean,
+        required: false,
+        default: true,
+    },
+
+    webglExclusive: {
+        type: Boolean,
+        required: false,
+        default: false,
+    },
 };

@@ -1,3 +1,5 @@
+import {WebGLRuntime} from "@/models/layer/3D/webglRuntime";
+
 export const windowStateEvent = (route) => ({
     "reset:window-states": async (payload) => {
         await route.emit("reset:modifiers", payload);
@@ -305,19 +307,6 @@ export const windowStateEvent = (route) => ({
             await route.emit("event:listener", {pause: true, id: 'listener:path'})
         }
     },
-    "export-state": async (payload) => {
-        console.log(payload)
-        route.windowStates.export.value = payload;
-        route.localData.loading.value = true
-        const response = await route.api.renderer({mode: 'preview'});
-        if (response) {
-            route.previewData.value.mode = 0
-            route.previewData.value.title = response.title
-            route.previewData.value.id = response.id
-            route.previewData.value.src =  response.src
-            route.localData.loading.value = false;
-        }
-    },
     "timeline:state": async (payload) => {
         route.windowStates.timeline.value = payload;
         if (!payload && route.timelineStates.play.value) {
@@ -370,17 +359,77 @@ export const windowStateEvent = (route) => ({
             route.loadingStates.modifierDistort.value = false;
         }
     },
-    "material-editor:state": async (payload) => {
-        route.windowStates.material.value = payload;
-        if(!payload){
-            route.tempData.activeLayer.value = null;
-            route.tempData.preview.value.src = "";
-            route.tempData.preview.value.counter = 0;
-            route.tempData.materialPreview.value = null;
-            route.loadingStates.material.value = false;
+    "export-state": async (payload) => {
+        console.log(payload)
+        route.windowStates.export.value = payload;
+        route.localData.loading.value = true
+        const response = await route.api.renderer({mode: 'preview'});
+        if (response) {
+            route.previewData.value.mode = 0
+            route.previewData.value.title = response.title
+            route.previewData.value.id = response.id
+            route.previewData.value.src =  response.src
+            route.localData.loading.value = false;
         }
     },
+    "material-editor:state": async (payload) => {
+        const selectedLayer = route.localData.selectedLayer.value.filter(x => x.type === 5);
+        if(selectedLayer.length) {
+            route.tempData.lastSelected.value = selectedLayer;
+            route.tempData.activeLayer.value = selectedLayer[selectedLayer.length - 1];
+        }
+        route.windowStates.material.value = payload;
+        if (payload) {
+            // MaterialEditor bekommt Vorrang vor Animator/Main.
+            WebGLRuntime.pauseScope("main-canvas");
+
+            if (route.windowStates.animator.value) {
+                WebGLRuntime.destroyScope("animator");
+                route.emit('layer:select', [])
+            }
+            return;
+        }
+
+        WebGLRuntime.destroyScope("material-preview");
+
+        if (route.windowStates.animator.value) {
+            if(route.tempData.lastSelected.value.length) route.emit('layer:select', route.tempData.lastSelected.value);
+        } else {
+            WebGLRuntime.resumeScope("main-canvas");
+        }
+
+        route.tempData.activeLayer.value = null;
+        route.tempData.preview.value.src = "";
+        route.tempData.preview.value.counter = 0;
+        route.tempData.materialPreview.value = null;
+        route.loadingStates.material.value = false;
+    },
+
     "animator:state": async (payload) => {
         route.windowStates.animator.value = payload;
+
+        if (payload) {
+            WebGLRuntime.pauseScope("main-canvas");
+            WebGLRuntime.destroyScope("material-preview");
+
+            // Wenn MaterialEditor offen ist, darf Animator-State true bleiben,
+            // aber sein WebGL muss pausiert bleiben.
+            if (route.windowStates.material.value) {
+                WebGLRuntime.pauseScope("animator");
+                return;
+            }
+
+            WebGLRuntime.resumeScope("animator");
+            return;
+        }
+
+        WebGLRuntime.destroyScope("animator");
+
+        if (route.windowStates.material.value) {
+            WebGLRuntime.pauseScope("main-canvas");
+            return;
+        }
+
+        WebGLRuntime.resumeScope("main-canvas");
     },
 });

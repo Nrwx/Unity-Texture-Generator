@@ -283,6 +283,10 @@ export function materialEditorModel(props, emit) {
         ));
     });
 
+    const animatorState = computed(() => {
+        return props.animatorState !== true;
+    });
+
     const previewLayer = computed(() => {
         const normalized = normalizeValues();
         const backendLayer = getBackendPreviewLayer(normalized);
@@ -541,6 +545,7 @@ export function materialEditorModel(props, emit) {
                 },
                 layer3D: {
                     state: materialConnected,
+                    webglActive: animatorState,
                     layer: {
                         ref: previewLayer,
                         idle: values.rotate_preview
@@ -6703,6 +6708,10 @@ export const materialEditorProps = {
     state: {
         type: Boolean,
         required: true,
+    },
+    animatorState: {
+        type: Boolean,
+        required: false
     },
     loading: {
         type: Boolean,

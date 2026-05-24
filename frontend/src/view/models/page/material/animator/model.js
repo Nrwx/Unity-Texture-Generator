@@ -8,8 +8,11 @@ import {
     watch,
 } from "vue";
 
+import { uuid } from "@/utils/uuid";
+import { eventRegister } from "@/dataLayer/event";
+import { useMouse } from "@/composables/mouse/model";
+
 const DEG = Math.PI / 180;
-const RAD = 180 / Math.PI;
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -98,6 +101,7 @@ const createDefaultOrbitSettings = settings => ({
     wheelSpeed: toNumber(settings?.wheelSpeed, 0.0012),
 
     damping: toNumber(settings?.damping, 18),
+
     invertOrbitX: settings?.invertOrbitX === true,
     invertOrbitY: settings?.invertOrbitY === true,
 
@@ -141,12 +145,15 @@ const cameraVectorsFromSpherical = camera => {
 
 const normalizeMeshSettings = settings => ({
     ...(settings || {}),
+
     rotation_x: toNumber(settings?.rotation_x, 0),
     rotation_y: toNumber(settings?.rotation_y, 0),
     rotation_z: toNumber(settings?.rotation_z, 0),
+
     scale_x: toNumber(settings?.scale_x, 1),
     scale_y: toNumber(settings?.scale_y, 1),
     scale_z: toNumber(settings?.scale_z, 1),
+
     pivot_x: toNumber(settings?.pivot_x, 0),
     pivot_y: toNumber(settings?.pivot_y, 0),
     pivot_z: toNumber(settings?.pivot_z, 0),
@@ -157,6 +164,12 @@ export function animatorModel(props, emit) {
     const viewportRef = ref(null);
     const rafId = ref(null);
     const activeLayerId = ref("");
+    const resizeObserver = ref(null);
+
+    const animator = reactive({
+        id: uuid(),
+        viewportId: uuid(),
+    });
 
     const pointer = reactive({
         active: false,
@@ -177,7 +190,20 @@ export function animatorModel(props, emit) {
         meta: false,
     });
 
-    const settings = computed(() => createDefaultOrbitSettings(props.orbitSettings || {}));
+    const emitEvent = (event, payload) => {
+        emit("update:component-event", event, payload);
+    };
+
+    const { register } = eventRegister("listener:animator", emitEvent);
+
+    const mouse = useMouse({
+        register,
+        elementId: animator.viewportId,
+        mode: "client",
+        preventDefault: true,
+    });
+
+    const settings = computed(() => createDefaultOrbitSettings(props.orbitSettings || props.settings || {}));
 
     const camera = reactive({
         projection: settings.value.projection,
@@ -203,11 +229,9 @@ export function animatorModel(props, emit) {
         forward: { x: 0, y: 0, z: -1 },
         right: { x: 1, y: 0, z: 0 },
         up: { x: 0, y: 1, z: 0 },
-    });
 
-    const emitEvent = (event, payload) => {
-        emit("update:component-event", event, payload);
-    };
+        backgroundGrid: settings.value.backgroundGrid,
+    });
 
     const selectedMaterialLayers = computed(() => (
         (props.selectedLayers || [])
@@ -219,17 +243,6 @@ export function animatorModel(props, emit) {
         selectedMaterialLayers.value[0] ||
         null
     ));
-
-    const activeLayerLabel = computed(() => (
-        activeLayer.value?.name ||
-        activeLayer.value?.id ||
-        "None"
-    ));
-
-    const formattedTimelineTime = computed(() => {
-        const value = toNumber(props.timelineTime, 0);
-        return Number.isInteger(value) ? String(value) : value.toFixed(3);
-    });
 
     const viewportSize = reactive({
         width: 1,
@@ -316,6 +329,7 @@ export function animatorModel(props, emit) {
 
         return selectedMaterialLayers.value.map(layer => {
             const cloned = clonePlain(layer);
+
             const mesh = {
                 ...(cloned.mesh || {}),
                 settings: normalizeMeshSettings(cloned.mesh?.settings),
@@ -330,16 +344,19 @@ export function animatorModel(props, emit) {
                 time: props.timelineTime,
 
                 mesh,
+
                 shader: {
                     ...(cloned.shader || {}),
                     mesh,
                     viewport_camera: cameraPayload,
                 },
+
                 material: {
                     ...(cloned.material || {}),
                     mesh,
                     viewport_camera: cameraPayload,
                 },
+
                 preview: {
                     ...(cloned.preview || {}),
                     rotate: false,
@@ -349,12 +366,15 @@ export function animatorModel(props, emit) {
                     },
                     viewport_camera: cameraPayload,
                 },
+
                 settings: {
                     ...(cloned.settings || {}),
                     rotate_preview: false,
                     viewport_camera: cameraPayload,
                     animator_viewport: true,
+                    animator_active: cloned.id === activeLayer.value?.id,
                 },
+
                 viewport_camera: cameraPayload,
             };
         });
@@ -372,8 +392,6 @@ export function animatorModel(props, emit) {
         viewportSize.width = Math.max(1, Math.round(rect.width));
         viewportSize.height = Math.max(1, Math.round(rect.height));
     };
-
-    let resizeObserver = null;
 
     const syncCameraVectors = () => {
         const vectors = cameraVectorsFromSpherical({
@@ -396,6 +414,7 @@ export function animatorModel(props, emit) {
         camera.smoothTheta = lerp(camera.smoothTheta, camera.theta, t);
         camera.smoothPhi = lerp(camera.smoothPhi, camera.phi, t);
         camera.smoothRadius = lerp(camera.smoothRadius, camera.radius, t);
+
         camera.smoothOrthographicScale = lerp(
             camera.smoothOrthographicScale,
             camera.orthographicScale,
@@ -413,6 +432,11 @@ export function animatorModel(props, emit) {
         rafId.value = requestAnimationFrame(tick);
     };
 
+    const startTick = () => {
+        stopTick();
+        rafId.value = requestAnimationFrame(tick);
+    };
+
     const stopTick = () => {
         if (rafId.value) {
             cancelAnimationFrame(rafId.value);
@@ -420,9 +444,9 @@ export function animatorModel(props, emit) {
         }
     };
 
-    const startTick = () => {
-        stopTick();
-        rafId.value = requestAnimationFrame(tick);
+    const stopNativeEvent = event => {
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
     };
 
     const resolvePointerMode = event => {
@@ -453,35 +477,6 @@ export function animatorModel(props, emit) {
         return "";
     };
 
-    const stopNativeEvent = event => {
-        event?.preventDefault?.();
-        event?.stopPropagation?.();
-    };
-
-    const onPointerDown = event => {
-        const mode = resolvePointerMode(event);
-
-        if (!mode) {
-            return;
-        }
-
-        stopNativeEvent(event);
-
-        rootRef.value?.focus?.();
-
-        pointer.active = true;
-        pointer.pointerId = event.pointerId;
-        pointer.button = event.button;
-        pointer.mode = mode;
-        pointer.x = event.clientX;
-        pointer.y = event.clientY;
-        pointer.startX = event.clientX;
-        pointer.startY = event.clientY;
-        pointer.moved = false;
-
-        event.currentTarget?.setPointerCapture?.(event.pointerId);
-    };
-
     const orbitByDelta = (dx, dy) => {
         const sx = settings.value.invertOrbitX ? -1 : 1;
         const sy = settings.value.invertOrbitY ? -1 : 1;
@@ -506,54 +501,95 @@ export function animatorModel(props, emit) {
     const dollyByDelta = dy => {
         if (camera.projection === "orthographic") {
             const nextScale = camera.orthographicScale * Math.exp(dy * settings.value.dollySpeed);
+
             camera.orthographicScale = clamp(
                 nextScale,
                 settings.value.minOrthographicScale,
                 settings.value.maxOrthographicScale
             );
+
             return;
         }
 
         const nextRadius = camera.radius * Math.exp(dy * settings.value.dollySpeed);
-        camera.radius = clamp(nextRadius, settings.value.minRadius, settings.value.maxRadius);
+
+        camera.radius = clamp(
+            nextRadius,
+            settings.value.minRadius,
+            settings.value.maxRadius
+        );
     };
 
-    const onPointerMove = event => {
+    const onPointerDown = async event => {
+        const mode = resolvePointerMode(event);
+
+        if (!mode) {
+            return;
+        }
+
+        stopNativeEvent(event);
+
+        rootRef.value?.focus?.();
+
+        await mouse.down(event);
+
+        pointer.active = true;
+        pointer.pointerId = event.pointerId;
+        pointer.button = event.button;
+        pointer.mode = mode;
+        pointer.x = event.clientX;
+        pointer.y = event.clientY;
+        pointer.startX = event.clientX;
+        pointer.startY = event.clientY;
+        pointer.moved = false;
+
+        event.currentTarget?.setPointerCapture?.(event.pointerId);
+    };
+
+    const onPointerMove = async event => {
         if (!pointer.active || pointer.pointerId !== event.pointerId) {
             return;
         }
 
         stopNativeEvent(event);
 
-        const dx = event.clientX - pointer.x;
-        const dy = event.clientY - pointer.y;
+        await mouse.move(event, ({ client, lastClient }) => {
+            const dx = client.x - lastClient.x;
+            const dy = client.y - lastClient.y;
 
-        pointer.x = event.clientX;
-        pointer.y = event.clientY;
+            pointer.x = client.x;
+            pointer.y = client.y;
 
-        if (Math.abs(event.clientX - pointer.startX) + Math.abs(event.clientY - pointer.startY) > 3) {
-            pointer.moved = true;
-        }
+            if (
+                Math.abs(client.x - pointer.startX) +
+                Math.abs(client.y - pointer.startY) >
+                3
+            ) {
+                pointer.moved = true;
+            }
 
-        if (pointer.mode === "orbit") {
-            orbitByDelta(dx, dy);
-        }
+            if (pointer.mode === "orbit") {
+                orbitByDelta(dx, dy);
+            }
 
-        if (pointer.mode === "pan") {
-            panByDelta(dx, dy);
-        }
+            if (pointer.mode === "pan") {
+                panByDelta(dx, dy);
+            }
 
-        if (pointer.mode === "dolly") {
-            dollyByDelta(dy);
-        }
+            if (pointer.mode === "dolly") {
+                dollyByDelta(dy);
+            }
+        });
     };
 
-    const onPointerUp = event => {
+    const onPointerUp = async event => {
         if (pointer.pointerId !== null && pointer.pointerId !== event.pointerId) {
             return;
         }
 
         stopNativeEvent(event);
+
+        await mouse.up(event);
 
         pointer.active = false;
         pointer.pointerId = null;
@@ -577,11 +613,11 @@ export function animatorModel(props, emit) {
         const delta = event.deltaY;
         const multiplier = event.shiftKey ? 0.35 : 1;
 
-        if (event.ctrlKey || event.metaKey) {
-            dollyByDelta(delta * multiplier * 2);
-        } else {
-            dollyByDelta(delta * multiplier);
-        }
+        dollyByDelta(event.ctrlKey || event.metaKey ? delta * multiplier * 2 : delta * multiplier);
+    };
+
+    const preventContextMenu = event => {
+        stopNativeEvent(event);
     };
 
     const setProjection = projection => {
@@ -591,17 +627,20 @@ export function animatorModel(props, emit) {
     };
 
     const resetView = () => {
-        const next = createDefaultOrbitSettings(props.orbitSettings || {});
+        const next = createDefaultOrbitSettings(props.orbitSettings || props.settings || {});
 
         camera.projection = next.projection;
         camera.fov = next.fov;
         camera.near = next.near;
         camera.far = next.far;
+
         camera.theta = next.theta;
         camera.phi = next.phi;
         camera.radius = next.radius;
         camera.orthographicScale = next.orthographicScale;
+
         camera.target = { ...next.target };
+        camera.backgroundGrid = next.backgroundGrid;
     };
 
     const setView = view => {
@@ -663,6 +702,7 @@ export function animatorModel(props, emit) {
         if (!Number.isFinite(bounds.min.x) || !Number.isFinite(bounds.max.x)) {
             camera.target = { x: 0, y: 0, z: 0 };
             camera.radius = settings.value.radius;
+            camera.orthographicScale = settings.value.orthographicScale;
             return;
         }
 
@@ -670,16 +710,38 @@ export function animatorModel(props, emit) {
         const diagonal = length3(sub3(bounds.max, bounds.min));
 
         camera.target = center;
+
         camera.radius = clamp(
             diagonal * 1.8 || settings.value.radius,
             settings.value.minRadius,
             settings.value.maxRadius
         );
+
         camera.orthographicScale = clamp(
             diagonal * 1.35 || settings.value.orthographicScale,
             settings.value.minOrthographicScale,
             settings.value.maxOrthographicScale
         );
+    };
+
+    const toggleGrid = () => {
+        camera.backgroundGrid = camera.backgroundGrid === false;
+    };
+
+    const normalizeKey = key => {
+        if (!key) {
+            return "";
+        }
+
+        const value = key.toLowerCase();
+
+        if (value === " ") return "Space";
+        if (value === "alt") return "Alt";
+        if (value === "altgraph") return "Alt";
+        if (value === "shift") return "Shift";
+        if (value === "control") return "Control";
+
+        return value;
     };
 
     const onKeyDown = event => {
@@ -688,29 +750,59 @@ export function animatorModel(props, emit) {
         keys.ctrl = event.ctrlKey;
         keys.meta = event.metaKey;
 
+        const key = normalizeKey(event.key);
+
+        if (event.code === "Escape" || key === "escape") {
+            stopNativeEvent(event);
+            emitEvent("animator:state", false);
+            emitEvent("apply-key-down", event);
+            return;
+        }
+
         if (event.code === "Home" || event.code === "KeyF") {
             frameSelected();
-            event.preventDefault();
+            stopNativeEvent(event);
+            emitEvent("apply-key-down", event);
+            return;
         }
 
         if (event.code === "Numpad1" || event.code === "Digit1") {
             setView(event.ctrlKey ? "back" : "front");
-            event.preventDefault();
+            stopNativeEvent(event);
+            emitEvent("apply-key-down", event);
+            return;
         }
 
         if (event.code === "Numpad3" || event.code === "Digit3") {
             setView(event.ctrlKey ? "left" : "right");
-            event.preventDefault();
+            stopNativeEvent(event);
+            emitEvent("apply-key-down", event);
+            return;
         }
 
         if (event.code === "Numpad7" || event.code === "Digit7") {
             setView("top");
-            event.preventDefault();
+            stopNativeEvent(event);
+            emitEvent("apply-key-down", event);
+            return;
         }
 
         if (event.code === "Numpad5" || event.code === "Digit5") {
             setProjection(camera.projection === "perspective" ? "orthographic" : "perspective");
-            event.preventDefault();
+            stopNativeEvent(event);
+            emitEvent("apply-key-down", event);
+            return;
+        }
+
+        if (key === "g") {
+            toggleGrid();
+            stopNativeEvent(event);
+            emitEvent("apply-key-down", event);
+            return;
+        }
+
+        if (key === "Shift" || key === "Alt" || key === "Control") {
+            emitEvent("apply-key-down", event);
         }
     };
 
@@ -719,9 +811,44 @@ export function animatorModel(props, emit) {
         keys.alt = event.altKey;
         keys.ctrl = event.ctrlKey;
         keys.meta = event.metaKey;
+
+        emitEvent("apply-key-up", event);
     };
 
-    const degrees = value => value * RAD;
+    const init = async () => {
+        await nextTick();
+
+        rootRef.value = document.getElementById(animator.id);
+        viewportRef.value = document.getElementById(animator.viewportId);
+
+        mouse.init();
+
+        updateViewportSize();
+
+        if (typeof ResizeObserver !== "undefined" && viewportRef.value) {
+            resizeObserver.value = new ResizeObserver(updateViewportSize);
+            resizeObserver.value.observe(viewportRef.value);
+        }
+
+        if (viewportRef.value) {
+            register("add", viewportRef.value, "pointerdown", onPointerDown);
+            register("add", viewportRef.value, "pointermove", onPointerMove);
+            register("add", viewportRef.value, "pointerup", onPointerUp);
+            register("add", viewportRef.value, "pointercancel", onPointerUp);
+            register("add", viewportRef.value, "pointerleave", onPointerLeave);
+            register("add", viewportRef.value, "wheel", onWheel);
+            register("add", viewportRef.value, "contextmenu", preventContextMenu);
+        }
+
+        if (rootRef.value) {
+            register("add", rootRef.value, "keydown", onKeyDown);
+            register("add", rootRef.value, "keyup", onKeyUp);
+        }
+
+        startTick();
+        frameSelected();
+        rootRef.value?.focus?.();
+    };
 
     watch(
         () => selectedMaterialLayers.value.map(layer => layer.id).join("|"),
@@ -738,68 +865,34 @@ export function animatorModel(props, emit) {
         { immediate: true }
     );
 
-    watch(
-        () => props.orbitSettings,
-        () => {
-            resetView();
-        },
-        { deep: true }
-    );
-
-    onMounted(() => {
-        nextTick(() => {
-            updateViewportSize();
-
-            if (typeof ResizeObserver !== "undefined" && viewportRef.value) {
-                resizeObserver = new ResizeObserver(updateViewportSize);
-                resizeObserver.observe(viewportRef.value);
-            }
-
-            startTick();
-            frameSelected();
-            rootRef.value?.focus?.();
-        });
-    });
+    onMounted(init);
 
     onBeforeUnmount(() => {
         stopTick();
 
-        if (resizeObserver) {
-            resizeObserver.disconnect();
-            resizeObserver = null;
+        if (resizeObserver.value) {
+            resizeObserver.value.disconnect();
+            resizeObserver.value = null;
         }
+
+        register("removeAll");
     });
 
     return {
-        emitEvent,
         rootRef,
         viewportRef,
+        animator,
 
         pointer,
         camera,
 
         selectedMaterialLayers,
         activeLayer,
-        activeLayerLabel,
-        formattedTimelineTime,
         viewportCamera,
         animatedLayers,
         gridLines,
-
-        isActiveLayer,
-        setProjection,
         resetView,
-        frameSelected,
-
-        onPointerDown,
-        onPointerMove,
-        onPointerUp,
-        onPointerLeave,
-        onWheel,
-        onKeyDown,
-        onKeyUp,
-
-        degrees,
+        isActiveLayer,
     };
 }
 
@@ -809,39 +902,22 @@ export const animatorProps = {
         required: false,
         default: () => [],
     },
+
     orbitSettings: {
         type: Object,
         required: false,
         default: () => ({}),
     },
-    timeline: {
-        type: Boolean,
-        required: false,
-        default: false,
-    },
-    miniTimeline: {
-        type: Boolean,
-        required: false,
-        default: false,
-    },
-    timelinePlay: {
-        type: Boolean,
-        required: false,
-        default: false,
-    },
-    timelineTime: {
-        type: Number,
-        required: false,
-        default: 0,
-    },
-    viewport: {
-        type: Object,
-        required: false,
-        default: () => ({}),
-    },
+
     settings: {
         type: Object,
         required: false,
         default: () => ({}),
+    },
+
+    timelineTime: {
+        type: Number,
+        required: false,
+        default: 0,
     },
 };

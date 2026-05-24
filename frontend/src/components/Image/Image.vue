@@ -46,11 +46,14 @@
       <!-- 🧊 3D Material-Layer -->
       <Layer3D
           v-else-if="layer.type === 5"
-          :key="layer.id"
-          :layer="getLiveLayer(layer)"
+          :key="layer.time"
+          :layer="getLiveLayer ? getLiveLayer(layer) : layer"
           :hidden="layer.hidden"
           :export-state="exportState"
-          :pause-webgl="exportState"
+          :pause-webgl="false"
+          :webgl-active="true"
+          :webgl-scope="exportState ? 'export' : 'main-canvas'"
+          :webgl-exclusive="exportState"
           :selected="selectedLayer.includes(layer)"
           :rotate="layer?.preview?.idle_rotation?.enabled === true"
           class="absolute"

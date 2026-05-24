@@ -46,7 +46,7 @@
       <!-- Distort/Wave/Shift/Falloff Modifier -->
       <DistortModifier v-model:state="modifierStates.distort.value" v-model:loading="loadingStates.modifierDistort.value" v-model:loading-preview="loadingStates.modifierDistortPreview.value" v-model:layer="tempData.activeLayer.value" v-model:preview-src="tempData.preview.value.src" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
       <!-- Material Editor -->
-      <MaterialEditor v-model:state="windowStates.material.value" v-model:layers="localData.layers.value" v-model:loading="loadingStates.material.value" v-model:loading-preview="loadingStates.materialPreview.value" v-model:layer="tempData.activeLayer.value" :material-preview="tempData.materialPreview.value" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
+      <MaterialEditor v-model:state="windowStates.material.value" v-model:layers="localData.layers.value" v-model:animator-state="windowStates.animator.value" v-model:loading="loadingStates.material.value" v-model:loading-preview="loadingStates.materialPreview.value" v-model:layer="tempData.activeLayer.value" :material-preview="tempData.materialPreview.value" v-model:theme="appData.theme.value" @component-event="componentEvent"/>
       <!-- Rechte Taskbar -->
       <Taskbar @taskbar-event="taskbarEvent('right', $event)" align="right"  @component-event="componentEvent" v-model:items="itemsRight" v-model:theme="appData.theme.value" />
       <!-- Rechter Drawer -->

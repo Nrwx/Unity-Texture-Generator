@@ -24,12 +24,7 @@
               v-if="animatorState"
               :selected-layers="selectedLayer"
               :orbit-settings="ui.animator"
-              :timeline="timeline"
-              :mini-timeline="miniTimeline"
-              :timeline-play="timelinePlay"
               :timeline-time="time"
-              :viewport="viewport"
-              :settings="settings"
               @update:component-event="emitEvent"
           />
 
