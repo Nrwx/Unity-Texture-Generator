@@ -186,6 +186,48 @@ const chunkArray = (values = [], kind = "vertices", chunkSize = GEOMETRY_CHUNK_S
     chunkArrayRange(values, kind, 0, null, chunkSize)
 );
 
+
+const normalizeDirtyValueRanges = (ranges = [], limit = 0, stride = 11) => {
+    const max = Math.max(0, Math.trunc(Number(limit) || 0));
+
+    if (!Array.isArray(ranges) || !ranges.length || max <= 0) {
+        return [];
+    }
+
+    return ranges
+        .map(range => {
+            const start = Math.max(0, Math.trunc(Number(
+                range?.start ??
+                (Number(range?.vertexStart || 0) * stride)
+            ) || 0));
+            const count = Math.max(0, Math.trunc(Number(
+                range?.count ??
+                (Number(range?.vertexCount || 0) * stride)
+            ) || 0));
+            const end = Math.min(max, start + count);
+
+            return end > start ? { start, count: end - start } : null;
+        })
+        .filter(Boolean)
+        .sort((left, right) => left.start - right.start)
+        .reduce((merged, range) => {
+            const previous = merged[merged.length - 1];
+            const previousEnd = previous ? previous.start + previous.count : -1;
+
+            if (previous && range.start <= previousEnd) {
+                previous.count = Math.max(previousEnd, range.start + range.count) - previous.start;
+                return merged;
+            }
+
+            merged.push({ ...range });
+            return merged;
+        }, []);
+};
+
+const chunkDirtyVertexRanges = (vertices = [], ranges = [], chunkSize = GEOMETRY_CHUNK_SIZE) => (
+    ranges.flatMap(range => chunkArrayRange(vertices, "vertices", range.start, range.count, chunkSize))
+);
+
 const arraySignature = values => {
     if (!values?.length) {
         return "0:";
@@ -298,7 +340,13 @@ export const buildGeometryPayload = (mesh = {}, options = {}) => {
             (vertices.length > previousVertexValueCount || indices.length > previousIndexCount);
 
         if (growsTopology) {
+            const existingDirtyRanges = normalizeDirtyValueRanges(
+                dirtyRanges,
+                previousVertexValueCount,
+                manifest.stride,
+            );
             const chunks = [
+                ...chunkDirtyVertexRanges(vertices, existingDirtyRanges, chunkSize),
                 ...chunkArrayRange(vertices, "vertices", previousVertexValueCount, vertices.length - previousVertexValueCount, chunkSize),
                 ...chunkArrayRange(indices, "indices", 0, indices.length, chunkSize),
             ];

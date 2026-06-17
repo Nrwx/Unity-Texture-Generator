@@ -1,7 +1,28 @@
+import { createJsonReplacer } from "@/utils/tools";
+
+
+const getOptionsSignature = options => {
+    if (options === undefined || options === null) {
+        return "null";
+    }
+
+    try {
+        return JSON.stringify(options, createJsonReplacer({
+            sortKeys: true,
+            circularValue: "[Circular]",
+            functionValue: value => `[Function:${value.name || "anonymous"}]`,
+            symbolValue: value => value.toString(),
+        }));
+    } catch (_error) {
+        return String(options);
+    }
+};
+
 const createListenerManager = () => {
     const listeners = new Map();
 
     const add = (id, target, type, handler, options) => {
+        const optionsSignature = getOptionsSignature(options);
         let list = listeners.get(id);
         if (!list) {
             list = [];
@@ -11,7 +32,7 @@ const createListenerManager = () => {
                 l.target === target &&
                 l.type === type &&
                 l.originalHandler === handler &&
-                JSON.stringify(l.options) === JSON.stringify(options)
+                l.optionsSignature === optionsSignature
             );
             if (exists) return;
         }
@@ -29,6 +50,7 @@ const createListenerManager = () => {
             type,
             handler: wrappedHandler,
             options,
+            optionsSignature,
             active: true,
             originalHandler: handler
         };

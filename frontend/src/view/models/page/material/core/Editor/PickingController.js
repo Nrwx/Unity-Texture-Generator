@@ -5,6 +5,51 @@ import { number} from "@/utils/math";
 const PICK_CACHE = new WeakMap();
 const PICK_TRIANGLE_CACHE = new WeakMap();
 
+const arrayLength = value => {
+    if (!value) {
+        return 0;
+    }
+
+    if (Number.isInteger(Number(value.length))) {
+        return Math.max(0, Math.trunc(Number(value.length)));
+    }
+
+    if (typeof value === "object") {
+        return Object.keys(value).filter(key => /^\d+$/.test(key)).length;
+    }
+
+    return 0;
+};
+
+const arrayBoundarySignature = value => {
+    const length = arrayLength(value);
+
+    if (!length) {
+        return "0";
+    }
+
+    const middle = Math.floor((length - 1) / 2);
+    const last = length - 1;
+
+    return [
+        length,
+        number(value[0], 0),
+        number(value[middle], 0),
+        number(value[last], 0),
+    ].join(":");
+};
+
+const pickSourceSignature = mesh => ([
+    Number(mesh?.stride || 11),
+    mesh?.meta?.editRevision || "",
+    mesh?.meta?.geometryRevision || "",
+    mesh?.meta?.renderCacheKey || "",
+    mesh?.geometry_manifest?.revision || "",
+    mesh?.mesh_manifest?.revision || "",
+    arrayBoundarySignature(mesh?.vertices),
+    arrayBoundarySignature(mesh?.indices),
+].join("|"));
+
 const toVertexArray = value => {
     if (value instanceof Float32Array) {
         return value;
@@ -139,13 +184,13 @@ const triangleNormal = (a, b, c, fallback = [0, 0, 1]) => {
     ], fallback);
 };
 
-const buildPickTriangleGraph = indices => {
+const buildPickTriangleGraph = (indices, sourceSignature = "") => {
     if (!indices?.length) {
         return { triangles: [], vertexTriangles: new Map() };
     }
 
     const cached = PICK_TRIANGLE_CACHE.get(indices);
-    const signature = `${indices.length}`;
+    const signature = `${indices.length}:${sourceSignature}`;
 
     if (cached?.signature === signature) {
         return cached.graph;
@@ -202,14 +247,14 @@ const buildPickTriangleGraph = indices => {
     return graph;
 };
 
-const collectSeedTriangleOrder = (indices, seedTriangleIndex, maxTriangles = 96) => {
+const collectSeedTriangleOrder = (indices, seedTriangleIndex, maxTriangles = 96, sourceSignature = "") => {
     const seed = Math.trunc(Number(seedTriangleIndex));
 
     if (!Number.isInteger(seed) || seed < 0) {
         return null;
     }
 
-    const graph = buildPickTriangleGraph(indices);
+    const graph = buildPickTriangleGraph(indices, sourceSignature);
 
     if (!graph.triangles[seed]) {
         return null;
@@ -247,13 +292,14 @@ export class PickingController {
             return null;
         }
 
+        const sourceSignature = pickSourceSignature(mesh);
         const cached = PICK_CACHE.get(mesh);
 
         if (
             cached &&
             cached.sourceVertices === mesh.vertices &&
             cached.sourceIndices === mesh.indices &&
-            cached.sourceStride === Number(mesh.stride || 11)
+            cached.sourceSignature === sourceSignature
         ) {
             return cached.normalized;
         }
@@ -263,12 +309,13 @@ export class PickingController {
             stride: Number(mesh.stride || 11),
             __pickVertices: toVertexArray(mesh.vertices),
             __pickIndices: toIndexArray(mesh.indices),
+            __pickSourceSignature: sourceSignature,
         };
 
         PICK_CACHE.set(mesh, {
             sourceVertices: mesh.vertices,
             sourceIndices: mesh.indices,
-            sourceStride: normalized.stride,
+            sourceSignature,
             normalized,
         });
 
@@ -416,6 +463,7 @@ export class PickingController {
             indices,
             thresholds.seedTriangleIndex ?? thresholds.preferTriangleIndex,
             thresholds.seedTriangleLimit ?? 96,
+            normalized.__pickSourceSignature,
         );
         const scannedTriangles = new Set();
 

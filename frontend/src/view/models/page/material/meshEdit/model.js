@@ -1,4 +1,5 @@
 import { Mesh } from "@/view/models/page/material/core/Mesh/Mesh";
+import { Topology } from "@/view/models/page/material/core/Topology/Topology";
 const clampFinite = (value, min, max, fallback = 0) => {
     const number = toNumber(value, fallback);
     return Math.min(Math.max(number, min), max);
@@ -109,6 +110,87 @@ export const buildMeshEditOverlay = ({ mesh, geometry, state }) => {
             ...f,
             selected: selectedFaces.has(String(f.index)),
         })),
+    };
+};
+
+
+export const buildSculptTopologyOverlay = ({ mesh, geometry = {}, hit = null, brush = {}, state = {} } = {}) => {
+    if (!mesh || !hit?.point) {
+        return { enabled: false };
+    }
+
+    const normalized = Mesh.normalizeEditableMesh(mesh);
+
+    if (!normalized) {
+        return { enabled: false };
+    }
+
+    const influence = Topology.collectBrushInfluence({
+        vertices: normalized.vertices,
+        indices: normalized.indices,
+        stride: normalized.stride,
+        hit,
+        brush,
+    });
+    const seedOffset = Math.max(0, Math.trunc(toNumber(hit?.triangleIndex, -1))) * 3;
+    const sourceOffsets = Array.isArray(influence.triangleOffsets) && influence.triangleOffsets.length
+        ? influence.triangleOffsets
+        : (seedOffset + 2 < normalized.indices.length ? [seedOffset] : []);
+    const edgeMap = new Map();
+    const faces = [];
+
+    sourceOffsets.forEach(offset => {
+        const a = Math.trunc(Number(normalized.indices[offset]));
+        const b = Math.trunc(Number(normalized.indices[offset + 1]));
+        const c = Math.trunc(Number(normalized.indices[offset + 2]));
+
+        if (![a, b, c].every(index => Number.isInteger(index) && index >= 0 && index < normalized.vertexCount)) {
+            return;
+        }
+
+        const points = [a, b, c].map(index => Mesh.transformLocalPointToScene(
+            geometry,
+            Mesh.read3(normalized.vertices, normalized.stride, index),
+        ));
+        const addEdge = (left, right, pointLeft, pointRight) => {
+            const key = edgeKey(left, right);
+
+            if (!edgeMap.has(key)) {
+                edgeMap.set(key, {
+                    key,
+                    indices: parseEdgeKey(key),
+                    points: [pointLeft, pointRight],
+                    selected: false,
+                });
+            }
+        };
+
+        addEdge(a, b, points[0], points[1]);
+        addEdge(b, c, points[1], points[2]);
+        addEdge(c, a, points[2], points[0]);
+        faces.push({
+            index: offset / 3,
+            indices: [a, b, c],
+            points,
+            selected: false,
+        });
+    });
+
+    return {
+        enabled: faces.length > 0,
+        mode: "face",
+        tool: "sculpt-brush",
+        viewMode: normalizeMeshEditViewMode(state.viewMode || "wireframe"),
+        showVertices: false,
+        showEdges: true,
+        showFaces: true,
+        showAll: false,
+        vertexSize: 0,
+        edgeWidth: Math.max(1.25, toNumber(state.edgeWidth, 2) * 0.75),
+        faceAlpha: Math.max(0.12, toNumber(state.faceAlpha, 0.22) * 0.65),
+        vertices: [],
+        edges: Array.from(edgeMap.values()),
+        faces,
     };
 };
 

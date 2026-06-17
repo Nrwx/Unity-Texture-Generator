@@ -316,8 +316,12 @@ const recomputeDirtyNormals = (vertices, indices, stride, dirtyVertexIndices = [
     });
 };
 
+const resolveGeometryDirtyRanges = (dirtyVertexIndices = [], stride = Mesh.STRIDE) => (
+    Topology.buildVertexDirtyRanges(dirtyVertexIndices, stride)
+);
+
 const finalizeDirectSculptMesh = ({ mesh, vertices, indices, stride, brush, refine, influence, dirtyVertexIndices }) => {
-    const geometryDirtyRanges = Topology.buildVertexDirtyRanges(dirtyVertexIndices, stride);
+    const geometryDirtyRanges = resolveGeometryDirtyRanges(dirtyVertexIndices, stride);
 
     recomputeDirtyNormals(vertices, indices, stride, dirtyVertexIndices, influence.triangleOffsets);
     writeBoundsFromDirtyVertices(mesh, vertices, stride, dirtyVertexIndices);
@@ -513,11 +517,12 @@ export const applySculptBrushToMesh = ({ mesh, hit, brush: rawBrush, uv = null, 
             dynamicTopology: refine.changed === true || mesh.meta?.dynamicTopology === true,
             dynTopoLimited: refine.limited === true,
             dynTopoAddedVertices: Math.max(0, Math.trunc(number(refine.addedVertices, 0))),
+            dynTopoRemovedVertices: Math.max(0, Math.trunc(number(refine.removedVertices, 0))),
             dynTopoSplitTriangles: Math.max(0, Math.trunc(number(refine.splitTriangles, 0))),
             dynTopoMaxTriangles: brush.detailMaxTriangles,
             dynTopoMaxVertices: brush.detailMaxVertices,
             topologyRuntime: Topology.describeBrushRuntime(brush, refine, influence),
-            geometryDirtyRanges: refine.changed === true ? [] : Topology.buildVertexDirtyRanges(dirtyVertexIndices, stride),
+            geometryDirtyRanges: resolveGeometryDirtyRanges(dirtyVertexIndices, stride),
         },
     });
 

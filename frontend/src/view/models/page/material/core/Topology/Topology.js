@@ -84,6 +84,68 @@ const expandPartsForInsertedTriangle = (parts = [], hitOffset = 0, indexLength =
     });
 };
 
+
+const compactReferencedGeometry = (vertices, indices, stride) => {
+    const vertexCount = Mesh.vertexCount(vertices, stride);
+    const remap = new Map();
+    const referenced = [];
+    const validIndices = [];
+    const nextIndices = [];
+
+    if (!vertexCount || !indices?.length) {
+        return { vertices, indices, remap, removedVertices: 0 };
+    }
+
+    for (let offset = 0; offset + 2 < indices.length; offset += 3) {
+        const a = toIndex(indices[offset]);
+        const b = toIndex(indices[offset + 1]);
+        const c = toIndex(indices[offset + 2]);
+
+        if (!validIndexForCount(a, vertexCount) || !validIndexForCount(b, vertexCount) || !validIndexForCount(c, vertexCount) || a === b || b === c || c === a) {
+            continue;
+        }
+
+        validIndices.push(a, b, c);
+        [a, b, c].forEach(index => {
+            if (!remap.has(index)) {
+                remap.set(index, referenced.length);
+                referenced.push(index);
+            }
+        });
+
+        nextIndices.push(remap.get(a), remap.get(b), remap.get(c));
+    }
+
+    if (!nextIndices.length) {
+        return { vertices, indices, remap, removedVertices: 0 };
+    }
+
+    if (referenced.length === vertexCount) {
+        return {
+            vertices,
+            indices: validIndices,
+            remap: new Map(Array.from({ length: vertexCount }, (_item, index) => [index, index])),
+            removedVertices: 0,
+        };
+    }
+
+    const nextVertices = [];
+    referenced.forEach(sourceIndex => {
+        const base = sourceIndex * stride;
+
+        for (let item = 0; item < stride; item += 1) {
+            nextVertices.push(Number(vertices[base + item]) || 0);
+        }
+    });
+
+    return {
+        vertices: nextVertices,
+        indices: nextIndices,
+        remap,
+        removedVertices: vertexCount - referenced.length,
+    };
+};
+
 const buildTriangleAdjacency = (indices, vertexCount) => {
     if (!indices || !indices.length || vertexCount <= 0) {
         return { triangles: [], vertexTriangles: new Map() };
@@ -617,21 +679,29 @@ const refineMeshInBrush = ({ vertices, indices: sourceIndices, stride, hit, brus
     }
 
     const changed = anchor.changed || nextIndices.length !== indices.length || midpointCache.size > 0;
+    const outputIndices = changed ? nextIndices : indices;
+    const compacted = changed
+        ? compactReferencedGeometry(vertices, outputIndices, stride)
+        : { vertices, indices: outputIndices, remap: new Map(), removedVertices: 0 };
+    const anchorVertex = Number.isInteger(anchor.anchorVertex) && compacted.remap?.has(anchor.anchorVertex)
+        ? compacted.remap.get(anchor.anchorVertex)
+        : anchor.anchorVertex;
 
     return {
-        vertices,
-        indices: changed ? nextIndices : indices,
+        vertices: compacted.vertices,
+        indices: compacted.indices,
         parts: nextParts.length
             ? nextParts.map(({ __sourceKey, ...part }) => {
-                if(!__sourceKey) console.log(__sourceKey);
-                return part;
+                if(!__sourceKey) console.log(__sourceKey, 'Topology __sourceKey is missing');
+                return part
             })
             : sourceParts,
         changed,
         limited: anchor.limited === true || projectedNewVertices >= maxNewVertices || nextIndices.length >= maxIndexCount,
         addedVertices: (anchor.addedVertices || 0) + midpointCache.size,
+        removedVertices: Math.max(0, Math.trunc(number(compacted.removedVertices, 0))),
         splitTriangles: (anchor.splitTriangles || 0) + selectedTriangleSplits,
-        anchorVertex: anchor.anchorVertex,
+        anchorVertex,
     };
 };
 
@@ -821,6 +891,7 @@ const normalizeGpuRuntimeFlags = (brush = {}, refine = {}, influence = {}) => ({
     dirtyVertexCount: Array.isArray(influence.vertices) ? influence.vertices.length : 0,
     dirtyTriangleCount: Array.isArray(influence.triangleOffsets) ? influence.triangleOffsets.length : 0,
     addedVertices: Math.max(0, Math.trunc(number(refine.addedVertices, 0))),
+    removedVertices: Math.max(0, Math.trunc(number(refine.removedVertices, 0))),
     splitTriangles: Math.max(0, Math.trunc(number(refine.splitTriangles, 0))),
     anchorVertex: Number.isInteger(refine.anchorVertex) ? refine.anchorVertex : -1,
     detailPercent: clamp(brush.detailPercent ?? 0, 0, 200),

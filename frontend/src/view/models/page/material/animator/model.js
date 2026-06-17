@@ -13,7 +13,7 @@ import {PickingController} from "@/view/models/page/material/core/Editor/Picking
 import {GizmoGeometry} from "@/view/models/page/material/core/Editor/GizmoGeometry";
 import {Ray} from "@/view/models/page/material/core/Ray/Ray";
 import {applySculptBrushToMesh, buildSculptBrushOverlay, createDefaultSculptBrush} from "@/view/models/page/material/brush/mesh";
-import {applyMeshEditOperation, buildMeshEditOverlay, buildMeshEditTopology, clearMeshEditSelection, getMeshEditSelectionPivot, nextMeshEditTabState, normalizeMeshEditMode, normalizeMeshEditViewMode, selectMeshEditHit, transformMeshEditSelection} from "@/view/models/page/material/meshEdit/model";
+import {applyMeshEditOperation, buildMeshEditOverlay, buildMeshEditTopology, buildSculptTopologyOverlay, clearMeshEditSelection, getMeshEditSelectionPivot, nextMeshEditTabState, normalizeMeshEditMode, normalizeMeshEditViewMode, selectMeshEditHit, transformMeshEditSelection} from "@/view/models/page/material/meshEdit/model";
 import {CoordinateSystem} from "@/models/layer/3D/core/coordinate/model";
 import {DEG, isFiniteNumber, number} from "@/utils/math";
 
@@ -819,6 +819,18 @@ export function animatorModel(props, emit) {
 
     const refreshMeshEditOverlay = () => {
         const layer = getMeshEditLayer();
+
+        if (isSculptStateActive() && !isMeshEditStateActive()) {
+            props.editorConfig.meshEdit = buildSculptTopologyOverlay({
+                mesh: layer?.mesh,
+                geometry: layer?.geometry || layer?.mesh?.settings || {},
+                hit: temp.value.sculpt.lastHit,
+                brush: resolveSculptBrush(),
+                state: props.editConfig,
+            });
+            return;
+        }
+
         props.editorConfig.meshEdit = buildMeshEditOverlay({
             mesh: layer?.mesh,
             geometry: layer?.geometry || layer?.mesh?.settings || {},
@@ -2405,7 +2417,7 @@ export function animatorModel(props, emit) {
         }
 
         if (mode === "sculpt-brush") {
-            endSculptStroke();
+            endSculptStroke({ flush: true });
         }
 
         if (mode.startsWith("gizmo-")) {

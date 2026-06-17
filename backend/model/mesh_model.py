@@ -547,17 +547,26 @@ class MeshModel(BaseModel):
         if not chunk["enabled"]:
             return None
 
+        def error(message):
+            return {
+                "error": message,
+                "id": layer_id,
+                "geometry_commit_id": chunk.get("commit_id"),
+                "geometry_chunk_batch": chunk.get("batch"),
+                "geometry_chunk_batches": chunk.get("batches"),
+            }, 400
+
+        if not chunk["commit_id"]:
+            return error("Chunked mesh update missing geometry commit id")
+
+        if chunk["batch"] <= 0 or chunk["batches"] <= 0 or chunk["batch"] > chunk["batches"]:
+            return error("Chunked mesh update has invalid batch metadata")
+
         chunks = cls._geometry_chunks(geometry_payload)
         if chunks:
             return None
 
-        return {
-            "error": "Chunked mesh update missing geometry_payload chunks",
-            "id": layer_id,
-            "geometry_commit_id": chunk.get("commit_id"),
-            "geometry_chunk_batch": chunk.get("batch"),
-            "geometry_chunk_batches": chunk.get("batches"),
-        }, 400
+        return error("Chunked mesh update missing geometry_payload chunks")
 
     @classmethod
     def _with_chunk_ack(cls, layer, settings, geometry_payload):

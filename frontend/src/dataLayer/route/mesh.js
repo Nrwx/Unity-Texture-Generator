@@ -1,7 +1,27 @@
 import api from "@/dataLayer/api";
+import { createJsonReplacer } from "@/utils/tools";
 import { compileGeometryPayload } from "@/view/models/page/material/geometry/model";
 
-const stringify = value => JSON.stringify(value);
+const toPlain = value => {
+    if (value === null || value === undefined) {
+        return value;
+    }
+
+    try {
+        return JSON.parse(JSON.stringify(value, createJsonReplacer()));
+    } catch (_error) {
+        return {};
+    }
+};
+
+const stringify = value => {
+    try {
+        return JSON.stringify(toPlain(value));
+    } catch (error) {
+        console.error("[mesh api] JSON stringify failed", error, value);
+        return "{}";
+    }
+};
 
 const appendIfPresent = (formData, key, value, serialize = value => value) => {
     if (value === undefined || value === null) {

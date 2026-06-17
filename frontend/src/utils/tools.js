@@ -25,6 +25,62 @@ export const CLONE_MODE = Object.freeze({
     JSON: "json",
 });
 
+const resolveJsonReplacement = (replacement, value, key) => {
+    return typeof replacement === "function" ? replacement(value, key) : replacement;
+};
+
+/**
+ * Creates a JSON.stringify replacer for project payloads and signatures.
+ *
+ * The default mode matches transport-safe JSON payloads: unsupported values and
+ * circular references are omitted. Callers that need a stable signature can
+ * enable sorted object keys and provide string tokens for unsupported values.
+ *
+ * @param {Object} [options] - Replacer behavior.
+ * @param {boolean} [options.sortKeys=false] - Sort plain object keys before serialization.
+ * @param {*} [options.circularValue] - Replacement for repeated object references.
+ * @param {*} [options.functionValue] - Replacement for functions. Can be a callback.
+ * @param {*} [options.symbolValue] - Replacement for symbols. Can be a callback.
+ * @returns {Function} JSON.stringify replacer.
+ */
+export const createJsonReplacer = ({
+    sortKeys = false,
+    circularValue = undefined,
+    functionValue = undefined,
+    symbolValue = undefined,
+} = {}) => {
+    const seen = new WeakSet();
+
+    return (key, value) => {
+        if (typeof value === "function") {
+            return resolveJsonReplacement(functionValue, value, key);
+        }
+
+        if (typeof value === "symbol") {
+            return resolveJsonReplacement(symbolValue, value, key);
+        }
+
+        if (value && typeof value === "object") {
+            if (seen.has(value)) {
+                return resolveJsonReplacement(circularValue, value, key);
+            }
+
+            seen.add(value);
+
+            if (sortKeys && !Array.isArray(value)) {
+                return Object.keys(value)
+                    .sort()
+                    .reduce((result, objectKey) => {
+                        result[objectKey] = value[objectKey];
+                        return result;
+                    }, {});
+            }
+        }
+
+        return value;
+    };
+};
+
 /**
  * Creates a deep clone of a value.
  *
