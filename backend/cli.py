@@ -29,12 +29,11 @@ BASE_DIR = Path(__file__).resolve().parent
 def main():
     interactive = len(sys.argv) == 1
 
-    config_loader = ConfigLoader(str(BASE_DIR / "config.json"))
+    config_loader = ConfigLoader(str(BASE_DIR / "build.json"))
     logger = Logger(config_loader.get("log_file", "cli.log"))
 
     flask_config = FlaskConfig()
-    flask_config.set_mode(config_loader.get("flask_mode", "development"))
-    flask_config.config.update(config_loader.get("flask_config", {}))
+    flask_config.set_mode(config_loader.get("mode", config_loader.get("flask_mode", "development")))
 
     backend = BackendApp(flask_config, logger)
     manager = CLIManager(logger=logger, backend=backend, config_loader=config_loader)

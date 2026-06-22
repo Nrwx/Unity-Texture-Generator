@@ -202,7 +202,10 @@ Before a release, at least the following checks should be run:
 * `backend/generated/` is generated on startup and should not be manually edited as the primary source.
 * `backend/public/`, `backend/venv/`, `__pycache__/`, and local logs are runtime artifacts.
 * `backend/requirements.txt` may contain local `file:///C:/...` references. For a portable release installation, the dependency list must be cleaned up and tested in a fresh environment.
-* Development secrets such as `SECRET_KEY` must be replaced before a release.
+* Backend runtime mode and CLI logging are configured in `backend/build.json`
+  through `flask_mode` and `log_file`; `backend/config.json` is not required.
+* Development secrets such as `SECRET_KEY` must be supplied through
+  environment-specific configuration before a release.
 * The frontend currently produces Sass deprecation warnings and notices about large bundles; these do not block the build, but should be taken into account.
 
 ## License

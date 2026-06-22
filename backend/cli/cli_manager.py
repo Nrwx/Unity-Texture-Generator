@@ -129,7 +129,7 @@ class CLIManager:
         self.register_command("clear", self._clear, "Clear the console")
         self.register_command("cls", self._clear, "Alias for clear")
         self.register_command("history", self._history, "Show recent CLI input")
-        self.register_command("auto", lambda *args: self.run_auto_sequence(), "Run auto_sequence from config.json")
+        self.register_command("auto", lambda *args: self.run_auto_sequence(), "Run auto_sequence from build.json")
 
     def _help(self, *args) -> int:
         Console.print("Backend terminal commands:", "BACKEND-CLI", "HELP", None, "info")

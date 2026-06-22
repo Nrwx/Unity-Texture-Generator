@@ -6,18 +6,19 @@ from .console import Console
 def register_config(manager, backend, config_loader, logger):
     def config_command(*args):
         cfg: Dict[str, Any] = dict(config_loader.data) if config_loader and config_loader.data else {}
-        cfg.setdefault("flask_config", {})
         cfg.setdefault("auto_sequence", list(manager.auto_sequence))
+        cfg.setdefault("flask_mode", "development")
+        cfg.setdefault("log_file", logger.log_file or "cli.log")
 
         Console.print("Interactive config editor started.", "CONFIG", "EDITOR", None, "success")
 
         while True:
             Console.print("Available options:", "CONFIG", "MENU", None, "info")
             Console.print("1 - Edit auto_sequence", "CONFIG", "MENU", None, "info")
-            Console.print("2 - Edit Flask config", "CONFIG", "MENU", None, "info")
+            Console.print("2 - Change Flask mode", "CONFIG", "MENU", None, "info")
             Console.print("3 - Change log file", "CONFIG", "MENU", None, "info")
             Console.print("4 - Save and apply", "CONFIG", "MENU", None, "info")
-            Console.print("5 - Reset to defaults", "CONFIG", "MENU", None, "info")
+            Console.print("5 - Reset runtime defaults", "CONFIG", "MENU", None, "info")
             Console.print("6 - Cancel", "CONFIG", "MENU", None, "info")
 
             choice = input("config> ").strip()
@@ -25,7 +26,7 @@ def register_config(manager, backend, config_loader, logger):
             if choice == "1":
                 edit_auto_sequence_interactive(cfg, manager)
             elif choice == "2":
-                edit_flask_config_interactive(cfg, backend)
+                edit_flask_mode_interactive(cfg, backend)
             elif choice == "3":
                 Console.print(f"Current log file: {logger.log_file}", "CONFIG", "LOGGER", None, "info")
                 new_log = input("New log file: ").strip()
@@ -35,19 +36,18 @@ def register_config(manager, backend, config_loader, logger):
                     Console.print(f"Log file changed: {new_log}", "CONFIG", "LOGGER", None, "success")
             elif choice == "4":
                 manager.auto_sequence = cfg.get("auto_sequence", manager.auto_sequence)
-                if backend and "flask_config" in cfg:
-                    backend.flask_config.config.update(cfg["flask_config"])
+                if backend:
+                    backend.flask_config.set_mode(cfg.get("mode", cfg.get("flask_mode", "development")))
                 if "log_file" in cfg:
                     logger.log_file = cfg["log_file"]
                 if config_loader:
                     config_loader.save(cfg)
                 Console.print("Config saved and applied.", "CONFIG", "SAVE", None, "success")
             elif choice == "5":
-                cfg = {
-                    "auto_sequence": [],
-                    "flask_config": {},
-                    "log_file": "cli.log",
-                }
+                cfg["auto_sequence"] = []
+                cfg["flask_mode"] = "development"
+                cfg.pop("mode", None)
+                cfg["log_file"] = "cli.log"
                 manager.auto_sequence = cfg["auto_sequence"]
                 if backend:
                     backend.flask_config.set_mode("development")
@@ -118,49 +118,18 @@ def edit_auto_sequence_interactive(cfg: dict, manager):
     Console.print(f"New auto_sequence: {cfg['auto_sequence']}", "CONFIG", "AUTOSEQ", None, "success")
 
 
-def edit_flask_config_interactive(cfg: dict, backend):
-    flask_cfg = cfg.get("flask_config", {})
+def edit_flask_mode_interactive(cfg: dict, backend):
+    current = cfg.get("mode", cfg.get("flask_mode", "development"))
+    Console.print(f"Current Flask mode: {current}", "CONFIG", "FLASK", None, "info")
+    Console.print("Allowed values: development, production", "CONFIG", "FLASK", None, "info")
+    mode = input("flask_mode> ").strip().lower()
 
-    while True:
-        Console.print("Current Flask config:", "CONFIG", "FLASK", None, "info")
-        for key, value in flask_cfg.items():
-            Console.print(f"{key}: {value}", "CONFIG", "FLASK", None, "info")
+    if mode not in ("development", "production"):
+        Console.print("Invalid mode. Keeping current value.", "CONFIG", "FLASK", None, "warning")
+        return
 
-        Console.print("Commands: set <key> <value>, remove <key>, done", "CONFIG", "FLASK", None, "info")
-        inp = input("flask_config> ").strip()
-
-        if inp.lower() == "done":
-            break
-
-        parts = inp.split(maxsplit=2)
-        if not parts:
-            continue
-
-        cmd = parts[0].lower()
-        if cmd == "set" and len(parts) == 3:
-            key, value = parts[1], _parse_value(parts[2])
-            flask_cfg[key] = value
-            Console.print(f"Updated: {key} = {value}", "CONFIG", "FLASK", None, "success")
-        elif cmd == "remove" and len(parts) == 2:
-            key = parts[1]
-            flask_cfg.pop(key, None)
-            Console.print(f"Removed: {key}", "CONFIG", "FLASK", None, "success")
-        else:
-            Console.print("Invalid command.", "CONFIG", "FLASK", None, "warning")
-
-    cfg["flask_config"] = flask_cfg
+    cfg["flask_mode"] = mode
+    cfg.pop("mode", None)
     if backend:
-        backend.flask_config.config.update(flask_cfg)
-        Console.print("Flask config applied for this session.", "CONFIG", "FLASK", None, "info")
-
-
-def _parse_value(value: str):
-    try:
-        if value.isdigit():
-            return int(value)
-        return float(value)
-    except Exception:
-        lowered = value.lower()
-        if lowered in ("true", "false"):
-            return lowered == "true"
-        return value
+        backend.flask_config.set_mode(mode)
+        Console.print("Flask mode applied for this session.", "CONFIG", "FLASK", None, "info")

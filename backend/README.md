@@ -45,8 +45,7 @@ The backend is responsible for:
 backend/
 |-- app.py                  # Flask entrypoint and request queue interception
 |-- cli.py                  # Interactive backend CLI entrypoint
-|-- build.json              # Main backend config: routes, modules, dependencies
-|-- config.json             # CLI/flask local config
+|-- build.json              # Main backend config: mode, CLI log, routes, modules, dependencies
 |-- requirements.txt        # Current environment freeze
 |-- version.txt             # Backend version
 |-- library_report.json     # LibraryManager sync report
@@ -181,30 +180,17 @@ Main release configuration. Important fields:
 | --- | --- |
 | `project_name` | Backend project identifier. |
 | `auto_sequence` | Optional CLI sequence. Empty by default. |
-| `flask_mode` | Flask mode, currently `development`. |
+| `flask_mode` | Flask/CLI mode. Use `development` for the local server and `production` for external hosting. |
+| `log_file` | CLI log file, default `cli.log`. |
 | `plugin_path` | Base path used for plugin discovery. |
 | `secure` | Secure storage and optional keyring settings. |
 | `dependencies` | LibraryManager policy and managed library versions. |
 | `modules` | Package generation rules for core modules. |
 | `router` | Blueprint, route, controller, model and method-map definitions. |
 
-### `config.json`
-
-Local CLI/Flask config:
-
-```json
-{
-  "auto_sequence": [],
-  "flask_mode": "development",
-  "log_file": "cli.log",
-  "flask_config": {
-    "SECRET_KEY": "CHANGE_ME_FOR_RELEASE",
-    "MAX_CONTENT_LENGTH": 67108864
-  }
-}
-```
-
-For a public release, replace `SECRET_KEY` through environment-specific configuration.
+`config.json` is no longer required. The CLI reads `flask_mode`, `log_file`,
+and `auto_sequence` from `build.json`. Flask secrets should be supplied through
+environment-specific configuration such as `SECRET_KEY`.
 
 ### Frontend Serving
 
@@ -277,8 +263,8 @@ Before publishing a release:
 
 - Build the frontend so `../frontend/dist/index.html` exists.
 - Verify `version.txt` contains the intended release version.
-- Review `build.json` for production values, especially `flask_mode`, `secure`, `plugin_path`, and `dependencies`.
-- Replace local or development secrets such as `SECRET_KEY`.
+- Review `build.json` for release values, especially `flask_mode`, `log_file`, `secure`, `plugin_path`, and `dependencies`.
+- Supply secrets such as `SECRET_KEY` through environment-specific configuration.
 - Start the backend with `python app.py` and confirm `http://localhost:5000` serves the app.
 - Check `/queue` after startup to confirm the queue route is registered.
 - Run the main editor flows: upload, layer edit, render preview, export, shader/font/brush loading, and material creation.
@@ -292,7 +278,7 @@ Before publishing a release:
 - `requirements.txt` currently looks like a full local environment freeze and contains many `file:///C:/...` package references. That can break installation on other machines. For a portable release, create a clean requirements file from only the packages listed under `build.json -> dependencies -> libraries`.
 - `generated/` is ignored and recreated at runtime. Edit source files in `view/`, `controller/`, and `model/`, not the generated copies.
 - The backend defaults to development mode in the current configuration.
-- `app.py` uses `debug=True` when `core.development` is enabled.
+- `app.py` uses `debug=True` only when the backend runs in development mode.
 - The frontend path is relative: `../frontend/dist/index.html`.
 - Some modules depend on platform-specific GPU, Cairo, GTK, NVIDIA Texture Tools or Intel packages.
 

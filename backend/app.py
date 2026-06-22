@@ -47,7 +47,7 @@ def _load_config(config=None):
 def _create_core(development, log_level, base_dir=None, app=None, config=None) -> Core:
     if not base_dir:
         print("FATAL ERROR, PFAD MUSS INITIALISIERT WERDEN")
-    return Core(base_dir=base_dir, log=_log, development=True, log_level=3, app=app, config=config)
+    return Core(base_dir=base_dir, log=_log, development=development, log_level=log_level, app=app, config=config)
 
 def _integrity_check():
         # Config Klasse
@@ -64,6 +64,11 @@ def _create_app():
 
     app = Flask(__name__)
     return app
+
+def _is_development_mode(config=None):
+    cfg = config or CONFIG or {}
+    mode = str(cfg.get("mode") or cfg.get("flask_mode") or "development").lower()
+    return mode != "production"
 
 _bootstrap()
 
@@ -137,6 +142,6 @@ def queue_all_requests():
 
 
 if __name__ == "__main__":
-    development = True
+    development = _is_development_mode(CONFIG)
     log_level = 3
     main(development, log_level)

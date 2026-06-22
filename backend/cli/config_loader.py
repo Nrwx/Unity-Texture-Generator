@@ -7,7 +7,7 @@ from .console import Console
 
 class ConfigLoader:
     def __init__(self, config_path: Optional[str] = None):
-        self.config_path = Path(config_path) if config_path else Path.cwd() / "config.json"
+        self.config_path = Path(config_path) if config_path else Path.cwd() / "build.json"
         self.data: Dict[str, Any] = {}
         if self.config_path.exists():
             self.load(str(self.config_path))

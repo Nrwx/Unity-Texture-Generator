@@ -70,7 +70,7 @@ class BackendDoctor:
         return None
 
     def _check_required_files(self) -> None:
-        for name in ("app.py", "cli.py", "build.json", "config.json", "requirements.txt", "version.txt"):
+        for name in ("app.py", "cli.py", "build.json", "requirements.txt", "version.txt"):
             path = self.base_dir / name
             if path.exists():
                 self._add("OK", "files", f"{name} exists.")
@@ -81,9 +81,6 @@ class BackendDoctor:
         build_data = self._read_json(self.base_dir / "build.json")
         if build_data is not None:
             self.build_data = build_data
-        config_data = self._read_json(self.base_dir / "config.json")
-        if config_data is not None:
-            self.config_data = config_data
 
     def _check_frontend_dist(self) -> None:
         frontend_index = (self.base_dir / ".." / "frontend" / "dist" / "index.html").resolve()
