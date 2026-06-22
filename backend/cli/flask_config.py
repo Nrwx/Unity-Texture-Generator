@@ -1,6 +1,8 @@
 import os
-from typing import Dict, Any
+from typing import Any, Dict
+
 from flask import Flask
+
 from .console import Console
 
 
@@ -19,12 +21,9 @@ class FlaskConfig:
             "MAX_CONTENT_LENGTH": 64 * 1024 * 1024,
             "JSONIFY_PRETTYPRINT_REGULAR": True,
             "JSON_SORT_KEYS": False,
-            "PREFERRED_URL_SCHEME": "http"
+            "PREFERRED_URL_SCHEME": "http",
         }
 
-    # ------------------------------------------
-    # Flask Mode
-    # ------------------------------------------
     def set_mode(self, mode: str):
         if mode and mode.lower() == "production":
             self.mode = "production"
@@ -39,35 +38,18 @@ class FlaskConfig:
             self.config["SESSION_COOKIE_SECURE"] = False
             self.config["PREFERRED_URL_SCHEME"] = "http"
 
-        Console.print(f"App-Modus festgelegt: '{self.mode}'", "FLASK", "INFO", "🔔", "success")
-
-    # ------------------------------------------
-    # Anwenden + Logging
-    # ------------------------------------------
     def apply(self, app: Flask):
         app.config.update(self.config)
-        Console.print(f"App-Konfiguration erfolgreich angewendet", "FLASK", "CONFIG", "⚙️", "info")
-        Console.print(f"Administrative Einstellungen wurden geändert", "FLASK", "WARNING", "⚠️", "warning")
+        Console.print("App config applied.", "FLASK", "CONFIG", None, "info")
         self._log_active_config()
 
-    # ------------------------------------------
-    # Key Logger
-    # ------------------------------------------
     def _log_active_config(self):
-        """
-        Gibt alle aktiven Config-Keys und deren Werte aus.
-        Sensible Werte (z. B. SECRET_KEY) werden maskiert.
-        """
-        Console.print(f"Datensätze initialisieren", "FLASK", "REGISTERY", "🔒️", "warning")
-
         for key, value in self.config.items():
-            # Maskiere sensible Werte
             if "SECRET" in key.upper() or "PASSWORD" in key.upper() or "TOKEN" in key.upper():
-                display_value = "***MASKIERT***"
+                display_value = "***MASKED***"
             else:
                 display_value = value
+            Console.print(f"{key}: {display_value}", "FLASK", "KEY", None, "info")
 
-            Console.print(f"{key}: {display_value}", "FLASK", "KEY", "🗝️", "warning")
-
-        Console.print(f"App-Modus: {self.mode}", "FLASK", "CONFIG", "⚙️", "info")
-        Console.print(f"App-Debug-Modus: {self.debug}", "FLASK", "CONFIG", "⚙️", "info")
+        Console.print(f"App mode: {self.mode}", "FLASK", "CONFIG", None, "info")
+        Console.print(f"App debug mode: {self.debug}", "FLASK", "CONFIG", None, "info")

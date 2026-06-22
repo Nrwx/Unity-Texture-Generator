@@ -1,19 +1,22 @@
 from pathlib import Path
+
 from .console import Console
 
+
 def print_version_info():
-    # project root is one level up from cli folder
     project_root = Path(__file__).resolve().parents[1]
     version_file = project_root / "version.txt"
     patch_file = project_root / "patch.txt"
+
     if version_file.exists():
-        ver = version_file.read_text(encoding="utf-8").strip()
-        Console.print(f"Backend-Version: '{ver}'", "BACKEND-CLI", "INFO", "🔔", "success")
+        version = version_file.read_text(encoding="utf-8").strip()
+        Console.print(f"Backend version: '{version}'", "BACKEND-CLI", "INFO", None, "success")
     else:
-        Console.print(f"Backend-Version: 'unbekannt'", "BACKEND-CLI", "WARNING", "⚠️", "warning")
+        Console.print("Backend version: unknown", "BACKEND-CLI", "WARNING", None, "warning")
+
     if patch_file.exists():
-        Console.print(f"Backend Patch Notes:", "BACKEND-CLI", "INFO", "🔔", "success")
+        Console.print("Backend patch notes:", "BACKEND-CLI", "INFO", None, "success")
         for line in patch_file.read_text(encoding="utf-8").splitlines():
-            Console.print(f"{line}", "PATCH", "NOTES", "🔔", "info")
+            Console.print(line, "PATCH", "NOTES", None, "info")
     else:
-        Console.print(f"Patch Notes nicht gefunden...", "BACKEND-CLI", "WARNING", "⚠️", "warning")
+        Console.print("Patch notes not found.", "BACKEND-CLI", "WARNING", None, "warning")

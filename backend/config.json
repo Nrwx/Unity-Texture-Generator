@@ -1,7 +1,5 @@
 {
-    "auto_sequence": [
-        "setup"
-    ],
+    "auto_sequence": [],
     "flask_mode": "development",
     "log_file": "cli.log",
     "flask_config": {

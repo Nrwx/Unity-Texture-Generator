@@ -1,11 +1,7 @@
 {
   "project_name": "unity-texture-generator",
   "base": ".",
-  "auto_sequence": [
-    "setup",
-    "build-backend",
-    "start-backend"
-  ],
+  "auto_sequence": [],
   "flask_mode": "development",
   "log_file": "cli.log",
   "plugin_path": "D:\\",
@@ -18,7 +14,7 @@
     "project_name": "unity-texture-generator"
   },
   "dependencies": {
-    "last_build": "2026-05-22T16:45:32.225865Z",
+    "last_build": "2026-06-22T18:03:19.767190Z",
     "config": {
       "library_policy": {
         "auto_update": true,

@@ -160,13 +160,16 @@ Useful CLI commands:
 
 | Command | Description |
 | --- | --- |
-| `setup` | Runs the setup placeholder command. |
-| `build-backend` | Creates missing `__init__.py` files for configured core modules. |
-| `start-backend` | Starts Flask in the background. |
-| `start-backend --wait` | Starts Flask and waits in the CLI. |
-| `start-backend --external` | Starts Flask in an external terminal. |
-| `restart-backend` | Restarts the backend process. |
-| `stop-backend` | Requests backend stop; Flask may still need Ctrl+C. |
+| `help` | Shows CLI commands and terminal behavior. |
+| `pwd` / `cd` / `ls` | Basic terminal navigation. |
+| `start` | Starts Flask in the background. |
+| `start --wait` | Starts Flask and waits in the CLI. |
+| `start --external` | Starts Flask in an external terminal. |
+| `restart` | Restarts the backend process. |
+| `stop` | Requests backend stop; Flask may still need Ctrl+C. |
+| `doctor` | Runs release checks for config, requirements, secrets, routes and runtime files. |
+| `doctor --strict` | Returns a non-zero status when warnings are present. |
+| any shell command | Unknown commands are passed through to the host shell. |
 
 ## Configuration
 
@@ -177,7 +180,7 @@ Main release configuration. Important fields:
 | Field | Description |
 | --- | --- |
 | `project_name` | Backend project identifier. |
-| `auto_sequence` | CLI sequence, currently `setup`, `build-backend`, `start-backend`. |
+| `auto_sequence` | Optional CLI sequence. Empty by default. |
 | `flask_mode` | Flask mode, currently `development`. |
 | `plugin_path` | Base path used for plugin discovery. |
 | `secure` | Secure storage and optional keyring settings. |
@@ -191,7 +194,7 @@ Local CLI/Flask config:
 
 ```json
 {
-  "auto_sequence": ["setup"],
+  "auto_sequence": [],
   "flask_mode": "development",
   "log_file": "cli.log",
   "flask_config": {
@@ -280,6 +283,7 @@ Before publishing a release:
 - Check `/queue` after startup to confirm the queue route is registered.
 - Run the main editor flows: upload, layer edit, render preview, export, shader/font/brush loading, and material creation.
 - Confirm native runtime requirements are installed on the target OS.
+- Run `python cli.py` and then `doctor` before packaging.
 - Remove or ignore local runtime files: `cli.log`, `__pycache__/`, `generated/`, `public/`, and `venv/`.
 - Check that release assets in `assets/` are present and readable.
 
