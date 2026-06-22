@@ -1,5 +1,5 @@
 <template>
-  <v-app :id="tempData.appId.value">
+  <v-app :id="appData.appId.value">
     <template v-if="windowStates.boot.value">
       <!-- App Loader -->
       <Boot v-model:state="windowStates.boot.value" :auto-start="true" @component-event="componentEvent"/>
@@ -265,8 +265,8 @@ export default {
 
     const init = async () => {
       initLocalization();
-      tempData.app.value = document.getElementById(tempData.appId.value);
-      if (tempData.app.value) {
+      appData.app.value = document.getElementById(appData.appId.value);
+      if (appData.app.value) {
         await componentEvent('app:apply-theme', appData.theme.value);
       }
       if(!localData.fonts.value.length) {

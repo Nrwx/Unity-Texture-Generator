@@ -1,295 +1,333 @@
-# backend
+# Unity Texture Generator - Backend
 
-```
+Python/Flask backend for the Unity Texture Generator app. The backend serves the built frontend, generates runtime controller/view/model modules, manages texture-processing assets, and exposes the API routes used by the editor.
 
-world/
-├── model.js // KLASSE WORLD
-└── build/
-│   └── model.js
-└── scheduler/
-     └── model.js
+Current backend version: `1.0.0`
 
+## Contents
 
-WaterBossLevel/
-├── water.json
-├── shadow.json
-├── terrain.json
-├── sound.json
-├── entitys.json
-├── sector.json
-├── collision.json
-└── WaterBossLevel0x0/
-│   ├── sector00.json
-│   ├── sector00.json
-│   ├── sector00.json
-│   └── sector00.json
-└── WaterBossLevel0x1/
-│   ├── sector01.json
-│   ├── sector01.json
-│   ├── sector01.json
-│   └── sector01
-└── WaterBossLevel1x0/
-    ├── sector1x0.json
-    ├── sector1x0.json
-    ├── sector1x0.json
-    └── sector1x0.json
+- [Purpose](#purpose)
+- [Runtime Flow](#runtime-flow)
+- [Project Structure](#project-structure)
+- [Setup](#setup)
+- [Start](#start)
+- [Configuration](#configuration)
+- [API Routes](#api-routes)
+- [Assets And Runtime Data](#assets-and-runtime-data)
+- [Release Checklist](#release-checklist)
+- [Known Release Notes](#known-release-notes)
 
-shader/
-├── vertex.glsl
-├── fragment.glsl
-├── model.js
-└── blend/
-│   ├── vertex.glsl
-│   ├── fragment.glsl
-│   ├── model.js
-│   └── modes/*.glsl // Blend fragmente blendNormal, blendMultiply..
-└── skybox/
-│   ├── vertex.glsl
-│   ├── fragment.glsl
-│   ├── model.js
-│   └── modes/*.glsl
-└── mesh/
-│   ├── vertex.glsl
-│   ├── fragment.glsl
-│   ├── model.js
-│   └── modes/*.glsl // mesh fragmente alphaMask, lightning..
-└── particle/
-    ├── vertex.glsl
-    ├── fragment.glsl
-    ├── model.js
-    └── modes/*.glsl // Particle fragmente..
+## Purpose
 
+The backend is responsible for:
+
+- serving the frontend build from `../frontend/dist/index.html`
+- registering Flask blueprints from `build.json`
+- generating the runtime `generated/` package from `view/`, `controller/`, and `model/`
+- processing uploads, layers, channels, modifiers, render previews, exports, shaders, fonts, brushes, paths, meshes, materials, plugins, tasks, and backups
+- managing app startup, boot tasks, local paths, drivers, GPU detection, and package setup
+- synchronizing configured Python libraries through the internal `LibraryManager`
+
+## Runtime Flow
+
+1. `app.py` loads `build.json`.
+2. `_integrity_check()` initializes `Config` and `LibraryManager`.
+3. Flask is created and passed into `Core`.
+4. `Core` creates the secure store, registry, system link, task manager, bootloader, parser, API injector, generator, and router.
+5. `Boot` runs the configured startup tasks.
+6. `Generate` writes `generated/view`, `generated/controller`, and `generated/model` from the source modules.
+7. `Router` imports the generated modules and registers all configured Flask blueprints.
+8. `APP.before_request` forwards supported requests through the queue controller, except the `/queue` endpoint itself.
+
+## Project Structure
+
+```text
 backend/
-├── cli.py
-├── app.py
-├── config.json
-├── version.txt
-├── patch.txt
-└── core/
-    ├── __init__.py
-    ├── main.py
-    ├── data/main.py //Class Data
-    ├── registry/main.py //Class Registry
-    ├── task/main.py //Class TaskManager
-    ├── config/boot/*json
-    └── syslink/main.py // Class SysLink
-    
-    
-├── build.json // multi-config element enthält router(config)
-│─ view
-│   ├─ upload_view.py
-│   │
-│   ├─ layer_view.py
-│   │
-│   └─ base
-│       └─ main.py //BaseController
-│─ controller
-│   ├─ upload_controller.py
-│   │
-│   ├─ layer_controller.py
-│   │
-│   └─ base
-│       └─ main.py //BaseController
-│─ model
-│   ├─ upload_model.py
-│   │
-│   ├─ layer_model.py
-│   │
-│   └─ base
-│       └─ main.py //BaseModel und BaseLogic
-│
-└── core/
-    ├── generate/main.py //Genertor
-    ├── router/main.py //Router
-    └── api/main.py // Dpendency Injection
-```
-## Build Setup
-
-### LibraryManager
-```
-dependencies
-├─ last_build: "2025-10-24T05:42:46.743884Z"
-├─ config
-│   └─ library_policy
-│       ├─ auto_update: true
-│       ├─ enable_cache: false
-│       ├─ use_cache: false
-│       ├─ auto_fix_requirements: true
-│       ├─ fix_with_requirements: false
-│       ├─ freeze_strict: true
-│       ├─ on_conflict: "restore_freeze"
-│       ├─ exclude_from_auto_update: []
-│       ├─ work_path: "."
-│       ├─ require_info: "requirements.txt"
-│       ├─ report_persist: true
-│       ├─ report_path: "library_report.json"
-│       ├─ reconcile_before_integrity: true
-│       └─ always_persist: true
-└─ libraries
-    ├─ flask
-    │   ├─ version: "3.0.3"
-    │   └─ freeze: false
-    ├─ fastapi
-    │   ├─ version: "0.115.0"
-    │   └─ freeze: false
-    ├─ pandas
-    │   ├─ version: "2.2.3"
-    │   └─ freeze: false
-    └─ … (weitere Pakete)
-    
-| Bereich / Feld                            | Typ     | Beschreibung                                                    | Beispiel                                          |
-|-------------------------------------------|---------|-----------------------------------------------------------------|---------------------------------------------------|
-| last_build                                |(ISO8601)| Zeitstempel der letzten Synchronisation / Update-Aktion         | "2025-10-24T05:42:46.743884Z"                     |
-| library_policy.auto_update                | bool    | Aktualisiert automatisch Pakete mit "latest"-Version            | true                                              |
-| library_policy.enable_cache               | bool    | Aktiviert pip-Cache bei Installationen                          | false                                             |
-| library_policy.use_cache                  | bool    | Nutzt Cache bei Installationen                                  | false                                             |
-| library_policy.auto_fix_requirements      | bool    | Passt requirements.txt automatisch an erkannte Konflikte        | true                                              |
-| library_policy.fix_with_requirements      | bool    | Behebt Konflikte via temporäre requirements.txt                 | false                                             |
-| library_policy.freeze_strict              | bool    | Hält gefrorene Versionen strikt ein                             | true                                              |
-| library_policy.on_conflict                | string  | Verhalten bei Versionskonflikten (restore_freeze, ignore, etc.) | "restore_freeze"                                  |
-| library_policy.exclude_from_auto_update   | list    | Pakete, die vom Auto-Update ausgeschlossen sind                 | []                                                |
-| library_policy.work_path                  | string  | Arbeitsverzeichnis für pip-Befehle                              | "."                                               |
-| library_policy.require_info               | string  | Name der requirements.txt Datei                                 | "requirements.txt"                                |
-| library_policy.report_persist             | bool    | Speichert Sync-Berichte                                         | true                                              |
-| library_policy.report_path                | string  | Pfad für den Sync-Bericht                                       | "library_report.json"                             |
-| library_policy.reconcile_before_integrity | bool    | Reconcile mit requirements.txt vor Integritätsprüfung           | true                                              |
-| library_policy.always_persist             | bool    | Persistiert libraries immer nach Sync                           | true                                              |
-| libraries                                 | dict    | Liste verwalteter Pakete mit Version und Freeze-Flag            | { "flask": {"version": "3.0.3", "freeze": false} }|
-| libraries.[paket].version                 | string  | Gewünschte Version, "latest" für neueste Version                | "3.0.3"                                           |
-| libraries.[paket].freeze                  | bool    | Paketversion einfrieren (nicht automatisch aktualisieren)       | false                                             |
-
+|-- app.py                  # Flask entrypoint and request queue interception
+|-- cli.py                  # Interactive backend CLI entrypoint
+|-- build.json              # Main backend config: routes, modules, dependencies
+|-- config.json             # CLI/flask local config
+|-- requirements.txt        # Current environment freeze
+|-- version.txt             # Backend version
+|-- library_report.json     # LibraryManager sync report
+|-- assets/                 # Bundled brushes, fonts, paths, shaders, drivers, plugins
+|-- cli/                    # CLI command registration and backend process helpers
+|-- components/             # Texture maps, modifiers, animation and simulation helpers
+|-- config/                 # App constants and configuration data
+|-- controller/             # Source controllers
+|-- core/                   # Core boot, routing, generation, config, task and registry system
+|-- generated/              # Runtime-generated package, ignored by git
+|-- model/                  # Source models
+|-- public/                 # Runtime/public output data, ignored by git
+|-- utils/                  # API and RGBA utility helpers
+`-- view/                   # Source Flask blueprint templates/views
 ```
 
+### Important Source Areas
 
-### Compiler
+| Path | Role |
+| --- | --- |
+| `app.py` | Main application bootstrap and Flask server start. |
+| `core/main.py` | Central container for boot, registry, generator, router, parser and API injection. |
+| `core/generate/main.py` | Builds the ignored `generated/` runtime package from source modules. |
+| `core/router/main.py` | Imports generated modules and registers blueprints from `build.json`. |
+| `core/library/main.py` | Synchronizes configured dependencies and writes `library_report.json`. |
+| `core/boot/tasks/` | Startup tasks for system checks, GPU/driver detection, storage, plugins and paths. |
+| `controller/`, `model/`, `view/` | Editable source modules used by the generator. |
+| `components/maps/` | Texture map generators such as diffuse, normal, bump, alpha, DDS, PDF, SVG and thumbnails. |
+| `components/modifiers/` | Image modifier pipeline such as blur, crop, resize, invert, noise, pixelate, wave and tiling. |
+| `assets/` | Bundled release assets: brushes, fonts, paths, shaders, driver installers and plugin archives. |
 
-### 1. Platzhalter / Variablenzugriff
-```
-| Syntax                     | Beschreibung |
-|-----------------------------|-------------|
-| `{{ var }}`                 | Einfacher Zugriff auf Variable `var` |
-| `{{ obj.attr }}`            | Zugriff auf Attribut `attr` eines Objekts oder Key eines Dicts |
-| `{{ obj?.attr }}`           | Optional chaining: gibt `None` zurück, wenn `obj` None ist |
-| `{{ arr[0] }}`              | Indexzugriff auf Listen oder Tupel |
-| `{{ arr[1:3] }}`            | Slice: unterstützt `[start:end]` |
-| `{{ var | upper | strip }}` | Pipe-Syntax: Übergabe an Funktionen (auch mehrere Pipes möglich) |
-| `{{ var | replace("a","b") }}` | Pipe mit Argumenten: ruft Funktion mit Argument auf |
-```
-### 2. Operatoren
-```
-| Operator | Beschreibung |
-|----------|-------------|
-| `+`      | Addition (auch String-Konkatenation) |
-| `-`      | Subtraktion |
-| `*`      | Multiplikation |
-| `/`      | Division |
-| `%`      | Modulo |
-| `==`     | Gleich |
-| `!=`     | Ungleich |
-| `<`, `<=`, `>`, `>=` | Vergleichsoperatoren |
-| `&&`     | Logisches AND |
-| `||`     | Logisches OR |
-| `!`      | Logisches NOT |
-| `??`     | Nullish-Coalescing: Rückgabe des rechten Wertes, falls linker Wert None |
-```
-### 3. Ternäre / Bedingte Ausdrücke
-```
-| Syntax                    | Beschreibung |
-|----------------------------|-------------|
-| `{{ cond ? true_val : false_val }}` | Rückgabe von `true_val` wenn `cond` True, sonst `false_val` |
-```
-### 4. Collection-Methoden (Legacy-Support)
-```
-| Syntax                            | Beschreibung |
-|----------------------------------|-------------|
-| `{{ dict.items() }}`              | Gibt Liste von `(key, value)` Tupeln |
-| `{{ dict.keys() }}`               | Gibt Liste aller Keys |
-| `{{ dict.values() }}`             | Gibt Liste aller Values |
-| `{{ obj.get('key') }}`            | Zugriff auf Dictionary Key oder Attribut |
-```
-### 5. Schleifen
-```
-| Syntax                                         | Beschreibung |
-|-----------------------------------------------|-------------|
-| `{% for item in iterable %}...{% endfor %}`   | Iteration über Liste, Tupel oder Dict.items() |
-| `{% for k, v in dict.items() %}...{% endfor %}` | Iteration über Dictionary (Key-Value) |
-```
-### 6. Bedingte Blöcke
-```
-| Syntax                              | Beschreibung |
-|------------------------------------|-------------|
-| `{% if condition %} ... {% endif %}` | Einfache Bedingung |
-| `{% if condition %} ... {% elif other %} ... {% else %} ... {% endif %}` | Komplexe Bedingung mit elif/else |
-```
-### 7. Standardfunktionen / Pipes
-```
-- Zugriff auf viele Standardfunktionen direkt im Template:
-  `upper`, `lower`, `title`, `strip`, `replace`, `len`, `sum`, `min`, `max`, `abs`, `round`, `list`, `tuple`, `sorted`, `any`, `all`, `zip`, `enumerate`, uvm.
-- Pipe-Syntax erlaubt Verkettung: `{{ var | upper | strip }}` 
-- Pipes können auch Argumente an Funktionen übergeben: `{{ var | replace("a","b") }}`
-- Funktionen aus `config` überschreiben Standardfunktionen.
-```
-### 8. Besonderheiten
-```
-- Zugriff auf verschachtelte Attribute über `dotted.names` (z.B. `user.address.city`)  
-- Optional chaining (`?.`) schützt vor `None`  
-- Slice unterstützt nur `[start:end]` (ohne Schritt)  
-- Cache für Expressions optional (`expr_cache_size`)  
-- Verbessertes Fehlerreporting mit Zeile, Spalte und Kontext
-```
-pip list --format=freeze > requirements.txt
+## Setup
 
+Use a virtual environment for release builds.
+
+```powershell
 cd backend
+python -m venv venv
+.\venv\Scripts\activate
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### venv
-```
-# Linux/macOS
+Linux/macOS:
+
+```bash
+cd backend
+python3 -m venv venv
 source venv/bin/activate
-
-# Windows
-venv\Scripts\activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt
 ```
 
-### packages
-```
-GTK+ 3 Runtime
-----------------
-pip install cairosvg
-pip install --force-reinstall cairosvg
+### Native Packages
 
-# Linux
+Some exports and SVG/PDF operations need Cairo/GTK-related runtime libraries.
+
+Windows:
+
+- GTK+ 3 Runtime
+- Visual C++ Redistributable x86/x64 when Intel GPU packages are used
+- NVIDIA Texture Tools when DDS/NV compression is used
+
+Linux:
+
+```bash
 sudo apt install libcairo2
+```
 
-# macOS
+macOS:
+
+```bash
 brew install cairo
-
-# Windows
-https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer
 ```
 
-### intel GPU
-```
-# Windows
-pip install -i https://software.repos.intel.com/python/pypi dpctl dpnp
-X86	https://aka.ms/vs/17/release/vc_redist.x86.exe
-X64	https://aka.ms/vs/17/release/vc_redist.x64.exe
+Anaconda/conda environments:
 
-# Linux
-pip install -i https://software.repos.intel.com/python/pypi dpctl dpnp
-```
-
-### Anaconda files
-```
+```bash
 conda install -c conda-forge cairo pango gdk-pixbuf libxml2 libffi
 ```
 
-### Start App
+Intel GPU support:
+
+```bash
+pip install -i https://software.repos.intel.com/python/pypi dpctl dpnp
 ```
+
+## Start
+
+Direct Flask start:
+
+```powershell
 cd backend
+.\venv\Scripts\activate
 python app.py
 ```
 
-### Customize configuration
-See [Configuration Reference](https://cli.vuejs.org/config/).
+Default development server:
+
+```text
+http://localhost:5000
+```
+
+Interactive CLI:
+
+```powershell
+python cli.py
+```
+
+Useful CLI commands:
+
+| Command | Description |
+| --- | --- |
+| `setup` | Runs the setup placeholder command. |
+| `build-backend` | Creates missing `__init__.py` files for configured core modules. |
+| `start-backend` | Starts Flask in the background. |
+| `start-backend --wait` | Starts Flask and waits in the CLI. |
+| `start-backend --external` | Starts Flask in an external terminal. |
+| `restart-backend` | Restarts the backend process. |
+| `stop-backend` | Requests backend stop; Flask may still need Ctrl+C. |
+
+## Configuration
+
+### `build.json`
+
+Main release configuration. Important fields:
+
+| Field | Description |
+| --- | --- |
+| `project_name` | Backend project identifier. |
+| `auto_sequence` | CLI sequence, currently `setup`, `build-backend`, `start-backend`. |
+| `flask_mode` | Flask mode, currently `development`. |
+| `plugin_path` | Base path used for plugin discovery. |
+| `secure` | Secure storage and optional keyring settings. |
+| `dependencies` | LibraryManager policy and managed library versions. |
+| `modules` | Package generation rules for core modules. |
+| `router` | Blueprint, route, controller, model and method-map definitions. |
+
+### `config.json`
+
+Local CLI/Flask config:
+
+```json
+{
+  "auto_sequence": ["setup"],
+  "flask_mode": "development",
+  "log_file": "cli.log",
+  "flask_config": {
+    "SECRET_KEY": "CHANGE_ME_FOR_RELEASE",
+    "MAX_CONTENT_LENGTH": 67108864
+  }
+}
+```
+
+For a public release, replace `SECRET_KEY` through environment-specific configuration.
+
+### Frontend Serving
+
+The backend serves:
+
+```text
+../frontend/dist/index.html
+```
+
+Build the frontend before release so this path exists.
+
+## API Routes
+
+Routes are configured in `build.json` and registered as Flask blueprints at startup.
+
+| Blueprint | Prefix | Methods | Actions |
+| --- | --- | --- | --- |
+| `app` | `/` | `GET` | frontend index, static files, downloads |
+| `ai` | `/ai/generateImage/` | `POST` | `prompt_img` |
+| `local_ai` | `/local-ai/generateImage/` | `POST` | `prompt_img` |
+| `backup` | `/backup` | `GET`, `POST` | `create`, `jump` |
+| `brush` | `/brush` | `GET`, `POST` | `upload`, `delete` |
+| `channel` | `/channel` | `POST` | `fetch`, `setting`, `toggle` |
+| `cursor` | `/cursor` | `POST` | `create` |
+| `export` | `/export` | `POST` | `update`, `start-mp4`, `append-mp4-frame`, `finish-mp4` |
+| `fonts` | `/fonts` | `GET`, `POST` | `upload`, `update`, `delete` |
+| `layer` | `/layer` | `GET`, `POST` | `add`, `addText`, `updateText`, `addPath`, `update`, `delete`, `group`, `order`, `hide`, `blend`, `paste`, `mask`, `masked` |
+| `material` | `/material` | `GET`, `POST` | `create-cube`, `update`, `export-blender` |
+| `mesh` | `/mesh` | `GET`, `POST` | `create`, `fetch`, `update`, `delete` |
+| `modifier` | `/modifier` | `POST` | `color`, `details`, `effects`, `distort`, `fill`, `resize` |
+| `path` | `/path` | `GET`, `POST` | `add`, `update`, `delete` |
+| `plugin` | `/plugin` | `GET`, `POST` | `fetch`, `scan`, `install`, `installAll`, `pause`, `repair`, `status`, `update` |
+| `queue` | `/queue` | `GET` | queue status |
+| `render` | `/renderer` | `POST` | `preview`, `color-preview`, `details-preview`, `effects-preview`, `distort-preview`, `material-preview`, `thumbnail`, `text-path`, `base64`, `blob` |
+| `settings` | `/settings` | `GET`, `POST` | `update`, `clear` |
+| `shader` | `/shader` | `GET`, `POST` | `upload`, `update`, `delete` |
+| `task` | `/task` | `GET`, `POST` | `create`, `update`, `delete`, `run`, `schedule`, `stop` |
+| `tile` | `/tile` | `POST` | `generate` |
+| `upload` | `/upload` | `POST` | image upload and map generation |
+| `viewport` | `/viewport` | `GET`, `POST` | `set` |
+
+## Assets And Runtime Data
+
+Bundled assets:
+
+| Path | Contents |
+| --- | --- |
+| `assets/brush/` | Brush packages. |
+| `assets/font/` | Font packages. |
+| `assets/path/` | Shape/path packages. |
+| `assets/shader/` | Shader packages. |
+| `assets/plugin/` | Plugin archives. |
+| `assets/driver/` | Platform driver/tool archives. |
+| `assets/wave/` | Wave texture asset. |
+
+Runtime/generated folders:
+
+| Path | Release handling |
+| --- | --- |
+| `generated/` | Generated on backend startup; ignored by git. |
+| `public/` | Runtime output/public files; ignored by git. |
+| `__pycache__/` | Python cache; ignored by git. |
+| `venv/` | Local virtual environment; ignored by git. |
+| `cli.log` | Runtime log; do not ship as release metadata unless needed for debugging. |
+| `library_report.json` | Dependency sync report; useful for diagnostics. |
+
+## Release Checklist
+
+Before publishing a release:
+
+- Build the frontend so `../frontend/dist/index.html` exists.
+- Verify `version.txt` contains the intended release version.
+- Review `build.json` for production values, especially `flask_mode`, `secure`, `plugin_path`, and `dependencies`.
+- Replace local or development secrets such as `SECRET_KEY`.
+- Start the backend with `python app.py` and confirm `http://localhost:5000` serves the app.
+- Check `/queue` after startup to confirm the queue route is registered.
+- Run the main editor flows: upload, layer edit, render preview, export, shader/font/brush loading, and material creation.
+- Confirm native runtime requirements are installed on the target OS.
+- Remove or ignore local runtime files: `cli.log`, `__pycache__/`, `generated/`, `public/`, and `venv/`.
+- Check that release assets in `assets/` are present and readable.
+
+## Known Release Notes
+
+- `requirements.txt` currently looks like a full local environment freeze and contains many `file:///C:/...` package references. That can break installation on other machines. For a portable release, create a clean requirements file from only the packages listed under `build.json -> dependencies -> libraries`.
+- `generated/` is ignored and recreated at runtime. Edit source files in `view/`, `controller/`, and `model/`, not the generated copies.
+- The backend defaults to development mode in the current configuration.
+- `app.py` uses `debug=True` when `core.development` is enabled.
+- The frontend path is relative: `../frontend/dist/index.html`.
+- Some modules depend on platform-specific GPU, Cairo, GTK, NVIDIA Texture Tools or Intel packages.
+
+## Minimal Portable Requirements Draft
+
+The managed dependency list in `build.json` currently contains:
+
+```text
+accelerate==1.13.0
+cairosvg==2.8.2
+chardet==5.2.0
+cryptography==46.0.3
+diffusers==0.38.0
+dpnp==0.18.1
+fastapi==0.115.0
+flask==3.0.3
+flask-cors==6.0.1
+fonttools==4.63.0
+keyring==25.7.0
+matplotlib==3.10.0
+nvidia-ml-py==13.580.82
+openai==1.97.0
+opencv-python==4.10.0.84
+pandas==2.3.3
+pillow==11.3.0
+psutil==7.1.0
+pydantic-settings==2.5.2
+python-dotenv==1.1.1
+reportlab==4.4.3
+requests==2.32.5
+safetensors==0.8.0rc0
+scipy==1.15.2
+svgwrite==1.4.3
+torch==2.7.1+cu118
+torchaudio==2.7.1+cu118
+torchvision==0.22.1+cu118
+transformers==5.8.0
+tzlocal==5.3.1
+uvicorn==0.32.0
+```
+
+Use this as the basis for a portable release requirements file after testing the full app flow in a clean environment.

@@ -451,6 +451,7 @@ import axios from "axios";
 import PageHeader from "@/components/PageHeader/PageHeader";
 import dayjs from "dayjs";
 import { v4 as uuidv4 } from 'uuid';
+import {appData} from "@/dataLayer/local";
 
 export default defineComponent({
   name: "DrawerComponent",
@@ -679,7 +680,7 @@ export default defineComponent({
         formData.append("height", imageHeight.value);
 
         const response = await axios.post(
-            "http://127.0.0.1:5000/layer",
+            appData.apiUrl("/layer"),
             formData,
             {
               responseType: "json",
@@ -705,7 +706,7 @@ export default defineComponent({
         formData.append("url", layer.url);
 
         const response = await axios.post(
-            "http://127.0.0.1:5000/layer",
+            appData.apiUrl("/layer"),
             formData,
             {
               responseType: "json",
@@ -729,7 +730,7 @@ export default defineComponent({
           formData.append("method", "delete");
           formData.append("id", id);
 
-          await axios.post("http://127.0.0.1:5000/layer", formData, {
+          await axios.post(appData.apiUrl("/layer"), formData, {
             responseType: "json",
           });
         }
@@ -748,7 +749,7 @@ export default defineComponent({
         formData.append("method", "list");
 
         const response = await axios.post(
-            "http://127.0.0.1:5000/layer",
+            appData.apiUrl("/layer"),
             formData,
             {
               responseType: "json",
@@ -814,7 +815,7 @@ export default defineComponent({
           formData.append("tile_y", selectedTileSize.value.y);
 
           const response = await axios.post(
-              "http://127.0.0.1:5000/tile",
+              appData.apiUrl("/tile"),
               formData,
               {
                 responseType: "json",
@@ -1249,7 +1250,7 @@ export default defineComponent({
 
     const fetchOsSettings = async () => {
       try {
-        const response = await axios.get("http://127.0.0.1:5000/settings", {
+        const response = await axios.get(appData.apiUrl("/settings"), {
           responseType: "json",
         });
         // Die aktuellen Einstellungen in die `osSettings` Variable einfügen
@@ -1262,7 +1263,7 @@ export default defineComponent({
     const saveOsSettings = async () => {
       try {
         const response = await axios.post(
-            "http://127.0.0.1:5000/settings",
+            appData.apiUrl("/settings"),
             { ...osSettings },
             {
               responseType: "json",
@@ -1317,7 +1318,7 @@ export default defineComponent({
 
       try {
         const response = await axios.post(
-            "http://127.0.0.1:5000/upload",
+            appData.apiUrl("/upload"),
             formData,
             {
               responseType: "json",

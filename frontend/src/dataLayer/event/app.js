@@ -337,7 +337,7 @@ export const appEvent = (route) => ({
         }
 
         if (payload.mode === 'full') {
-            el = document.getElementById(route.tempData.appId.value);
+            el = document.getElementById(route.appData.appId.value);
         } else {
             el = document.getElementById(route.tempData.canvasId.value);
         }

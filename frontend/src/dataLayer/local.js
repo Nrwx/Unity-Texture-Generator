@@ -1,8 +1,20 @@
 import {reactive, ref} from "vue";
 import {uuid} from "@/utils/uuid";
 
+const normalizeBaseUrl = (url = '') => String(url).replace(/\/+$/, '');
+const defaultApiBaseUrl = normalizeBaseUrl(process.env.VUE_APP_API_BASE_URL || 'http://127.0.0.1:5000');
+
 export const appData = {
-    theme: ref('darkTheme')
+    name: ref('Unity Texture Generator'),
+    title: ref('Unity Texture Generator'),
+    app: ref(null),
+    appId: ref(uuid()),
+    theme: ref('darkTheme'),
+    apiBaseUrl: ref(defaultApiBaseUrl),
+    apiUrl(path = '') {
+        const cleanPath = path ? `/${String(path).replace(/^\/+/, '')}` : '';
+        return `${normalizeBaseUrl(appData.apiBaseUrl.value)}${cleanPath}`;
+    }
 }
 
 export const localData = {
@@ -108,8 +120,6 @@ export const localData = {
 }
 
 export const tempData = {
-    app: ref(null),
-    appId: ref(uuid()),
     canvasId: ref(uuid()),
     brushCanvasId: ref(uuid()),
     brushLayer: ref(null),

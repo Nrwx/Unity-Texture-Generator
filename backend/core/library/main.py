@@ -178,6 +178,37 @@ class LibraryManager:
     # -----------------------
     # Requirements helpers
     # -----------------------
+    def _sanitize_requirements_output(self, requirements_text: str) -> Tuple[str, int]:
+        """
+        Entfernt lokale Direct-Reference-Zeilen aus pip freeze.
+
+        Conda/Anaconda-Umgebungen liefern oft Eintraege wie:
+            package @ file:///C:/...
+
+        Solche Zeilen sind maschinenspezifisch und fuer Release-Requirements
+        nicht portabel.
+        """
+        sanitized_lines: List[str] = []
+        removed_count = 0
+
+        for raw_line in requirements_text.splitlines():
+            line = raw_line.strip()
+            line_lower = line.lower()
+
+            if not line:
+                continue
+
+            if " @ file:" in line_lower or line_lower.startswith("file:"):
+                removed_count += 1
+                continue
+
+            sanitized_lines.append(line)
+
+        sanitized = "\n".join(sanitized_lines)
+        if sanitized:
+            sanitized += "\n"
+        return sanitized, removed_count
+
     def create_requirements_file(self, output_path: Optional[Path] = None, base_path: Optional[Path] = None) -> Path:
         cwd = Path(base_path) if base_path else None
         dest = Path(output_path) if output_path else (self.base_path / self.work_path / self.requirements_name)
@@ -188,10 +219,18 @@ class LibraryManager:
             self.log(f"pip freeze fehlgeschlagen: {proc.stderr}", "LIB-MANAGER", "ERROR", "📛")
             raise RuntimeError(f"pip freeze failed: {proc.stderr}")
 
+        requirements_text, removed_count = self._sanitize_requirements_output(proc.stdout)
         with open(dest, "w", encoding="utf-8") as f:
-            f.write(proc.stdout)
+            f.write(requirements_text)
 
         self.log("Derzeit installierte Abhängigkeiten aktualisiert…", "LIB-MANAGER", "INFO", "📄")
+        if removed_count:
+            self.log(
+                f"{removed_count} lokale file:// Requirements wurden fuer den Release-Export ausgelassen.",
+                "LIB-MANAGER",
+                "INFO",
+                None
+            )
         return dest
 
     def parse_requirements_file(self, req_path: Path) -> Dict[str, Optional[str]]:
@@ -202,6 +241,8 @@ class LibraryManager:
             for ln in f:
                 ln = ln.strip()
                 if not ln or ln.startswith("#") or ln.startswith("-e") or ln.startswith("--") or ln.startswith("git+"):
+                    continue
+                if " @ file:" in ln.lower() or ln.lower().startswith("file:"):
                     continue
                 if "==" in ln:
                     name, ver = ln.split("==", 1)

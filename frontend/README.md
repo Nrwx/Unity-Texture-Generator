@@ -1,261 +1,153 @@
-# frontend
+# Unity Texture Generator Frontend
 
-## Project setup
+Frontend fuer den Unity Texture Generator. Die App ist ein Vue-3/Vuetify-basiertes
+Werkzeug zum Erstellen, Bearbeiten, Kombinieren und Exportieren von Texturen,
+Layern, Materialien und einfachen Animationen.
+
+Der aktuelle Stand ist benutzbar, aber noch nicht final poliert. Diese README
+beschreibt deshalb bewusst den Release-nahen Ist-Zustand statt eine fertige
+Produktdokumentation vorzugeben.
+
+## Status
+
+- Produktion-Build funktioniert mit `npm run build`.
+- Das Frontend erwartet ein laufendes Backend unter `http://127.0.0.1:5000`.
+- Die Backend-Basis-URL liegt zentral in `src/dataLayer/local.js` unter
+  `appData.apiBaseUrl`.
+- Der Build erzeugt Sass-Deprecation-Warnungen und Webpack-Hinweise zu grossen
+  Bundles. Das blockiert den Build nicht, sollte aber vor einem stabilen Release
+  bereinigt werden.
+
+## Hauptfunktionen
+
+- Bild-Upload und Layer-basierte Bearbeitung
+- Zeichen-, Pinsel-, Radierer-, Text-, Form- und Auswahlwerkzeuge
+- Masken, Pfade, Guides, Kontextmenues und Transformationshilfen
+- Modifier fuer Resize/Crop, Farbe, Details, Effekte und Distortion
+- Channel Mixer und Shader-/Renderer-Anbindung
+- Material Editor mit 3D-/Cube-/Mesh-bezogenen Einstellungen
+- AI-Bildgenerierung ueber Backend-Routen
+- Timeline, Mini-Timeline, Animation und Keyframe-nahe Workflows
+- Screenshot-, Export- und MP4-Export-Flows
+- Plugin-, Task-, Cache-, Backup- und Benachrichtigungssysteme
+- Light/Dark Theme ueber Vuetify
+
+## Tech Stack
+
+- Vue 3
+- Vue CLI 5
+- Vuetify 3
+- Sass
+- Axios
+- Day.js
+- html2canvas
+- Material Design Icons
+
+## Projektstruktur
+
+```text
+frontend/
+  public/                 Statische HTML- und Icon-Dateien
+  src/
+    App.vue               App-Shell, Fenster, Taskbars und globale Workflows
+    main.js               Vue/Vuetify Einstiegspunkt
+    assets/               Logos und statische Assets
+    components/           Wiederverwendbare UI-Komponenten
+    composables/          Vue-Composables
+    dataLayer/            API-Client, Events, Routes, State und Settings
+    models/               UI-, Tool-, Layer-, Timeline- und Domain-Modelle
+    plugins/              Vuetify und Theme-Konfiguration
+    utils/                Canvas-, DOM-, Math-, Screenshot- und Helper-Code
+    view/                 Seiten, Panels, SCSS und View-Modelle
+  dist/                   Generierter Produktions-Build
 ```
+
+## Voraussetzungen
+
+- Node.js mit npm
+- Installierte npm-Abhaengigkeiten
+- Laufendes Unity-Texture-Generator-Backend auf `127.0.0.1:5000`
+
+Empfohlen ist die Installation ueber `npm ci`, weil ein `package-lock.json`
+vorhanden ist.
+
+## Installation
+
+```bash
+npm ci
+```
+
+Falls bewusst neue Dependency-Versionen aufgeloest werden sollen:
+
+```bash
 npm install
 ```
 
-### Compiles and hot-reloads for development
-```
-npm run serve
+## Entwicklung
+
+In `package.json` ist aktuell kein `serve`-Script definiert. Fuer einen lokalen
+Vue-CLI-Dev-Server kann der Service direkt gestartet werden:
+
+```bash
+npx vue-cli-service serve
 ```
 
-### Compiles and minifies for production
+Das Frontend ruft das Backend unter `http://127.0.0.1:5000` auf. Ohne laufendes
+Backend starten Teile der Oberflaeche, datenabhaengige Funktionen wie Upload,
+Layer, AI, Renderer, Export, Tasks, Plugins und Settings schlagen dann aber fehl.
+
+Die Backend-URL kann ueber Vue CLI Environment Variablen ueberschrieben werden:
+
+```bash
+VUE_APP_API_BASE_URL=http://127.0.0.1:5000
 ```
+
+## Build
+
+```bash
 npm run build
 ```
 
-### Lints and fixes files
-```
+Der Build schreibt die auslieferbaren Dateien nach `dist/`.
+
+## Linting
+
+```bash
 npm run lint
 ```
 
-# Canvas Environment System 
+## Release-Hinweise
 
-```
-Dieses Dokument beschreibt das Canvas-System bestehend aus:
+Vor einem oeffentlichen Release sollten mindestens diese Punkte geprueft werden:
 
-- `createCanvasEnvironment`
-- `canvasEvent`
-- `canvasRegister`
-- Canvas Model Configuration
-- Grid System
-- Segment System
-- Fullscreen Feature
-- Renderer
-- Update Flow
-- Pause/Resume Steuerung
+- Backend starten und Frontend gegen `http://127.0.0.1:5000` testen.
+- `npm ci` auf einer frischen Umgebung ausfuehren.
+- `npm run build` ausfuehren und `dist/` pruefen.
+- Upload, Layer-Bearbeitung, Modifier, Material Editor, AI-Flow und Export manuell
+  durchklicken.
+- Sass-Warnungen zu `@import` und Slash-Division einplanen.
+- Bundle-Groesse pruefen; aktuell empfiehlt Webpack Lazy Loading bzw. Code
+  Splitting fuer groessere Teile der App.
+- Backend-URL fuer Release-Umgebungen ueber `VUE_APP_API_BASE_URL` setzen.
 
-```
+## Bekannte Einschraenkungen
 
-## 1. Übersicht
-```
-Das System unterstützt:
+- Kein automatisiertes Test-Setup im Frontend-Repo erkennbar.
+- Kein `serve`-Script in `package.json`.
+- API-Basis-URL hat als Default `http://127.0.0.1:5000` und wird zentral ueber
+  `appData.apiBaseUrl` verwaltet.
+- Einzelne aeltere Komponenten verwenden noch direkte Axios-Aufrufe, beziehen
+  ihre URLs aber ebenfalls ueber `appData.apiUrl(...)`.
+- Die App ist funktionsreich, aber noch in einem unfertigen benutzbaren Zustand.
 
-- mehrere Canvas-Instanzen
-- flexibles Grid Layout
-- automatische Segment-Generierung
-- individuell steuerbare Segmente
-- Segment-Updates und Renderer
-- Fullscreen je Segment
-- globale und lokale Pause/Resume
-- eventbasierte Kommunikation zwischen Frontend und Canvas Controller
+## Wichtige Dateien
 
-```
-
-## 2. createCanvasEnvironment
-```
-`createCanvasEnvironment()` erstellt eine Controller-Instanz.  
-Diese verwaltet:
-
-- Canvas Modelle
-- Segmente
-- RAF-Loops pro Canvas *und* pro Segment
-- Fullscreen-Steuerung
-- Background Renderer
-- Grid und Layoutsystem
-
-### Methoden
-
-### `register(canvasId, config)`
-Registriert eine neue Canvas-Instanz.
-
-### `remove(canvasId)`
-Löscht eine Canvas-Instanz inkl. Segment-RAF-Loops.
-
-### `destroy()`
-Leert alle Modelle (`models.clear()`).
-
-### `update(canvasId, loopFunction, payload)`
-Startet oder triggert ein Update.
-
-### `pause(canvasId)`
-Pausiert exakt diese Canvas-Instanz.
-
-### `resume(canvasId)`
-Hebt die Pause der Instanz wieder auf.
-
-### `pauseAll()`
-Stoppt **alle** Canvas Instanzen & Segmente.
-
-### `resumeAll()`
-Reaktiviert das gesamte System.
-
-### `setFullscreen(canvasId, segmentId)`
-Aktiviert Fullscreen für ein Segment und deaktiviert alle anderen.
-
-### `clearFullscreen(canvasId)`
-Stellt das ursprüngliche Grid wieder her.
-
-### `getLayers(canvasId)`
-Gibt alle Segmente zurück.
-
-### `addLayer(canvasId, segmentConfig)`
-Erstellt ein neues Segment.
-
-### `removeLayer(canvasId, segmentId)`
-Entfernt ein Segment.
-
-### `isActive(canvasId)`
-Prüft, ob Canvas aktiv ist.
-
-### `count()`
-Gibt die Anzahl der Modelle zurück.
-
-```
-
-## 3. Canvas Config Struktur
-```
-js
-{
-  canvas: HTMLCanvasElement,
-  ctx: CanvasRenderingContext2D,
-
-  rows: number | null,
-  columns: number | null,
-
-  fixed: {
-    rows: number[] | null,
-    columns: number[] | null
-  },
-
-  showGrid: boolean,
-
-  background: {
-    color: string,
-    raster: boolean
-  },
-
-  beforeUpdate: function | null,
-  afterUpdate: function | null,
-  renderer: function | null,
-
-  segments: [ ... ],
-  fullscreenSegment: string | null,
-
-  _paused: boolean,
-  _rafId: number | null,
-  _segmentRaf: Map<string, number>
-}
-```
-
-## 4. Segment Struktur
-```
-js
-{
-  id: string,
-  row: number,
-  column: number,
-
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-
-  active: boolean,
-
-  data: any,
-  update: function | null,
-  renderer: function | null,
-
-  _paused: boolean,
-  _rafId: number | null
-}
-```
-
-## 5. canvasEvent
-```
-Event-Helper der Controller-Funktionen abbildet:
-
-- `canvas:register`
-- `canvas:update-request`
-- `canvas:pause`
-- `canvas:resume`
-- `canvas:destroy`
-- `canvas:pauseAll`
-- `canvas:resumeAll`
-- `canvas:fullscreen`
-- `canvas:fullscreen-exit`
-
-```
-
-## 6. canvasRegister
-
-```
-Frontend-Helper zum Triggern der Events aus Vue (oder anderem Framework).
-
-### Register Modi:
-
-- `register`
-- `update`
-- `pause`
-- `resume`
-- `destroy`
-- `pauseAll`
-- `resumeAll`
-- `fullscreen`
-- `fullscreenExit`
-
-```
-
-## 7. Fullscreen Logik
-```
-### Fullscreen aktivieren:
-- setzt alle Segmente auf `active = false`
-- ein Segment übernimmt `width = canvas.width`, `height = canvas.height`
-
-### Fullscreen verlassen:
-- Segment Layouts werden neu berechnet
-- Grid wird wiederhergestellt
-
-```
-
-## 8. Grid Modi
-
-### Single Mode
-```
-- `rows = null`
-- `columns = null`
-- ein großes Segment
-```
-### Dynamic Mode
-```
-- `rows` und `columns` gesetzt
-- **keine fixed sizes**
-- automatische Aufteilung
-```
-### Mixed Mode
-```
-- Kombination aus fixed und dynamic
-```
-### Full Fixed Mode
-```
-- komplette manuelle Kontrolle über alle Segmentgrößen
-```
-
-## 9. Background Optionen
-```
-- `color`: Canvas Hintergrund
-- `raster`: Schachbrettmuster (Transparenzhilfe)
-```
-
-## 10. Update Ablauf
-```
-1. beforeUpdate Hook
-2. Layout berechnen
-3. Hintergrund zeichnen
-4. Segment Updates
-5. Segment Renderer
-6. Haupt Renderer
-7. afterUpdate Hook
-```
+- `src/main.js` initialisiert Vue und Vuetify.
+- `src/App.vue` orchestriert Boot-Screen, Viewport, Taskbars, Drawers, Layer,
+  Modifier, Material Editor, Notifications und Queue.
+- `src/dataLayer/local.js` enthaelt `appData` mit Theme, App-ID und API-Basis-URL.
+- `src/dataLayer/api.js` enthaelt den zentralen Axios-Client.
+- `src/dataLayer/route/route.js` buendelt die Backend-Routen.
+- `src/models/taskbar/config/model.js` definiert die Hauptwerkzeuge in den
+  Taskbars.
+- `vue.config.js` enthaelt die Vue-CLI-/Vuetify-Konfiguration.

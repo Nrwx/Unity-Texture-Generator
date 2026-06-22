@@ -1,4 +1,6 @@
 // src/dataLayer/taskEvents.js
+const resolveTaskId = payload => payload && typeof payload === "object" ? payload.id : payload;
+
 export const taskEvent = (route) => ({
     /* create task and refresh list */
     "task:create": async (payload) => {
@@ -53,13 +55,14 @@ export const taskEvent = (route) => ({
 
     /* fetch single task and store into route.taskStates.current */
     "task:fetch-one": async (payload) => {
-        const entry = route.localData.tasks.value.find(x => x.id === payload);
+        const taskId = resolveTaskId(payload);
+        const entryIndex = route.localData.tasks.value.findIndex(x => x.id === taskId);
         console.log(payload, "fetch-one")
-        if (entry) {
-            const response = await route.api.fetchTask({id: payload});
+        if (entryIndex !== -1) {
+            const response = await route.api.fetchTask({id: taskId});
             if (response) {
                 console.log(response, "fetch-one response")
-                route.localData.tasks.value[entry] = response;
+                route.localData.tasks.value[entryIndex] = response;
                 return true
             }
             return false
@@ -73,7 +76,7 @@ export const taskEvent = (route) => ({
         console.log(payload, "run")
         if (response) {
             await route.emit("task:fetch-list");
-            await route.emit("task:fetch-one", payload);
+            await route.emit("task:fetch-one", resolveTaskId(payload));
         }
     },
 
@@ -83,7 +86,7 @@ export const taskEvent = (route) => ({
         const response = await route.api.scheduleTask(payload);
         if (response) {
             await route.emit("task:fetch-list");
-            await route.emit("task:fetch-one", payload.id);
+            await route.emit("task:fetch-one", resolveTaskId(payload));
         }
     },
 
@@ -93,7 +96,7 @@ export const taskEvent = (route) => ({
         const response = await route.api.stopTask(payload);
         if (response) {
             await route.emit("task:fetch-list");
-            await route.emit("task:fetch-one", payload);
+            await route.emit("task:fetch-one", resolveTaskId(payload));
         }
     },
 

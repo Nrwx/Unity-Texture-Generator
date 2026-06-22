@@ -259,11 +259,11 @@ class Config:
         # Fallbacks wenn noch None
         if not storage_path:
             home = Path.home()
-            storage_path = str(home / f". {project_name}" / "secure_store.json")
+            storage_path = str(home / f".{project_name}" / "secure_store.json")
             self.log(f"Secure: fallback storage_path used: {storage_path}", "SECURE", "WARN", "⚠️")
         if not key_path:
             home = Path.home()
-            key_path = str(home / f". {project_name}" / ".secure_key")
+            key_path = str(home / f".{project_name}" / ".secure_key")
             self.log(f"Secure: fallback key_path used: {key_path}", "SECURE", "WARN", "⚠️")
 
         # Ergebnis zwischenspeichern und zurückgeben
