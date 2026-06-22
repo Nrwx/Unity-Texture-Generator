@@ -1,0 +1,130 @@
+name: Bug Report
+description: Report a reproducible problem in Unity Texture Generator.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Unity Texture Generator.
+
+        Please use this form for reproducible bugs. Questions, ideas, and broader workflow discussions are better suited for Discussions.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: What happened, and what part of the app is affected?
+      placeholder: "Example: The material preview fails after uploading a PNG and applying the resize modifier."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the exact steps needed to trigger the problem.
+      placeholder: |
+        1. Start backend with `python app.py`
+        2. Open `http://localhost:5000`
+        3. Upload image ...
+        4. Click ...
+        5. See error ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen instead?
+      placeholder: "Example: The preview should update and the export button should remain enabled."
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happened? Include visible errors if possible.
+      placeholder: "Example: The preview stays blank and the browser console shows ..."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      description: Which part of the project is affected?
+      multiple: true
+      options:
+        - Backend
+        - Frontend
+        - Upload
+        - Layers
+        - Modifiers
+        - Renderer
+        - Material Editor
+        - AI / Local AI
+        - Export
+        - Plugins
+        - CLI / Doctor
+        - Packaging / Release
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: backend-version
+    attributes:
+      label: Backend version
+      placeholder: "Example: 1.0.0"
+    validations:
+      required: false
+
+  - type: input
+    id: frontend-version
+    attributes:
+      label: Frontend version
+      placeholder: "Example: 1.0.0"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - Linux
+        - macOS
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Runtime environment
+      description: Add Python, Node.js, browser, GPU, or native package details if relevant.
+      placeholder: "Example: Python 3.13, Node 22, Chrome, NVIDIA GPU, GTK installed"
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and screenshots
+      description: Paste relevant backend logs, browser console errors, screenshots, or screen recordings.
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Anything else that may help understand or reproduce the issue.
+    validations:
+      required: false

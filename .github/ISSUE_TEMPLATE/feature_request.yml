@@ -1,0 +1,88 @@
+name: Feature Request
+description: Suggest an improvement or new capability for Unity Texture Generator.
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for sharing an idea for Unity Texture Generator.
+
+        Please use this form for concrete feature requests. Open-ended questions, roadmap thoughts, and workflow conversations are also welcome in Discussions.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or workflow need
+      description: What problem would this solve, or what workflow would it improve?
+      placeholder: "Example: I need to export material maps in a Unity-ready folder structure without manually renaming files."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Desired solution
+      description: Describe what you would like to happen.
+      placeholder: "Example: Add a Unity export preset that writes albedo, normal, roughness, metallic, and alpha maps with consistent names."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Feature area
+      multiple: true
+      options:
+        - Backend
+        - Frontend
+        - Upload
+        - Layers
+        - Modifiers
+        - Renderer
+        - Material Editor
+        - AI / Local AI
+        - Export
+        - Plugins
+        - CLI / Doctor
+        - Packaging / Release
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Have you tried another workflow, workaround, or tool?
+      placeholder: "Example: I currently export each map manually and rename them outside the app."
+    validations:
+      required: false
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples, references, or mockups
+      description: Add screenshots, links, files, or rough UI ideas if they help explain the request.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority for your workflow
+      options:
+        - Nice to have
+        - Important
+        - Blocking a workflow
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Anything else that would help evaluate or design the feature.
+    validations:
+      required: false
