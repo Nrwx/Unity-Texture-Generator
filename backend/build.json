@@ -4,13 +4,13 @@
   "auto_sequence": [],
   "flask_mode": "development",
   "log_file": "cli.log",
-  "plugin_path": "D:\\",
+  "plugin_path": "[PLUGIN_PATH]",
   "secure": {
     "service_name": "unity-texture-generator",
-    "account_name": "Eric",
+    "account_name": "[ACCOUNT_NAME]",
     "use_keyring": false,
-    "storage_path": "C:\\Users\\Eric\\.unity-texture-generator\\secure_store.json",
-    "key_path": "C:\\Users\\Eric\\.unity-texture-generator\\.secure_key",
+    "storage_path": "[USER_CONFIG_PATH]\\secure_store.json",
+    "key_path": "[USER_CONFIG_PATH]\\.secure_key",
     "project_name": "unity-texture-generator"
   },
   "dependencies": {
