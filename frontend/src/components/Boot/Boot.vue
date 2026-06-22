@@ -13,7 +13,7 @@
         <div class="boot-taskbar-collapsed cursor-auto w-100 mt-2 d-flex align-center justify-space-between ga-3" @click="toggleExpanded"
              role="button" aria-pressed="false">
           <div class="boot-taskbar-left d-flex align-center ga-3">
-            <div class="logo grid-center">PS</div>
+            <div class="grid-center"><img :src="logoUrl" alt="UG Logo" class="logo" /></div>
             <div class="bar-wrap">
               <div class="bar-track overflow-hidden rounded-pill">
                 <div class="bar-fill h-100 w-0 rounded-pill" :style="{ width: pct + '% !important' }"></div>

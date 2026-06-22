@@ -4,6 +4,7 @@ import {ctxCheck} from "@/utils/DOM/ctxCheck";
 import {ctxXhr} from "@/utils/DOM/ctxXhr";
 import {uuid} from "@/utils/uuid";
 import {clsManager} from "@/utils/DOM/clsManager";
+import logoUrl from "@/assets/logo.svg";
 
 export function bootModel(props, emit) {
     const emitEvent = async (event, payload) => emit("component-event", event, payload);
@@ -208,6 +209,7 @@ export function bootModel(props, emit) {
     });
 
     return {
+        logoUrl,
         terminalId,
         processedCount,
         spinningActive,
