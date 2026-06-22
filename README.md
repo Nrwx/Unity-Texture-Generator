@@ -1,3 +1,6 @@
+# Preview
+![Unity Texture Generator Preview](demo/unity-texture-generator-preview.gif)
+
 # Unity Texture Generator
 
 Unity Texture Generator is a local web app for creating, editing, combining, and exporting textures, layers, materials, and simple animations. The project consists of a Python/Flask backend and a Vue 3/Vuetify frontend.
