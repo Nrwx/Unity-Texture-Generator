@@ -1,64 +1,52 @@
 # Unity Texture Generator
 
-Unity Texture Generator ist eine lokale Web-App zum Erstellen, Bearbeiten,
-Kombinieren und Exportieren von Texturen, Layern, Materialien und einfachen
-Animationen. Das Projekt besteht aus einem Python/Flask-Backend und einem
-Vue-3/Vuetify-Frontend.
+Unity Texture Generator is a local web app for creating, editing, combining, and exporting textures, layers, materials, and simple animations. The project consists of a Python/Flask backend and a Vue 3/Vuetify frontend.
 
-## Absoluter Warnhinweis
+## Absolute Warning
 
-Diese App ist nicht fertig und nicht als stabile Produktionssoftware zu
-verstehen. Der aktuelle Stand kann lokal gestartet, gebaut und getestet werden,
-enthaelt aber bekannte Einschraenkungen, Entwicklungsdefaults und
-plattformabhaengige Abhaengigkeiten.
+This app is not finished and should not be considered stable production software. The current state can be started, built, and tested locally, but it contains known limitations, development defaults, and platform-dependent dependencies.
 
-Vor einem oeffentlichen Release muessen mindestens Backend-Konfiguration,
-Secrets, portable Python-Abhaengigkeiten, native Runtime-Pakete, Frontend-Build,
-Export-Flows und die kompletten Editor-Workflows geprueft werden. Nicht blind in
-produktiven Umgebungen betreiben.
+Before a public release, at minimum, the backend configuration, secrets, portable Python dependencies, native runtime packages, frontend build, export flows, and complete editor workflows must be reviewed. Do not run it blindly in production environments.
 
-## Projektstruktur
+## Project Structure
 
 ```text
 Unity-Texture-Generator/
-  backend/      Python/Flask API, Runtime-Generator, Assets und CLI
-  frontend/     Vue/Vuetify Editor-Oberflaeche
+  backend/      Python/Flask API, runtime generator, assets, and CLI
+  frontend/     Vue/Vuetify editor interface
   LICENSE       MIT License
-  README.md     Diese Einstiegsdokumentation
+  README.md     This introductory documentation
 ```
 
-Weitere Dokumentation:
+Additional documentation:
 
-- [Backend README](backend/README.md)
-- [Frontend README](frontend/README.md)
-- [Backend CLI README](backend/cli/README.md)
-- [License](LICENSE)
+* [Backend README](backend/README.md)
+* [Frontend README](frontend/README.md)
+* [Backend CLI README](backend/cli/README.md)
+* [License](LICENSE)
 
 ## Status
 
-- App: nicht fertig, aber in Teilen lokal benutzbar.
-- Backend: startet lokal als Flask-App und dient als API fuer Editor, Assets,
-  Rendering, Exporte, Tasks, Plugins und AI-Routen.
-- Frontend: baut mit `npm run build` und erwartet standardmaessig ein Backend
-  unter `http://127.0.0.1:5000`.
-- Release: noch nicht final. Siehe bekannte Hinweise in
-  [backend/README.md](backend/README.md) und [frontend/README.md](frontend/README.md).
+* App: not finished, but partially usable locally.
+* Backend: starts locally as a Flask app and serves as the API for the editor, assets, rendering, exports, tasks, plugins, and AI routes.
+* Frontend: builds with `npm run build` and expects a backend at `http://127.0.0.1:5000` by default.
+* Release: not final yet. See the known notes in [backend/README.md](backend/README.md) and [frontend/README.md](frontend/README.md).
 
-## Voraussetzungen
+## Requirements
 
-Allgemein:
+General:
 
-- Git
-- Python 3 mit `venv` und `pip`
-- Node.js mit npm
-- Ausreichend Speicherplatz fuer Python-, Node- und optionale GPU/AI-Pakete
+* Git
+* Python 3 with `venv` and `pip`
+* Node.js with npm
+* Sufficient disk space for Python, Node, and optional GPU/AI packages
 
 Windows:
 
-- PowerShell
-- GTK+ 3 Runtime fuer Cairo/SVG/PDF-bezogene Funktionen
-- Visual C++ Redistributable x86/x64, falls Intel GPU Pakete genutzt werden
-- NVIDIA Texture Tools, falls DDS/NV-Kompression genutzt wird
+* PowerShell
+* GTK+ 3 Runtime for Cairo/SVG/PDF-related functions
+* Visual C++ Redistributable x86/x64 if Intel GPU packages are used
+* NVIDIA Texture Tools if DDS/NV compression is used
 
 Linux:
 
@@ -72,26 +60,25 @@ macOS:
 brew install cairo
 ```
 
-Conda/Anaconda-Umgebungen:
+Conda/Anaconda environments:
 
 ```bash
 conda install -c conda-forge cairo pango gdk-pixbuf libxml2 libffi
 ```
 
-Optionale Intel GPU Pakete:
+Optional Intel GPU packages:
 
 ```bash
 pip install -i https://software.repos.intel.com/python/pypi dpctl dpnp
 ```
 
-## Setup Reihenfolge
+## Setup Order
 
-1. Backend-Abhaengigkeiten installieren.
-2. Frontend-Abhaengigkeiten installieren.
-3. Frontend bauen.
-4. Backend starten.
-5. App im Browser unter `http://localhost:5000` oder `http://127.0.0.1:5000`
-   pruefen.
+1. Install backend dependencies.
+2. Install frontend dependencies.
+3. Build the frontend.
+4. Start the backend.
+5. Check the app in the browser at `http://localhost:5000` or `http://127.0.0.1:5000`.
 
 ## Backend Setup
 
@@ -117,13 +104,13 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Das Backend startet standardmaessig auf:
+The backend starts on the following address by default:
 
 ```text
 http://localhost:5000
 ```
 
-Alternativ kann die interaktive Backend-CLI verwendet werden:
+Alternatively, the interactive backend CLI can be used:
 
 ```powershell
 cd backend
@@ -131,11 +118,11 @@ cd backend
 python cli.py
 ```
 
-Wichtige CLI-Kommandos:
+Important CLI commands:
 
-- `doctor` prueft Release- und Laufzeitrisiken.
-- `doctor --strict` behandelt Warnungen als Fehlerstatus.
-- `start`, `stop` und `restart` steuern den Backend-Prozess.
+* `doctor` checks release and runtime risks.
+* `doctor --strict` treats warnings as error status.
+* `start`, `stop`, and `restart` control the backend process.
 
 ## Frontend Setup
 
@@ -145,80 +132,70 @@ npm ci
 npm run build
 ```
 
-Der Build schreibt die auslieferbaren Dateien nach:
+The build writes the distributable files to:
 
 ```text
 frontend/dist/
 ```
 
-Das Backend dient anschliessend die gebaute App aus
-`../frontend/dist/index.html` aus. Fuer lokale Frontend-Entwicklung kann der
-Vue-CLI-Service direkt gestartet werden:
+The backend then serves the built app from `../frontend/dist/index.html`. For local frontend development, the Vue CLI service can be started directly:
 
 ```bash
 cd frontend
 npx vue-cli-service serve
 ```
 
-Hinweis: In `frontend/package.json` ist aktuell kein `serve`-Script definiert.
-Das Frontend nutzt als Default-API:
+Note: There is currently no `serve` script defined in `frontend/package.json`. The frontend uses the following default API:
 
 ```text
 http://127.0.0.1:5000
 ```
 
-Bei Bedarf kann die Backend-URL fuer Vue CLI gesetzt werden:
+If needed, the backend URL for Vue CLI can be set as follows:
 
 ```bash
 VUE_APP_API_BASE_URL=http://127.0.0.1:5000
 ```
 
-## Entwicklung Und Build
+## Development and Build
 
-Backend direkt starten:
+Start the backend directly:
 
 ```bash
 cd backend
 python app.py
 ```
 
-Frontend Produktionsbuild:
+Frontend production build:
 
 ```bash
 cd frontend
 npm run build
 ```
 
-Frontend Lint:
+Frontend lint:
 
 ```bash
 cd frontend
 npm run lint
 ```
 
-Vor einem Release sollten mindestens diese Checks laufen:
+Before a release, at least the following checks should be run:
 
-- `python cli.py` und danach `doctor`
-- `npm ci`
-- `npm run build`
-- Start des Backends mit `python app.py`
-- Manueller Test von Upload, Layer-Bearbeitung, Modifiern, Material Editor,
-  AI-Flow, Rendering und Export
+* `python cli.py` followed by `doctor`
+* `npm ci`
+* `npm run build`
+* Start the backend with `python app.py`
+* Manual testing of upload, layer editing, modifiers, material editor, AI flow, rendering, and export
 
-## Wichtige Hinweise
+## Important Notes
 
-- `backend/generated/` wird beim Start erzeugt und sollte nicht manuell als
-  primaere Quelle bearbeitet werden.
-- `backend/public/`, `backend/venv/`, `__pycache__/` und lokale Logs sind
-  Runtime-Artefakte.
-- `backend/requirements.txt` kann lokale `file:///C:/...` Referenzen enthalten.
-  Fuer eine portable Release-Installation muss die Abhaengigkeitsliste bereinigt
-  und in einer frischen Umgebung getestet werden.
-- Development-Secrets wie `SECRET_KEY` muessen vor einem Release ersetzt werden.
-- Das Frontend erzeugt aktuell Sass-Deprecation-Warnungen und Hinweise zu
-  grossen Bundles; sie blockieren den Build nicht, sollten aber eingeplant
-  werden.
+* `backend/generated/` is generated on startup and should not be manually edited as the primary source.
+* `backend/public/`, `backend/venv/`, `__pycache__/`, and local logs are runtime artifacts.
+* `backend/requirements.txt` may contain local `file:///C:/...` references. For a portable release installation, the dependency list must be cleaned up and tested in a fresh environment.
+* Development secrets such as `SECRET_KEY` must be replaced before a release.
+* The frontend currently produces Sass deprecation warnings and notices about large bundles; these do not block the build, but should be taken into account.
 
 ## License
 
-Dieses Projekt steht unter der MIT License. Details stehen in [LICENSE](LICENSE).
+This project is licensed under the MIT License. Details can be found in [LICENSE](LICENSE).
