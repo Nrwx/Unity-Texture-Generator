@@ -6,6 +6,10 @@
     "build": "vue-cli-service build",
     "lint": "vue-cli-service lint"
   },
+  "engines": {
+    "node": "20 || 22",
+    "npm": ">=10"
+  },
   "dependencies": {
     "@mdi/font": "^7.4.47",
     "axios": "^1.16.0",
@@ -45,9 +49,6 @@
       "parser": "@babel/eslint-parser"
     },
     "rules": {}
-  },
-  "overrides": {
-    "@achrinza/node-ipc": "9.2.10"
   },
   "browserslist": [
     "> 1%",
