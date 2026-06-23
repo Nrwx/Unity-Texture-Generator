@@ -302,7 +302,7 @@ The managed dependency list in `build.json` currently contains:
 accelerate==1.13.0
 cairosvg==2.8.2
 chardet==5.2.0
-cryptography==46.0.3
+cryptography==48.0.1
 diffusers==0.38.0
 dpnp==0.18.1
 fastapi==0.138.0
