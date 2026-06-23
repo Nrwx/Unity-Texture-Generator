@@ -1,6 +1,6 @@
-import {computed, onBeforeUnmount, onMounted} from "vue";
+import {onBeforeUnmount, onMounted} from "vue";
 
-export function orbitModel(props, emit) {
+export function orbitModel() {
 
 
     onMounted( async () => {

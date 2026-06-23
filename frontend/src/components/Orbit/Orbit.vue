@@ -1,4 +1,5 @@
 <template>
+  <div class="orbit" aria-hidden="true"></div>
 </template>
 
 
@@ -9,8 +10,8 @@ import {orbitModel, orbitProps} from "@/models/orbit/model";
 export default defineComponent({
   name: "OrbitComponent",
   props: orbitProps,
-  setup(props, { emit }) {
-    const model = orbitModel(props, emit);
+  setup() {
+    const model = orbitModel();
     return {
       ...model
     };
