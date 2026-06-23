@@ -306,7 +306,7 @@ cryptography==48.0.1
 diffusers==0.38.0
 dpnp==0.18.1
 fastapi==0.138.0
-flask==3.0.3
+flask==3.1.3
 flask-cors==6.0.1
 fonttools==4.63.0
 keyring==25.7.0
@@ -318,9 +318,9 @@ pandas==2.3.3
 pillow==12.2.0
 psutil==7.1.0
 pydantic-settings==2.5.2
-python-dotenv==1.1.1
+python-dotenv==1.2.2
 reportlab==4.4.3
-requests==2.32.5
+requests==2.33.0
 safetensors==0.8.0rc0
 scipy==1.15.2
 starlette==1.3.1
