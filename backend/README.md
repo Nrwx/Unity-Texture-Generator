@@ -305,7 +305,7 @@ chardet==5.2.0
 cryptography==46.0.3
 diffusers==0.38.0
 dpnp==0.18.1
-fastapi==0.115.0
+fastapi==0.138.0
 flask==3.0.3
 flask-cors==6.0.1
 fonttools==4.63.0
@@ -323,6 +323,7 @@ reportlab==4.4.3
 requests==2.32.5
 safetensors==0.8.0rc0
 scipy==1.15.2
+starlette==1.3.1
 svgwrite==1.4.3
 torch==2.7.1+cu118
 torchaudio==2.7.1+cu118
