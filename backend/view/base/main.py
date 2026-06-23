@@ -1,4 +1,4 @@
-from flask import current_app, request, jsonify
+from flask import request, jsonify
 from typing import Any, Tuple
 
 class BaseView:
@@ -9,7 +9,9 @@ class BaseView:
     def _server_error(self, exc: Exception = None):
         if exc is not None:
             try:
-                current_app.logger.exception("Unhandled view error")
+                log = getattr(self._controller, "_log", None)
+                if log:
+                    log(str(exc), "VIEW", "ERROR", "!")
             except Exception:
                 pass
         return jsonify({"error": "Internal server error"}), 500

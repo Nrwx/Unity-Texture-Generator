@@ -1,5 +1,4 @@
 # core/base/model.py
-import logging
 from typing import Any, Callable, Dict, Iterable, Optional
 
 
@@ -21,8 +20,6 @@ class BaseModel:
         try:
             if cls._log:
                 cls._log(str(exc), "MODEL", "ERROR", "!")
-            else:
-                logging.getLogger(__name__).exception("Unhandled model error")
         except Exception:
             pass
         return {"error": "Internal server error"}, 500
