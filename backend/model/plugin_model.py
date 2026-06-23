@@ -1549,7 +1549,7 @@ class PluginModel(BaseModel):
                 manifest["status"]["installed"] = False
                 manifest["status"]["saved"] = False
                 manifest["status"]["skipped"] = False
-                manifest["status"]["error"] = str(e)
+                manifest["status"]["error"] = "Plugin installation failed"
                 manifest["updatedAt"] = cls._now_ms()
 
                 cls._set_tracking(
@@ -1559,7 +1559,7 @@ class PluginModel(BaseModel):
                     phase="error",
                     progress=100,
                     message=f"{action} fehlgeschlagen.",
-                    error=str(e)
+                    error="Plugin installation failed"
                 )
 
                 cls._json_save(cls._plugin_manifest_path(active_plugin_root), manifest)
@@ -1664,7 +1664,7 @@ class PluginModel(BaseModel):
             manifest["status"]["installed"] = False
             manifest["status"]["saved"] = False
             manifest["status"]["skipped"] = False
-            manifest["status"]["error"] = str(e)
+            manifest["status"]["error"] = "Plugin installation failed"
 
             cls._set_tracking(
                 manifest,
@@ -1673,7 +1673,7 @@ class PluginModel(BaseModel):
                 phase="error",
                 progress=100,
                 message=f"Installation fehlgeschlagen: {plugin_id}",
-                error=str(e)
+                error="Plugin installation failed"
             )
             raise
 

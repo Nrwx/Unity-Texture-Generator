@@ -126,7 +126,11 @@ class ChannelModel(BaseModel):
         try:
             img = get_img(image_id)
         except Exception as e:
-            return {"success": False, "message": str(e)}, 404
+            try:
+                cls._log(str(e), "CHANNEL", "ERROR", "!")
+            except Exception:
+                pass
+            return {"success": False, "message": "Channel image not found"}, 404
 
         entry = cls._generate_channel_entry(channel_key, img, true_flag=False)
 

@@ -1363,7 +1363,7 @@ class ExportModel(BaseModel):
                     }, 400
 
             except Exception as e:
-                return {"error": f"Export failed: {str(e)}"}, 500
+                return cls.handle_error(e)
 
             return {
                 "src": f"/download/{preview_id}.png",

@@ -146,8 +146,20 @@ python app.py
 Default development server:
 
 ```text
-http://localhost:5000
+http://127.0.0.1:5000
 ```
+
+Optional runtime environment variables:
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `FLASK_HOST` | `127.0.0.1` | Local bind host. Use `0.0.0.0` only when external access is intended. |
+| `FLASK_PORT` | `5000` | Local Flask port. |
+| `FLASK_DEBUG` | `false` | Enables Flask debug mode only when explicitly set to `1`, `true`, `yes`, or `on`. |
+
+Use `backend/.env.example` as the template for local runtime configuration.
+The real `backend/.env` file is ignored by git and should contain local secrets
+only on the developer machine.
 
 Interactive CLI:
 
@@ -265,7 +277,7 @@ Before publishing a release:
 - Verify `version.txt` contains the intended release version.
 - Review `build.json` for release values, especially `flask_mode`, `log_file`, `secure`, `plugin_path`, and `dependencies`.
 - Supply secrets such as `SECRET_KEY` through environment-specific configuration.
-- Start the backend with `python app.py` and confirm `http://localhost:5000` serves the app.
+- Start the backend with `python app.py` and confirm `http://127.0.0.1:5000` serves the app.
 - Check `/queue` after startup to confirm the queue route is registered.
 - Run the main editor flows: upload, layer edit, render preview, export, shader/font/brush loading, and material creation.
 - Confirm native runtime requirements are installed on the target OS.
@@ -278,7 +290,7 @@ Before publishing a release:
 - `requirements.txt` currently looks like a full local environment freeze and contains many `file:///C:/...` package references. That can break installation on other machines. For a portable release, create a clean requirements file from only the packages listed under `build.json -> dependencies -> libraries`.
 - `generated/` is ignored and recreated at runtime. Edit source files in `view/`, `controller/`, and `model/`, not the generated copies.
 - The backend defaults to development mode in the current configuration.
-- `app.py` uses `debug=True` only when the backend runs in development mode.
+- `app.py` keeps Flask debug mode disabled by default. Set `FLASK_DEBUG=true` only for trusted local debugging.
 - The frontend path is relative: `../frontend/dist/index.html`.
 - Some modules depend on platform-specific GPU, Cairo, GTK, NVIDIA Texture Tools or Intel packages.
 

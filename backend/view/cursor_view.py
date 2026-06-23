@@ -24,7 +24,7 @@ class {{blueprint|capitalize}}View(BaseView):
                 result = self.{{ data.value }}({{ data?.keys ?? '' }})
             {% endif %}
         except Exception as e:
-            return jsonify({"error": str(e)}), 500
+            return self._server_error(e)
         return result
 {% endfor %}
 
@@ -36,4 +36,5 @@ class {{blueprint|capitalize}}View(BaseView):
 def {{ data.function }}({{ data?.keys ?? '' }}):
     return {{blueprint}}_view.{{ data.function }}({{ data?.keys ?? '' }})
 {% endfor %}
+
 

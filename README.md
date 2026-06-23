@@ -94,7 +94,7 @@ pip install -i https://software.repos.intel.com/python/pypi dpctl dpnp
 2. Install frontend dependencies.
 3. Build the frontend.
 4. Start the backend.
-5. Check the app in the browser at `http://localhost:5000` or `http://127.0.0.1:5000`.
+5. Check the app in the browser at `http://127.0.0.1:5000`.
 
 ## Backend Setup
 
@@ -123,7 +123,7 @@ python app.py
 The backend starts on the following address by default:
 
 ```text
-http://localhost:5000
+http://127.0.0.1:5000
 ```
 
 Alternatively, the interactive backend CLI can be used:

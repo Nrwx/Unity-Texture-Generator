@@ -14,6 +14,12 @@ BASE_DIR = None
 CONFIG_PATH = None
 CONFIG = None
 
+def _load_env(base_dir=None):
+    from dotenv import load_dotenv
+
+    env_path = Path(base_dir or Path(__file__).parent) / ".env"
+    load_dotenv(dotenv_path=env_path)
+
 def _bootstrap():
     global APP
     global BASE_DIR
@@ -21,6 +27,7 @@ def _bootstrap():
     global CONFIG
 
     BASE_DIR = Path(__file__).parent
+    _load_env(BASE_DIR)
     CONFIG_PATH = os.path.join(BASE_DIR, "build.json")
     CONFIG = _load_config(CONFIG_PATH)
 
@@ -59,9 +66,6 @@ def _integrity_check():
             _log(f"Library build sync completed → {report['status']}", "CORE", "INFO", "📦")
 
 def _create_app():
-    from dotenv import load_dotenv
-    load_dotenv()
-
     app = Flask(__name__)
     return app
 
@@ -69,6 +73,12 @@ def _is_development_mode(config=None):
     cfg = config or CONFIG or {}
     mode = str(cfg.get("mode") or cfg.get("flask_mode") or "development").lower()
     return mode != "production"
+
+def _env_flag(name, default=False):
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in ("1", "true", "yes", "on")
 
 _bootstrap()
 
@@ -78,7 +88,10 @@ def main(development, log_level):
     core.start()
 
     if core.development:
-        APP.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)
+        host = os.getenv("FLASK_HOST", "127.0.0.1")
+        port = int(os.getenv("FLASK_PORT", "5000"))
+        debug = _env_flag("FLASK_DEBUG", False)
+        APP.run(host=host, port=port, debug=debug, use_reloader=debug)
     else:
         _log("Flask-Server läuft extern (Production).", "APP", "INFO", "🛰️")
 

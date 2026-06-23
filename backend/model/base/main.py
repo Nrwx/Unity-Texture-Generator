@@ -1,24 +1,28 @@
 # core/base/model.py
-from typing import Dict, Any, Optional, Iterable, Callable
+import logging
+from typing import Any, Callable, Dict, Iterable, Optional
+
 
 class BaseModel:
     """
-    Basisklasse für Models.
+    Basisklasse fuer Models.
       - `logic`: Klasse/Modul/Instanz mit Hilfsmethoden
       - `_parser`: optional: parser.parse_parameters(files, form)
       - `_log`: optional logger
-    Ziel: Modelle geben die tatsächlichen payload/daten zurück (nicht nur 'status'),
-          oder (payload, status) wenn sie Status-Codes wünschen.
+    Ziel: Modelle geben die tatsaechlichen payload/daten zurueck,
+          oder (payload, status) wenn sie Status-Codes wuenschen.
     """
+
     _parser: Optional[Any] = None
     _log: Optional[Callable[..., Any]] = None
 
     @classmethod
     def handle_error(cls, exc: Exception):
-        msg = str(exc)
         try:
             if cls._log:
-                cls._log(msg, "MODEL", "ERROR", "⚠️")
+                cls._log(str(exc), "MODEL", "ERROR", "!")
+            else:
+                logging.getLogger(__name__).exception("Unhandled model error")
         except Exception:
             pass
-        return {"error": msg}, 500
+        return {"error": "Internal server error"}, 500

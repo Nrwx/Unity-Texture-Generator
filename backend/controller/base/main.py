@@ -1,6 +1,7 @@
 # core/base/controller.py
 import inspect
 import json
+import logging
 from typing import Any, Dict, Optional, Tuple, Callable
 from config.api.parameter import PARAMETERS
 
@@ -9,6 +10,16 @@ class BaseController:
     _parser: Any = None
     _log: Optional[Callable[..., Any]] = None
     _method_map: Dict[str, Dict[str, Any]] = {}
+
+    def _server_error(self, exc: Exception):
+        try:
+            if self._log:
+                self._log(str(exc), "CONTROLLER", "ERROR", "!")
+            else:
+                logging.getLogger(__name__).exception("Unhandled controller error")
+        except Exception:
+            pass
+        return {"error": "Internal server error"}, 500
 
     def handle(self, route, form, files=None):
         params = self._parser.parse_parameters(PARAMETERS.get(route), form)
@@ -43,7 +54,7 @@ class BaseController:
                 return func(files=files, **call_params)
             return func(**call_params)
         except Exception as e:
-            return {"error": str(e)}, 500
+            return self._server_error(e)
 
     def fetch(self):
         try:
@@ -59,6 +70,6 @@ class BaseController:
             return {"status": "no_fetch_method", "query": params}, 200
 
         except Exception as e:
-            return {"error": str(e)}, 500
+            return self._server_error(e)
 
         return result, default_status

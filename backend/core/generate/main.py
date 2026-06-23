@@ -67,7 +67,7 @@ class Generate:
         p = self._is_source_file(module_path)
         if p:
             try:
-                return p.read_text(encoding="utf-8")
+                return p.read_text(encoding="utf-8-sig").lstrip("\ufeff")
             except Exception:
                 return None
         return None
@@ -111,6 +111,7 @@ class Generate:
     # -------------------
     def _write(self, path: Path, content: str, overwrite: bool):
         path = path.resolve()
+        content = content.lstrip("\ufeff").replace("\ufeff", "")
 
         # Schütze Schreibziel außerhalb von generated/
         if not self._is_under_generated(path):

@@ -11,6 +11,7 @@ Run:
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
 from cli.backend import register_backend_commands
 from cli.backend_app import BackendApp
 from cli.cli_manager import CLIManager
@@ -28,6 +29,7 @@ BASE_DIR = Path(__file__).resolve().parent
 
 def main():
     interactive = len(sys.argv) == 1
+    load_dotenv(dotenv_path=BASE_DIR / ".env")
 
     config_loader = ConfigLoader(str(BASE_DIR / "build.json"))
     logger = Logger(config_loader.get("log_file", "cli.log"))
