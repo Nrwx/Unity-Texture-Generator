@@ -49,7 +49,7 @@ openai==1.97.0
 opencv-python==4.10.0.84
 pandas==2.3.3
 pefile==2024.8.26
-pillow==11.3.0
+pillow==12.2.0
 psutil==7.1.0
 pyasn1-modules==0.2.8
 pycparser==2.22

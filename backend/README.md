@@ -315,7 +315,7 @@ nvidia-ml-py==13.580.82
 openai==1.97.0
 opencv-python==4.10.0.84
 pandas==2.3.3
-pillow==11.3.0
+pillow==12.2.0
 psutil==7.1.0
 pydantic-settings==2.5.2
 python-dotenv==1.1.1
