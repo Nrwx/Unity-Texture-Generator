@@ -300,7 +300,7 @@ The managed dependency list in `build.json` currently contains:
 
 ```text
 accelerate==1.13.0
-cairosvg==2.8.2
+cairosvg==2.9.0
 chardet==5.2.0
 cryptography==48.0.1
 diffusers==0.38.0
