@@ -30,6 +30,7 @@
     "@vue/cli-service": "~5.0.0",
     "eslint": "^8.57.1",
     "eslint-plugin-vue": "^8.0.3",
+    "node-forge": "^1.4.0",
     "sass": "^1.86.3",
     "sass-loader": "^16.0.5",
     "vue-cli-plugin-vuetify": "~2.5.8",
