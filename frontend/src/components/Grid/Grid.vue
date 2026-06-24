@@ -143,36 +143,82 @@
     <slot style="width: 100%;"/>
 
     <template v-if="orbit">
-      <CameraPanel
-          :selected-layers="selectedLayer"
-          :editor-config="engineData.editor.value"
-          :camera-config="engineData.camera.value"
-          :orbit-config="engineData.orbit.value"
-          :gizmo-config="engineData.gizmo.value"
-          :edit-config="engineData.edit.value"
-          :sculpt-config="engineData.sculpt.value"
-          :grid-config="engineData.grid.value"
-          :view-config="engineData.view.value"
-          :keyboard="engineData.keyboard"
-          :mesh-states="meshStates"
+      <Window
+          id="orbit-camera-window"
+          :state="meshStates.camera.value"
+          title="Camera"
+          icon="mdi-video-3d"
+          close-event="orbit-camera:state"
+          :start-position="{ top: '32px', right: '88px' }"
           compact
-          @update:component-event="emitEvent"
-      />
+          @component-event="emitEvent"
+      >
+        <CameraPanel
+            :selected-layers="selectedLayer"
+            :editor-config="engineData.editor.value"
+            :camera-config="engineData.camera.value"
+            :orbit-config="engineData.orbit.value"
+            :gizmo-config="engineData.gizmo.value"
+            :edit-config="engineData.edit.value"
+            :sculpt-config="engineData.sculpt.value"
+            :grid-config="engineData.grid.value"
+            :view-config="engineData.view.value"
+            :keyboard="engineData.keyboard"
+            :mesh-states="meshStates"
+            compact
+            @update:component-event="emitEvent"
+        />
+      </Window>
 
-      <MeshEditPanel
-          :config="engineData.edit.value"
-          @update:component-event="emitEvent"
-      />
-      <SculptBrushEditor
-          :config="engineData.sculpt.value"
-          @update:component-event="emitEvent"
-      />
-      <Gizmo
-          :config="engineData.gizmo.value"
-          :active="true"
+      <Window
+          id="orbit-mesh-edit-window"
+          :state="meshStates.edit.value"
+          title="Mesh Edit"
+          icon="mdi-vector-polyline-edit"
+          close-event="orbit-mesh-edit:state"
+          :start-position="{ top: '32px', left: '88px' }"
           compact
-          @update:component-event="emitEvent"
-      />
+          @component-event="emitEvent"
+      >
+        <MeshEditPanel
+            :config="engineData.edit.value"
+            @update:component-event="emitEvent"
+        />
+      </Window>
+
+      <Window
+          id="orbit-sculpt-window"
+          :state="meshStates.sculpt.value"
+          title="Sculpt Brush"
+          icon="mdi-brush-variant"
+          close-event="orbit-sculpt:state"
+          :start-position="{ top: '260px', left: '88px' }"
+          compact
+          @component-event="emitEvent"
+      >
+        <SculptBrushEditor
+            :config="engineData.sculpt.value"
+            @update:component-event="emitEvent"
+        />
+      </Window>
+
+      <Window
+          id="orbit-gizmo-window"
+          :state="meshStates.gizmo.value"
+          title="Gizmo"
+          icon="mdi-axis-arrow"
+          close-event="orbit-gizmo:state"
+          :start-position="{ bottom: '96px', right: '88px' }"
+          compact
+          @component-event="emitEvent"
+      >
+        <Gizmo
+            :config="engineData.gizmo.value"
+            :active="meshStates.gizmo.value"
+            compact
+            @update:component-event="emitEvent"
+        />
+      </Window>
     </template>
 
     <!-- Container Control -->
@@ -212,6 +258,7 @@ import CameraPanel from "@/view/page/Material/Camera/CameraPanel";
 import MeshEditPanel from "@/view/page/Material/MeshEdit/MeshEditPanel";
 import SculptBrushEditor from "@/view/page/Material/Brush/BrushEditor";
 import Gizmo from "@/components/Gizmo/Gizmo";
+import Window from "@/components/Window/Window";
 
 export default defineComponent({
   name: "GridComponent",
@@ -235,7 +282,8 @@ export default defineComponent({
     CameraPanel,
     MeshEditPanel,
     SculptBrushEditor,
-    Gizmo
+    Gizmo,
+    Window
   },
   setup(props, { emit }) {
     const model = gridModel(props, emit);

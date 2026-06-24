@@ -17,9 +17,9 @@
           <template v-if="hasMenu">
             <v-speed-dial
                 v-model="menu"
-                :location="'right center'"
+                :location="speedDialLocation"
                 activator="parent"
-                transition="slide-y-reverse-transition"
+                :transition="speedDialTransition"
             >
               <template v-for="menuItem in item.menuItems">
                 <v-btn
@@ -29,7 +29,8 @@
                     icon
                     variant="flat"
                     rounded="0"
-                    @click="emitMenuEvent(menuItem)"
+                    @pointerdown.stop
+                    @click.stop.prevent="emitMenuEvent(menuItem)"
                 >
                   <v-badge
                       v-if="menuItem.badge && menuItem.badge.content !== 0"
@@ -86,13 +87,16 @@ import {taskbarItemModel, taskbarItemProps} from "@/models/taskbar/item/model";
 
 export default defineComponent({
   name: "TaskbarItem",
+  emits: ["click", "update:menu-event", "update:sub-component-event"],
   props: taskbarItemProps,
   setup(props, { emit }) {
-    const { menu, hasMenu, emitMenuEvent, emitEvent, emitSubEvent } = taskbarItemModel(props, emit);
+    const { menu, hasMenu, speedDialLocation, speedDialTransition, emitMenuEvent, emitEvent, emitSubEvent } = taskbarItemModel(props, emit);
     return {
       hasMenu,
       emitMenuEvent,
       menu,
+      speedDialLocation,
+      speedDialTransition,
       emitEvent,
       emitSubEvent
     };

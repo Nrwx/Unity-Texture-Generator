@@ -169,7 +169,7 @@ export default {
     const activeItemCenter = computed(() => itemsCenter.value.find(item => item.active));
     const activeItemRight = computed(() => itemsRight.value.find(item => item.active));
 
-    const componentEvent = createEventSystem({
+    const eventSystem = createEventSystem({
       api,
       appData,
       localData,
@@ -200,6 +200,66 @@ export default {
       engineSession
 
     });
+
+    const syncTaskbarIcon = item => {
+      if (!item?.menuItems?.length) return;
+
+      const activeIconItem = item.menuItems.find(mi => mi.active && mi.icon);
+      item.icon = activeIconItem?.icon || item.defaultIcon || item.menuItems[0]?.icon || null;
+    };
+
+    const syncTaskbarEventState = (event, payload) => {
+      if (typeof payload !== "boolean") return;
+
+      [itemsLeft.value, itemsCenter.value, itemsRight.value].forEach(list => {
+        list.forEach(item => {
+          if (item.event === event) {
+            item.active = payload;
+
+            if (!payload && item.menuItems?.length) {
+              item.menuItems.forEach(mi => mi.active = false);
+            }
+          }
+
+          if (item.menuItems?.length) {
+            item.menuItems.forEach(mi => {
+              if (mi.event === event) {
+                mi.active = payload;
+              }
+            });
+            syncTaskbarIcon(item);
+          }
+        });
+      });
+    };
+
+    const syncWindowCloseState = result => {
+      if (result?.closeEvent) {
+        syncTaskbarEventState(result.closeEvent, false);
+        return;
+      }
+
+      if (result && typeof result === "object") {
+        Object.values(result).forEach(item => {
+          if (item?.closeEvent) {
+            syncTaskbarEventState(item.closeEvent, false);
+          }
+        });
+      }
+    };
+
+    const componentEvent = async (event, payload) => {
+      const result = await eventSystem(event, payload);
+
+      syncTaskbarEventState(event, payload);
+
+      if (event === "window:close" || event === "window:close-all") {
+        syncWindowCloseState(result);
+      }
+
+      return result;
+    };
+
     const taskbarEvent = async (side, itemId) => {
       const list = side === 'left'
           ? itemsLeft.value
@@ -227,37 +287,45 @@ export default {
       const parentItem = list.find(item => item.menuItems?.some(mi => mi.id === itemId));
 
       if (parentItem) {
-        // SubItem-Modus (menuItem)
-        parentItem.menuItems.forEach(mi => mi.active = false);
-
         const activeMenuItem = parentItem.menuItems.find(mi => mi.id === itemId);
-        if (activeMenuItem) activeMenuItem.active = !activeMenuItem.active;
+        const isStateToggle = typeof activeMenuItem?.val === 'boolean';
 
-        if (activeMenuItem?.active && activeMenuItem.icon) {
-          parentItem.icon = activeMenuItem.icon;
+        if (isStateToggle) {
+          activeMenuItem.active = !activeMenuItem.active;
+
+          if (activeMenuItem.active && parentItem.event && !parentItem.active) {
+            parentItem.active = true;
+            await componentEvent(parentItem.event, true);
+            await nextTick();
+            windowState.value = !!parentItem.component && parentItem.active;
+          }
+        } else {
+          parentItem.menuItems.forEach(mi => mi.active = false);
+          if (activeMenuItem) activeMenuItem.active = true;
         }
 
-        if (!parentItem.menuItems.some(mi => mi.active)) {
-          parentItem.icon = parentItem.menuItems[0]?.icon || null;
-        }
+        const activeIconItem = parentItem.menuItems.find(mi => mi.active && mi.icon);
+        parentItem.icon = activeIconItem?.icon || parentItem.defaultIcon || parentItem.menuItems[0]?.icon || null;
 
         if (activeMenuItem?.event) {
-          await componentEvent(activeMenuItem.event, activeMenuItem.val);
+          await componentEvent(activeMenuItem.event, isStateToggle ? activeMenuItem.active : activeMenuItem.val);
         }
 
         return;
       }
 
       // Standard Taskbar-Item
+      const activeItem = list.find(item => item.id === itemId);
+      const wasActive = !!activeItem?.active;
+
       list.forEach(item => item.active = false);
 
-      const activeItem = list.find(item => item.id === itemId);
-      if (activeItem) activeItem.active = !activeItem.active;
+      if (activeItem) activeItem.active = !wasActive;
 
       if (activeItem?.event) {
         await componentEvent(activeItem.event, activeItem.active);
         await nextTick();
-        windowState.value = !activeItem.active;
+        windowState.value = !!activeItem.component && activeItem.active;
       } else {
         windowState.value = !!activeItem?.active;
       }

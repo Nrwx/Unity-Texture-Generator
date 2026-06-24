@@ -279,6 +279,58 @@ export const taskbarItemCenter = [
         event: 'orbit:state',
     },
     {
+        position: 'left',
+        id: uuid(),
+        title: '3D Werkzeuge',
+        subtitle: 'Kamera, Mesh Edit, Sculpt und Gizmo getrennt vom Animator steuern...',
+        icon: 'mdi-cube-outline',
+        defaultIcon: 'mdi-cube-outline',
+        tooltip: '3D Werkzeuge',
+        active: false,
+        hidden: computed(() => {
+            return !windowStates.orbit.value;
+        }),
+        menuOnly: true,
+        menuItems: [
+            {
+                id: uuid(),
+                title: 'Kamera',
+                icon: 'mdi-video-3d',
+                active: false,
+                hidden: false,
+                event: 'orbit-camera:state',
+                val: true
+            },
+            {
+                id: uuid(),
+                title: 'Mesh Edit',
+                icon: 'mdi-vector-polyline-edit',
+                active: false,
+                hidden: false,
+                event: 'orbit-mesh-edit:state',
+                val: true
+            },
+            {
+                id: uuid(),
+                title: 'Sculpt Brush',
+                icon: 'mdi-brush-variant',
+                active: false,
+                hidden: false,
+                event: 'orbit-sculpt:state',
+                val: true
+            },
+            {
+                id: uuid(),
+                title: 'Gizmo',
+                icon: 'mdi-axis-arrow',
+                active: false,
+                hidden: false,
+                event: 'orbit-gizmo:state',
+                val: true
+            }
+        ],
+    },
+    {
         position: 'center',
         id: uuid(),
         icon: 'mdi-view-dashboard',

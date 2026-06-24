@@ -130,12 +130,21 @@ export const windowStateEvent = (route) => ({
     "select-state": async (payload) => {
         if (typeof payload === "boolean") {
             route.windowStates.select.value = payload;
-            if(!route.listener.isActive('listener:select-mask')) {
-                await route.emit("event:listener", {resume: true, id: 'listener:select-mask'})
+
+            if (payload) {
+                if (!route.listener.isActive('listener:select-mask')) {
+                    await route.emit("event:listener", {resume: true, id: 'listener:select-mask'})
+                }
+            } else {
+                await route.emit("event:listener", {pause: true, id: 'listener:select-mask'})
             }
         } else {
             route.windowStates.select.value = payload.state;
-            await route.emit("select:mask-shape", payload.shape);
+            if (payload.state) {
+                await route.emit("select:mask-shape", payload.shape);
+            } else {
+                await route.emit("event:listener", {pause: true, id: 'listener:select-mask'})
+            }
         }
     },
     "select-state:items": async (payload) => {
@@ -145,7 +154,7 @@ export const windowStateEvent = (route) => ({
     },
     "cursor-state": async (payload) => {
         if (typeof payload === "boolean") {
-            await route.emit("reset:window-states", !payload);
+            await route.emit("reset:window-states", false);
             route.windowStates.cursor.value = payload;
         }
     },
@@ -189,6 +198,13 @@ export const windowStateEvent = (route) => ({
     "brush-state": async (payload) => {
         if (typeof payload === "boolean") {
             await route.emit("rule:allow-form", payload);
+            route.windowStates.brush.value = payload;
+
+            if (!payload) {
+                await route.emit("event:listener", {pause: true, id: 'listener:brush'})
+                return;
+            }
+
             if(!route.tempData.brushLayer.value) {
                 if(route.localData.selectedLayer.value.length) {
                     await route.emit("layer:select", [route.localData.selectedLayer.value[route.localData.selectedLayer.value.length - 1]]);
@@ -196,7 +212,7 @@ export const windowStateEvent = (route) => ({
                     await route.emit("layer:select", [route.localData.layers.value[route.localData.layers.value.length - 1]]);
                 }
             }
-            route.windowStates.brush.value = payload;
+
             if (!route.listener.isActive('listener:brush')) {
                 await route.emit("event:listener", {resume: true, id: 'listener:brush'})
             }
@@ -425,5 +441,25 @@ export const windowStateEvent = (route) => ({
             return;
         }
         WebGLRuntime.resumeScope("main-canvas");
+    },
+    "orbit-camera:state": (payload) => {
+        if (typeof payload === "boolean") {
+            route.meshStates.camera.value = payload;
+        }
+    },
+    "orbit-mesh-edit:state": (payload) => {
+        if (typeof payload === "boolean") {
+            route.meshStates.edit.value = payload;
+        }
+    },
+    "orbit-sculpt:state": (payload) => {
+        if (typeof payload === "boolean") {
+            route.meshStates.sculpt.value = payload;
+        }
+    },
+    "orbit-gizmo:state": (payload) => {
+        if (typeof payload === "boolean") {
+            route.meshStates.gizmo.value = payload;
+        }
     },
 });
