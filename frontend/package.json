@@ -11,7 +11,8 @@
     "npm": ">=10"
   },
   "overrides": {
-    "serialize-javascript": "^7.0.6"
+    "serialize-javascript": "^7.0.6",
+    "webpack-dev-server": "^5.2.5"
   },
   "dependencies": {
     "@mdi/font": "^7.4.47",
