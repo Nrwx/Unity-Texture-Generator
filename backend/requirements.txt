@@ -76,7 +76,7 @@ tbb==2022.3.0
 tcmlib==1.4.1
 tinycss2==1.4.0
 tokenizers==0.22.2
-torch==2.7.1+cu118
+torch==2.12.1
 torchaudio==2.7.1+cu118
 torchvision==0.22.1+cu118
 transformers==5.8.0
