@@ -28,7 +28,7 @@ intel-cmplr-lic-rt==2025.3.1
 intel-opencl-rt==2025.3.1
 intel-openmp==2025.3.1
 intel-sycl-rt==2025.3.1
-Jinja2==3.1.4
+Jinja2==3.1.6
 jiter==0.10.0
 jsonpointer==2.1
 keyring==25.7.0

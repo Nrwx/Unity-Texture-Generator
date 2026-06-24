@@ -14,7 +14,7 @@
     "project_name": "unity-texture-generator"
   },
   "dependencies": {
-    "last_build": "2026-06-24T12:08:32.054786Z",
+    "last_build": "2026-06-24T12:19:03.147791Z",
     "config": {
       "library_policy": {
         "auto_update": true,
@@ -44,6 +44,10 @@
       },
       "filelock": {
         "version": "3.20.3",
+        "freeze": false
+      },
+      "jinja2": {
+        "version": "3.1.6",
         "freeze": false
       },
       "diffusers": {
