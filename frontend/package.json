@@ -12,6 +12,7 @@
   },
   "overrides": {
     "serialize-javascript": "^7.0.6",
+    "uuid": "^11.1.1",
     "webpack-dev-server": "^5.2.5"
   },
   "dependencies": {
@@ -21,7 +22,7 @@
     "dayjs": "^1.11.13",
     "html2canvas": "^1.4.1",
     "roboto-fontface": "*",
-    "uuid": "^11.0.3",
+    "uuid": "^11.1.1",
     "vue": "^3.2.13",
     "vuetify": "^3.7.0-beta.1",
     "webfontloader": "^1.0.0"
